@@ -4,6 +4,16 @@
 > CoolerDash should work with any LCD device supported by CoolerControl (NZXT, Asus, etc.).  
 > **Note:** You may need to adjust `/opt/coolerdash/config.ini` to match your device's display size, orientation, and features.
 
+---
+
+**Why CoolerDash?**
+
+I bought myself an NZXT Kraken 2023, but the manufacturer did not provide suitable software to unlock the full potential of my device. That's why I started this little project. CoolerDash now serves me reliably and to my satisfaction. If you have the same problem, I want to give you the opportunity to use my small program as well.
+
+Special thanks to Guy Boldon, the developer of CoolerControl, for making this possible!
+
+---
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
