@@ -80,23 +80,23 @@ static int inih_config_handler(void *user, const char *section, const char *name
 
     // Layout section
     if (strcmp(section, "layout") == 0) {
-        if (strcmp(name, "box_width") == 0) config->box_width = atoi(value);
-        if (strcmp(name, "box_height") == 0) config->box_height = atoi(value);
-        if (strcmp(name, "box_gap") == 0) config->box_gap = atoi(value);
-        if (strcmp(name, "bar_width") == 0) config->bar_width = atoi(value);
-        if (strcmp(name, "bar_height") == 0) config->bar_height = atoi(value);
-        if (strcmp(name, "bar_gap") == 0) config->bar_gap = atoi(value);
-        if (strcmp(name, "bar_border_width") == 0) config->bar_border_width = (float)atof(value);
+        if (strcmp(name, "box_width") == 0) config->layout_box_width = atoi(value);
+        if (strcmp(name, "box_height") == 0) config->layout_box_height = atoi(value);
+        if (strcmp(name, "box_gap") == 0) config->layout_box_gap = atoi(value);
+        if (strcmp(name, "bar_width") == 0) config->layout_bar_width = atoi(value);
+        if (strcmp(name, "bar_height") == 0) config->layout_bar_height = atoi(value);
+        if (strcmp(name, "bar_gap") == 0) config->layout_bar_gap = atoi(value);
+        if (strcmp(name, "bar_border_width") == 0) config->layout_bar_border_width = (float)atof(value);
     }
     if (strcmp(section, "bar_color_background") == 0) {
-        if (strcmp(name, "r") == 0) config->bar_color_background.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->bar_color_background.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->bar_color_background.b = atoi(value);
+        if (strcmp(name, "r") == 0) config->layout_bar_color_background.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->layout_bar_color_background.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->layout_bar_color_background.b = atoi(value);
     }
     if (strcmp(section, "bar_color_border") == 0) {
-        if (strcmp(name, "r") == 0) config->bar_color_border.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->bar_color_border.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->bar_color_border.b = atoi(value);
+        if (strcmp(name, "r") == 0) config->layout_bar_color_border.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->layout_bar_color_border.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->layout_bar_color_border.b = atoi(value);
     }
 
     // Font section
@@ -108,15 +108,15 @@ static int inih_config_handler(void *user, const char *section, const char *name
         if (strcmp(name, "size_temp") == 0) config->font_size_temp = (float)atof(value);
         if (strcmp(name, "size_labels") == 0) config->font_size_labels = (float)atof(value);
     }
-    if (strcmp(section, "color_txt_temp") == 0) {
-        if (strcmp(name, "r") == 0) config->color_txt_temp.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->color_txt_temp.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->color_txt_temp.b = atoi(value);
+    if (strcmp(section, "font_color_temp") == 0) {
+        if (strcmp(name, "r") == 0) config->font_color_temp.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->font_color_temp.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->font_color_temp.b = atoi(value);
     }
-    if (strcmp(section, "color_txt_label") == 0) {
-        if (strcmp(name, "r") == 0) config->color_txt_label.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->color_txt_label.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->color_txt_label.b = atoi(value);
+    if (strcmp(section, "font_color_label") == 0) {
+        if (strcmp(name, "r") == 0) config->font_color_label.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->font_color_label.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->font_color_label.b = atoi(value);
     }
 
     // Temperature section
