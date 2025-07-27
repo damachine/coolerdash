@@ -272,7 +272,7 @@ int main(int argc, char **argv)
 
     // Create image directory
     mkdir(config.paths_images, 0755); // Create directory for images if not present
-    printf("✓ Image directory: %s\n", config.paths_image_coolerdash);
+    printf("✓ CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
     fflush(stdout);
 
     // Initialize CPU sensors
