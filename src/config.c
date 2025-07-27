@@ -43,6 +43,7 @@ static int inih_config_handler(void *user, const char *section, const char *name
             config->daemon_password[sizeof(config->daemon_password) - 1] = '\0';
         }
     }
+
     // Paths section
     if (strcmp(section, "paths") == 0) {
         if (strcmp(name, "hwmon") == 0) {

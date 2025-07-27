@@ -319,8 +319,8 @@ static int should_update_display(const sensor_data_t *data, const Config *config
         last_data = *data;
         return 1;
     }
-    // Check for any change (CPU/GPU Temperaturen)
-    if (memcmp(&last_data, data, sizeof(sensor_data_t)) != 0) {
+    // Update if either CPU or GPU temperature changed
+    if (last_data.cpu_temp != data->cpu_temp || last_data.gpu_temp != data->gpu_temp) {
         last_data = *data;
         return 1;
     }
