@@ -65,16 +65,12 @@ static void cleanup_and_exit(int sig) {
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
         const char* shutdown_image = g_config_ptr->paths_image_shutdown;
         const char* device_uid = get_cached_device_uid();
-        printf("CoolerDash: Sending shutdown image to LCD...\n");
         fflush(stdout);
         if (device_uid[0]) {
             // Send shutdown image to LCD
             send_image_to_lcd(g_config_ptr, shutdown_image, device_uid);
             send_image_to_lcd(g_config_ptr, shutdown_image, device_uid); // send twice for reliability
-            printf("CoolerDash: Shutdown image sent successfully\n");
             shutdown_sent = 1; // set flag so it's only sent once
-        } else {
-            printf("CoolerDash: Warning - Could not send shutdown image (device UID not detected)\n");
         }
         fflush(stdout);
     }
@@ -144,7 +140,7 @@ static int run_daemon(const Config *config) {
     printf("CoolerDash daemon started\n");
     printf("Sensor data updated every %d.%d seconds\n", 
            config->display_refresh_interval_sec, config->display_refresh_interval_nsec / 100000000);
-    printf("Daemon now running silently in background...\n\n");
+    printf("Daemon now running...\n\n");
     fflush(stdout);
     while (running) { // Main daemon loop
         draw_combined_image(config); // Draw combined image
@@ -153,6 +149,17 @@ static int run_daemon(const Config *config) {
     }
     // Silent termination without output
     return 0;
+}
+
+/**
+ * @brief Detect if we were started by systemd.
+ * @details Checks if the parent process is PID 1 (systemd/init). Returns 1 if started by systemd, 0 otherwise.
+ * @example
+ *     int is_service = is_started_by_systemd();
+ */
+static int is_started_by_systemd(void) {
+    // Simple and reliable method: Check if our parent process is PID 1 (init/systemd)
+    return (getppid() == 1);
 }
 
 /**
@@ -173,17 +180,6 @@ static void show_help(const char *program_name, const Config *config) {
 }
 
 /**
- * @brief Detect if we were started by systemd.
- * @details Checks if the parent process is PID 1 (systemd/init). Returns 1 if started by systemd, 0 otherwise.
- * @example
- *     int is_service = is_started_by_systemd();
- */
-static int is_started_by_systemd(void) {
-    // Simple and reliable method: Check if our parent process is PID 1 (init/systemd)
-    return (getppid() == 1);
-}
-
-/**
  * @brief Main entry point for CoolerDash.
  * @details Loads configuration, ensures config file exists, initializes modules, and starts the main daemon loop.
  * @example
@@ -198,9 +194,20 @@ int main(int argc, char **argv)
     }
 
     // Load configuration from INI file
+    const char *default_config_path = "/opt/coolerdash/config.ini";
+    const char *fallback_config_path = "/etc/coolerdash/config.ini";
+    const char *config_path = NULL;
+
+    FILE *f = fopen(default_config_path, "r");
+    if (f) {
+        fclose(f);
+        config_path = default_config_path;
+    } else {
+        printf("Config file not found at %s. Using fallback: %s\n", default_config_path, fallback_config_path);
+        config_path = fallback_config_path;
+    }
+
     Config config;
-    const char *config_path = "/opt/coolerdash/config.ini";
-    if (argc > 1) config_path = argv[1];
     if (load_config_ini(&config, config_path) != 0) {
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
         return 1;
@@ -214,6 +221,7 @@ int main(int argc, char **argv)
         // Error: Service already running and we are manual start
         return 1;
     }
+
     // Write new PID file
     write_pid_file(config.paths_pid);
     g_config_ptr = &config; // Set global pointer for signal handler
@@ -227,11 +235,44 @@ int main(int argc, char **argv)
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
 
+    // Initialize CoolerControl session
+    if (init_coolercontrol_session(&config)) { // Check return value
+        printf("✓ CoolerControl session initialized\n");
+
+        // Get and display LCD device UID only if detected and changed
+        static char last_device_uid[128] = {0};
+        char device_uid[128] = {0};
+        get_device_uid(&config, device_uid, sizeof(device_uid));
+        if (strcmp(last_device_uid, device_uid) != 0) {
+            printf("✓ Detected LCD device UID: %.20s...\n", device_uid);
+            strncpy(last_device_uid, device_uid, sizeof(last_device_uid));
+        }
+
+        // Get and display full LCD device name only if detected
+        char device_name[128] = {0};
+        if (get_device_name(&config, device_name, sizeof(device_name))) {
+            printf("✓ Connected to LCD device: %s\n", device_name);
+        } else {
+            printf("✓ Connected to LCD device: Unknow\n");
+        }
+        fflush(stdout);
+    } else {
+        fprintf(stderr, "⚠ Error: CoolerControl session could not be initialized\n");
+        fprintf(stderr, "Please check:\n");
+        fprintf(stderr, "  - Is coolercontrold running? (systemctl status coolercontrold)\n");
+        fprintf(stderr, "  - Is the daemon running on localhost:11987?\n");
+        fprintf(stderr, "  - Is the password correct? (see config.h)\n");
+        fflush(stderr);
+        return 1;
+    }
+    if (!init_cached_device_uid(&config)) {
+        fprintf(stderr, "⚠ CoolerDash: Failed to detect LCD device UID\n");
+        return 1;
+    }
+
     // Create image directory
     mkdir(config.paths_images, 0755); // Create directory for images if not present
-
-    // Initialize modules
-    printf("Initializing modules...\n");
+    printf("✓ Image directory: %s\n", config.paths_image_coolerdash);
     fflush(stdout);
 
     // Initialize CPU sensors
@@ -247,43 +288,6 @@ int main(int argc, char **argv)
     }
     fflush(stdout);
 
-    // Initialize CoolerControl session
-    if (init_coolercontrol_session(&config)) { // Check return value
-        printf("✓ CoolerControl session initialized\n");
-
-        // Get and display LCD device UID only if detected and changed
-        static char last_device_uid[128] = {0};
-        char device_uid[128] = {0};
-        get_device_uid(&config, device_uid, sizeof(device_uid));
-        if (strcmp(last_device_uid, device_uid) != 0) {
-            printf("CoolerControl: Detected LCD device UID: %.20s...\n", device_uid);
-            strncpy(last_device_uid, device_uid, sizeof(last_device_uid));
-        }
-
-        // Get and display full LCD device name only if detected
-        char device_name[128] = {0};
-        if (get_device_name(&config, device_name, sizeof(device_name))) {
-            printf("CoolerControl: Connected to %s\n", device_name);
-        } else {
-            printf("CoolerControl: Connected to Unknow LCD device\n");
-        }
-        fflush(stdout);
-    } else {
-        fprintf(stderr, "Error: CoolerControl session could not be initialized\n");
-        fprintf(stderr, "Please check:\n");
-        fprintf(stderr, "  - Is coolercontrold running? (systemctl status coolercontrold)\n");
-        fprintf(stderr, "  - Is the daemon running on localhost:11987?\n");
-        fprintf(stderr, "  - Is the password correct? (see config.h)\n");
-        fflush(stderr);
-        return 1;
-    }
-    if (!init_cached_device_uid(&config)) {
-        fprintf(stderr, "CoolerDash: Failed to detect LCD device UID\n");
-        return 1;
-    }
-    printf("All modules successfully initialized!\n\n");
-    fflush(stdout);
-
     // Start daemon
     int result = run_daemon(&config);
     
@@ -291,14 +295,11 @@ int main(int argc, char **argv)
     if (!shutdown_sent && is_session_initialized()) {
         const char* shutdown_image = g_config_ptr->paths_image_shutdown;
         const char* device_uid = get_cached_device_uid();
-        printf("CoolerDash: Sending final shutdown image...\n");
         fflush(stdout);
         if (device_uid[0]) {
             send_image_to_lcd(&config, shutdown_image, device_uid);
             send_image_to_lcd(&config, shutdown_image, device_uid);
-            printf("CoolerDash: Final shutdown image sent successfully\n");
-        } else {
-            printf("CoolerDash: Warning - Could not send final shutdown image (device UID not detected)\n");
+            shutdown_sent = 1; // set flag so it's only sent once
         }
         fflush(stdout);
     }
