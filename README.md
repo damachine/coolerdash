@@ -123,6 +123,10 @@ coolerdash
 # From directory
 ./coolerdash
 ```
+> **Note:** The systemd service must be stop before running manually to avoid conflicts:
+```bash
+sudo systemctl stop coolerdash.service
+```
 
 ## ⚙️ Configuration
 There is no configuration needed.
