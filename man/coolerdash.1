@@ -219,6 +219,10 @@ Provides uninstall logic for Arch Linux packaging.
 - All code is documented with Doxygen-style comments and follows strict coding standards.
 - See PKGBUILD and Makefile for build and packaging documentation.
 
+> **Note:** The systemd service must be stopped before running manually to avoid conflicts:
+.B
+sudo systemctl stop coolerdash.service
+
 .SH BUGS
 Report bugs to: christkue79@gmail.com or via GitHub Issues: https://github.com/damachine/coolerdash/issues
 .TP
