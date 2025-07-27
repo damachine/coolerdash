@@ -256,44 +256,57 @@ int is_session_initialized(void) {
 }
 
 /**
+ * @brief Extracts the value of a JSON string field from a device section.
+ * @details Searches for a field like "name":"..." or "uid":"..." and copies its value.
+ * @example
+ *     char name[128];
+ *     extract_json_string_field(device_section, "name", name, sizeof(name));
+ */
+static int extract_json_string_field(const char *section, const char *key, char *buffer, size_t bufsize)
+{
+    if (!section || !key || !buffer || bufsize == 0) return 0;
+    char pattern[32];
+    snprintf(pattern, sizeof(pattern), "\"%s\":\"", key);
+    char *pos = strstr(section, pattern);
+    if (!pos) return 0;
+    pos += strlen(pattern);
+    char *end = strchr(pos, '"');
+    if (!end) return 0;
+    size_t len = end - pos;
+    if (len >= bufsize) len = bufsize - 1;
+    strncpy(buffer, pos, len);
+    buffer[len] = '\0';
+    return 1;
+}
+
+/**
  * @brief Parses the first Liquidctl device and extracts name and/or uid.
  * @details Parses the device list and extracts the name and/or uid of the first Liquidctl device.
  * @example
  *     char name[128], uid[128];
  *     parse_device_fields(&config, name, sizeof(name), uid, sizeof(uid));
  */
-static int parse_device_fields(const Config *config, char* name_buffer, size_t name_size, char* uid_buffer, size_t uid_size) {
-    // Initialize response buffer
+static int parse_device_fields(const Config *config, char* name_buffer, size_t name_size, char* uid_buffer, size_t uid_size)
+{
     struct http_response response = {0};
     response.data = malloc(1);
-    if (!response.data) {
-        fprintf(stderr, "[CoolerDash] Error: malloc failed for response.data\n");
-        return 0;
-    }
-    response.size = 0;
     if (!response.data) return 0;
-    
-    // URL for device list
+    response.size = 0;
+
     char devices_url[CC_URL_SIZE];
-    // Build devices URL safely
     snprintf(devices_url, sizeof(devices_url), "%.*s/devices", (int)(sizeof(devices_url) - 9), config->daemon_address);
-    
-    // Configure cURL for GET request
+
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, devices_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPGET, 1L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
-    
+
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
-    if (res != CURLE_OK) {
-        fprintf(stderr, "[CoolerDash] cURL request failed: %s\n", curl_easy_strerror(res));
-    }
     long response_code = 0;
-    if (curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code) != CURLE_OK) {
-        fprintf(stderr, "[CoolerDash] Failed to get HTTP response code.\n");
-    }
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
+
     int found = 0;
     if (res == CURLE_OK && response_code == 200 && response.data) {
         char *search_pos = response.data;
@@ -308,56 +321,21 @@ static int parse_device_fields(const Config *config, char* name_buffer, size_t n
                 memcpy(device_section, device_start, section_length);
                 device_section[section_length] = '\0';
                 if (strstr(device_section, "\"type\":\"Liquidctl\"")) {
-                    // Extract name if requested
-                    if (name_buffer && name_size > 0) {
-                        char *name_pos = strstr(device_section, "\"name\":\"");
-                        if (name_pos) {
-                            name_pos += 8;
-                            char *name_end = strchr(name_pos, '"');
-                            if (name_end) {
-                                size_t name_length = name_end - name_pos;
-                                if (name_length < name_size) {
-                                    strncpy(name_buffer, name_pos, name_length);
-                                    name_buffer[name_length] = '\0';
-                                } else {
-                                    strncpy(name_buffer, name_pos, name_size - 1);
-                                    name_buffer[name_size - 1] = '\0';
-                                }
-                                found = 1;
-                            }
-                        }
+                    int name_ok = 0, uid_ok = 0;
+                    if (name_buffer && name_size > 0)
+                        name_ok = extract_json_string_field(device_section, "name", name_buffer, name_size);
+                    if (uid_buffer && uid_size > 0)
+                        uid_ok = extract_json_string_field(device_section, "uid", uid_buffer, uid_size);
+                    if ((name_buffer && name_ok) || (uid_buffer && uid_ok)) {
+                        found = 1;
+                        break;
                     }
-                    // Extract uid if requested
-                    if (uid_buffer && uid_size > 0) {
-                        char *uid_pos = strstr(device_section, "\"uid\":\"");
-                        if (uid_pos) {
-                            uid_pos += 7;
-                            char *uid_end = strchr(uid_pos, '"');
-                            if (uid_end) {
-                                size_t uid_length = uid_end - uid_pos;
-                                if (uid_length < uid_size) {
-                                    strncpy(uid_buffer, uid_pos, uid_length);
-                                    uid_buffer[uid_length] = '\0';
-                                } else {
-                                    strncpy(uid_buffer, uid_pos, uid_size - 1);
-                                    uid_buffer[uid_size - 1] = '\0';
-                                }
-                                found = 1;
-                            }
-                        }
-                    }
-                    // If at least one field was found, break out of the loop
-                    if (found) break;
                 }
             }
             search_pos = device_end;
         }
     }
-    // Free response buffer after parsing
-    if (response.data) {
-        free(response.data);
-        response.data = NULL;
-    }
+    if (response.data) free(response.data);
     return found;
 }
 

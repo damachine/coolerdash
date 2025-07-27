@@ -75,10 +75,11 @@ build() {
 
     # Copy all required files for packaging to $srcdir
     cp -a README.md "$srcdir/README.md"
-    cp -a LICENSE "$srcdir/LICENSE"
+    cp -a AUR-README.md "$srcdir/AUR-README.md"
     cp -a CHANGELOG.md "$srcdir/CHANGELOG.md"
     cp -a VERSION "$srcdir/VERSION"
-    cp -a AUR-README.md "$srcdir/AUR-README.md"
+    cp -a LICENSE "$srcdir/LICENSE"
+    cp -a etc/coolerdash/config.ini "$srcdir/config.ini"
     mkdir -p "$srcdir/images"
     cp -a images/shutdown.png "$srcdir/images/shutdown.png"
     mkdir -p "$srcdir/systemd"
@@ -104,12 +105,12 @@ check() {
 package() {
     # For local build: use current directory directly
     install -dm755 "$pkgdir/opt/coolerdash"
-    install -Dm644 etc/coolerdash/config.ini "$pkgdir/opt/coolerdash/config.ini"
-    install -Dm644 VERSION "$pkgdir/opt/coolerdash/VERSION"
     install -Dm644 AUR-README.md "$pkgdir/opt/coolerdash/AUR-README.md"
     install -Dm644 README.md "$pkgdir/opt/coolerdash/README.md"
+    install -Dm644 VERSION "$pkgdir/opt/coolerdash/VERSION"
     install -Dm644 LICENSE "$pkgdir/opt/coolerdash/LICENSE"
     install -Dm644 CHANGELOG.md "$pkgdir/opt/coolerdash/CHANGELOG.md"
+    install -Dm644 config.ini "$pkgdir/opt/coolerdash/config.ini"
     install -dm755 "$pkgdir/opt/coolerdash/bin"
     install -Dm755 bin/coolerdash "$pkgdir/opt/coolerdash/bin/coolerdash"
     install -dm755 "$pkgdir/opt/coolerdash/images"

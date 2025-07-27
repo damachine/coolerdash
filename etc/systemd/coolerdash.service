@@ -40,8 +40,8 @@ Requires=coolercontrold.service
 [Service]
 Type=simple
 User=coolerdash
-Environment="DEFAULT_CONFIG_FILE=/opt/coolerdash/config.ini"
-ExecStart=/usr/bin/coolerdash $DEFAULT_CONFIG_FILE
+Environment="CONFIG_FILE=/opt/coolerdash/config.ini"
+ExecStart=/usr/bin/coolerdash $CONFIG_FILE
 RuntimeDirectory=coolerdash
 RuntimeDirectoryMode=0755
 PIDFile=/run/coolerdash/coolerdash.pid

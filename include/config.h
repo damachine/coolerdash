@@ -40,7 +40,7 @@ typedef struct {
  * @details All fields are loaded from the INI file.
  * @example
  *     Config cfg;
- *     if (load_config_ini(&cfg, "/etc/coolerdash/config.ini") == 0) {
+ *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") == 0) {
  *         // Use cfg fields, e.g. cfg.display_width
  *     }
  */
@@ -98,7 +98,7 @@ typedef struct Config {
  * @details Loads all configuration values from the specified INI file and populates the given Config structure. Returns 0 on success, -1 on error. Always check the return value.
  * @example
  *     Config cfg;
- *     if (load_config_ini(&cfg, "/etc/coolerdash/config.ini") != 0) {
+ *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) {
  *         // handle error
  *     }
  */

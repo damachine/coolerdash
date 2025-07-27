@@ -273,14 +273,8 @@ install: check-deps-for-install $(TARGET)
 	sudo cp CHANGELOG.md /opt/coolerdash/ 2>/dev/null || true
 	sudo cp VERSION /opt/coolerdash/ 2>/dev/null || true
 	@printf "$(ICON_INFO) $(CYAN)Installing default config...$(RESET)\n"
-	@if [ ! -f /etc/coolerdash/config.ini ]; then \
-		sudo mkdir -p /etc/coolerdash/; \
-		sudo cp etc/coolerdash/config.ini /etc/coolerdash/config.ini; \
-		sudo cp etc/coolerdash/config.ini /opt/coolerdash/config.ini; \
-		printf "  $(GREEN)→$(RESET) Default config installed: /etc/coolerdash/config.ini\n"; \
-	else \
-		printf "  $(YELLOW)→$(RESET) Config already exists: /etc/coolerdash/config.ini\n"; \
-	fi
+	sudo cp etc/coolerdash/config.ini /opt/coolerdash/config.ini 2>/dev/null || true
+	@printf "  $(GREEN)→$(RESET) Default config installed: /etc/coolerdash/config.ini\n"
 	@printf "\n"
 	@printf "  $(GREEN)→$(RESET) Program: /opt/coolerdash/bin/$(TARGET)\n"
 	@printf "  $(GREEN)→$(RESET) Symlink: /usr/bin/coolerdash → /opt/coolerdash/bin/$(TARGET)\n"
@@ -340,6 +334,7 @@ uninstall:
 	sudo rm -f /opt/coolerdash/README.md 2>/dev/null || true
 	sudo rm -f /opt/coolerdash/LICENSE 2>/dev/null || true
 	sudo rm -f /opt/coolerdash/CHANGELOG.md 2>/dev/null || true
+	sudo rm -f /opt/coolerdash/VERSION 2>/dev/null || true
 	sudo rm -f /opt/coolerdash/bin/$(TARGET) 2>/dev/null || true
 	sudo rm -rf /opt/coolerdash/bin/ 2>/dev/null || true
 	sudo rm -rf /opt/coolerdash/images/ 2>/dev/null || true
@@ -347,7 +342,6 @@ uninstall:
 	sudo rm -f /usr/bin/coolerdash 2>/dev/null || true
 	sudo rm -f /run/coolerdash/coolerdash.pid 2>/dev/null || true
 	sudo rm -rf /run/coolerdash 2>/dev/null || true
-	sudo rm -f /opt/coolerdash/VERSION 2>/dev/null || true
 	# Remove any remaining files in /opt/coolerdash (catch-all, safe if dir already gone)
 	sudo rm -f /opt/coolerdash/* 2>/dev/null || true
 	@printf "  $(RED)✗$(RESET) Service: /etc/systemd/system/coolerdash.service\n"

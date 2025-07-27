@@ -26,7 +26,7 @@
  * @brief INI parser handler, sets values in Config struct.
  * @details Called for each key-value pair in the INI file. Matches section and key names and sets the corresponding field in the Config struct. Unrecognized keys are ignored. For string fields, strncpy is used and buffers are always null-terminated for safety.
  * @example
- *     ini_parse("/etc/coolerdash/config.ini", inih_config_handler, &cfg);
+ *     ini_parse("/opt/coolerdash/config.ini", inih_config_handler, &cfg);
  */
 static int inih_config_handler(void *user, const char *section, const char *name, const char *value)
 {
@@ -153,7 +153,7 @@ static int inih_config_handler(void *user, const char *section, const char *name
  * @details Parses the INI file and fills the Config struct. Returns 0 on success, -1 on error. Always check the return value.
  * @example
  *     Config cfg;
- *     if (load_config_ini(&cfg, "/etc/coolerdash/config.ini") != 0) {
+ *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) {
  *         // handle error
  *     }
  */
