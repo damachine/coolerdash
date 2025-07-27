@@ -10,7 +10,7 @@
 
 I bought myself an NZXT Kraken 2023, but the manufacturer did not provide suitable software to unlock the full potential of my device. That's why I started this little project. CoolerDash now serves me reliably and to my satisfaction. If you have the same problem, I want to give you the opportunity to use my small program as well.
 
-Special thanks to Guy Boldon, the developer of CoolerControl, for making this possible!
+Special thanks to @codifryed, the developer of CoolerControl, for making this possible!
 
 ---
 
