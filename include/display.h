@@ -47,13 +47,4 @@ int render_display(const Config *config, const sensor_data_t *data);
  */
 void draw_combined_image(const Config *config);
 
-/**
- * @brief Calculates the color gradient for temperature bars (green → orange → red).
- * @details Utility function for temperature color mapping. Determines the RGB color for a given temperature value according to the defined thresholds. The result is written to the output parameters r, g, b. No return value.
- * @example
- *     int r, g, b;
- *     lerp_temp_color(&config, 65.0f, &r, &g, &b);
- */
-void lerp_temp_color(const Config *config, float val, int *r, int *g, int *b);
-
 #endif // DISPLAY_H

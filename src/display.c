@@ -37,32 +37,15 @@
 #endif
 
 /**
- * @brief Calculate color gradient for temperature bars (green → orange → red).
- * @details Determines the RGB color for a given temperature value according to the defined thresholds from config.
- * @example
- *     int r, g, b;
- *     lerp_temp_color(&config, 65.0f, &r, &g, &b);
- */
-void lerp_temp_color(const Config *config, float val, int* r, int* g, int* b) {
-    if (val <= config->temp_threshold_1) { 
-        *r = config->temp_threshold_1_bar.r; *g = config->temp_threshold_1_bar.g; *b = config->temp_threshold_1_bar.b; 
-    } else if (val <= config->temp_threshold_2) { 
-        *r = config->temp_threshold_2_bar.r; *g = config->temp_threshold_2_bar.g; *b = config->temp_threshold_2_bar.b; 
-    } else if (val <= config->temp_threshold_3) { 
-        *r = config->temp_threshold_3_bar.r; *g = config->temp_threshold_3_bar.g; *b = config->temp_threshold_3_bar.b; 
-    } else { 
-        *r = config->temp_threshold_4_bar.r; *g = config->temp_threshold_4_bar.g; *b = config->temp_threshold_4_bar.b; 
-    }
-}
-
-/**
  * @brief Forward declarations for internal display rendering functions.
  * @details These functions are only used internally in display.c for modular rendering logic.
  * @example
  *     // Not intended for direct use; see render_display() and draw_combined_image().
  */
-static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
+
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config);
+static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
+static void draw_color_temperature_bars(const Config *config, float val, int* r, int* g, int* b);
 static void draw_labels(cairo_t *cr, const Config *config);
 static int should_update_display(const sensor_data_t *data, const Config *config);
 
@@ -204,7 +187,7 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
     
     // --- CPU bar ---
     int r, g, b;
-    lerp_temp_color(config, data->cpu_temp, &r, &g, &b); // Get color for CPU temperature
+    draw_color_temperature_bars(config, data->cpu_temp, &r, &g, &b); // Get color for CPU temperature
     const int cpu_val_w = (data->cpu_temp > 0.0f) ? 
         (int)((data->cpu_temp / 100.0f) * config->layout_bar_width) : 0; // Calculate filled width
     const int safe_cpu_val_w = (cpu_val_w < 0) ? 0 : 
@@ -247,7 +230,7 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
     cairo_stroke(cr);
 
     // --- GPU bar ---
-    lerp_temp_color(config, data->gpu_temp, &r, &g, &b); // Get color for GPU temperature
+    draw_color_temperature_bars(config, data->gpu_temp, &r, &g, &b); // Get color for GPU temperature
     const int gpu_val_w = (data->gpu_temp > 0.0f) ? 
         (int)((data->gpu_temp / 100.0f) * config->layout_bar_width) : 0; // Calculate filled width
     const int safe_gpu_val_w = (gpu_val_w < 0) ? 0 : 
@@ -285,6 +268,25 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
     cairo_arc(cr, bar_x + radius, gpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
     cairo_close_path(cr);
     cairo_stroke(cr);
+}
+
+/**
+ * @brief Calculate color gradient for temperature bars (green → orange → hot orange → red).
+ * @details Determines the RGB color for a given temperature value according to the defined thresholds from config.
+ * @example
+ *     int r, g, b;
+ *     draw_color_temperature_bars(&config, 65.0f, &r, &g, &b);
+ */
+static void draw_color_temperature_bars(const Config *config, float val, int* r, int* g, int* b) {
+    if (val <= config->temp_threshold_1) {
+        *r = config->temp_threshold_1_bar.r; *g = config->temp_threshold_1_bar.g; *b = config->temp_threshold_1_bar.b;
+    } else if (val <= config->temp_threshold_2) {
+        *r = config->temp_threshold_2_bar.r; *g = config->temp_threshold_2_bar.g; *b = config->temp_threshold_2_bar.b;
+    } else if (val <= config->temp_threshold_3) {
+        *r = config->temp_threshold_3_bar.r; *g = config->temp_threshold_3_bar.g; *b = config->temp_threshold_3_bar.b;
+    } else {
+        *r = config->temp_threshold_4_bar.r; *g = config->temp_threshold_4_bar.g; *b = config->temp_threshold_4_bar.b;
+    }
 }
 
 /**

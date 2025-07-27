@@ -1,5 +1,9 @@
 # CoolerDash - LCD dashboard for CoolerControl
 
+> **The following settings were tested with an NZXT Kraken 2023.**  
+> CoolerDash should work with any LCD device supported by CoolerControl (NZXT, Asus, etc.).  
+> **Note:** You may need to adjust `/etc/coolerdash/config.ini` to match your device's display size, orientation, and features.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
