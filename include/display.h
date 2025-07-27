@@ -29,7 +29,6 @@
 typedef struct {
     float cpu_temp; // CPU temperature in degrees Celsius
     float gpu_temp; // GPU temperature in degrees Celsius
-    /* float coolant_temp; // Reserved for future multi-mode support */
 } sensor_data_t;
 
 /**

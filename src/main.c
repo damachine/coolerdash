@@ -61,15 +61,16 @@ static const Config *g_config_ptr = NULL;
  */
 static void cleanup_and_exit(int sig) {
     (void)sig; // parameter is not used
-    // Send shutdown image only once
+    // Send shutdown image
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
         const char* shutdown_image = g_config_ptr->paths_image_shutdown;
         const char* device_uid = get_cached_device_uid();
         printf("CoolerDash: Sending shutdown image to LCD...\n");
         fflush(stdout);
         if (device_uid[0]) {
+            // Send shutdown image to LCD
             send_image_to_lcd(g_config_ptr, shutdown_image, device_uid);
-            send_image_to_lcd(g_config_ptr, shutdown_image, device_uid);
+            send_image_to_lcd(g_config_ptr, shutdown_image, device_uid); // send twice for reliability
             printf("CoolerDash: Shutdown image sent successfully\n");
             shutdown_sent = 1; // set flag so it's only sent once
         } else {

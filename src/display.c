@@ -133,12 +133,12 @@ int render_display(const Config *config, const sensor_data_t *data) {
 cleanup:
     // Free Cairo resources
     if (cr) {
-        cairo_destroy(cr);
-        cr = NULL;
+        cairo_destroy(cr); // Destroy Cairo context
+        cr = NULL; // Reset context pointer
     }
     if (surface) {
-        cairo_surface_destroy(surface);
-        surface = NULL;
+        cairo_surface_destroy(surface); // Destroy Cairo surface
+        surface = NULL; // Reset surface pointer
     }
 
     return success;
@@ -152,10 +152,14 @@ cleanup:
  */
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config) {
     // Box positions for 240x240 layout, two boxes (top/bottom)
+    // CPU box is at the top, GPU box is at the bottom
+    // Each box is full width (240px) and half height (120px)
+    // Box dimensions are defined in config, but we use fixed 240x120 for this example
+    // Box positions are calculated based on config layout dimensions
     const int cpu_box_x = 0; // top box, full width
-    const int cpu_box_y = 0 ;
+    const int cpu_box_y = 0; // top of display
     const int gpu_box_x = 0; // bottom box, full width
-    const int gpu_box_y = config->layout_box_height;
+    const int gpu_box_y = config->layout_box_height; // below the CPU box
     
     // Set font and size
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);

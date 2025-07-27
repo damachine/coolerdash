@@ -5,19 +5,19 @@
 # license: MIT
 # version: 1.0
 #
-# brief:
+# Info:
 # 	CoolerDash PKGBUILD
 #   Build system for CoolerDash (C99 LCD daemon)
 #	Project coding standards and packaging notes (see README for details)
 # 	Maintainer: DAMACHINE <christkue79@gmail.com>
-# details:
+# Details:
 #   This PKGBUILD handles build, install, dependencies, and packaging for Arch/AUR.
 #   Edit dependencies, paths, and user as needed for your system.
 #   Do not run as root. Use dedicated user for security.
 #   Ensure all required dependencies are installed.
 #   It uses color output and Unicode icons for better readability. All paths and dependencies are configurable.
 #   See README.md and AUR-README.md for further details.
-# example:
+# Example:
 #   makepkg -si
 #   makepkg -s
 #   makepkg -c

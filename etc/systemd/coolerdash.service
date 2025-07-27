@@ -5,12 +5,12 @@
 # license: MIT
 # version: 1.0
 #
-# brief:
+# Info:
 # 	CoolerDash systemd daemon service file
 # 	This file is part of CoolerDash, a C99 LCD daemon for monitoring and controlling
 #	Project coding standards and packaging notes (see README for details)
 # 	Maintainer: DAMACHINE <christkue79@gmail.com>
-# details:
+# Details:
 #   This systemd handles the CoolerDash daemon service.
 #   It is designed to run as a dedicated user for security reasons.
 #   The service requires the coolercontrol-liqctld and coolercontrold services to be running.
@@ -22,7 +22,7 @@
 #   The service will read and write to the specified paths and has a PID file at /run/coolerdash/coolerdash.pid for process management.
 #   Do not run as root. Use dedicated user for security.
 #   See README.md and AUR-README.md for further details.
-# example:
+# Example:
 #   To enable and start the service, use:
 #   sudo systemctl enable coolerdash.service
 #   sudo systemctl start coolerdash.service
