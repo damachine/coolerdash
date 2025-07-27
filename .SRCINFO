@@ -1,6 +1,6 @@
 pkgbase = coolerdash
 	pkgdesc = CoolerDash - LCD dashboard for CoolerControl
-	pkgver = 0.25.07.27.4
+	pkgver = 0.25.07.27.7
 	pkgrel = 1
 	url = https://github.com/damachine/coolerdash
 	install = coolerdash.install
@@ -16,6 +16,6 @@ pkgbase = coolerdash
 	depends = ttf-roboto
 	optdepends = nvidia-utils: for GPU temperature monitoring
 	optdepends = lm_sensors: for additional hardware monitoring
-	backup = etc/coolerdash/config.ini
+	backup = opt/coolerdash/config.ini
 
 pkgname = coolerdash

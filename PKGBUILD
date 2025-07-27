@@ -40,7 +40,7 @@ depends=('cairo' 'libcurl-gnutls' 'libinih' 'coolercontrol' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config')
 optdepends=('nvidia-utils: for GPU temperature monitoring'
             'lm_sensors: for additional hardware monitoring')
-backup=('etc/coolerdash/config.ini')
+backup=('opt/coolerdash/config.ini')
 install=coolerdash.install
 source=()
 sha256sums=()
@@ -85,8 +85,6 @@ build() {
     cp -a etc/systemd/coolerdash.service "$srcdir/systemd/coolerdash.service"
     mkdir -p "$srcdir/man"
     cp -a man/coolerdash.1 "$srcdir/man/coolerdash.1"
-    mkdir -p "$srcdir/etc/coolerdash"
-    cp -a etc/coolerdash/config.ini "$srcdir/etc/coolerdash/config.ini"
     echo "================================================================"
 }
 
@@ -105,20 +103,20 @@ check() {
 
 package() {
     # For local build: use current directory directly
+    install -dm755 "$pkgdir/opt/coolerdash"
+    install -Dm644 etc/coolerdash/config.ini "$pkgdir/opt/coolerdash/config.ini"
+    install -Dm644 VERSION "$pkgdir/opt/coolerdash/VERSION"
+    install -Dm644 AUR-README.md "$pkgdir/opt/coolerdash/AUR-README.md"
+    install -Dm644 README.md "$pkgdir/opt/coolerdash/README.md"
+    install -Dm644 LICENSE "$pkgdir/opt/coolerdash/LICENSE"
+    install -Dm644 CHANGELOG.md "$pkgdir/opt/coolerdash/CHANGELOG.md"
     install -dm755 "$pkgdir/opt/coolerdash/bin"
     install -Dm755 bin/coolerdash "$pkgdir/opt/coolerdash/bin/coolerdash"
     install -dm755 "$pkgdir/opt/coolerdash/images"
     install -Dm644 images/shutdown.png "$pkgdir/opt/coolerdash/images/shutdown.png"
-    install -Dm644 README.md "$pkgdir/opt/coolerdash/README.md"
-    install -Dm644 LICENSE "$pkgdir/opt/coolerdash/LICENSE"
-    install -Dm644 CHANGELOG.md "$pkgdir/opt/coolerdash/CHANGELOG.md"
-    install -Dm644 systemd/coolerdash.service "$pkgdir/etc/systemd/system/coolerdash.service"
-    install -Dm644 man/coolerdash.1 "$pkgdir/usr/share/man/man1/coolerdash.1"
-    install -Dm644 VERSION "$pkgdir/opt/coolerdash/VERSION"
-    install -Dm644 AUR-README.md "$pkgdir/opt/coolerdash/AUR-README.md"
     install -dm755 "$pkgdir/usr/bin"
     ln -sf /opt/coolerdash/bin/coolerdash "$pkgdir/usr/bin/coolerdash"
-    install -Dm644 etc/coolerdash/config.ini "$pkgdir/etc/coolerdash/config.ini"
-    install -Dm644 etc/coolerdash/config.ini "$pkgdir/opt/coolerdash/config.ini"
+    install -Dm644 systemd/coolerdash.service "$pkgdir/etc/systemd/system/coolerdash.service"
+    install -Dm644 man/coolerdash.1 "$pkgdir/usr/share/man/man1/coolerdash.1"
     install -dm755 "$pkgdir/run/coolerdash"
 }

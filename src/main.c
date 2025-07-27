@@ -185,7 +185,7 @@ static int is_started_by_systemd(void) {
 
 /**
  * @brief Main entry point for CoolerDash.
- * @details Loads configuration, initializes modules, and starts the main daemon loop.
+ * @details Loads configuration, ensures config file exists, initializes modules, and starts the main daemon loop.
  * @example
  *     coolerdash [config_path]
  */
@@ -199,7 +199,7 @@ int main(int argc, char **argv)
 
     // Load configuration from INI file
     Config config;
-    const char *config_path = "/etc/coolerdash/config.ini";
+    const char *config_path = "/opt/coolerdash/config.ini";
     if (argc > 1) config_path = argv[1];
     if (load_config_ini(&config, config_path) != 0) {
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
@@ -208,6 +208,7 @@ int main(int argc, char **argv)
     
     // Check if we were started by systemd
     int is_service_start = is_started_by_systemd();
+
     // Single-Instance Enforcement: Check and handle existing instances
     if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) {
         // Error: Service already running and we are manual start
@@ -216,6 +217,7 @@ int main(int argc, char **argv)
     // Write new PID file
     write_pid_file(config.paths_pid);
     g_config_ptr = &config; // Set global pointer for signal handler
+
     // Register signal handlers
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
@@ -224,15 +226,19 @@ int main(int argc, char **argv)
     sa.sa_flags = 0;
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
+
     // Create image directory
     mkdir(config.paths_images, 0755); // Create directory for images if not present
+
     // Initialize modules
     printf("Initializing modules...\n");
     fflush(stdout);
+
     // Initialize CPU sensors
     init_cpu_sensor_path(&config); // Set path to CPU sensors
     printf("✓ CPU monitor initialized\n");
     fflush(stdout);
+
     // Initialize GPU monitor (if GPU available)
     if (init_gpu_monitor(&config)) { // Check return value
         printf("✓ GPU monitor initialized\n");
@@ -240,9 +246,11 @@ int main(int argc, char **argv)
         printf("⚠ GPU monitor not available (no NVIDIA GPU?)\n");
     }
     fflush(stdout);
+
     // Initialize CoolerControl session
     if (init_coolercontrol_session(&config)) { // Check return value
         printf("✓ CoolerControl session initialized\n");
+
         // Get and display LCD device UID only if detected and changed
         static char last_device_uid[128] = {0};
         char device_uid[128] = {0};
@@ -251,6 +259,7 @@ int main(int argc, char **argv)
             printf("CoolerControl: Detected LCD device UID: %.20s...\n", device_uid);
             strncpy(last_device_uid, device_uid, sizeof(last_device_uid));
         }
+
         // Get and display full LCD device name only if detected
         char device_name[128] = {0};
         if (get_device_name(&config, device_name, sizeof(device_name))) {
@@ -274,8 +283,10 @@ int main(int argc, char **argv)
     }
     printf("All modules successfully initialized!\n\n");
     fflush(stdout);
+
     // Start daemon
     int result = run_daemon(&config);
+    
     // Cleanup - send shutdown image if not sent yet (only on normal termination)
     if (!shutdown_sent && is_session_initialized()) {
         const char* shutdown_image = g_config_ptr->paths_image_shutdown;
