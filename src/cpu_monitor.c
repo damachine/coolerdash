@@ -38,7 +38,7 @@ char cpu_temp_path[512] = {0};
  *     init_cpu_sensor_path(&config);
  */
 void init_cpu_sensor_path(const Config *config) {
-    DIR *dir = opendir(config->hwmon_path);
+    DIR *dir = opendir(config->paths_hwmon);
     if (!dir) return;
     
     struct dirent *entry;
@@ -50,7 +50,7 @@ void init_cpu_sensor_path(const Config *config) {
         
         // Check each possible temp label for the current hwmon entry
         for (int i = 1; i <= 9; ++i) {
-            snprintf(label_path, sizeof(label_path), "%s/%s/temp%d_label", config->hwmon_path, entry->d_name, i);
+            snprintf(label_path, sizeof(label_path), "%s/%s/temp%d_label", config->paths_hwmon, entry->d_name, i);
             FILE *flabel = fopen(label_path, "r");
             if (!flabel) continue;
             
@@ -58,7 +58,7 @@ void init_cpu_sensor_path(const Config *config) {
             if (fgets(label, sizeof(label), flabel)) {
                 // Cache CPU temperature path for later use
                 if (strstr(label, "Package id 0") && strlen(cpu_temp_path) == 0) {
-                    snprintf(cpu_temp_path, sizeof(cpu_temp_path), "%s/%s/temp%d_input", config->hwmon_path, entry->d_name, i);
+                    snprintf(cpu_temp_path, sizeof(cpu_temp_path), "%s/%s/temp%d_input", config->paths_hwmon, entry->d_name, i);
                     fclose(flabel);
                     closedir(dir);
                     return;

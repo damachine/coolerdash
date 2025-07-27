@@ -63,7 +63,7 @@ static void cleanup_and_exit(int sig) {
     (void)sig; // parameter is not used
     // Send shutdown image only once
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
-        const char* shutdown_image = g_config_ptr->shutdown_image;
+        const char* shutdown_image = g_config_ptr->paths_image_shutdown;
         const char* device_uid = get_cached_device_uid();
         printf("CoolerDash: Sending shutdown image to LCD...\n");
         fflush(stdout);
@@ -77,7 +77,7 @@ static void cleanup_and_exit(int sig) {
         }
         fflush(stdout);
     }
-    unlink(g_config_ptr->pid_file); // remove PID file
+    unlink(g_config_ptr->paths_pid); // remove PID file
     running = 0; // set flag to terminate daemon
 }
 
@@ -208,12 +208,12 @@ int main(int argc, char **argv)
     // Check if we were started by systemd
     int is_service_start = is_started_by_systemd();
     // Single-Instance Enforcement: Check and handle existing instances
-    if (check_existing_instance_and_handle(config.pid_file, is_service_start) < 0) {
+    if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) {
         // Error: Service already running and we are manual start
         return 1;
     }
     // Write new PID file
-    write_pid_file(config.pid_file);
+    write_pid_file(config.paths_pid);
     g_config_ptr = &config; // Set global pointer for signal handler
     // Register signal handlers
     struct sigaction sa;
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
     // Create image directory
-    mkdir(config.image_dir, 0755); // Create directory for images if not present
+    mkdir(config.paths_images, 0755); // Create directory for images if not present
     // Initialize modules
     printf("Initializing modules...\n");
     fflush(stdout);
@@ -277,7 +277,7 @@ int main(int argc, char **argv)
     int result = run_daemon(&config);
     // Cleanup - send shutdown image if not sent yet (only on normal termination)
     if (!shutdown_sent && is_session_initialized()) {
-        const char* shutdown_image = g_config_ptr->shutdown_image;
+        const char* shutdown_image = g_config_ptr->paths_image_shutdown;
         const char* device_uid = get_cached_device_uid();
         printf("CoolerDash: Sending final shutdown image...\n");
         fflush(stdout);

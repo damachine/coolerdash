@@ -19,7 +19,6 @@
 
 // Include necessary headers
 #include <stdio.h>
-#include <sys/time.h>
 
 /**
  * @brief Global variable for GPU availability.
@@ -28,18 +27,6 @@
  *     // Not intended for direct use; managed by init_gpu_monitor().
  */
 static int gpu_available = -1;  // -1 = unknown, 0 = not available, 1 = available
-
-/**
- * @brief Get current time in milliseconds.
- * @details Returns the current system time in milliseconds since the epoch.
- * @example
- *     long long now = get_current_time_ms();
- */
-static long long get_current_time_ms(void) {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (long long)(tv.tv_sec) * 1000 + (long long)(tv.tv_usec) / 1000;
-}
 
 /**
  * @brief Checks GPU availability and initializes GPU monitoring using configuration.
@@ -81,22 +68,15 @@ int init_gpu_monitor(const Config *config) {
 float read_gpu_temp(const Config *config) {
     if (!init_gpu_monitor(config)) return 0.0f;  // GPU not available
     
-    static long long last_update_ms = 0;
-    static float cached_temp = 0;
-    long long now_ms = get_current_time_ms();
-    long long cache_interval_ms = (long long)(config->gpu_cache_interval * 1000);
-    
-    if (now_ms - last_update_ms >= cache_interval_ms) {
-        FILE *fp = popen("nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null", "r");
-        if (fp) {
-            if (fscanf(fp, "%f", &cached_temp) != 1) {
-                cached_temp = 0.0f;
-            }
-            pclose(fp);
-            last_update_ms = now_ms;
+    float temp = 0.0f;
+    FILE *fp = popen("nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null", "r");
+    if (fp) {
+        if (fscanf(fp, "%f", &temp) != 1) {
+            temp = 0.0f;
         }
+        pclose(fp);
     }
-    return cached_temp;
+    return temp;
 }
 
 /**

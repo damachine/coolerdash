@@ -32,111 +32,117 @@ static int inih_config_handler(void *user, const char *section, const char *name
 {
     Config *config = (Config *)user;
 
-    if (strcmp(section, "display") == 0) {
-        if (strcmp(name, "width") == 0) config->display_width = atoi(value);
-        else if (strcmp(name, "height") == 0) config->display_height = atoi(value);
-        else if (strcmp(name, "refresh_interval_sec") == 0) config->display_refresh_interval_sec = atoi(value);
-        else if (strcmp(name, "refresh_interval_nsec") == 0) config->display_refresh_interval_nsec = atoi(value);
-        else if (strcmp(name, "brightness") == 0) config->lcd_brightness = atoi(value);
-        else if (strcmp(name, "orientation") == 0) config->lcd_orientation = atoi(value);
-    }
-    else if (strcmp(section, "layout") == 0) {
-        if (strcmp(name, "box_width") == 0) config->box_width = atoi(value);
-        else if (strcmp(name, "box_height") == 0) config->box_height = atoi(value);
-        else if (strcmp(name, "box_gap") == 0) config->box_gap = atoi(value);
-        else if (strcmp(name, "bar_width") == 0) config->bar_width = atoi(value);
-        else if (strcmp(name, "bar_height") == 0) config->bar_height = atoi(value);
-        else if (strcmp(name, "bar_gap") == 0) config->bar_gap = atoi(value);
-        else if (strcmp(name, "border_line_width") == 0) config->border_line_width = (float)atof(value);
-    }
-    else if (strcmp(section, "font") == 0) {
-        if (strcmp(name, "face") == 0) {
-            strncpy(config->font_face, value, sizeof(config->font_face) - 1);
-            config->font_face[sizeof(config->font_face) - 1] = '\0';
-        }
-        else if (strcmp(name, "size_temp") == 0) config->font_size_temp = (float)atof(value);
-        else if (strcmp(name, "size_labels") == 0) config->font_size_labels = (float)atof(value);
-    }
-    else if (strcmp(section, "temperature") == 0) {
-        if (strcmp(name, "threshold_green") == 0) config->temp_threshold_green = (float)atof(value);
-        else if (strcmp(name, "threshold_orange") == 0) config->temp_threshold_orange = (float)atof(value);
-        else if (strcmp(name, "threshold_red") == 0) config->temp_threshold_red = (float)atof(value);
-    }
-    else if (strcmp(section, "cache") == 0) {
-        if (strcmp(name, "gpu_interval") == 0) config->gpu_cache_interval = (float)atof(value);
-        else if (strcmp(name, "change_tolerance_temp") == 0) config->change_tolerance_temp = (float)atof(value);
-    }
-    else if (strcmp(section, "paths") == 0) {
-        if (strcmp(name, "hwmon") == 0) {
-            strncpy(config->hwmon_path, value, sizeof(config->hwmon_path) - 1);
-            config->hwmon_path[sizeof(config->hwmon_path) - 1] = '\0';
-        }
-        else if (strcmp(name, "image_dir") == 0) {
-            strncpy(config->image_dir, value, sizeof(config->image_dir) - 1);
-            config->image_dir[sizeof(config->image_dir) - 1] = '\0';
-        }
-        else if (strcmp(name, "image_path") == 0) {
-            strncpy(config->image_path, value, sizeof(config->image_path) - 1);
-            config->image_path[sizeof(config->image_path) - 1] = '\0';
-        }
-        else if (strcmp(name, "shutdown_image") == 0) {
-            strncpy(config->shutdown_image, value, sizeof(config->shutdown_image) - 1);
-            config->shutdown_image[sizeof(config->shutdown_image) - 1] = '\0';
-        }
-        else if (strcmp(name, "pid_file") == 0) {
-            strncpy(config->pid_file, value, sizeof(config->pid_file) - 1);
-            config->pid_file[sizeof(config->pid_file) - 1] = '\0';
-        }
-    }
-    else if (strcmp(section, "daemon") == 0) {
+    // General section
+    if (strcmp(section, "daemon") == 0) {
         if (strcmp(name, "address") == 0) {
             strncpy(config->daemon_address, value, sizeof(config->daemon_address) - 1);
             config->daemon_address[sizeof(config->daemon_address) - 1] = '\0';
         }
-        else if (strcmp(name, "password") == 0) {
+        if (strcmp(name, "password") == 0) {
             strncpy(config->daemon_password, value, sizeof(config->daemon_password) - 1);
             config->daemon_password[sizeof(config->daemon_password) - 1] = '\0';
         }
     }
-    else if (strcmp(section, "color_txt_temp") == 0) {
+    // Paths section
+    if (strcmp(section, "paths") == 0) {
+        if (strcmp(name, "hwmon") == 0) {
+            strncpy(config->paths_hwmon, value, sizeof(config->paths_hwmon) - 1);
+            config->paths_hwmon[sizeof(config->paths_hwmon) - 1] = '\0';
+        }
+        if (strcmp(name, "images") == 0) {
+            strncpy(config->paths_images, value, sizeof(config->paths_images) - 1);
+            config->paths_images[sizeof(config->paths_images) - 1] = '\0';
+        }
+        if (strcmp(name, "image_coolerdash") == 0) {
+            strncpy(config->paths_image_coolerdash, value, sizeof(config->paths_image_coolerdash) - 1);
+            config->paths_image_coolerdash[sizeof(config->paths_image_coolerdash) - 1] = '\0';
+        }
+        if (strcmp(name, "image_shutdown") == 0) {
+            strncpy(config->paths_image_shutdown, value, sizeof(config->paths_image_shutdown) - 1);
+            config->paths_image_shutdown[sizeof(config->paths_image_shutdown) - 1] = '\0';
+        }
+        if (strcmp(name, "pid") == 0) {
+            strncpy(config->paths_pid, value, sizeof(config->paths_pid) - 1);
+            config->paths_pid[sizeof(config->paths_pid) - 1] = '\0';
+        }
+    }
+
+    // Display section
+    if (strcmp(section, "display") == 0) {
+        if (strcmp(name, "width") == 0) config->display_width = atoi(value);
+        if (strcmp(name, "height") == 0) config->display_height = atoi(value);
+        if (strcmp(name, "refresh_interval_sec") == 0) config->display_refresh_interval_sec = atoi(value);
+        if (strcmp(name, "refresh_interval_nsec") == 0) config->display_refresh_interval_nsec = atoi(value);
+        if (strcmp(name, "brightness") == 0) config->lcd_brightness = atoi(value);
+        if (strcmp(name, "orientation") == 0) config->lcd_orientation = atoi(value);
+    }
+
+    // Layout section
+    if (strcmp(section, "layout") == 0) {
+        if (strcmp(name, "box_width") == 0) config->box_width = atoi(value);
+        if (strcmp(name, "box_height") == 0) config->box_height = atoi(value);
+        if (strcmp(name, "box_gap") == 0) config->box_gap = atoi(value);
+        if (strcmp(name, "bar_width") == 0) config->bar_width = atoi(value);
+        if (strcmp(name, "bar_height") == 0) config->bar_height = atoi(value);
+        if (strcmp(name, "bar_gap") == 0) config->bar_gap = atoi(value);
+        if (strcmp(name, "bar_border_width") == 0) config->bar_border_width = (float)atof(value);
+    }
+    if (strcmp(section, "bar_color_background") == 0) {
+        if (strcmp(name, "r") == 0) config->bar_color_background.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->bar_color_background.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->bar_color_background.b = atoi(value);
+    }
+    if (strcmp(section, "bar_color_border") == 0) {
+        if (strcmp(name, "r") == 0) config->bar_color_border.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->bar_color_border.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->bar_color_border.b = atoi(value);
+    }
+
+    // Font section
+    if (strcmp(section, "font") == 0) {
+        if (strcmp(name, "face") == 0) {
+            strncpy(config->font_face, value, sizeof(config->font_face) - 1);
+            config->font_face[sizeof(config->font_face) - 1] = '\0';
+        }
+        if (strcmp(name, "size_temp") == 0) config->font_size_temp = (float)atof(value);
+        if (strcmp(name, "size_labels") == 0) config->font_size_labels = (float)atof(value);
+    }
+    if (strcmp(section, "color_txt_temp") == 0) {
         if (strcmp(name, "r") == 0) config->color_txt_temp.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_txt_temp.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_txt_temp.b = atoi(value);
+        if (strcmp(name, "g") == 0) config->color_txt_temp.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->color_txt_temp.b = atoi(value);
     }
-    else if (strcmp(section, "color_txt_label") == 0) {
+    if (strcmp(section, "color_txt_label") == 0) {
         if (strcmp(name, "r") == 0) config->color_txt_label.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_txt_label.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_txt_label.b = atoi(value);
+        if (strcmp(name, "g") == 0) config->color_txt_label.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->color_txt_label.b = atoi(value);
     }
-    else if (strcmp(section, "color_temp1_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->color_temp1_bar.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_temp1_bar.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_temp1_bar.b = atoi(value);
+
+    // Temperature section
+    if (strcmp(section, "temperature") == 0) {
+        if (strcmp(name, "temp_threshold_1") == 0) config->temp_threshold_1 = (float)atof(value);
+        if (strcmp(name, "temp_threshold_2") == 0) config->temp_threshold_2 = (float)atof(value);
+        if (strcmp(name, "temp_threshold_3") == 0) config->temp_threshold_3 = (float)atof(value);
     }
-    else if (strcmp(section, "color_temp2_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->color_temp2_bar.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_temp2_bar.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_temp2_bar.b = atoi(value);
+    if (strcmp(section, "temp_threshold_1_bar") == 0) {
+        if (strcmp(name, "r") == 0) config->temp_threshold_1_bar.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->temp_threshold_1_bar.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->temp_threshold_1_bar.b = atoi(value);
     }
-    else if (strcmp(section, "color_temp3_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->color_temp3_bar.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_temp3_bar.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_temp3_bar.b = atoi(value);
+    if (strcmp(section, "temp_threshold_2_bar") == 0) {
+        if (strcmp(name, "r") == 0) config->temp_threshold_2_bar.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->temp_threshold_2_bar.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->temp_threshold_2_bar.b = atoi(value);
     }
-    else if (strcmp(section, "color_temp4_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->color_temp4_bar.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_temp4_bar.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_temp4_bar.b = atoi(value);
+    if (strcmp(section, "temp_threshold_3_bar") == 0) {
+        if (strcmp(name, "r") == 0) config->temp_threshold_3_bar.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->temp_threshold_3_bar.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->temp_threshold_3_bar.b = atoi(value);
     }
-    else if (strcmp(section, "color_bg_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->color_bg_bar.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_bg_bar.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_bg_bar.b = atoi(value);
-    }
-    else if (strcmp(section, "color_border_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->color_border_bar.r = atoi(value);
-        else if (strcmp(name, "g") == 0) config->color_border_bar.g = atoi(value);
-        else if (strcmp(name, "b") == 0) config->color_border_bar.b = atoi(value);
+    if (strcmp(section, "temp_threshold_4_bar") == 0) {
+        if (strcmp(name, "r") == 0) config->temp_threshold_4_bar.r = atoi(value);
+        if (strcmp(name, "g") == 0) config->temp_threshold_4_bar.g = atoi(value);
+        if (strcmp(name, "b") == 0) config->temp_threshold_4_bar.b = atoi(value);
     }
     return 1;
 }

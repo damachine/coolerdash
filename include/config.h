@@ -45,42 +45,52 @@ typedef struct {
  *     }
  */
 typedef struct Config {
+    // General configuration
+    char daemon_address[128];    // Daemon address
+    char daemon_password[64];    // Daemon password
+    ////////////////////////////////////////////////////////////////////////////////
+    // Paths configuration
+    char paths_pid[128];               // Path for PID file
+    char paths_hwmon[128];        // Path to hwmon
+    char paths_images[128];            // Directory for images
+    char paths_image_coolerdash[128];  // Path for display image
+    char paths_image_shutdown[128];    // Path for shutdown image
+    ////////////////////////////////////////////////////////////////////////////////
+    // Display configuration
     int display_width;           // Display width in pixels
     int display_height;          // Display height in pixels
     int display_refresh_interval_sec; // Refresh interval (seconds)
     int display_refresh_interval_nsec; // Refresh interval (nanoseconds)
     int lcd_brightness;          // LCD brightness (0-100)
     int lcd_orientation;         // LCD orientation: 0, 90, 180, 270
+    ////////////////////////////////////////////////////////////////////////////////
+    // Layout configuration
     int box_width;               // Box width in pixels
     int box_height;              // Box height in pixels
     int box_gap;                 // Gap between boxes in pixels
     int bar_width;               // Bar width in pixels
     int bar_height;              // Bar height in pixels
     int bar_gap;                 // Gap between bars in pixels
-    float border_line_width;     // Border line width in pixels
+    float bar_border_width;      // Border line width in pixels
+    Color bar_color_background;  // RGB for bar background
+    Color bar_color_border;      // RGB for bar border
+    ////////////////////////////////////////////////////////////////////////////////
+    // Font configuration
     char font_face[64];          // Font face for display text
     float font_size_temp;        // Temperature font size
     float font_size_labels;      // Label font size
-    float temp_threshold_green;  // Green threshold (°C)
-    float temp_threshold_orange; // Orange threshold (°C)
-    float temp_threshold_red;    // Red threshold (°C)
-    float gpu_cache_interval;    // GPU cache interval (seconds)
-    float change_tolerance_temp; // Temperature change tolerance (°C)
-    char hwmon_path[128];        // Path to hwmon
-    char image_dir[128];         // Directory for images
-    char image_path[128];        // Path for display image
-    char shutdown_image[128];    // Path for shutdown image
-    char pid_file[128];          // Path for PID file
-    char daemon_address[128];    // Daemon address
-    char daemon_password[64];    // Daemon password
     Color color_txt_temp;     // RGB for temperature text
     Color color_txt_label;    // RGB for label text
-    Color color_temp1_bar;    // RGB for green bar
-    Color color_temp2_bar;    // RGB for orange bar
-    Color color_temp3_bar;    // RGB for hot orange bar
-    Color color_temp4_bar;    // RGB for red bar
-    Color color_bg_bar;       // RGB for bar background
-    Color color_border_bar;   // RGB for bar border
+    ////////////////////////////////////////////////////////////////////////////////
+    // Temperature configuration
+    float temp_threshold_1;  // Green threshold (°C)
+    float temp_threshold_2; // Orange threshold (°C)
+    float temp_threshold_3; // Red threshold (°C)
+    Color temp_threshold_1_bar;    // RGB for green bar
+    Color temp_threshold_2_bar;    // RGB for orange bar
+    Color temp_threshold_3_bar;    // RGB for hot orange bar
+    Color temp_threshold_4_bar;    // RGB for red bar
+    ////////////////////////////////////////////////////////////////////////////////
 } Config;
 
 /**
