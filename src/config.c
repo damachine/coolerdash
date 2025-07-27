@@ -101,12 +101,12 @@ static int inih_config_handler(void *user, const char *section, const char *name
 
     // Font section
     if (strcmp(section, "font") == 0) {
-        if (strcmp(name, "face") == 0) {
+        if (strcmp(name, "font_face") == 0) {
             strncpy(config->font_face, value, sizeof(config->font_face) - 1);
             config->font_face[sizeof(config->font_face) - 1] = '\0';
         }
-        if (strcmp(name, "size_temp") == 0) config->font_size_temp = (float)atof(value);
-        if (strcmp(name, "size_labels") == 0) config->font_size_labels = (float)atof(value);
+        if (strcmp(name, "font_size_temp") == 0) config->font_size_temp = (float)atof(value);
+        if (strcmp(name, "font_size_labels") == 0) config->font_size_labels = (float)atof(value);
     }
     if (strcmp(section, "font_color_temp") == 0) {
         if (strcmp(name, "r") == 0) config->font_color_temp.r = atoi(value);
