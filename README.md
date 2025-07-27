@@ -209,6 +209,28 @@ If you need help, open an issue at https://github.com/damachine/coolerdash/issue
 
 > **Note:** The program always runs in a fixed two-box layout (CPU/GPU temperature only). Mode selection is currently not available. Support for selectable display modes may be reintroduced in a future version if there is sufficient demand.
 
+## Troubleshooting: Systemd Service User Issues
+If you encounter errors like "User not found" or "Permission denied" when starting the systemd service, it may be due to a missing or misconfigured system user for CoolerDash.
+
+**Solution:**
+- CoolerDash is designed to run as a dedicated user for security. If the user was not created automatically, you can add it manually:
+  ```bash
+  sudo useradd --system --no-create-home --shell /usr/sbin/nologin coolerdash
+  ```
+- Ensure all relevant directories are owned by the `coolerdash` user:
+  ```bash
+  sudo chown -R coolerdash:coolerdash /opt/coolerdash
+  sudo chown -R coolerdash:coolerdash /run/coolerdash
+  sudo chown -R coolerdash:coolerdash /tmp/coolerdash
+  ```
+- If you use a custom config or image path, check permissions for `/etc/coolerdash/config.ini` and `/tmp/coolerdash/coolerdash.png`.
+- After creating the user and setting permissions, restart the service:
+  ```bash
+  sudo systemctl restart coolerdash.service
+  ```
+
+> **Note:** The systemd unit file expects the user `coolerdash` to exist. If you use a different username, edit `/etc/systemd/system/coolerdash.service` accordingly.
+
 ## 🔧 Usage & Tips
 
 ### Service Management
@@ -260,28 +282,6 @@ make debug && coolerdash
 # 4. Check service logs
 sudo journalctl -u coolerdash.service -f
 ```
-
-## Troubleshooting: Systemd Service User Issues
-If you encounter errors like "User not found" or "Permission denied" when starting the systemd service, it may be due to a missing or misconfigured system user for CoolerDash.
-
-**Solution:**
-- CoolerDash is designed to run as a dedicated user for security. If the user was not created automatically, you can add it manually:
-  ```bash
-  sudo useradd --system --no-create-home --shell /usr/sbin/nologin coolerdash
-  ```
-- Ensure all relevant directories are owned by the `coolerdash` user:
-  ```bash
-  sudo chown -R coolerdash:coolerdash /opt/coolerdash
-  sudo chown -R coolerdash:coolerdash /run/coolerdash
-  sudo chown -R coolerdash:coolerdash /tmp/coolerdash
-  ```
-- If you use a custom config or image path, check permissions for `/etc/coolerdash/config.ini` and `/tmp/coolerdash/coolerdash.png`.
-- After creating the user and setting permissions, restart the service:
-  ```bash
-  sudo systemctl restart coolerdash.service
-  ```
-
-> **Note:** The systemd unit file expects the user `coolerdash` to exist. If you use a different username, edit `/etc/systemd/system/coolerdash.service` accordingly.
 
 ## 📄 License
 
