@@ -20,8 +20,6 @@
 // Include project headers
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
-#include "../include/cpu_monitor.h"
-#include "../include/gpu_monitor.h"
 #include "../include/display.h"
 
 // Include necessary headers
@@ -51,32 +49,7 @@ static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image w
  * @example
  *     // Not intended for direct use; set in main().
  */
-static const Config *g_config_ptr = NULL;
-
-/**
- * @brief Signal handler for clean daemon termination with shutdown image.
- * @details Sends a shutdown image to the LCD (if not already sent), removes the PID file, and sets the running flag to 0 for clean termination.
- * @example
- *     signal(SIGTERM, cleanup_and_exit);
- */
-static void cleanup_and_exit(int sig) {
-    (void)sig; // parameter is not used
-    // Send shutdown image
-    if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
-        const char* shutdown_image = g_config_ptr->paths_image_shutdown;
-        const char* device_uid = get_cached_device_uid();
-        fflush(stdout);
-        if (device_uid[0]) {
-            // Send shutdown image to LCD
-            send_image_to_lcd(g_config_ptr, shutdown_image, device_uid);
-            send_image_to_lcd(g_config_ptr, shutdown_image, device_uid); // send twice for reliability
-            shutdown_sent = 1; // set flag so it's only sent once
-        }
-        fflush(stdout);
-    }
-    unlink(g_config_ptr->paths_pid); // remove PID file
-    running = 0; // set flag to terminate daemon
-}
+const Config *g_config_ptr = NULL;
 
 /**
  * @brief Check if another instance of CoolerDash is running (systemd or process).
@@ -180,6 +153,26 @@ static void show_help(const char *program_name, const Config *config) {
 }
 
 /**
+ * @brief Signal handler for clean shutdown (sends shutdown image).
+ * @details Sends the shutdown image to the LCD if not already sent and UID is available, then sets running=0.
+ * @example
+ *     // Wird automatisch für SIGTERM/SIGINT registriert.
+ */
+static void handle_shutdown_signal(int signum) {
+    (void)signum;
+    if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
+        cc_sensor_data_t shutdown_data = {0};
+        if (cc_get_sensor_data(g_config_ptr, &shutdown_data)) {
+            if (shutdown_data.device_uid[0] != '\0') {
+                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
+                shutdown_sent = 1;
+            }
+        }
+    }
+    running = 0;
+}
+
+/**
  * @brief Main entry point for CoolerDash.
  * @details Loads configuration, ensures config file exists, initializes modules, and starts the main daemon loop.
  * @example
@@ -229,44 +222,20 @@ int main(int argc, char **argv)
     // Register signal handlers
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = cleanup_and_exit;
+    sa.sa_handler = handle_shutdown_signal;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
 
     // Initialize CoolerControl session
-    if (init_coolercontrol_session(&config)) { // Check return value
-        printf("✓ CoolerControl session initialized\n");
-
-        // Get and display LCD device UID only if detected and changed
-        static char last_device_uid[128] = {0};
-        char device_uid[128] = {0};
-        get_device_uid(&config, device_uid, sizeof(device_uid));
-        if (strcmp(last_device_uid, device_uid) != 0) {
-            printf("✓ Detected LCD device UID: %.20s...\n", device_uid);
-            strncpy(last_device_uid, device_uid, sizeof(last_device_uid));
-        }
-
-        // Get and display full LCD device name only if detected
-        char device_name[128] = {0};
-        if (get_device_name(&config, device_name, sizeof(device_name))) {
-            printf("✓ Connected to LCD device: %s\n", device_name);
-        } else {
-            printf("✓ Connected to LCD device: Unknow\n");
-        }
-        fflush(stdout);
-    } else {
-        fprintf(stderr, "⚠ Error: CoolerControl session could not be initialized\n");
+    if (!init_coolercontrol_session(&config)) {
+        fprintf(stderr, "\x1b[31m Error: CoolerControl session could not be initialized\n");
         fprintf(stderr, "Please check:\n");
         fprintf(stderr, "  - Is coolercontrold running? (systemctl status coolercontrold)\n");
         fprintf(stderr, "  - Is the daemon running on localhost:11987?\n");
         fprintf(stderr, "  - Is the password correct? (see config.h)\n");
         fflush(stderr);
-        return 1;
-    }
-    if (!init_cached_device_uid(&config)) {
-        fprintf(stderr, "⚠ CoolerDash: Failed to detect LCD device UID\n");
         return 1;
     }
 
@@ -275,35 +244,25 @@ int main(int argc, char **argv)
     printf("✓ CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
     fflush(stdout);
 
-    // Initialize CPU sensors
-    init_cpu_sensor_path(&config); // Set path to CPU sensors
-    printf("✓ CPU monitor initialized\n");
-    fflush(stdout);
-
-    // Initialize GPU monitor (if GPU available)
-    if (init_gpu_monitor(&config)) { // Check return value
-        printf("✓ GPU monitor initialized\n");
-    } else {
-        printf("⚠ GPU monitor not available (no NVIDIA GPU?)\n");
-    }
+    // Sensor initializations via API only (no hwmon/nvidia-smi)
+    printf("✓ Sensor API initialized\n");
     fflush(stdout);
 
     // Start daemon
     int result = run_daemon(&config);
-    
-    // Cleanup - send shutdown image if not sent yet (only on normal termination)
+    // Cleanup - always send shutdown image and cleanup on exit
     if (!shutdown_sent && is_session_initialized()) {
-        const char* shutdown_image = g_config_ptr->paths_image_shutdown;
-        const char* device_uid = get_cached_device_uid();
-        fflush(stdout);
-        if (device_uid[0]) {
-            send_image_to_lcd(&config, shutdown_image, device_uid);
-            send_image_to_lcd(&config, shutdown_image, device_uid);
-            shutdown_sent = 1; // set flag so it's only sent once
+        cc_sensor_data_t shutdown_data = {0};
+        if (cc_get_sensor_data(&config, &shutdown_data)) {
+            if (shutdown_data.device_uid[0] != '\0') {
+                send_image_to_lcd(&config, config.paths_image_shutdown, shutdown_data.device_uid);
+                send_image_to_lcd(&config, config.paths_image_shutdown, shutdown_data.device_uid);
+                shutdown_sent = 1;
+            }
         }
         fflush(stdout);
     }
-    cleanup_coolercontrol_session(); // Terminate CoolerControl session
-    cleanup_and_exit(0); // Remove PID file and terminate daemon
+    unlink(config.paths_pid);
+    running = 0;
     return result;
 }

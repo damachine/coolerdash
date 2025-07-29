@@ -7,21 +7,38 @@
  */
 
 /**
- * @brief CoolerControl API interface for LCD device communication.
- * @details Provides functions for initializing, authenticating, and communicating with CoolerControl LCD devices.
+ * @brief CoolerControl API interface for LCD device communication and sensor data.
+ * @details Provides functions for initializing, authenticating, communicating with CoolerControl LCD devices, and reading sensor values (CPU/GPU) via the REST API.
  * @example
  *     See function documentation for usage examples.
  */
 
-// Function prototypes
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
-// Include project headers
 #include "config.h"
-
-// Include necessary headers
 #include <stddef.h>
+#include <signal.h>
+
+#define CC_UID_SIZE      128
+#define CC_NAME_SIZE     128
+#define CC_COOKIE_SIZE   256
+#define CC_URL_SIZE      256
+#define CC_USERPWD_SIZE  128
+#define CC_DEVICE_SECTION_SIZE 4096
+
+/**
+ * @brief Structure to hold sensor data (CPU/GPU temperature).
+ * @details Used to aggregate all relevant sensor values from CoolerControl API.
+ * @example
+ *     cc_sensor_data_t data;
+ *     if (cc_get_sensor_data(&config, &data)) { ... }
+ */
+typedef struct {
+    float temp_1; ///< formerly cpu_temp, temperature in degrees Celsius
+    float temp_2; ///< formerly gpu_temp, temperature in degrees Celsius
+    char device_uid[CC_UID_SIZE]; ///< Device UID
+} cc_sensor_data_t;
 
 /**
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
@@ -52,59 +69,50 @@ void cleanup_coolercontrol_session(void);
 int is_session_initialized(void);
 
 /**
- * @brief Retrieves the full name of the LCD device.
- * @details Gets the device name into the provided buffer. The buffer must be at least CC_NAME_SIZE bytes. The function returns 1 on success, 0 on failure. Always check the return value and ensure the buffer is large enough.
+ * @brief Reads current sensor data (CPU/GPU) from CoolerControl API.
+ * @details Fills the cc_sensor_data_t struct with the latest values. Returns 1 on success, 0 on failure.
  * @example
- *     char name[CC_NAME_SIZE];
- *     if (get_device_name(&config, name, sizeof(name))) {
- *         // use name
- *     }
+ *     cc_sensor_data_t data;
+ *     if (cc_get_sensor_data(&config, &data)) { ... }
  */
-int get_device_name(const Config *config, char* name_buffer, size_t buffer_size);
+int cc_get_sensor_data(const Config *config, cc_sensor_data_t *data);
 
 /**
- * @brief Retrieves the UID of the first LCD device found.
- * @details Gets the device UID into the provided buffer. The buffer must be at least CC_UID_SIZE bytes. The function returns 1 on success, 0 on failure. Always check the return value and ensure the buffer is large enough.
+ * @brief Sends an image directly to the LCD of the CoolerControl device.
+ * @details Uploads an image to the LCD display using a multipart HTTP PUT request.
  * @example
- *     char uid[CC_UID_SIZE];
- *     if (get_device_uid(&config, uid, sizeof(uid))) {
- *         // use uid
- *     }
- */
-int get_device_uid(const Config *config, char* uid_buffer, size_t buffer_size);
-
-/**
- * @brief Initialize and cache the device UID at program start.
- * @details This function must be called once after session initialization. Returns 1 on success, 0 on failure. If the UID cannot be detected, an error message is printed to stderr.
- * @example
- *     int result = init_cached_device_uid(&config);
- *     if (!result) fprintf(stderr, "UID init failed\n");
- */
-int init_cached_device_uid(const Config *config);
-
-/**
- * @brief Get the cached device UID (read-only).
- * @details Returns a pointer to the cached UID string (empty string if not initialized). The returned pointer is valid until cleanup_coolercontrol_session() is called.
- * @example
- *     const char* uid = get_cached_device_uid();
- *     if (uid[0]) printf("UID: %s\n", uid);
- */
-const char* get_cached_device_uid(void);
-
-/**
- * @brief Sends an image directly to the LCD of the CoolerControl device using configuration.
- * @details Uploads an image to the LCD display. The image_path must point to a valid PNG file. Returns 1 on success, 0 on failure. Always check the return value.
- * @example
- *     send_image_to_lcd(&config, "/opt/coolerdash/images/coolerdash.png", uuid);
+ *     send_image_to_lcd(&config, "/opt/coolerdash/images/coolerdash.png", uid);
  */
 int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid);
 
 /**
- * @brief Alias for send_image_to_lcd for API compatibility.
- * @details This function is provided for compatibility with other APIs and simply calls send_image_to_lcd(). Returns 1 on success, 0 on failure.
+ * @brief Signal handler for clean daemon termination with shutdown image.
+ * @details Sends a shutdown image to the LCD (if not already sent), removes the PID file, and sets the running flag to 0 for clean termination.
  * @example
- *     upload_image_to_device(&config, "/opt/coolerdash/images/coolerdash.png", uuid);
+ *     signal(SIGTERM, cleanup_and_exit);
  */
-int upload_image_to_device(const Config *config, const char* image_path, const char* device_uid);
+void cleanup_and_exit(int sig, const Config *config, volatile sig_atomic_t *shutdown_sent_ptr, volatile sig_atomic_t *running_ptr);
+
+/**
+ * @brief Initialize monitor subsystem (CPU/GPU sensors).
+ * @details Sets up all available temperature sensors (CPU, GPU, etc.).
+ * @param config Pointer to configuration struct.
+ * @return 1 on success, 0 on failure.
+ * @example
+ *     if (monitor_init(&config)) { ... }
+ */
+int monitor_init(const Config *config);
+
+/**
+ * @brief Get current temperatures from all available sensors.
+ * @details Reads the current CPU and GPU temperatures. Returns 1 on success, 0 on failure.
+ * @param temp_1 Pointer to float for CPU temperature (may be NULL).
+ * @param temp_2 Pointer to float for GPU temperature (may be NULL).
+ * @return 1 on success, 0 on failure.
+ * @example
+ *     float t1, t2;
+ *     if (monitor_get_temperatures(&t1, &t2)) { ... }
+ */
+int monitor_get_temperatures(float *temp_1, float *temp_2);
 
 #endif // COOLERCONTROL_H

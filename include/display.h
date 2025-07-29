@@ -19,6 +19,7 @@
 
 // Include project headers
 #include "config.h"
+#include "coolercontrol.h"
 
 /**
  * @brief Sensor data structure for display rendering.
@@ -27,8 +28,8 @@
  *     sensor_data_t data = { .cpu_temp = 55.0f, .gpu_temp = 48.0f };
  */
 typedef struct {
-    float cpu_temp; // CPU temperature in degrees Celsius
-    float gpu_temp; // GPU temperature in degrees Celsius
+    float temp_1; // formerly cpu_temp, temperature in degrees Celsius
+    float temp_2; // formerly gpu_temp, temperature in degrees Celsius
 } sensor_data_t;
 
 /**

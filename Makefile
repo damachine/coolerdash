@@ -35,7 +35,7 @@ VERSION := $(shell cat VERSION)
 
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo)
-LIBS = $(shell pkg-config --libs cairo) -lcurl -lm -linih
+LIBS = $(shell pkg-config --libs cairo) -lcurl -lm -linih -ljansson
 TARGET = coolerdash
 
 # Directories
@@ -46,8 +46,8 @@ BINDIR = bin
 
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
-SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/cpu_monitor.c $(SRCDIR)/gpu_monitor.c $(SRCDIR)/display.c $(SRCDIR)/coolercontrol.c
-HEADERS = $(INCDIR)/config.h $(INCDIR)/cpu_monitor.h $(INCDIR)/gpu_monitor.h $(INCDIR)/display.h $(INCDIR)/coolercontrol.h
+SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/display.c $(SRCDIR)/coolercontrol.c
+HEADERS = $(INCDIR)/config.h $(INCDIR)/display.h $(INCDIR)/coolercontrol.h
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 ALL_SOURCES = $(MAIN_SOURCE) $(SRC_MODULES)
 
