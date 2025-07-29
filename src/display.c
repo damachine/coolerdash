@@ -328,9 +328,5 @@ void draw_combined_image(const Config *config) {
             send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
             send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
         }
-    } else {
-        // If sensor data could not be read, set both temperatures to 0.0 (fallback for display)
-        sensor_data.temp_1 = 0.0f;
-        sensor_data.temp_2 = 0.0f;
     }
 }

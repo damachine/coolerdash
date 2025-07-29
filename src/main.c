@@ -165,6 +165,7 @@ static void handle_shutdown_signal(int signum) {
         if (cc_get_sensor_data(g_config_ptr, &shutdown_data)) {
             if (shutdown_data.device_uid[0] != '\0') {
                 send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
+                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
                 shutdown_sent = 1;
             }
         }
@@ -187,17 +188,14 @@ int main(int argc, char **argv)
     }
 
     // Load configuration from INI file
-    const char *default_config_path = "/opt/coolerdash/config.ini";
-    const char *fallback_config_path = "/etc/coolerdash/config.ini";
-    const char *config_path = NULL;
+    const char *config_path = "/opt/coolerdash/config.ini";
 
-    FILE *f = fopen(default_config_path, "r");
+    FILE *f = fopen(config_path, "r");
     if (f) {
         fclose(f);
-        config_path = default_config_path;
     } else {
-        printf("Config file not found at %s. Using fallback: %s\n", default_config_path, fallback_config_path);
-        config_path = fallback_config_path;
+        fprintf(stderr, "Error: Config file not found at %s\n", config_path);
+        return 1;
     }
 
     Config config;
@@ -250,18 +248,6 @@ int main(int argc, char **argv)
 
     // Start daemon
     int result = run_daemon(&config);
-    // Cleanup - always send shutdown image and cleanup on exit
-    if (!shutdown_sent && is_session_initialized()) {
-        cc_sensor_data_t shutdown_data = {0};
-        if (cc_get_sensor_data(&config, &shutdown_data)) {
-            if (shutdown_data.device_uid[0] != '\0') {
-                send_image_to_lcd(&config, config.paths_image_shutdown, shutdown_data.device_uid);
-                send_image_to_lcd(&config, config.paths_image_shutdown, shutdown_data.device_uid);
-                shutdown_sent = 1;
-            }
-        }
-        fflush(stdout);
-    }
     unlink(config.paths_pid);
     running = 0;
     return result;

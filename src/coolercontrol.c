@@ -34,8 +34,6 @@
 #include <curl/curl.h>
 #include <jansson.h>
 
-char g_last_device_uid[64] = {0};
-
 struct http_response {
     char *data;
     size_t size;
@@ -304,7 +302,6 @@ int monitor_init(const Config *config) {
  */
 int monitor_get_temperatures(float *temp_1, float *temp_2) {
     cc_sensor_data_t data = {0};
-    // Hier ggf. Konfigurationszeiger global oder als Parameter nutzen
     extern const Config *g_config_ptr;
     if (!g_config_ptr) return 0;
     if (!cc_get_sensor_data(g_config_ptr, &data)) return 0;

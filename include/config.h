@@ -51,7 +51,6 @@ typedef struct Config {
     ////////////////////////////////////////////////////////////////////////////////
     // Paths configuration
     char paths_pid[128];
-    char paths_hwmon[128];
     char paths_images[128];
     char paths_image_coolerdash[128];
     char paths_image_shutdown[128];

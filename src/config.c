@@ -46,10 +46,6 @@ static int inih_config_handler(void *user, const char *section, const char *name
 
     // Paths section
     if (strcmp(section, "paths") == 0) {
-        if (strcmp(name, "hwmon") == 0) {
-            strncpy(config->paths_hwmon, value, sizeof(config->paths_hwmon) - 1);
-            config->paths_hwmon[sizeof(config->paths_hwmon) - 1] = '\0';
-        }
         if (strcmp(name, "images") == 0) {
             strncpy(config->paths_images, value, sizeof(config->paths_images) - 1);
             config->paths_images[sizeof(config->paths_images) - 1] = '\0';
