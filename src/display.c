@@ -303,7 +303,7 @@ static int should_update_display(const sensor_data_t *data, const Config *config
         last_data = *data;
         return 1;
     }
-    // Update if either temp_1 or temp_2 changed
+    // Update if either temp_1 or temp_2 changed significantly
     if (last_data.temp_1 != data->temp_1 || last_data.temp_2 != data->temp_2) {
         last_data = *data;
         return 1;

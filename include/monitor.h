@@ -13,7 +13,7 @@
 #include "coolercontrol.h"
 
 /**
- * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
+ * @brief Get all relevant sensor data (temperature and LCD UID).
  * @details Reads the current CPU and GPU temperatures and LCD UID via API. Returns 1 on success, 0 on failure. Exits if no Liquidctl device is found.
  * @example
  *     cc_sensor_data_t data;

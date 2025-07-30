@@ -56,7 +56,7 @@ static int parse_sensor_json(const char *json, float *temp_1, float *temp_2, cha
                 json_t *type_val = json_object_get(dev, "type"); // Check if type is present and is a string
                 if (!type_val || !json_is_string(type_val)) continue;
                 const char *type_str = json_string_value(type_val);
-                // Check for Liquidctl device type
+                // Check for Liquidctl device type is present, mostly this is the LCD devices 
                 if (strcmp(type_str, "Liquidctl") == 0) {
                     if (found_liquidctl) *found_liquidctl = 1;
                     if (lcd_uid && uid_size > 0) {
@@ -126,7 +126,7 @@ static int parse_sensor_json(const char *json, float *temp_1, float *temp_2, cha
  *     if (monitor_get_sensor_data(&config, &data)) { ... }
  */
 int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
-    if (!config || !data) return 0;
+    if (!config || !data) return 0; // Check if config and data pointers are valid
     CURL *curl = curl_easy_init();
     if (!curl) return 0;
     char url[256];
@@ -137,21 +137,22 @@ int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L); // Set a timeout to avoid hanging
+    curl_easy_setopt(curl, CURLOPT_POST, 1L); // Use POST to ensure we get the latest data
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");
     headers = curl_slist_append(headers, "content-type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    const char *post_data = "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}";
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
-    int found_liquidctl = 0;
-    float temp_1 = 0.0f, temp_2 = 0.0f;
-    char lcd_uid[128] = "";
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers); 
+    const char *post_data = "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}"; // Empty POST body
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data); // Send POST request with empty body
+    int found_liquidctl = 0; // Flag to check if Liquidctl device is found
+    float temp_1 = 0.0f, temp_2 = 0.0f; // Initialize temperatures
+    char lcd_uid[128] = ""; // Buffer for LCD UID
     int result = 0;
     if (curl_easy_perform(curl) == CURLE_OK) {
         result = parse_sensor_json(chunk.data, &temp_1, &temp_2, lcd_uid, sizeof(lcd_uid), &found_liquidctl);
     }
+    // Clean up
     free(chunk.data);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
@@ -159,6 +160,7 @@ int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
         fprintf(stderr, "[coolerdash] ERROR: No Liquidctl device found. Exiting.\n");
         return 0;
     }
+    // Fill the cc_sensor_data_t structure with the parsed data
     data->temp_1 = temp_1;
     data->temp_2 = temp_2;
     strncpy(data->device_uid, lcd_uid, sizeof(data->device_uid)-1);

@@ -41,7 +41,7 @@ typedef struct {
  * @example
  *     Config cfg;
  *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") == 0) {
- *         // Use cfg fields, e.g. cfg.display_width
+ *         // Use cfg fields, e.g. cfg.display_width, cfg.font_face, etc.
  *     }
  */
 typedef struct Config {

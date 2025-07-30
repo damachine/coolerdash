@@ -74,7 +74,7 @@ int init_coolercontrol_session(const Config *config) {
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
     if (!cc_session.curl_handle) return 0;
-    int written_cookie = snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar), "/tmp/lcd_cookie_%d.txt", getpid());
+    int written_cookie = snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar), "/tmp/lcd_cookie_%d.txt", getpid()); // Use PID to create a unique cookie jar
     if (written_cookie < 0 || (size_t)written_cookie >= sizeof(cc_session.cookie_jar)) cc_session.cookie_jar[sizeof(cc_session.cookie_jar)-1] = '\0';
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEJAR, cc_session.cookie_jar);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEFILE, cc_session.cookie_jar);
@@ -93,7 +93,8 @@ int init_coolercontrol_session(const Config *config) {
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long response_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
-    if (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
+    // Check if login was successful
+    if  (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
         cc_session.session_initialized = 1;
         return 1;
     }
@@ -115,24 +116,24 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     curl_mimepart *field;
     field = curl_mime_addpart(form);
     curl_mime_name(field, "mode");
-    curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
+    curl_mime_data(field, "image", CURL_ZERO_TERMINATED); // Set mode to "image"
     char brightness_str[8];
     snprintf(brightness_str, sizeof(brightness_str), "%d", config->lcd_brightness);
     field = curl_mime_addpart(form);
     curl_mime_name(field, "brightness");
-    curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
+    curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED); // Set LCD brightness
     char orientation_str[8];
     snprintf(orientation_str, sizeof(orientation_str), "%d", config->lcd_orientation);
     field = curl_mime_addpart(form);
     curl_mime_name(field, "orientation");
-    curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
+    curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED); // Set LCD orientation
     field = curl_mime_addpart(form);
-    curl_mime_name(field, "images[]");
-    curl_mime_filedata(field, image_path);
+    curl_mime_name(field, "images[]"); // Use "images[]" to match the API endpoint
+    curl_mime_filedata(field, image_path); // Set the image file to upload
     curl_mime_type(field, mime_type);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT"); // Use PUT method for image upload
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long response_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
@@ -140,7 +141,7 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
-    return (res == CURLE_OK && response_code == 200);
+    return (res == CURLE_OK && response_code == 200); // Return 1 on success, 0 on failure
 }
 
 /**

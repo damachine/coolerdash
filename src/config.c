@@ -156,7 +156,7 @@ static int inih_config_handler(void *user, const char *section, const char *name
 int load_config_ini(Config *config, const char *path)
 {
     if (!config || !path) return -1;
-    int error = ini_parse(path, inih_config_handler, config);
+    int error = ini_parse(path, inih_config_handler, config); // Parse the INI file using the handler
     if (error < 0) {
         return -1;
     }

@@ -41,8 +41,8 @@
  *     if (monitor_get_sensor_data(&config, &data)) { ... }
  */
 typedef struct {
-    float temp_1; ///< formerly cpu_temp, temperature in degrees Celsius
-    float temp_2; ///< formerly gpu_temp, temperature in degrees Celsius
+    float temp_1; // temperature 1 in degrees Celsius
+    float temp_2; // temperature 2 in degrees Celsius
     char device_uid[CC_UID_SIZE]; ///< Device UID
 } cc_sensor_data_t;
 
