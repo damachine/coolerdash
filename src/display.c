@@ -13,6 +13,10 @@
  *     See function documentation for usage examples.
  */
 
+  // Minimum temperature change (in °C) to trigger display update
+#define TEMP_1_UPDATE_THRESHOLD 0.5f
+#define TEMP_2_UPDATE_THRESHOLD 0.5f
+
 // Include project headers
 #include "../include/display.h"
 #include "../include/config.h"
@@ -296,7 +300,7 @@ static void draw_labels(cairo_t *cr, const Config *config) {
  */
 static int should_update_display(const sensor_data_t *data, const Config *config) {
     (void)config;
-    static sensor_data_t last_data = {.temp_1 = 1.0f, .temp_2 = 1.0f};
+    static sensor_data_t last_data = {.temp_1 = 0.1f, .temp_2 = 0.1f};
     static int first_run = 1;
     if (first_run) {
         first_run = 0;
@@ -304,7 +308,8 @@ static int should_update_display(const sensor_data_t *data, const Config *config
         return 1;
     }
     // Update if either temp_1 or temp_2 changed significantly
-    if (last_data.temp_1 != data->temp_1 || last_data.temp_2 != data->temp_2) {
+    if (fabsf(last_data.temp_1 - data->temp_1) >= TEMP_1_UPDATE_THRESHOLD ||
+        fabsf(last_data.temp_2 - data->temp_2) >= TEMP_2_UPDATE_THRESHOLD) {
         last_data = *data;
         return 1;
     }

@@ -47,9 +47,8 @@ BINDIR = bin
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
 SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/display.c $(SRCDIR)/coolercontrol.c $(SRCDIR)/monitor.c
-HEADERS = $(INCDIR)/config.h $(INCDIR)/display.h $(INCDIR)/coolercontrol.h
+HEADERS = $(INCDIR)/config.h $(INCDIR)/display.h $(INCDIR)/coolercontrol.h $(INCDIR)/monitor.h
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
-ALL_SOURCES = $(MAIN_SOURCE) $(SRC_MODULES)
 
 SERVICE = etc/systemd/coolerdash.service
 MANPAGE = man/coolerdash.1

@@ -40,6 +40,7 @@ Requires=coolercontrold.service
 [Service]
 Type=simple
 User=coolerdash
+ExecStartPre=/bin/sleep 10
 ExecStart=/usr/bin/coolerdash
 RuntimeDirectory=coolerdash
 RuntimeDirectoryMode=0755

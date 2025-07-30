@@ -16,6 +16,8 @@ post_install() {
     echo "Start the service..."
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable --now coolerdash.service 2>/dev/null || true
+    echo "CoolerDash has been installed successfully!"
+    echo "To start the service, run: sudo systemctl enable --now coolerdash.service"
 }
 
 pre_remove() {
