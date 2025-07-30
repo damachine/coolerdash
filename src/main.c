@@ -282,6 +282,17 @@ int main(int argc, char **argv)
     printf("\u2713 Sensor API initialized\n");
     fflush(stdout);
 
+    cc_sensor_data_t cc_data = {0};
+    if (monitor_get_sensor_data(&config, &cc_data)) {
+        if (cc_data.device_uid[0] != '\0') {
+            fprintf(stderr, "CoolerDash: Connected device UID: %s\n", cc_data.device_uid);
+        } else {
+            fprintf(stderr, "CoolerDash: No device UID detected.\n");
+        }
+    } else {
+        fprintf(stderr, "CoolerDash: Could not retrieve device UID and name.\n");
+    }
+
     // Initialize monitor subsystem
     int result = run_daemon(&config);
     send_shutdown_image_if_needed();
