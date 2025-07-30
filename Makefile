@@ -46,7 +46,7 @@ BINDIR = bin
 
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
-SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/display.c $(SRCDIR)/coolercontrol.c
+SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/display.c $(SRCDIR)/coolercontrol.c $(SRCDIR)/monitor.c
 HEADERS = $(INCDIR)/config.h $(INCDIR)/display.h $(INCDIR)/coolercontrol.h
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 ALL_SOURCES = $(MAIN_SOURCE) $(SRC_MODULES)

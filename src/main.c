@@ -21,6 +21,7 @@
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
 #include "../include/display.h"
+#include "../include/monitor.h"
 
 // Include necessary headers
 #include <unistd.h>
@@ -162,7 +163,7 @@ static void handle_shutdown_signal(int signum) {
     (void)signum;
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
         cc_sensor_data_t shutdown_data = {0};
-        if (cc_get_sensor_data(g_config_ptr, &shutdown_data)) {
+        if (monitor_get_sensor_data(g_config_ptr, &shutdown_data)) {
             if (shutdown_data.device_uid[0] != '\0') {
                 send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
                 send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);

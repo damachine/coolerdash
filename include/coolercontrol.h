@@ -13,13 +13,11 @@
  *     See function documentation for usage examples.
  */
 
+// Function prototypes
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
-#include "config.h"
-#include <stddef.h>
-#include <signal.h>
-
+// Buffer size constants
 #define CC_UID_SIZE      128
 #define CC_NAME_SIZE     128
 #define CC_COOKIE_SIZE   256
@@ -27,12 +25,20 @@
 #define CC_USERPWD_SIZE  128
 #define CC_DEVICE_SECTION_SIZE 4096
 
+// Include project headers
+#include "config.h"
+
+// Include necessary headers
+#include <stddef.h>
+#include <signal.h>
+
+
 /**
  * @brief Structure to hold sensor data (CPU/GPU temperature).
  * @details Used to aggregate all relevant sensor values from CoolerControl API.
  * @example
  *     cc_sensor_data_t data;
- *     if (cc_get_sensor_data(&config, &data)) { ... }
+ *     if (monitor_get_sensor_data(&config, &data)) { ... }
  */
 typedef struct {
     float temp_1; ///< formerly cpu_temp, temperature in degrees Celsius
@@ -69,15 +75,6 @@ void cleanup_coolercontrol_session(void);
 int is_session_initialized(void);
 
 /**
- * @brief Reads current sensor data (CPU/GPU) from CoolerControl API.
- * @details Fills the cc_sensor_data_t struct with the latest values. Returns 1 on success, 0 on failure.
- * @example
- *     cc_sensor_data_t data;
- *     if (cc_get_sensor_data(&config, &data)) { ... }
- */
-int cc_get_sensor_data(const Config *config, cc_sensor_data_t *data);
-
-/**
  * @brief Sends an image directly to the LCD of the CoolerControl device.
  * @details Uploads an image to the LCD display using a multipart HTTP PUT request.
  * @example
@@ -96,23 +93,28 @@ void cleanup_and_exit(int sig, const Config *config, volatile sig_atomic_t *shut
 /**
  * @brief Initialize monitor subsystem (CPU/GPU sensors).
  * @details Sets up all available temperature sensors (CPU, GPU, etc.).
- * @param config Pointer to configuration struct.
- * @return 1 on success, 0 on failure.
  * @example
  *     if (monitor_init(&config)) { ... }
  */
 int monitor_init(const Config *config);
 
-/**
- * @brief Get current temperatures from all available sensors.
- * @details Reads the current CPU and GPU temperatures. Returns 1 on success, 0 on failure.
- * @param temp_1 Pointer to float for CPU temperature (may be NULL).
- * @param temp_2 Pointer to float for GPU temperature (may be NULL).
- * @return 1 on success, 0 on failure.
- * @example
- *     float t1, t2;
- *     if (monitor_get_temperatures(&t1, &t2)) { ... }
+/*
+ * @brief Response buffer for libcurl HTTP operations.
+ * @details Used to collect HTTP response data in memory.
  */
-int monitor_get_temperatures(float *temp_1, float *temp_2);
+typedef struct http_response {
+    char *data;
+    size_t size;
+} http_response;
+
+/*
+ * @brief Callback for libcurl to write received data into a buffer.
+ * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer. It reallocates the buffer as needed and appends the new data chunk. If memory allocation fails, it frees the buffer and returns 0 to signal an error to libcurl.
+ * @example
+ *     struct http_response resp = {0};
+ *     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+ *     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&resp);
+ */
+size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response);
 
 #endif // COOLERCONTROL_H

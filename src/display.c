@@ -17,6 +17,7 @@
 #include "../include/display.h"
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
+#include "monitor.h"
 
 // Include necessary headers
 #include <math.h>
@@ -319,10 +320,9 @@ static int should_update_display(const sensor_data_t *data, const Config *config
 void draw_combined_image(const Config *config) {
     sensor_data_t sensor_data = {0};
     cc_sensor_data_t cc_data = {0};
-    if (cc_get_sensor_data(config, &cc_data)) {
+    if (monitor_get_sensor_data(config, &cc_data)) {
         sensor_data.temp_1 = cc_data.temp_1;
         sensor_data.temp_2 = cc_data.temp_2;
-        // Send image to LCD after successful rendering
         int render_result = render_display(config, &sensor_data);
         if (render_result && is_session_initialized() && cc_data.device_uid[0] != '\0') {
             send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
