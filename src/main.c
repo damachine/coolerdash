@@ -96,13 +96,31 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
  * @example
  *     write_pid_file("/var/run/coolerdash.pid");
  */
-static void write_pid_file(const char *pid_file) {
+static int write_pid_file(const char *pid_file)
+{
     FILE *f = fopen(pid_file, "w");
     if (f) {
-        fprintf(f, "%d\n", getpid());
+        if (fprintf(f, "%d\n", getpid()) < 0) {
+            fprintf(stderr, "Error: Could not write PID to file '%s'\n", pid_file);
+            fclose(f);
+            return -1;
+        }
         fclose(f);
+        return 0;
     } else {
-        fprintf(stderr, "Error: Could not write PID file '%s'\n", pid_file);
+        fprintf(stderr, "Error: Could not open PID file '%s' for writing\n", pid_file);
+        return -1;
+    }
+}
+
+static void remove_pid_file(const char *pid_file)
+{
+    if (pid_file && pid_file[0] != '\0') {
+        if (unlink(pid_file) != 0) {
+            if (errno != ENOENT) {
+                fprintf(stderr, "Warning: Could not remove PID file '%s': %s\n", pid_file, strerror(errno));
+            }
+        }
     }
 }
 
@@ -177,9 +195,10 @@ static void show_help(const char *program_name, const Config *config) {
  * @example
  *     // Wird automatisch für SIGTERM/SIGINT registriert.
  */
-static void handle_shutdown_signal(int signum) {
+static void handle_shutdown_signal(int signum)
+{
     (void)signum;
-    running = 0; // Only set flag, no complex logic
+    running = 0;
 }
 
 static void send_shutdown_image_if_needed(void) {
@@ -208,37 +227,27 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // Load configuration from INI file
+    // Check for config file argument
     const char *config_path = "/opt/coolerdash/config.ini";
-
-    FILE *f = fopen(config_path, "r");
-    if (f) {
-        fclose(f);
-    } else {
-        fprintf(stderr, "Error: Config file not found at %s\n", config_path);
-        return 1;
-    }
-
     Config config = {0};
     if (load_config_ini(&config, config_path) != 0) {
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
         return 1;
     }
-    
-    // Check if we were started by systemd
-    int is_service_start = is_started_by_systemd();
 
-    // Single-Instance Enforcement: Check and handle existing instances
+    // Ensure config file exists
+    int is_service_start = is_started_by_systemd();
     if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) {
-        // Error: Service already running and we are manual start
         return 1;
     }
 
-    // Write new PID file
-    write_pid_file(config.paths_pid);
-    g_config_ptr = &config; // Set global pointer for signal handler
+    // Initialize modules
+    if (write_pid_file(config.paths_pid) != 0) {
+        return 1;
+    }
+    g_config_ptr = &config;
 
-    // Register signal handlers
+    // Register signal handlers for clean shutdown
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
     sa.sa_handler = handle_shutdown_signal;
@@ -255,30 +264,28 @@ int main(int argc, char **argv)
         fprintf(stderr, "  - Is the daemon running on localhost:11987?\n");
         fprintf(stderr, "  - Is the password correct? (see config.h)\n");
         fflush(stderr);
+        remove_pid_file(config.paths_pid);
         return 1;
     }
 
-    // Create image directory only if it does not exist
     struct stat st = {0};
     if (stat(config.paths_images, &st) == -1) {
         if (mkdir(config.paths_images, 0755) != 0 && errno != EEXIST) {
             fprintf(stderr, "Error: Could not create image directory '%s': %s\n", config.paths_images, strerror(errno));
+            remove_pid_file(config.paths_pid);
             return 1;
         }
     }
-    printf("✓ CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
+    printf("\u2713 CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
     fflush(stdout);
 
-    // Sensor initializations via API only (no hwmon/nvidia-smi)
-    printf("✓ Sensor API initialized\n");
+    printf("\u2713 Sensor API initialized\n");
     fflush(stdout);
 
-    // Start daemon
+    // Initialize monitor subsystem
     int result = run_daemon(&config);
     send_shutdown_image_if_needed();
-    if (unlink(config.paths_pid) != 0) {
-        fprintf(stderr, "Warning: Could not remove PID file '%s': %s\n", config.paths_pid, strerror(errno));
-    }
+    remove_pid_file(config.paths_pid);
     running = 0;
     return result;
 }
