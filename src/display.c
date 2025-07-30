@@ -326,7 +326,6 @@ void draw_combined_image(const Config *config) {
         int render_result = render_display(config, &sensor_data);
         if (render_result && is_session_initialized() && cc_data.device_uid[0] != '\0') {
             send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
-            send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
         }
     }
 }
