@@ -14,9 +14,12 @@
  *     if (monitor_get_sensor_data(&config, &cpu, &gpu)) { ... }
  */
 
+// Include project headers
 #include "../include/monitor.h"
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
+
+// Include necessary headers
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
@@ -37,15 +40,15 @@ int monitor_init(const Config *config) {
  *     parse_sensor_json(json, &cpu, &gpu, uid, sizeof(uid), &found_liquidctl);
  */
 static int parse_sensor_json(const char *json, float *temp_1, float *temp_2, char *lcd_uid, size_t uid_size, int *found_liquidctl) {
-    if (!json) return 0;
+    if (!json) return 0; // Check if JSON is valid
     int result = 0;
     if (temp_1) *temp_1 = 0.0f;
     if (temp_2) *temp_2 = 0.0f;
     if (lcd_uid && uid_size > 0) lcd_uid[0] = '\0';
     if (found_liquidctl) *found_liquidctl = 0;
-    json_t *root = json_loads(json, 0, NULL);
+    json_t *root = json_loads(json, 0, NULL); // Load JSON from string
     if (root) {
-        json_t *devices = json_object_get(root, "devices");
+        json_t *devices = json_object_get(root, "devices"); // Get the "devices" array
         if (devices && json_is_array(devices)) {
             size_t i;
             json_t *dev;

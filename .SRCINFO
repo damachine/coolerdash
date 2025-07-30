@@ -14,6 +14,7 @@ pkgbase = coolerdash
 	depends = libinih
 	depends = coolercontrol
 	depends = ttf-roboto
+	depends = jansson
 	optdepends = nvidia-utils: for GPU temperature monitoring
 	optdepends = lm_sensors: for additional hardware monitoring
 	backup = opt/coolerdash/config.ini
