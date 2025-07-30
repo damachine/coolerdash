@@ -45,10 +45,10 @@ static volatile sig_atomic_t running = 1; // flag whether daemon is running
 static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
 
 /**
- * @brief Global pointer to config for signal handler access.
- * @details Allows the signal handler to access configuration data for cleanup and shutdown image.
+ * @brief Global pointer to configuration.
+ * @details Points to the current configuration used by the daemon. Initialized in main().
  * @example
- *     // Not intended for direct use; set in main().
+ *     g_config_ptr = &config;
  */
 const Config *g_config_ptr = NULL;
 
@@ -101,6 +101,8 @@ static void write_pid_file(const char *pid_file) {
     if (f) {
         fprintf(f, "%d\n", getpid());
         fclose(f);
+    } else {
+        fprintf(stderr, "Error: Could not write PID file '%s'\n", pid_file);
     }
 }
 
@@ -116,12 +118,28 @@ static int run_daemon(const Config *config) {
            config->display_refresh_interval_sec, config->display_refresh_interval_nsec / 100000000);
     printf("Daemon now running...\n\n");
     fflush(stdout);
-    while (running) { // Main daemon loop
-        draw_combined_image(config); // Draw combined image
-        struct timespec ts = {config->display_refresh_interval_sec, config->display_refresh_interval_nsec}; // Wait time for update
-        nanosleep(&ts, NULL); // Wait for specified time
+    struct timespec ts = {config->display_refresh_interval_sec, config->display_refresh_interval_nsec};
+    struct timespec start, end, elapsed, sleep_time;
+    while (running) {
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        draw_combined_image(config);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        elapsed.tv_sec = end.tv_sec - start.tv_sec;
+        elapsed.tv_nsec = end.tv_nsec - start.tv_nsec;
+        if (elapsed.tv_nsec < 0) {
+            elapsed.tv_sec--;
+            elapsed.tv_nsec += 1000000000;
+        }
+        sleep_time.tv_sec = ts.tv_sec - elapsed.tv_sec;
+        sleep_time.tv_nsec = ts.tv_nsec - elapsed.tv_nsec;
+        if (sleep_time.tv_nsec < 0) {
+            sleep_time.tv_sec--;
+            sleep_time.tv_nsec += 1000000000;
+        }
+        if (sleep_time.tv_sec > 0 || (sleep_time.tv_sec == 0 && sleep_time.tv_nsec > 0)) {
+            nanosleep(&sleep_time, NULL);
+        }
     }
-    // Silent termination without output
     return 0;
 }
 
@@ -161,6 +179,10 @@ static void show_help(const char *program_name, const Config *config) {
  */
 static void handle_shutdown_signal(int signum) {
     (void)signum;
+    running = 0; // Only set flag, no complex logic
+}
+
+static void send_shutdown_image_if_needed(void) {
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
         cc_sensor_data_t shutdown_data = {0};
         if (monitor_get_sensor_data(g_config_ptr, &shutdown_data)) {
@@ -170,7 +192,6 @@ static void handle_shutdown_signal(int signum) {
             }
         }
     }
-    running = 0;
 }
 
 /**
@@ -198,7 +219,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    Config config;
+    Config config = {0};
     if (load_config_ini(&config, config_path) != 0) {
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
         return 1;
@@ -237,8 +258,14 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Create image directory
-    mkdir(config.paths_images, 0755); // Create directory for images if not present
+    // Create image directory only if it does not exist
+    struct stat st = {0};
+    if (stat(config.paths_images, &st) == -1) {
+        if (mkdir(config.paths_images, 0755) != 0 && errno != EEXIST) {
+            fprintf(stderr, "Error: Could not create image directory '%s': %s\n", config.paths_images, strerror(errno));
+            return 1;
+        }
+    }
     printf("✓ CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
     fflush(stdout);
 
@@ -248,7 +275,10 @@ int main(int argc, char **argv)
 
     // Start daemon
     int result = run_daemon(&config);
-    unlink(config.paths_pid);
+    send_shutdown_image_if_needed();
+    if (unlink(config.paths_pid) != 0) {
+        fprintf(stderr, "Warning: Could not remove PID file '%s': %s\n", config.paths_pid, strerror(errno));
+    }
     running = 0;
     return result;
 }
