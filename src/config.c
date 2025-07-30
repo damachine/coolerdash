@@ -72,6 +72,8 @@ static int inih_config_handler(void *user, const char *section, const char *name
         if (strcmp(name, "refresh_interval_nsec") == 0) config->display_refresh_interval_nsec = atoi(value);
         if (strcmp(name, "brightness") == 0) config->lcd_brightness = atoi(value);
         if (strcmp(name, "orientation") == 0) config->lcd_orientation = atoi(value);
+        if (strcmp(name, "temp_1_update_threshold") == 0) config->temp_1_update_threshold = (float)atof(value);
+        if (strcmp(name, "temp_2_update_threshold") == 0) config->temp_2_update_threshold = (float)atof(value);
     }
 
     // Layout section

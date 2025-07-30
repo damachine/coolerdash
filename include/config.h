@@ -62,6 +62,8 @@ typedef struct Config {
     int display_refresh_interval_nsec;
     int lcd_brightness;
     int lcd_orientation;
+    float temp_1_update_threshold;
+    float temp_2_update_threshold;
     ////////////////////////////////////////////////////////////////////////////////
     // Layout configuration
     int layout_box_width;
