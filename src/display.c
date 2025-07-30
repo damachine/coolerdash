@@ -81,13 +81,19 @@ int render_display(const Config *config, const sensor_data_t *data) {
     cairo_set_source_rgb(cr, 0, 0, 0);
     cairo_paint(cr);
 
-    // Draw temperature values
+    // Set font and color for temperature values
+    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, config->font_size_temp);
+    cairo_set_source_rgb(cr, config->font_color_temp.r / 255.0, config->font_color_temp.g / 255.0, config->font_color_temp.b / 255.0);
     draw_temperature_displays(cr, data, config);
-
-    // Draw temperature bars
     draw_temperature_bars(cr, data, config);
 
-    // Draw labels (CPU/GPU)
+    // Set font and color for labels nur wenn unterschiedlich
+    if (config->font_size_labels != config->font_size_temp ||
+        memcmp(&config->font_color_label, &config->font_color_temp, sizeof(Color)) != 0) {
+        cairo_set_font_size(cr, config->font_size_labels);
+        cairo_set_source_rgb(cr, config->font_color_label.r / 255.0, config->font_color_label.g / 255.0, config->font_color_label.b / 255.0);
+    }
     draw_labels(cr, config);
 
     // Ensure image directory exists
@@ -96,23 +102,21 @@ int render_display(const Config *config, const sensor_data_t *data) {
         mkdir(config->paths_images, 0755);
     }
 
-    // Save PNG image
+    // Save PNG image only if update is needed
     if (cairo_surface_write_to_png(surface, config->paths_image_coolerdash) == CAIRO_STATUS_SUCCESS) {
         fflush(NULL); // Ensure PNG is written before upload
         success = 1;
     }
 
 cleanup:
-    // Free Cairo resources
     if (cr) {
-        cairo_destroy(cr); // Destroy Cairo context
-        cr = NULL; // Reset context pointer
+        cairo_destroy(cr);
+        cr = NULL;
     }
     if (surface) {
-        cairo_surface_destroy(surface); // Destroy Cairo surface
-        surface = NULL; // Reset surface pointer
+        cairo_surface_destroy(surface);
+        surface = NULL;
     }
-
     return success;
 }
 
@@ -123,16 +127,11 @@ cleanup:
  *     draw_temperature_displays(cr, &sensor_data);
  */
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config) {
-    // Set font and size
-    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_source_rgb(cr, config->font_color_temp.r / 255.0, config->font_color_temp.g / 255.0, config->font_color_temp.b / 255.0);
-
     char temp_str[8];
     cairo_text_extents_t ext;
 
     // temp_1 display (was CPU temperature)
     snprintf(temp_str, sizeof(temp_str), "%d\xC2\xB0", (int)data->temp_1);
-    cairo_set_font_size(cr, config->font_size_temp);
     cairo_text_extents(cr, temp_str, &ext);
     // Centered in top box (no bearing correction)
     const double temp_1_x = (config->layout_box_width - ext.width) / 2 + 22;
@@ -142,7 +141,6 @@ static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, co
 
     // temp_2 display (was GPU temperature)
     snprintf(temp_str, sizeof(temp_str), "%d\xC2\xB0", (int)data->temp_2);
-    cairo_set_font_size(cr, config->font_size_temp);
     cairo_text_extents(cr, temp_str, &ext);
     // Centered in bottom box (no bearing correction)
     const double temp_2_x = (config->layout_box_width - ext.width) / 2 + 22;
@@ -279,10 +277,10 @@ static void draw_labels(cairo_t *cr, const Config *config) {
     cairo_set_font_size(cr, config->font_size_labels);
     cairo_set_source_rgb(cr, config->font_color_label.r / 255.0, config->font_color_label.g / 255.0, config->font_color_label.b / 255.0);
     // CPU label: left in top box
-    cairo_move_to(cr, + 0, config->layout_box_height / 2 + config->font_size_labels / 2 + 8);
+    cairo_move_to(cr, 0, config->layout_box_height / 2 + config->font_size_labels / 2 + 8);
     cairo_show_text(cr, "CPU");
     // GPU label: left in bottom box
-    cairo_move_to(cr, + 0 ,config->layout_box_height + config->layout_box_height / 2 + config->font_size_labels / 2 - 15);
+    cairo_move_to(cr, 0, config->layout_box_height + config->layout_box_height / 2 + config->font_size_labels / 2 - 15);
     cairo_show_text(cr, "GPU");
 }
 
