@@ -36,7 +36,7 @@ pkgdesc="CoolerDash - LCD dashboard for CoolerControl"
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
-depends=('cairo' 'libcurl-gnutls' 'libinih' 'coolercontrol' 'ttf-roboto')
+depends=('cairo' 'libcurl-gnutls' 'libinih' 'coolercontrol' 'ttf-roboto' 'jansson')
 makedepends=('gcc' 'make' 'pkg-config')
 optdepends=('nvidia-utils: for GPU temperature monitoring'
             'lm_sensors: for additional hardware monitoring')

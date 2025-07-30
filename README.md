@@ -55,13 +55,14 @@ Right: AI-generated image to demonstrate LCD output*
 - **🔄 Systemd Integration**: Service management with detailed logs
 - **🚀 Intelligent Installation**: Automatic dependency detection and installation for all major Linux distributions
 - **🔧 Built with strict C99 compliance** for maximum portability and standards conformance.
+- **🧩 JSON support via jansson**: Fast and lightweight JSON parsing for sensor data
 
 **Supported Distributions (Auto-Detected):**
-- **Arch Linux / Manjaro**: `pacman -S cairo libcurl-gnutls coolercontrol libini gcc make pkg-config`
-- **Ubuntu / Debian**: `apt install libcairo2-dev libcurl4-openssl-dev coolercontrol libini-dev gcc make pkg-config`
-- **Fedora**: `dnf install cairo-devel libcurl-devel coolercontrol libini-devel gcc make pkg-config`
-- **RHEL / CentOS**: `yum install cairo-devel libcurl-devel coolercontrol libini-devel gcc make pkg-config`
-- **openSUSE**: `zypper install cairo-devel libcurl-devel coolercontrol libini-devel gcc make pkg-config`
+- **Arch Linux / Manjaro**: `pacman -S cairo libcurl-gnutls jansson coolercontrol libini gcc make pkg-config`
+- **Ubuntu / Debian**: `apt install libcairo2-dev libcurl4-openssl-dev libjansson-dev coolercontrol libini-dev gcc make pkg-config`
+- **Fedora**: `dnf install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
+- **RHEL / CentOS**: `yum install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
+- **openSUSE**: `zypper install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
 
 ## 📦 Installation
 
@@ -78,8 +79,8 @@ Right: AI-generated image to demonstrate LCD output*
 ### Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
-2. **Start CoolerControl daemon**: `sudo systemctl start coolercontrold`
-3. **Set LCD mode**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
+3. **Start CoolerControl daemon**: `sudo systemctl start coolercontrold`
+4. **Set LCD mode**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
 
 ### Install CoolerDash
 

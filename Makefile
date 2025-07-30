@@ -131,41 +131,41 @@ install-deps:
 	case $$DISTRO in \
 		arch) \
 			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Arch Linux/Manjaro...$(RESET)\n"; \
-			sudo pacman -S --needed cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto || { \
+			sudo pacman -S --needed cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson || { \
 				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo pacman -S cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) sudo pacman -S cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson\n"; \
 				exit 1; \
 			}; \
 			;; \
 		debian) \
 			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Ubuntu/Debian...$(RESET)\n"; \
-			sudo apt update && sudo apt install -y libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto || { \
+			sudo apt update && sudo apt install -y libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev || { \
 				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo apt install libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) sudo apt install libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
 				exit 1; \
 			}; \
 			;; \
 		fedora) \
 			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Fedora...$(RESET)\n"; \
-			sudo dnf install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts || { \
+			sudo dnf install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
 				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo dnf install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) sudo dnf install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 				exit 1; \
 			}; \
 			;; \
 		rhel) \
 			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for RHEL/CentOS...$(RESET)\n"; \
-			sudo yum install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts || { \
+			sudo yum install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
 				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo yum install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) sudo yum install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 				exit 1; \
 			}; \
 			;; \
 		opensuse) \
 			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for openSUSE...$(RESET)\n"; \
-			sudo zypper install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts || { \
+			sudo zypper install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
 				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo zypper install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) sudo zypper install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
 				exit 1; \
 			}; \
 			;; \
@@ -175,19 +175,19 @@ install-deps:
 			printf "$(YELLOW)Please install the following dependencies manually:$(RESET)\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Arch Linux / Manjaro:$(RESET)\n"; \
-			printf "  sudo pacman -S cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto\n"; \
+			printf "  sudo pacman -S cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Ubuntu / Debian:$(RESET)\n"; \
-			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto\n"; \
+			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Fedora:$(RESET)\n"; \
-			printf "  sudo dnf install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts\n"; \
+			printf "  sudo dnf install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 			printf "\n"; \
 			printf "$(WHITE)RHEL / CentOS:$(RESET)\n"; \
-			printf "  sudo yum install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts\n"; \
+			printf "  sudo yum install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 			printf "\n"; \
 			printf "$(WHITE)openSUSE:$(RESET)\n"; \
-			printf "  sudo zypper install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts\n"; \
+			printf "  sudo zypper install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
 			printf "\n"; \
 			exit 1; \
 			;; \
