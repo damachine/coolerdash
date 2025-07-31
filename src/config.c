@@ -188,8 +188,8 @@ static int inih_config_handler(void *user, const char *section, const char *name
 }
 
 /*
- * @brief Setzt Fallback-Standardwerte für fehlende oder leere Konfigurationsfelder.
- * @details Diese Funktion sollte nach dem Parsen der INI-Datei aufgerufen werden, um alle wichtigen Felder mit Defaults zu belegen, falls sie nicht gesetzt wurden.
+ * @brief Sets fallback default values for missing or empty configuration fields.
+ * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided.
  * @example
  *     Config cfg;
  *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) { // handle error }
@@ -224,11 +224,11 @@ void config_apply_fallbacks(Config *config){
     if (config->font_face[0] == '\0') SAFE_STRCPY(config->font_face, "Roboto Black");
     if (config->font_size_temp == 0.0f) config->font_size_temp = 100.0f;
     if (config->font_size_labels == 0.0f) config->font_size_labels = 30.0f;
-    // Temperatur-Thresholds
+    // Temperature thresholds
     if (config->temp_threshold_1 == 0.0f) config->temp_threshold_1 = 55.0f;
     if (config->temp_threshold_2 == 0.0f) config->temp_threshold_2 = 65.0f;
     if (config->temp_threshold_3 == 0.0f) config->temp_threshold_3 = 75.0f;
-    // Farben (Beispielwerte, ggf. anpassen)
+    // Colors
     if (config->layout_bar_color_background.r == 0 && config->layout_bar_color_background.g == 0 && config->layout_bar_color_background.b == 0) {
         config->layout_bar_color_background.r = 64;
         config->layout_bar_color_background.g = 64;
@@ -249,7 +249,7 @@ void config_apply_fallbacks(Config *config){
         config->font_color_label.g = 200;
         config->font_color_label.b = 200;
     }
-    // Temperatur-Bar-Farben (Beispielwerte)
+    // Temperature bar colors
     if (config->temp_threshold_1_bar.r == 0 && config->temp_threshold_1_bar.g == 0 && config->temp_threshold_1_bar.b == 0) {
         config->temp_threshold_1_bar.r = 0;
         config->temp_threshold_1_bar.g = 255;
