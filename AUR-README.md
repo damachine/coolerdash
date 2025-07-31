@@ -42,7 +42,7 @@ CoolerDash is best installed via the AUR using `makepkg -si` for full dependency
 
 ## Further Information
 
-For all additional details, usage instructions, configuration options, troubleshooting, and development notes, please refer to the main [README.md](../README.md) file in the project root.
+For all additional details, usage instructions, configuration options, troubleshooting, and development notes, please refer to the main [README.md](README.md) file in the project root.
 
 The main README contains comprehensive documentation and is the authoritative source for all technical and user
 
