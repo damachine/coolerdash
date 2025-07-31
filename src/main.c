@@ -247,7 +247,6 @@ static void send_shutdown_image_if_needed(void) {
         if (monitor_get_sensor_data(g_config_ptr, &shutdown_data)) {
             if (shutdown_data.device_uid[0] != '\0') {
                 send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
-                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
                 shutdown_sent = 1;
             }
         }
