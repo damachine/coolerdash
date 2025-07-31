@@ -15,6 +15,7 @@ This system daemon empowers you to harness the potential of your LCD-equipped li
 Transform your cooling system into an intelligent monitoring hub that keeps you informed about your system's vital signs at a glance.
 
 Special thanks to @codifryed, the developer of CoolerControl, for making this possible!
+
 ---
 
 ### 📸 Screenshot – Example LCD Output
