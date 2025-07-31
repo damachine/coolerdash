@@ -150,7 +150,7 @@ static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, co
 }
 
 /**
- * @brief Draw temperature bars (CPU and GPU).
+ * @brief Draw temperature bars (temp_1 and temp_2).
  * @details Draws horizontal bars representing CPU and GPU temperatures, with color gradient according to temperature value. Uses cairo for drawing, clamps values to valid range, and handles rounded corners. No resources are allocated in this function.
  * @example
  *     draw_temperature_bars(cr, &sensor_data);
@@ -272,10 +272,7 @@ static void draw_color_temperature_bars(const Config *config, float val, int* r,
  *     draw_labels(cr);
  */
 static void draw_labels(cairo_t *cr, const Config *config) {
-    // Set font and size
-    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, config->font_size_labels);
-    cairo_set_source_rgb(cr, config->font_color_label.r / 255.0, config->font_color_label.g / 255.0, config->font_color_label.b / 255.0);
+    // Font und Farbe werden im Haupt-Rendering gesetzt!
     // CPU label: left in top box
     cairo_move_to(cr, 0, config->layout_box_height / 2 + config->font_size_labels / 2 + 8);
     cairo_show_text(cr, "CPU");
