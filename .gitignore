@@ -38,3 +38,4 @@ coolerdash-*.pkg.*
 # Local test files
 PKGBUILD-test
 test-*
+debug-*
