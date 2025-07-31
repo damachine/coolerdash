@@ -42,19 +42,16 @@ Right: AI-generated image to demonstrate LCD output*
 
 > **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
 
-## 📦 Installation
-
 ### System Requirements
 
-- **OS**: Linux (hwmon support required)
-- **CoolerControl**: Version 1.0+ (REQUIRED - must be installed and running)
+- **OS**: Linux
+- **CoolerControl**: REQUIRED - must be installed and running
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
 - **LCD**: LCD displays supported by CoolerControl (Asus, NZXT, etc.)
-- **Resources**: < 4 MB RAM, < 1-2% CPU load
 
 **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
-**Supported Distributions:**
+**Supported Distributions and Dependencies:**
 - **Arch Linux / Manjaro (Recommended)**: `pacman -S cairo libcurl-gnutls jansson coolercontrol libini gcc make pkg-config`
 - **Ubuntu / Debian**: `apt install libcairo2-dev libcurl4-openssl-dev libjansson-dev coolercontrol libini-dev gcc make pkg-config`
 - **Fedora**: `dnf install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
@@ -67,48 +64,50 @@ Right: AI-generated image to demonstrate LCD output*
 3. **Start CoolerControl daemon**: `sudo systemctl start coolercontrold`
 4. **Step Coolercontrol configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
 
+## 📦 Installation
+
 ### Install CoolerDash
 
 #### Arch Linux (Recommended)
 
 ```bash
 # STEP 1: Clone repository
-git clone https://github.com/damachine/coolerdash.git
-cd coolerdash
+ git clone https://github.com/damachine/coolerdash.git
+ cd coolerdash
 
 # STEP 2: Start CoolerControl daemon  if not already running
-sudo systemctl start coolercontrold
+ sudo systemctl start coolercontrold
 
 # STEP 3: Build and install (includes automatic dependency management)
-makepkg -si
+ makepkg -si
 
 # STEP 4: Enable autostart and start CoolerDash
-sudo systemctl enable --now coolerdash.service
+ sudo systemctl enable --now coolerdash.service
 
 # STEP 5: (optional) Status CoolerDash service
-sudo systemctl status coolerdash.service
-journalctl -xeu coolerdash.service
+ sudo systemctl status coolerdash.service
+ journalctl -xeu coolerdash.service
 ```
 
 #### Manual Installation (All Distributions)
 
 ```bash
 # STEP 1: Clone repository
-git clone https://github.com/damachine/coolerdash.git
-cd coolerdash
+ git clone https://github.com/damachine/coolerdash.git
+ cd coolerdash
 
 # STEP 2: Start CoolerControl daemon  if not already running
-sudo systemctl start coolercontrold
+ sudo systemctl start coolercontrold
 
 # STEP 3: Build and install (auto-detects Linux distribution and installs dependencies)
-sudo make install
+ sudo make install
 
 # STEP 4: Enable autostart
-sudo systemctl enable --now coolerdash.service
+ sudo systemctl enable --now coolerdash.service
 
 # STEP 5: (optional) Status CoolerDash service
-sudo systemctl status coolerdash.service
-journalctl -xeu coolerdash.service
+ sudo systemctl status coolerdash.service
+ journalctl -xeu coolerdash.service
 ```
 
 ### Manual Usage 
