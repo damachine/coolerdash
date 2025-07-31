@@ -32,117 +32,115 @@ static int inih_config_handler(void *user, const char *section, const char *name
 {
     Config *config = (Config *)user;
 
-    // General section
+    // Helper function for safe string copying
+    #define SAFE_STRCPY(dest, src) do { \
+        strncpy(dest, src, sizeof(dest) - 1); \
+        dest[sizeof(dest) - 1] = '\0'; \
+    } while(0)
+
+    // Helper function for color parsing
+    #define PARSE_COLOR(color_struct, component) \
+        if (strcmp(name, #component) == 0) color_struct.component = atoi(value)
+
+    // Daemon section
     if (strcmp(section, "daemon") == 0) {
         if (strcmp(name, "address") == 0) {
-            strncpy(config->daemon_address, value, sizeof(config->daemon_address) - 1);
-            config->daemon_address[sizeof(config->daemon_address) - 1] = '\0';
-        }
-        if (strcmp(name, "password") == 0) {
-            strncpy(config->daemon_password, value, sizeof(config->daemon_password) - 1);
-            config->daemon_password[sizeof(config->daemon_password) - 1] = '\0';
+            SAFE_STRCPY(config->daemon_address, value);
+        } else if (strcmp(name, "password") == 0) {
+            SAFE_STRCPY(config->daemon_password, value);
         }
     }
-
     // Paths section
-    if (strcmp(section, "paths") == 0) {
+    else if (strcmp(section, "paths") == 0) {
         if (strcmp(name, "images") == 0) {
-            strncpy(config->paths_images, value, sizeof(config->paths_images) - 1);
-            config->paths_images[sizeof(config->paths_images) - 1] = '\0';
-        }
-        if (strcmp(name, "image_coolerdash") == 0) {
-            strncpy(config->paths_image_coolerdash, value, sizeof(config->paths_image_coolerdash) - 1);
-            config->paths_image_coolerdash[sizeof(config->paths_image_coolerdash) - 1] = '\0';
-        }
-        if (strcmp(name, "image_shutdown") == 0) {
-            strncpy(config->paths_image_shutdown, value, sizeof(config->paths_image_shutdown) - 1);
-            config->paths_image_shutdown[sizeof(config->paths_image_shutdown) - 1] = '\0';
-        }
-        if (strcmp(name, "pid") == 0) {
-            strncpy(config->paths_pid, value, sizeof(config->paths_pid) - 1);
-            config->paths_pid[sizeof(config->paths_pid) - 1] = '\0';
+            SAFE_STRCPY(config->paths_images, value);
+        } else if (strcmp(name, "image_coolerdash") == 0) {
+            SAFE_STRCPY(config->paths_image_coolerdash, value);
+        } else if (strcmp(name, "image_shutdown") == 0) {
+            SAFE_STRCPY(config->paths_image_shutdown, value);
+        } else if (strcmp(name, "pid") == 0) {
+            SAFE_STRCPY(config->paths_pid, value);
         }
     }
-
     // Display section
-    if (strcmp(section, "display") == 0) {
+    else if (strcmp(section, "display") == 0) {
         if (strcmp(name, "width") == 0) config->display_width = atoi(value);
-        if (strcmp(name, "height") == 0) config->display_height = atoi(value);
-        if (strcmp(name, "refresh_interval_sec") == 0) config->display_refresh_interval_sec = atoi(value);
-        if (strcmp(name, "refresh_interval_nsec") == 0) config->display_refresh_interval_nsec = atoi(value);
-        if (strcmp(name, "brightness") == 0) config->lcd_brightness = atoi(value);
-        if (strcmp(name, "orientation") == 0) config->lcd_orientation = atoi(value);
-        if (strcmp(name, "temp_1_update_threshold") == 0) config->temp_1_update_threshold = (float)atof(value);
-        if (strcmp(name, "temp_2_update_threshold") == 0) config->temp_2_update_threshold = (float)atof(value);
+        else if (strcmp(name, "height") == 0) config->display_height = atoi(value);
+        else if (strcmp(name, "refresh_interval_sec") == 0) config->display_refresh_interval_sec = atoi(value);
+        else if (strcmp(name, "refresh_interval_nsec") == 0) config->display_refresh_interval_nsec = atoi(value);
+        else if (strcmp(name, "brightness") == 0) config->lcd_brightness = atoi(value);
+        else if (strcmp(name, "orientation") == 0) config->lcd_orientation = atoi(value);
+        else if (strcmp(name, "temp_1_update_threshold") == 0) config->temp_1_update_threshold = (float)atof(value);
+        else if (strcmp(name, "temp_2_update_threshold") == 0) config->temp_2_update_threshold = (float)atof(value);
     }
-
     // Layout section
-    if (strcmp(section, "layout") == 0) {
+    else if (strcmp(section, "layout") == 0) {
         if (strcmp(name, "box_width") == 0) config->layout_box_width = atoi(value);
-        if (strcmp(name, "box_height") == 0) config->layout_box_height = atoi(value);
-        if (strcmp(name, "box_gap") == 0) config->layout_box_gap = atoi(value);
-        if (strcmp(name, "bar_width") == 0) config->layout_bar_width = atoi(value);
-        if (strcmp(name, "bar_height") == 0) config->layout_bar_height = atoi(value);
-        if (strcmp(name, "bar_gap") == 0) config->layout_bar_gap = atoi(value);
-        if (strcmp(name, "bar_border_width") == 0) config->layout_bar_border_width = (float)atof(value);
+        else if (strcmp(name, "box_height") == 0) config->layout_box_height = atoi(value);
+        else if (strcmp(name, "box_gap") == 0) config->layout_box_gap = atoi(value);
+        else if (strcmp(name, "bar_width") == 0) config->layout_bar_width = atoi(value);
+        else if (strcmp(name, "bar_height") == 0) config->layout_bar_height = atoi(value);
+        else if (strcmp(name, "bar_gap") == 0) config->layout_bar_gap = atoi(value);
+        else if (strcmp(name, "bar_border_width") == 0) config->layout_bar_border_width = (float)atof(value);
     }
-    if (strcmp(section, "bar_color_background") == 0) {
-        if (strcmp(name, "r") == 0) config->layout_bar_color_background.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->layout_bar_color_background.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->layout_bar_color_background.b = atoi(value);
+    // Color sections
+    else if (strcmp(section, "bar_color_background") == 0) {
+        PARSE_COLOR(config->layout_bar_color_background, r);
+        else PARSE_COLOR(config->layout_bar_color_background, g);
+        else PARSE_COLOR(config->layout_bar_color_background, b);
     }
-    if (strcmp(section, "bar_color_border") == 0) {
-        if (strcmp(name, "r") == 0) config->layout_bar_color_border.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->layout_bar_color_border.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->layout_bar_color_border.b = atoi(value);
+    else if (strcmp(section, "bar_color_border") == 0) {
+        PARSE_COLOR(config->layout_bar_color_border, r);
+        else PARSE_COLOR(config->layout_bar_color_border, g);
+        else PARSE_COLOR(config->layout_bar_color_border, b);
     }
-
     // Font section
-    if (strcmp(section, "font") == 0) {
+    else if (strcmp(section, "font") == 0) {
         if (strcmp(name, "font_face") == 0) {
-            strncpy(config->font_face, value, sizeof(config->font_face) - 1);
-            config->font_face[sizeof(config->font_face) - 1] = '\0';
-        }
-        if (strcmp(name, "font_size_temp") == 0) config->font_size_temp = (float)atof(value);
-        if (strcmp(name, "font_size_labels") == 0) config->font_size_labels = (float)atof(value);
+            SAFE_STRCPY(config->font_face, value);
+        } else if (strcmp(name, "font_size_temp") == 0) config->font_size_temp = (float)atof(value);
+        else if (strcmp(name, "font_size_labels") == 0) config->font_size_labels = (float)atof(value);
     }
-    if (strcmp(section, "font_color_temp") == 0) {
-        if (strcmp(name, "r") == 0) config->font_color_temp.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->font_color_temp.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->font_color_temp.b = atoi(value);
+    else if (strcmp(section, "font_color_temp") == 0) {
+        PARSE_COLOR(config->font_color_temp, r);
+        else PARSE_COLOR(config->font_color_temp, g);
+        else PARSE_COLOR(config->font_color_temp, b);
     }
-    if (strcmp(section, "font_color_label") == 0) {
-        if (strcmp(name, "r") == 0) config->font_color_label.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->font_color_label.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->font_color_label.b = atoi(value);
+    else if (strcmp(section, "font_color_label") == 0) {
+        PARSE_COLOR(config->font_color_label, r);
+        else PARSE_COLOR(config->font_color_label, g);
+        else PARSE_COLOR(config->font_color_label, b);
+    }
+    // Temperature section
+    else if (strcmp(section, "temperature") == 0) {
+        if (strcmp(name, "temp_threshold_1") == 0) config->temp_threshold_1 = (float)atof(value);
+        else if (strcmp(name, "temp_threshold_2") == 0) config->temp_threshold_2 = (float)atof(value);
+        else if (strcmp(name, "temp_threshold_3") == 0) config->temp_threshold_3 = (float)atof(value);
+    }
+    else if (strcmp(section, "temp_threshold_1_bar") == 0) {
+        PARSE_COLOR(config->temp_threshold_1_bar, r);
+        else PARSE_COLOR(config->temp_threshold_1_bar, g);
+        else PARSE_COLOR(config->temp_threshold_1_bar, b);
+    }
+    else if (strcmp(section, "temp_threshold_2_bar") == 0) {
+        PARSE_COLOR(config->temp_threshold_2_bar, r);
+        else PARSE_COLOR(config->temp_threshold_2_bar, g);
+        else PARSE_COLOR(config->temp_threshold_2_bar, b);
+    }
+    else if (strcmp(section, "temp_threshold_3_bar") == 0) {
+        PARSE_COLOR(config->temp_threshold_3_bar, r);
+        else PARSE_COLOR(config->temp_threshold_3_bar, g);
+        else PARSE_COLOR(config->temp_threshold_3_bar, b);
+    }
+    else if (strcmp(section, "temp_threshold_4_bar") == 0) {
+        PARSE_COLOR(config->temp_threshold_4_bar, r);
+        else PARSE_COLOR(config->temp_threshold_4_bar, g);
+        else PARSE_COLOR(config->temp_threshold_4_bar, b);
     }
 
-    // Temperature section
-    if (strcmp(section, "temperature") == 0) {
-        if (strcmp(name, "temp_threshold_1") == 0) config->temp_threshold_1 = (float)atof(value);
-        if (strcmp(name, "temp_threshold_2") == 0) config->temp_threshold_2 = (float)atof(value);
-        if (strcmp(name, "temp_threshold_3") == 0) config->temp_threshold_3 = (float)atof(value);
-    }
-    if (strcmp(section, "temp_threshold_1_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->temp_threshold_1_bar.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->temp_threshold_1_bar.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->temp_threshold_1_bar.b = atoi(value);
-    }
-    if (strcmp(section, "temp_threshold_2_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->temp_threshold_2_bar.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->temp_threshold_2_bar.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->temp_threshold_2_bar.b = atoi(value);
-    }
-    if (strcmp(section, "temp_threshold_3_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->temp_threshold_3_bar.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->temp_threshold_3_bar.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->temp_threshold_3_bar.b = atoi(value);
-    }
-    if (strcmp(section, "temp_threshold_4_bar") == 0) {
-        if (strcmp(name, "r") == 0) config->temp_threshold_4_bar.r = atoi(value);
-        if (strcmp(name, "g") == 0) config->temp_threshold_4_bar.g = atoi(value);
-        if (strcmp(name, "b") == 0) config->temp_threshold_4_bar.b = atoi(value);
-    }
+    #undef SAFE_STRCPY
+    #undef PARSE_COLOR
+    
     return 1;
 }
 
@@ -157,10 +155,11 @@ static int inih_config_handler(void *user, const char *section, const char *name
  */
 int load_config_ini(Config *config, const char *path)
 {
-    if (!config || !path) return -1;
-    int error = ini_parse(path, inih_config_handler, config); // Parse the INI file using the handler
-    if (error < 0) {
+    // Validate input parameters
+    if (!config || !path) {
         return -1;
     }
-    return 0;
+    
+    // Parse INI file and return success/failure
+    return (ini_parse(path, inih_config_handler, config) < 0) ? -1 : 0;
 }

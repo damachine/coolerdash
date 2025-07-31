@@ -39,7 +39,8 @@
  * @brief Global variables for daemon management.
  * @details Used for controlling the main daemon loop and shutdown image logic.
  * @example
- *     // Not intended for direct use; managed by main and signal handler.
+ *     static volatile sig_atomic_t running = 1; // flag whether daemon is running
+ *     static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
  */
 static volatile sig_atomic_t running = 1; // flag whether daemon is running
 static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
@@ -60,33 +61,38 @@ const Config *g_config_ptr = NULL;
  */
 static int check_existing_instance_and_handle(const char *pid_file, int is_service_start) {
     (void)pid_file;
+    
     // Skip service check if started by systemd
     if (!is_service_start) {
-        int status = system("systemctl is-active --quiet coolerdash.service");
-        if (status == 0) {
-            printf("CoolerDash: Error - systemd service is already running\n");
-            printf("Stop the service first: sudo systemctl stop coolerdash.service\n");
+        if (system("systemctl is-active --quiet coolerdash.service") == 0) {
+            printf("CoolerDash: Error - systemd service is already running\n"
+                   "Stop the service first: sudo systemctl stop coolerdash.service\n");
             return -1;
         }
     }
+    
     // Check for running process using pgrep
     FILE *fp = popen("pgrep -x coolerdash", "r");
-    int found_pid = 0;
-    if (fp) {
-        int pid;
-        while (fscanf(fp, "%d", &pid) == 1) {
-            if (!is_service_start || pid != getpid()) {
-                found_pid = pid;
-                break;
-            }
-        }
-        pclose(fp);
+    if (!fp) {
+        return 0; // If pgrep fails, assume no conflicts
     }
+    
+    int found_pid = 0;
+    int pid;
+    while (fscanf(fp, "%d", &pid) == 1) {
+        if (!is_service_start || pid != getpid()) {
+            found_pid = pid;
+            break;
+        }
+    }
+    pclose(fp);
+    
     if (found_pid > 0) {
-        printf("CoolerDash: Error - another coolerdash process is already running (PID %d)\n", found_pid);
-        printf("Stop it first: kill %d\n", found_pid);
+        printf("CoolerDash: Error - another coolerdash process is already running (PID %d)\n"
+               "Stop it first: kill %d\n", found_pid, found_pid);
         return -1;
     }
+    
     return 0;
 }
 
@@ -99,28 +105,38 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
 static int write_pid_file(const char *pid_file)
 {
     FILE *f = fopen(pid_file, "w");
-    if (f) {
-        if (fprintf(f, "%d\n", getpid()) < 0) {
-            fprintf(stderr, "Error: Could not write PID to file '%s'\n", pid_file);
-            fclose(f);
-            return -1;
-        }
-        fclose(f);
-        return 0;
-    } else {
+    if (!f) {
         fprintf(stderr, "Error: Could not open PID file '%s' for writing\n", pid_file);
         return -1;
     }
+    
+    if (fprintf(f, "%d\n", getpid()) < 0) {
+        fprintf(stderr, "Error: Could not write PID to file '%s'\n", pid_file);
+        fclose(f);
+        return -1;
+    }
+    
+    fclose(f);
+    return 0;
 }
 
+/**
+ * @brief Remove PID file if it exists.
+ * @details Attempts to remove the PID file specified. If the file does not exist, it ignores the error.
+ * @example
+ *    remove_pid_file("/var/run/coolerdash.pid");
+ */
 static void remove_pid_file(const char *pid_file)
 {
-    if (pid_file && pid_file[0] != '\0') {
-        if (unlink(pid_file) != 0) {
-            if (errno != ENOENT) {
-                fprintf(stderr, "Warning: Could not remove PID file '%s': %s\n", pid_file, strerror(errno));
-            }
-        }
+    // Skip if pid_file is NULL or empty
+    if (!pid_file || !pid_file[0]) {
+        return;
+    }
+    
+    // Attempt to remove the file
+    if (unlink(pid_file) == -1 && errno != ENOENT) {
+        fprintf(stderr, "Warning: Could not remove PID file '%s': %s\n", 
+                pid_file, strerror(errno));
     }
 }
 
@@ -133,31 +149,54 @@ static void remove_pid_file(const char *pid_file)
 static int run_daemon(const Config *config) {
     printf("CoolerDash daemon started\n");
     printf("Sensor data updated every %d.%d seconds\n", 
-           config->display_refresh_interval_sec, config->display_refresh_interval_nsec / 100000000);
+           config->display_refresh_interval_sec, 
+           config->display_refresh_interval_nsec / 100000000);
     printf("Daemon now running...\n\n");
     fflush(stdout);
-    struct timespec ts = {config->display_refresh_interval_sec, config->display_refresh_interval_nsec};
-    struct timespec start, end, elapsed, sleep_time;
+    
+    const struct timespec interval = {
+        .tv_sec = config->display_refresh_interval_sec,
+        .tv_nsec = config->display_refresh_interval_nsec
+    };
+    
     while (running) {
+        struct timespec start, end;
+        
         clock_gettime(CLOCK_MONOTONIC, &start);
         draw_combined_image(config);
         clock_gettime(CLOCK_MONOTONIC, &end);
-        elapsed.tv_sec = end.tv_sec - start.tv_sec;
-        elapsed.tv_nsec = end.tv_nsec - start.tv_nsec;
+        
+        // Calculate elapsed time
+        struct timespec elapsed = {
+            .tv_sec = end.tv_sec - start.tv_sec,
+            .tv_nsec = end.tv_nsec - start.tv_nsec
+        };
+        
+        // Normalize negative nanoseconds
         if (elapsed.tv_nsec < 0) {
             elapsed.tv_sec--;
             elapsed.tv_nsec += 1000000000;
         }
-        sleep_time.tv_sec = ts.tv_sec - elapsed.tv_sec;
-        sleep_time.tv_nsec = ts.tv_nsec - elapsed.tv_nsec;
+        
+        // Calculate remaining sleep time
+        struct timespec sleep_time = {
+            .tv_sec = interval.tv_sec - elapsed.tv_sec,
+            .tv_nsec = interval.tv_nsec - elapsed.tv_nsec
+        };
+        
+        // Normalize negative nanoseconds
         if (sleep_time.tv_nsec < 0) {
             sleep_time.tv_sec--;
             sleep_time.tv_nsec += 1000000000;
         }
-        if (sleep_time.tv_sec > 0 || (sleep_time.tv_sec == 0 && sleep_time.tv_nsec > 0)) {
+        
+        // Sleep only if there's remaining time
+        if (sleep_time.tv_sec > 0 || 
+            (sleep_time.tv_sec == 0 && sleep_time.tv_nsec > 0)) {
             nanosleep(&sleep_time, NULL);
         }
     }
+    
     return 0;
 }
 
@@ -168,8 +207,7 @@ static int run_daemon(const Config *config) {
  *     int is_service = is_started_by_systemd();
  */
 static int is_started_by_systemd(void) {
-    // Simple and reliable method: Check if our parent process is PID 1 (init/systemd)
-    return (getppid() == 1);
+    return getppid() == 1;
 }
 
 /**
@@ -180,25 +218,27 @@ static int is_started_by_systemd(void) {
  */
 static void show_help(const char *program_name, const Config *config) {
     (void)config; // Mark parameter as unused to avoid compiler warning
-    printf("\033[1mCoolerDash - LCD dashboard for CoolerControl\033[0m\n");
-    printf("This program is a daemon that displays CPU and GPU temperatures on an LCD screen.\n");
-    printf("For help, use: man coolerdash\n");
-    printf("For help, refer to the documentation at README.md\n\n");
-    printf("Usage: %s\n", program_name);
-    printf("To start service: sudo systemctl start coolerdash\n");
-    printf("To start manually: %s [config_path]\n", program_name);
+    
+    printf("CoolerDash - LCD dashboard for CoolerControl\n"
+           "This program is a daemon that displays CPU and GPU temperatures on an LCD screen.\n"
+           "For help, use: man coolerdash\n"
+           "For help, refer to the documentation at README.md\n\n"
+           "Usage: %s\n"
+           "To start service: sudo systemctl start coolerdash\n"
+           "To start manually: %s [config_path]\n",
+           program_name, program_name);
 }
 
 /**
  * @brief Signal handler for clean shutdown (sends shutdown image).
  * @details Sends the shutdown image to the LCD if not already sent and UID is available, then sets running=0.
  * @example
- *     // Wird automatisch für SIGTERM/SIGINT registriert.
+ *     handle_shutdown_signal(signum);
  */
 static void handle_shutdown_signal(int signum)
 {
-    (void)signum;
-    running = 0;
+    (void)signum;  // Suppress unused parameter warning
+    running = 0;   // Signal graceful shutdown
 }
 
 static void send_shutdown_image_if_needed(void) {
@@ -227,7 +267,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    // Check for config file argument
+    // Load configuration
     const char *config_path = "/opt/coolerdash/config.ini";
     Config config = {0};
     if (load_config_ini(&config, config_path) != 0) {
@@ -235,59 +275,53 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    // Ensure config file exists
+    // Check for existing instances and create PID file
     int is_service_start = is_started_by_systemd();
-    if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) {
-        return 1;
-    }
-
-    // Initialize modules
-    if (write_pid_file(config.paths_pid) != 0) {
+    if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0 ||
+        write_pid_file(config.paths_pid) != 0) {
         return 1;
     }
     g_config_ptr = &config;
 
     // Register signal handlers for clean shutdown
-    struct sigaction sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.sa_handler = handle_shutdown_signal;
+    struct sigaction sa = {
+        .sa_handler = handle_shutdown_signal,
+        .sa_flags = 0
+    };
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
     sigaction(SIGTERM, &sa, NULL);
     sigaction(SIGINT, &sa, NULL);
 
     // Initialize CoolerControl session
     if (!init_coolercontrol_session(&config)) {
-        fprintf(stderr, "Error: CoolerControl session could not be initialized\n");
-        fprintf(stderr, "Please check:\n");
-        fprintf(stderr, "  - Is coolercontrold running? (systemctl status coolercontrold)\n");
-        fprintf(stderr, "  - Is the daemon running on localhost:11987?\n");
-        fprintf(stderr, "  - Is the password correct? (see config.h)\n");
+        fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
+                       "Please check:\n"
+                       "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
+                       "  - Is the daemon running on localhost:11987?\n"
+                       "  - Is the password correct? (see config.h)\n");
         fflush(stderr);
         remove_pid_file(config.paths_pid);
         return 1;
     }
 
-    // Initialize CoolerControl session
     printf("Coolercontrol sensor API initialized\n");
     fflush(stdout);
 
+    // Retrieve and display device information
     cc_sensor_data_t cc_data = {0};
     if (monitor_get_sensor_data(&config, &cc_data)) {
-        if (cc_data.device_uid[0] != '\0') {
-            fprintf(stderr, "CoolerDash: Connected device UID: %s\n", cc_data.device_uid);
-        } else {
-            fprintf(stderr, "CoolerDash: Unknow device UID detected.\n");
-        }
+        const char *uid_msg = (cc_data.device_uid[0] != '\0') 
+            ? cc_data.device_uid 
+            : "Unknown device UID detected";
+        fprintf(stderr, "CoolerDash connected device UID: %s\n", uid_msg);
     } else {
-        fprintf(stderr, "CoolerDash: Could not retrieve device UID and name.\n");
+        fprintf(stderr, "CoolerDash could not retrieve device UID and name.\n");
     }
 
-    // Initialize image for display
-    printf("CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
+    printf("CoolerDash read config file:\n");
     fflush(stdout);
 
-    // Initialize monitor subsystem
+    // Run daemon and cleanup
     int result = run_daemon(&config);
     send_shutdown_image_if_needed();
     remove_pid_file(config.paths_pid);

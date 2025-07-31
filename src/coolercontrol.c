@@ -35,20 +35,23 @@
  *     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&resp);
  */
 size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response) {
-    size_t realsize = size * nmemb;
-    char *ptr = realloc(response->data, response->size + realsize + 1);
+    const size_t realsize = size * nmemb;
+    const size_t new_size = response->size + realsize + 1;
+    
+    char *ptr = realloc(response->data, new_size);
     if (!ptr) {
-        fprintf(stderr, "[CoolerDash] Error: realloc failed for response->data\n");
-        if (response->data) {
-            free(response->data);
-            response->data = NULL;
-        }
+        fprintf(stderr, "Error: realloc failed for response->data\n");
+        free(response->data);
+        response->data = NULL;
+        response->size = 0;
         return 0;
     }
+    
     response->data = ptr;
-    memcpy(&(response->data[response->size]), contents, realsize);
+    memcpy(response->data + response->size, contents, realsize);
     response->size += realsize;
-    response->data[response->size] = 0;
+    response->data[response->size] = '\0';
+    
     return realsize;
 }
 
@@ -71,33 +74,57 @@ static CoolerControlSession cc_session = {
  *     if (init_coolercontrol_session(&config)) { ... }
  */
 int init_coolercontrol_session(const Config *config) {
+    // Initialize cURL and create handle
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
-    if (!cc_session.curl_handle) return 0;
-    int written_cookie = snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar), "/tmp/lcd_cookie_%d.txt", getpid()); // Use PID to create a unique cookie jar
-    if (written_cookie < 0 || (size_t)written_cookie >= sizeof(cc_session.cookie_jar)) cc_session.cookie_jar[sizeof(cc_session.cookie_jar)-1] = '\0';
+    if (!cc_session.curl_handle) {
+        return 0;
+    }
+
+    // Create unique cookie jar path using PID
+    int written_cookie = snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar), 
+                                  "/tmp/lcd_cookie_%d.txt", getpid());
+    if (written_cookie < 0 || (size_t)written_cookie >= sizeof(cc_session.cookie_jar)) {
+        cc_session.cookie_jar[sizeof(cc_session.cookie_jar) - 1] = '\0';
+    }
+
+    // Configure cookie handling
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEJAR, cc_session.cookie_jar);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEFILE, cc_session.cookie_jar);
+
+    // Build login URL
     char login_url[CC_URL_SIZE];
     int written_url = snprintf(login_url, sizeof(login_url), "%s/login", config->daemon_address);
-    if (written_url < 0 || (size_t)written_url >= sizeof(login_url)) login_url[sizeof(login_url)-1] = '\0';
+    if (written_url < 0 || (size_t)written_url >= sizeof(login_url)) {
+        login_url[sizeof(login_url) - 1] = '\0';
+    }
+
+    // Build credentials
     char userpwd[CC_USERPWD_SIZE];
     int written_pwd = snprintf(userpwd, sizeof(userpwd), "CCAdmin:%s", config->daemon_password);
-    if (written_pwd < 0 || (size_t)written_pwd >= sizeof(userpwd)) userpwd[sizeof(userpwd)-1] = '\0';
+    if (written_pwd < 0 || (size_t)written_pwd >= sizeof(userpwd)) {
+        userpwd[sizeof(userpwd) - 1] = '\0';
+    }
+
+    // Configure cURL for authentication and POST request
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, login_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERPWD, userpwd);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POST, 1L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, "");
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+
+    // Perform login request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long response_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+
     // Check if login was successful
-    if  (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
+    if (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
         cc_session.session_initialized = 1;
         return 1;
     }
+
     return 0;
 }
 
@@ -108,40 +135,67 @@ int init_coolercontrol_session(const Config *config) {
  *    send_image_to_lcd(&config, "/opt/coolerdash/images/coolerdash.png", "device_uid");
  */
 int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid) {
-    if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) return 0;
+    // Validate input parameters and session state
+    if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) {
+        return 0;
+    }
+    
+    // Construct upload URL
     char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", config->daemon_address, device_uid);
-    const char* mime_type = "image/png";
+    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
+             config->daemon_address, device_uid);
+    
+    // Initialize multipart form
     curl_mime *form = curl_mime_init(cc_session.curl_handle);
+    if (!form) return 0;
+    
     curl_mimepart *field;
+    
+    // Add mode field
     field = curl_mime_addpart(form);
     curl_mime_name(field, "mode");
-    curl_mime_data(field, "image", CURL_ZERO_TERMINATED); // Set mode to "image"
+    curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
+    
+    // Add brightness field
     char brightness_str[8];
     snprintf(brightness_str, sizeof(brightness_str), "%d", config->lcd_brightness);
     field = curl_mime_addpart(form);
     curl_mime_name(field, "brightness");
-    curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED); // Set LCD brightness
+    curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
+    
+    // Add orientation field
     char orientation_str[8];
     snprintf(orientation_str, sizeof(orientation_str), "%d", config->lcd_orientation);
     field = curl_mime_addpart(form);
     curl_mime_name(field, "orientation");
-    curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED); // Set LCD orientation
+    curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
+    
+    // Add image file
     field = curl_mime_addpart(form);
-    curl_mime_name(field, "images[]"); // Use "images[]" to match the API endpoint
-    curl_mime_filedata(field, image_path); // Set the image file to upload
-    curl_mime_type(field, mime_type);
+    curl_mime_name(field, "images[]");
+    curl_mime_filedata(field, image_path);
+    curl_mime_type(field, "image/png");
+    
+    // Configure curl options
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT"); // Use PUT method for image upload
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    
+    // Perform request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
+    
+    // Get response code
     long response_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+    
+    // Cleanup
     curl_mime_free(form);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
-    return (res == CURLE_OK && response_code == 200); // Return 1 on success, 0 on failure
+    
+    // Return success status
+    return (res == CURLE_OK && response_code == 200);
 }
 
 /**
@@ -153,17 +207,30 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
 void cleanup_coolercontrol_session(void) {
     static int cleanup_done = 0;
     if (cleanup_done) return;
+    
     int all_cleaned = 1;
+    
+    // Clean up CURL handle
     if (cc_session.curl_handle) {
         curl_easy_cleanup(cc_session.curl_handle);
         cc_session.curl_handle = NULL;
     }
+    
+    // Perform global CURL cleanup
     curl_global_cleanup();
+    
+    // Remove cookie jar file
     if (unlink(cc_session.cookie_jar) != 0) {
         all_cleaned = 0;
     }
+    
+    // Mark session as uninitialized
     cc_session.session_initialized = 0;
-    if (all_cleaned) cleanup_done = 1;
+    
+    // Set cleanup flag only if all operations succeeded
+    if (all_cleaned) {
+        cleanup_done = 1;
+    }
 }
 
 int is_session_initialized(void) {

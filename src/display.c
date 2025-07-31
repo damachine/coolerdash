@@ -21,6 +21,7 @@
 
 // Include necessary headers
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -42,14 +43,45 @@
  *     // Not intended for direct use; see render_display() and draw_combined_image().
  */
 
+static int should_update_display(const sensor_data_t *data, const Config *config);
+static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset);
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config);
 static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
 static void draw_color_temperature_bars(const Config *config, float val, int* r, int* g, int* b);
 static void draw_labels(cairo_t *cr, const Config *config);
-static int should_update_display(const sensor_data_t *data, const Config *config);
 
 /**
- * @brief Render display based on sensor data (only default mode).
+ * @brief Check if display update is needed (change detection).
+ * @details Compares current sensor data with last drawn values and determines if a redraw is necessary. Uses static variables for last data and first run detection. Returns 1 if update is needed, 0 otherwise.
+ * @example
+ *     if (should_update_display(&sensor_data, config)) {
+ *         // redraw
+ *     }
+ */
+static int should_update_display(const sensor_data_t *data, const Config *config) {
+    static sensor_data_t last_data = {.temp_1 = 0.1f, .temp_2 = 0.1f};
+    static bool first_run = true;
+    
+    if (first_run) {
+        first_run = false;
+        last_data = *data;
+        return 1;
+    }
+    
+    // Update if either temperature changed significantly
+    const bool temp_1_changed = fabsf(last_data.temp_1 - data->temp_1) >= config->temp_1_update_threshold;
+    const bool temp_2_changed = fabsf(last_data.temp_2 - data->temp_2) >= config->temp_2_update_threshold;
+    
+    if (temp_1_changed || temp_2_changed) {
+        last_data = *data;
+        return 1;
+    }
+    
+    return 0;
+}
+
+/**
+ * @brief Render display based on sensor data.
  * @details Renders the LCD display image using the provided sensor data. Handles drawing, saving, and uploading the image.
  * @example
  *     int result = render_display(&config, &sensor_data);
@@ -57,24 +89,22 @@ static int should_update_display(const sensor_data_t *data, const Config *config
 int render_display(const Config *config, const sensor_data_t *data) {
     if (!data || !config) return 0;
 
-    cairo_surface_t *surface = NULL;
-    cairo_t *cr = NULL;
-    int success = 0;
-
     // Only update if sensor data changed significantly
     if (!should_update_display(data, config)) {
         return 1; // No update needed, but no error
     }
 
-    // Create Cairo surface for drawing
-    surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, config->display_width, config->display_height);
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, 
+                                                         config->display_width, 
+                                                         config->display_height);
     if (!surface || cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-        goto cleanup;
+        return 0;
     }
 
-    cr = cairo_create(surface);
+    cairo_t *cr = cairo_create(surface);
     if (!cr || cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
-        goto cleanup;
+        cairo_surface_destroy(surface);
+        return 0;
     }
 
     // Fill background with black
@@ -84,15 +114,20 @@ int render_display(const Config *config, const sensor_data_t *data) {
     // Set font and color for temperature values
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, config->font_size_temp);
-    cairo_set_source_rgb(cr, config->font_color_temp.r / 255.0, config->font_color_temp.g / 255.0, config->font_color_temp.b / 255.0);
+    cairo_set_source_rgb(cr, config->font_color_temp.r / 255.0, 
+                         config->font_color_temp.g / 255.0, 
+                         config->font_color_temp.b / 255.0);
+    
     draw_temperature_displays(cr, data, config);
     draw_temperature_bars(cr, data, config);
 
-    // Set font and color for labels nur wenn unterschiedlich
+    // Set font and color for labels
     if (config->font_size_labels != config->font_size_temp ||
         memcmp(&config->font_color_label, &config->font_color_temp, sizeof(Color)) != 0) {
         cairo_set_font_size(cr, config->font_size_labels);
-        cairo_set_source_rgb(cr, config->font_color_label.r / 255.0, config->font_color_label.g / 255.0, config->font_color_label.b / 255.0);
+        cairo_set_source_rgb(cr, config->font_color_label.r / 255.0, 
+                             config->font_color_label.g / 255.0, 
+                             config->font_color_label.b / 255.0);
     }
     draw_labels(cr, config);
 
@@ -102,22 +137,34 @@ int render_display(const Config *config, const sensor_data_t *data) {
         mkdir(config->paths_images, 0755);
     }
 
-    // Save PNG image only if update is needed
-    if (cairo_surface_write_to_png(surface, config->paths_image_coolerdash) == CAIRO_STATUS_SUCCESS) {
+    // Save PNG image
+    int success = (cairo_surface_write_to_png(surface, config->paths_image_coolerdash) == CAIRO_STATUS_SUCCESS);
+    if (success) {
         fflush(NULL); // Ensure PNG is written before upload
-        success = 1;
     }
 
-cleanup:
-    if (cr) {
-        cairo_destroy(cr);
-        cr = NULL;
-    }
-    if (surface) {
-        cairo_surface_destroy(surface);
-        surface = NULL;
-    }
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    
     return success;
+}
+
+/**
+ * @brief Draw a single temperature value at the given y offset.
+ * @details Helper for draw_temperature_displays. Draws the temperature string centered in its box.
+ * @example
+ *     draw_temp(cr, config, temp_value, y_offset);
+ */
+static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset)
+{
+    char temp_str[8];
+    cairo_text_extents_t ext;
+    snprintf(temp_str, sizeof(temp_str), "%d°", (int)temp_value);
+    cairo_text_extents(cr, temp_str, &ext);
+    const double x = (config->layout_box_width - ext.width) / 2 + 22;
+    const double y = y_offset + (config->layout_box_height + ext.height) / 2;
+    cairo_move_to(cr, x, y);
+    cairo_show_text(cr, temp_str);
 }
 
 /**
@@ -127,26 +174,11 @@ cleanup:
  *     draw_temperature_displays(cr, &sensor_data);
  */
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config) {
-    char temp_str[8];
-    cairo_text_extents_t ext;
-
     // temp_1 display (was CPU temperature)
-    snprintf(temp_str, sizeof(temp_str), "%d\xC2\xB0", (int)data->temp_1);
-    cairo_text_extents(cr, temp_str, &ext);
-    // Centered in top box (no bearing correction)
-    const double temp_1_x = (config->layout_box_width - ext.width) / 2 + 22;
-    const double temp_1_y = (config->layout_box_height + ext.height) / 2 - 22;
-    cairo_move_to(cr, temp_1_x, temp_1_y);
-    cairo_show_text(cr, temp_str);
-
+    draw_temp(cr, config, data->temp_1, -22);
+    
     // temp_2 display (was GPU temperature)
-    snprintf(temp_str, sizeof(temp_str), "%d\xC2\xB0", (int)data->temp_2);
-    cairo_text_extents(cr, temp_str, &ext);
-    // Centered in bottom box (no bearing correction)
-    const double temp_2_x = (config->layout_box_width - ext.width) / 2 + 22;
-    const double temp_2_y = config->layout_box_height + (config->layout_box_height + ext.height) / 2 + 22;
-    cairo_move_to(cr, temp_2_x, temp_2_y);
-    cairo_show_text(cr, temp_str);
+    draw_temp(cr, config, data->temp_2, config->layout_box_height + 22);
 }
 
 /**
@@ -254,14 +286,25 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
  *     draw_color_temperature_bars(&config, 65.0f, &r, &g, &b);
  */
 static void draw_color_temperature_bars(const Config *config, float val, int* r, int* g, int* b) {
-    if (val <= config->temp_threshold_1) {
-        *r = config->temp_threshold_1_bar.r; *g = config->temp_threshold_1_bar.g; *b = config->temp_threshold_1_bar.b;
-    } else if (val <= config->temp_threshold_2) {
-        *r = config->temp_threshold_2_bar.r; *g = config->temp_threshold_2_bar.g; *b = config->temp_threshold_2_bar.b;
-    } else if (val <= config->temp_threshold_3) {
-        *r = config->temp_threshold_3_bar.r; *g = config->temp_threshold_3_bar.g; *b = config->temp_threshold_3_bar.b;
-    } else {
-        *r = config->temp_threshold_4_bar.r; *g = config->temp_threshold_4_bar.g; *b = config->temp_threshold_4_bar.b;
+    // Temperature threshold and color mapping table
+    const struct {
+        float threshold;
+        Color color;
+    } temp_ranges[] = {
+        {config->temp_threshold_1, config->temp_threshold_1_bar},
+        {config->temp_threshold_2, config->temp_threshold_2_bar},
+        {config->temp_threshold_3, config->temp_threshold_3_bar},
+        {INFINITY, config->temp_threshold_4_bar}
+    };
+    
+    // Find the appropriate color range for the given temperature
+    for (size_t i = 0; i < sizeof(temp_ranges) / sizeof(temp_ranges[0]); i++) {
+        if (val <= temp_ranges[i].threshold) {
+            *r = temp_ranges[i].color.r;
+            *g = temp_ranges[i].color.g;
+            *b = temp_ranges[i].color.b;
+            return;
+        }
     }
 }
 
@@ -282,31 +325,6 @@ static void draw_labels(cairo_t *cr, const Config *config) {
 }
 
 /**
- * @brief Check if display update is needed (change detection).
- * @details Compares current sensor data with last drawn values and determines if a redraw is necessary. Uses static variables for last data and first run detection. Returns 1 if update is needed, 0 otherwise.
- * @example
- *     if (should_update_display(&sensor_data, config)) {
- *         // redraw
- *     }
- */
-static int should_update_display(const sensor_data_t *data, const Config *config) {
-    static sensor_data_t last_data = {.temp_1 = 0.1f, .temp_2 = 0.1f};
-    static int first_run = 1;
-    if (first_run) {
-        first_run = 0;
-        last_data = *data;
-        return 1;
-    }
-    // Update if either temp_1 or temp_2 changed significantly (thresholds from config)
-    if (fabsf(last_data.temp_1 - data->temp_1) >= config->temp_1_update_threshold ||
-        fabsf(last_data.temp_2 - data->temp_2) >= config->temp_2_update_threshold) {
-        last_data = *data;
-        return 1;
-    }
-    return 0;
-}
-
-/**
  * @brief Collects sensor data and renders display (default mode only).
  * @details Reads all relevant sensor data (CPU and GPU temperatures) and renders the display image. Also uploads the image to the device if available. Handles errors silently and frees all resources. Main entry point for display updates in default mode.
  * @example
@@ -315,12 +333,20 @@ static int should_update_display(const sensor_data_t *data, const Config *config
 void draw_combined_image(const Config *config) {
     sensor_data_t sensor_data = {0};
     cc_sensor_data_t cc_data = {0};
-    if (monitor_get_sensor_data(config, &cc_data)) {
-        sensor_data.temp_1 = cc_data.temp_1;
-        sensor_data.temp_2 = cc_data.temp_2;
-        int render_result = render_display(config, &sensor_data);
-        if (render_result && is_session_initialized() && cc_data.device_uid[0] != '\0') {
-            send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
-        }
+    
+    // Early return if sensor data retrieval fails
+    if (!monitor_get_sensor_data(config, &cc_data)) {
+        return;
+    }
+    
+    // Copy temperature data
+    sensor_data.temp_1 = cc_data.temp_1;
+    sensor_data.temp_2 = cc_data.temp_2;
+    
+    // Render display and send to LCD if all conditions are met
+    if (render_display(config, &sensor_data) && 
+        is_session_initialized() && 
+        cc_data.device_uid[0] != '\0') {
+        send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
     }
 }
