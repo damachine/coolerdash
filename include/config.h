@@ -18,8 +18,8 @@
 #define CONFIG_H
 
 // Include necessary headers
-#include <stdint.h>
 #include <ini.h>
+#include <stdint.h>
 
 /**
  * @brief Color struct for RGB values (0-255).

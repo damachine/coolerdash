@@ -32,7 +32,6 @@
 #include <stddef.h>
 #include <signal.h>
 
-
 /**
  * @brief Structure to hold sensor data (CPU/GPU temperature).
  * @details Used to aggregate all relevant sensor values from CoolerControl API.
