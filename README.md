@@ -42,7 +42,7 @@ Right: AI-generated image to demonstrate LCD output*
 
 > **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
 
-### System Requirements
+### 🖥️ System Requirements
 
 - **OS**: Linux
 - **CoolerControl**: REQUIRED - must be installed and running
@@ -57,6 +57,9 @@ Right: AI-generated image to demonstrate LCD output*
 - **Fedora**: `dnf install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
 - **RHEL / CentOS**: `yum install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
 - **openSUSE**: `zypper install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
+
+> **Note:** Dependencies are usually installed automatically when using the provided PKGBUILD or package manager scripts.  
+> If you install manually, please ensure all required dependencies are present on
 
 ### Prerequisites
 
