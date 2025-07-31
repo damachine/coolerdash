@@ -268,19 +268,6 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    struct stat st = {0};
-    
-    if (stat(config.paths_images, &st) == -1) {
-        fprintf(stderr, "Error: Could not create image directory '%s': %s\n", config.paths_images, strerror(errno));
-        remove_pid_file(config.paths_pid);
-        return 1;
-    }
-    if (stat(config.paths_image_coolerdash, &st) == -1) {
-        fprintf(stderr, "Error: Image file '%s' does not exist. Please create it first.\n", config.paths_image_coolerdash);
-        remove_pid_file(config.paths_pid);
-        return 1;
-    }
-
     // Initialize CoolerControl session
     printf("Coolercontrol sensor API initialized\n");
     fflush(stdout);
