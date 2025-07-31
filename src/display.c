@@ -348,5 +348,6 @@ void draw_combined_image(const Config *config) {
         is_session_initialized() && 
         cc_data.device_uid[0] != '\0') {
         send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
+        send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid); // Send twice to ensure upload and no artfact is displayed
     }
 }
