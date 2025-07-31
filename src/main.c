@@ -258,7 +258,7 @@ int main(int argc, char **argv)
 
     // Initialize CoolerControl session
     if (!init_coolercontrol_session(&config)) {
-        fprintf(stderr, "\x1b[31m Error: CoolerControl session could not be initialized\n");
+        fprintf(stderr, "Error: CoolerControl session could not be initialized\n");
         fprintf(stderr, "Please check:\n");
         fprintf(stderr, "  - Is coolercontrold running? (systemctl status coolercontrold)\n");
         fprintf(stderr, "  - Is the daemon running on localhost:11987?\n");
