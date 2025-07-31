@@ -276,10 +276,14 @@ int main(int argc, char **argv)
             return 1;
         }
     }
-    printf("\u2713 CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
-    fflush(stdout);
+    if (stat(config.paths_image_coolerdash, &st) == -1) {
+        fprintf(stderr, "Error: Image file '%s' does not exist. Please create it first.\n", config.paths_image_coolerdash);
+        remove_pid_file(config.paths_pid);
+        return 1;
+    }
 
-    printf("\u2713 Sensor API initialized\n");
+    // Initialize CoolerControl session
+    printf("Coolercontrol sensor API initialized\n");
     fflush(stdout);
 
     cc_sensor_data_t cc_data = {0};
@@ -287,11 +291,15 @@ int main(int argc, char **argv)
         if (cc_data.device_uid[0] != '\0') {
             fprintf(stderr, "CoolerDash: Connected device UID: %s\n", cc_data.device_uid);
         } else {
-            fprintf(stderr, "CoolerDash: No device UID detected.\n");
+            fprintf(stderr, "CoolerDash: Unknow device UID detected.\n");
         }
     } else {
         fprintf(stderr, "CoolerDash: Could not retrieve device UID and name.\n");
     }
+
+    // Initialize image for display
+    printf("CoolerDash sensor image: %s\n", config.paths_image_coolerdash);
+    fflush(stdout);
 
     // Initialize monitor subsystem
     int result = run_daemon(&config);
