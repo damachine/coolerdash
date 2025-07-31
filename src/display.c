@@ -22,10 +22,10 @@
 // Include necessary headers
 #include <math.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <cairo/cairo.h>
 #include <string.h>
+#include <unistd.h>
+#include <cairo/cairo.h>
+#include <sys/stat.h>
 
 // Constants for display layout
 #ifndef M_PI

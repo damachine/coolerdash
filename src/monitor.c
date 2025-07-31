@@ -20,11 +20,11 @@
 #include "../include/coolercontrol.h"
 
 // Include necessary headers
-#include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <curl/curl.h>
 
 
 int monitor_init(const Config *config) {

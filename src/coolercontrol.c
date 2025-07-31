@@ -18,13 +18,13 @@
 #include "../include/config.h"
 
 // Include necessary headers
+#include <jansson.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdlib.h>
-#include <sys/stat.h>
 #include <curl/curl.h>
-#include <jansson.h>
+#include <sys/stat.h>
 
 /*
  * @brief Callback for libcurl to write received data into a buffer.
