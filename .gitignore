@@ -25,6 +25,7 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+.qodo/
 
 # Compressed archives
 *.tar.xz
