@@ -13,21 +13,6 @@
  *     See function documentation for usage examples.
  */
 
-// Include project headers
-#include "../include/display.h"
-#include "../include/config.h"
-#include "../include/coolercontrol.h"
-#include "monitor.h"
-
-// Include necessary headers
-#include <math.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <cairo/cairo.h>
-#include <sys/stat.h>
-
 // Constants for display layout
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -42,6 +27,21 @@
 #define CORNER_RADIUS 8.0
 #define LABEL_Y_OFFSET_1 8
 #define LABEL_Y_OFFSET_2 15
+
+// Include necessary headers
+#include <math.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <cairo/cairo.h>
+#include <sys/stat.h>
+
+// Include project headers
+#include "../include/display.h"
+#include "../include/config.h"
+#include "../include/coolercontrol.h"
+#include "monitor.h"
 
 /**
  * @brief Forward declarations for internal display rendering functions.

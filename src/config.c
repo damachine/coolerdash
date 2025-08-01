@@ -19,14 +19,14 @@
     dest[sizeof(dest) - 1] = '\0'; \
 } while(0)
 
-// Include project headers
-#include "../include/config.h"
- 
 // Include necessary headers
 #include <ini.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+// Include project headers
+#include "../include/config.h"
 
 /**
  * @brief INI parser handler, sets values in Config struct.

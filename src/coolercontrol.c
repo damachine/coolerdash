@@ -13,10 +13,6 @@
  *     See function documentation for usage examples.
  */
 
-// Include project headers
-#include "../include/coolercontrol.h"
-#include "../include/config.h"
-
 // Include necessary headers
 #include <jansson.h>
 #include <stdlib.h>
@@ -25,6 +21,10 @@
 #include <unistd.h>
 #include <curl/curl.h>
 #include <sys/stat.h>
+
+// Include project headers
+#include "../include/coolercontrol.h"
+#include "../include/config.h"
 
 /*
  * @brief Callback for libcurl to write received data into a buffer.

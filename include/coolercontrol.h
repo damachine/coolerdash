@@ -17,6 +17,9 @@
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
+// Error codes
+#define CC_ERROR_INVALID_RESPONSE -1
+
 // Buffer size constants
 #define CC_UID_SIZE      128
 #define CC_NAME_SIZE     128
@@ -25,15 +28,12 @@
 #define CC_USERPWD_SIZE  128
 #define CC_DEVICE_SECTION_SIZE 4096
 
-// Error codes
-#define CC_ERROR_INVALID_RESPONSE -1
-
-// Include project headers
-#include "config.h"
-
 // Include necessary headers
 #include <stddef.h>
 #include <signal.h>
+
+// Include project headers
+#include "config.h"
 
 /**
  * @brief Structure to hold sensor data (CPU/GPU temperature).

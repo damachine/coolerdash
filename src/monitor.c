@@ -14,11 +14,6 @@
  *     if (monitor_get_sensor_data(&config, &cpu, &gpu)) { ... }
  */
 
-// Include project headers
-#include "../include/monitor.h"
-#include "../include/config.h"
-#include "../include/coolercontrol.h"
-
 // Include necessary headers
 #include <jansson.h>
 #include <stdio.h>
@@ -26,6 +21,10 @@
 #include <string.h>
 #include <curl/curl.h>
 
+// Include project headers
+#include "../include/monitor.h"
+#include "../include/config.h"
+#include "../include/coolercontrol.h"
 
 /**
  * @brief Initialize the monitor component with the given configuration.

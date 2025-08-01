@@ -17,12 +17,6 @@
 #define _POSIX_C_SOURCE 200112L
 #define _XOPEN_SOURCE 600
 
-// Include project headers
-#include "../include/config.h"
-#include "../include/coolercontrol.h"
-#include "../include/display.h"
-#include "../include/monitor.h"
-
 // Include necessary headers
 #include <errno.h>
 #include <signal.h>
@@ -34,6 +28,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+// Include project headers
+#include "../include/config.h"
+#include "../include/coolercontrol.h"
+#include "../include/display.h"
+#include "../include/monitor.h"
 
 /**
  * @brief Global variables for daemon management.
