@@ -38,9 +38,12 @@ static int inih_config_handler(void *user, const char *section, const char *name
 {
     Config *config = (Config *)user;
 
-    // Helper function for color parsing
+    // Helper function for color parsing with validation
     #define PARSE_COLOR(color_struct, component) \
-        if (strcmp(name, #component) == 0) color_struct.component = atoi(value)
+        if (strcmp(name, #component) == 0) { \
+            int val = atoi(value); \
+            color_struct.component = (val < 0) ? 0 : (val > 255) ? 255 : val; \
+        }
 
     // Daemon section
     if (strcmp(section, "daemon") == 0) {
@@ -88,8 +91,14 @@ static int inih_config_handler(void *user, const char *section, const char *name
     }
     // Display section
     else if (strcmp(section, "display") == 0) {
-        if (strcmp(name, "width") == 0) config->display_width = atoi(value);
-        else if (strcmp(name, "height") == 0) config->display_height = atoi(value);
+        if (strcmp(name, "width") == 0) {
+            int width = atoi(value);
+            config->display_width = (width > 0) ? width : 240;
+        }
+        else if (strcmp(name, "height") == 0) {
+            int height = atoi(value);
+            config->display_height = (height > 0) ? height : 240;
+        }
         else if (strcmp(name, "refresh_interval_sec") == 0) {
             config->display_refresh_interval_sec = (value && value[0] != '\0') ? atoi(value) : 2;
         }
@@ -97,7 +106,8 @@ static int inih_config_handler(void *user, const char *section, const char *name
             config->display_refresh_interval_nsec = (value && value[0] != '\0') ? atoi(value) : 500000000;
         }
         else if (strcmp(name, "brightness") == 0) {
-            config->lcd_brightness = (value && value[0] != '\0') ? atoi(value) : 80;
+            int brightness = (value && value[0] != '\0') ? atoi(value) : 80;
+            config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? brightness : 80;
         }
         else if (strcmp(name, "orientation") == 0) {
             config->lcd_orientation = (value && value[0] != '\0') ? atoi(value) : 0;
@@ -126,13 +136,13 @@ static int inih_config_handler(void *user, const char *section, const char *name
     // Color sections
     else if (strcmp(section, "bar_color_background") == 0) {
         PARSE_COLOR(config->layout_bar_color_background, r);
-        else PARSE_COLOR(config->layout_bar_color_background, g);
-        else PARSE_COLOR(config->layout_bar_color_background, b);
+        PARSE_COLOR(config->layout_bar_color_background, g);
+        PARSE_COLOR(config->layout_bar_color_background, b);
     }
     else if (strcmp(section, "bar_color_border") == 0) {
         PARSE_COLOR(config->layout_bar_color_border, r);
-        else PARSE_COLOR(config->layout_bar_color_border, g);
-        else PARSE_COLOR(config->layout_bar_color_border, b);
+        PARSE_COLOR(config->layout_bar_color_border, g);
+        PARSE_COLOR(config->layout_bar_color_border, b);
     }
     // Font section
     else if (strcmp(section, "font") == 0) {
@@ -147,13 +157,13 @@ static int inih_config_handler(void *user, const char *section, const char *name
     }
     else if (strcmp(section, "font_color_temp") == 0) {
         PARSE_COLOR(config->font_color_temp, r);
-        else PARSE_COLOR(config->font_color_temp, g);
-        else PARSE_COLOR(config->font_color_temp, b);
+        PARSE_COLOR(config->font_color_temp, g);
+        PARSE_COLOR(config->font_color_temp, b);
     }
     else if (strcmp(section, "font_color_label") == 0) {
         PARSE_COLOR(config->font_color_label, r);
-        else PARSE_COLOR(config->font_color_label, g);
-        else PARSE_COLOR(config->font_color_label, b);
+        PARSE_COLOR(config->font_color_label, g);
+        PARSE_COLOR(config->font_color_label, b);
     }
     // Temperature section
     else if (strcmp(section, "temperature") == 0) {
@@ -163,23 +173,23 @@ static int inih_config_handler(void *user, const char *section, const char *name
     }
     else if (strcmp(section, "temp_threshold_1_bar") == 0) {
         PARSE_COLOR(config->temp_threshold_1_bar, r);
-        else PARSE_COLOR(config->temp_threshold_1_bar, g);
-        else PARSE_COLOR(config->temp_threshold_1_bar, b);
+        PARSE_COLOR(config->temp_threshold_1_bar, g);
+        PARSE_COLOR(config->temp_threshold_1_bar, b);
     }
     else if (strcmp(section, "temp_threshold_2_bar") == 0) {
         PARSE_COLOR(config->temp_threshold_2_bar, r);
-        else PARSE_COLOR(config->temp_threshold_2_bar, g);
-        else PARSE_COLOR(config->temp_threshold_2_bar, b);
+        PARSE_COLOR(config->temp_threshold_2_bar, g);
+        PARSE_COLOR(config->temp_threshold_2_bar, b);
     }
     else if (strcmp(section, "temp_threshold_3_bar") == 0) {
         PARSE_COLOR(config->temp_threshold_3_bar, r);
-        else PARSE_COLOR(config->temp_threshold_3_bar, g);
-        else PARSE_COLOR(config->temp_threshold_3_bar, b);
+        PARSE_COLOR(config->temp_threshold_3_bar, g);
+        PARSE_COLOR(config->temp_threshold_3_bar, b);
     }
     else if (strcmp(section, "temp_threshold_4_bar") == 0) {
         PARSE_COLOR(config->temp_threshold_4_bar, r);
-        else PARSE_COLOR(config->temp_threshold_4_bar, g);
-        else PARSE_COLOR(config->temp_threshold_4_bar, b);
+        PARSE_COLOR(config->temp_threshold_4_bar, g);
+        PARSE_COLOR(config->temp_threshold_4_bar, b);
     }
 
     #undef PARSE_COLOR
@@ -287,9 +297,16 @@ int load_config_ini(Config *config, const char *path)
     if (!config || !path) {
         return -1;
     }
+    
+    // Check if file exists and is readable
+    FILE *file = fopen(path, "r");
+    if (!file) {
+        return -1;
+    }
+    fclose(file);
+    
     // Parse INI file and return success/failure
     int result = (ini_parse(path, inih_config_handler, config) < 0) ? -1 : 0;
     config_apply_fallbacks(config);
     return result;
 }
-
