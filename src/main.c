@@ -294,6 +294,7 @@ int main(int argc, char **argv)
 
     // Run daemon and cleanup
     int result = run_daemon(&config);
+    send_shutdown_image_if_needed(); // Ensure shutdown image is sent on normal exit
     remove_pid_file(config.paths_pid);
     running = 0;
     return result;
