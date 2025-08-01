@@ -25,6 +25,9 @@
 #define CC_USERPWD_SIZE  128
 #define CC_DEVICE_SECTION_SIZE 4096
 
+// Error codes
+#define CC_ERROR_INVALID_RESPONSE -1
+
 // Include project headers
 #include "config.h"
 

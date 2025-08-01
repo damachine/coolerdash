@@ -36,6 +36,13 @@
 #define M_PI_2 1.57079632679489661923
 #endif
 
+// Layout constants
+#define TEMP_DISPLAY_X_OFFSET 22
+#define TEMP_DISPLAY_Y_OFFSET 22
+#define CORNER_RADIUS 8.0
+#define LABEL_Y_OFFSET_1 8
+#define LABEL_Y_OFFSET_2 15
+
 /**
  * @brief Forward declarations for internal display rendering functions.
  * @details These functions are only used internally in display.c for modular rendering logic.
@@ -47,7 +54,8 @@ static int should_update_display(const sensor_data_t *data, const Config *config
 static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset);
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config);
 static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
-static void draw_color_temperature_bars(const Config *config, float val, int* r, int* g, int* b);
+static Color get_temperature_bar_color(const Config *config, float val);
+static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y);
 static void draw_labels(cairo_t *cr, const Config *config);
 
 /**
@@ -95,9 +103,10 @@ int render_display(const Config *config, const sensor_data_t *data) {
     }
 
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, 
-                                                         config->display_width, 
-                                                         config->display_height);
+                                                     config->display_width, 
+                                                     config->display_height);
     if (!surface || cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        if (surface) cairo_surface_destroy(surface);
         return 0;
     }
 
@@ -161,7 +170,7 @@ static inline void draw_temp(cairo_t *cr, const Config *config, double temp_valu
     cairo_text_extents_t ext;
     snprintf(temp_str, sizeof(temp_str), "%d°", (int)temp_value);
     cairo_text_extents(cr, temp_str, &ext);
-    const double x = (config->layout_box_width - ext.width) / 2 + 22;
+    const double x = (config->layout_box_width - ext.width) / 2 + TEMP_DISPLAY_X_OFFSET;
     const double y = y_offset + (config->layout_box_height + ext.height) / 2;
     cairo_move_to(cr, x, y);
     cairo_show_text(cr, temp_str);
@@ -175,10 +184,10 @@ static inline void draw_temp(cairo_t *cr, const Config *config, double temp_valu
  */
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config) {
     // temp_1 display (was CPU temperature)
-    draw_temp(cr, config, data->temp_1, -22);
+    draw_temp(cr, config, data->temp_1, -TEMP_DISPLAY_Y_OFFSET);
     
     // temp_2 display (was GPU temperature)
-    draw_temp(cr, config, data->temp_2, config->layout_box_height + 22);
+    draw_temp(cr, config, data->temp_2, config->layout_box_height + TEMP_DISPLAY_Y_OFFSET);
 }
 
 /**
@@ -194,86 +203,57 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
     const int cpu_bar_y = (config->display_height - (2 * config->layout_bar_height + config->layout_bar_gap)) / 2 + 1;
     const int gpu_bar_y = cpu_bar_y + config->layout_bar_height + config->layout_bar_gap;
     
-    // --- temp_1 bar (was CPU bar) ---
-    int r, g, b;
-    draw_color_temperature_bars(config, data->temp_1, &r, &g, &b); // Get color for temp_1
-    const int temp_1_val_w = (data->temp_1 > 0.0f) ? 
-        (int)((data->temp_1 / 100.0f) * config->layout_bar_width) : 0; // Calculate filled width
-    const int safe_temp_1_val_w = (temp_1_val_w < 0) ? 0 : 
-        (temp_1_val_w > config->layout_bar_width) ? config->layout_bar_width : temp_1_val_w; // Clamp to valid range
-    // Draw temp_1 bar background (rounded corners)
-    double radius = 8.0; // Corner radius in px
+    draw_single_temperature_bar(cr, config, data->temp_1, bar_x, cpu_bar_y);
+    draw_single_temperature_bar(cr, config, data->temp_2, bar_x, gpu_bar_y);
+}
+
+/**
+ * @brief Draw a single temperature bar at the specified position.
+ * @details Helper function that draws background, fill, and border for a temperature bar with rounded corners.
+ * @example
+ *     draw_single_temperature_bar(cr, config, temp_value, bar_x, bar_y);
+ */
+static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y) {
+    Color color = get_temperature_bar_color(config, temp_value);
+    const int temp_val_w = (temp_value > 0.0f) ? 
+        (int)((temp_value / 100.0f) * config->layout_bar_width) : 0; // Calculate filled width
+    const int safe_temp_val_w = (temp_val_w < 0) ? 0 : 
+        (temp_val_w > config->layout_bar_width) ? config->layout_bar_width : temp_val_w; // Clamp to valid range
+    
+    // Draw bar background (rounded corners)
     cairo_set_source_rgb(cr, config->layout_bar_color_background.r / 255.0, config->layout_bar_color_background.g / 255.0, config->layout_bar_color_background.b / 255.0);
     cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, cpu_bar_y + radius, radius, -M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, cpu_bar_y + config->layout_bar_height - radius, radius, 0, M_PI_2);
-    cairo_arc(cr, bar_x + radius, cpu_bar_y + config->layout_bar_height - radius, radius, M_PI_2, M_PI);
-    cairo_arc(cr, bar_x + radius, cpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
+    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, -M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, 0, M_PI_2);
+    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, M_PI_2, M_PI);
+    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, M_PI, 1.5 * M_PI);
     cairo_close_path(cr);
     cairo_fill(cr);
-    // Draw temp_1 bar fill (temperature color, rounded)
-    cairo_set_source_rgb(cr, r/255.0, g/255.0, b/255.0);
-    double fill_width = safe_temp_1_val_w;
+    
+    // Draw bar fill (temperature color, rounded)
+    cairo_set_source_rgb(cr, color.r/255.0, color.g/255.0, color.b/255.0);
+    double fill_width = safe_temp_val_w;
     cairo_new_sub_path(cr);
-    if (fill_width > 2 * radius) {
-        cairo_arc(cr, bar_x + fill_width - radius, cpu_bar_y + radius, radius, -M_PI_2, 0);
-        cairo_arc(cr, bar_x + fill_width - radius, cpu_bar_y + config->layout_bar_height - radius, radius, 0, M_PI_2);
-        cairo_arc(cr, bar_x + radius, cpu_bar_y + config->layout_bar_height - radius, radius, M_PI_2, M_PI);
-        cairo_arc(cr, bar_x + radius, cpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
+    if (fill_width > 2 * CORNER_RADIUS) {
+        cairo_arc(cr, bar_x + fill_width - CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, -M_PI_2, 0);
+        cairo_arc(cr, bar_x + fill_width - CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, 0, M_PI_2);
+        cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, M_PI_2, M_PI);
+        cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, M_PI, 1.5 * M_PI);
     } else {
         // If fill is too small, draw as rectangle
-        cairo_rectangle(cr, bar_x, cpu_bar_y, fill_width, config->layout_bar_height);
+        cairo_rectangle(cr, bar_x, bar_y, fill_width, config->layout_bar_height);
     }
     cairo_close_path(cr);
     cairo_fill(cr);
-    // Draw temp_1 bar border (rounded)
+    
+    // Draw bar border (rounded)
     cairo_set_line_width(cr, config->layout_bar_border_width);
     cairo_set_source_rgb(cr, config->layout_bar_color_border.r / 255.0, config->layout_bar_color_border.g / 255.0, config->layout_bar_color_border.b / 255.0);
     cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, cpu_bar_y + radius, radius, -M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, cpu_bar_y + config->layout_bar_height - radius, radius, 0, M_PI_2);
-    cairo_arc(cr, bar_x + radius, cpu_bar_y + config->layout_bar_height - radius, radius, M_PI_2, M_PI);
-    cairo_arc(cr, bar_x + radius, cpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
-    cairo_close_path(cr);
-    cairo_stroke(cr);
-
-    // --- temp_2 bar (was GPU bar) ---
-    draw_color_temperature_bars(config, data->temp_2, &r, &g, &b); // Get color for temp_2
-    const int temp_2_val_w = (data->temp_2 > 0.0f) ? 
-        (int)((data->temp_2 / 100.0f) * config->layout_bar_width) : 0; // Calculate filled width
-    const int safe_temp_2_val_w = (temp_2_val_w < 0) ? 0 : 
-        (temp_2_val_w > config->layout_bar_width) ? config->layout_bar_width : temp_2_val_w; // Clamp to valid range
-    // Draw temp_2 bar background (rounded corners)
-    cairo_set_source_rgb(cr, config->layout_bar_color_background.r / 255.0, config->layout_bar_color_background.g / 255.0, config->layout_bar_color_background.b / 255.0);
-    cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, gpu_bar_y + radius, radius, -M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, gpu_bar_y + config->layout_bar_height - radius, radius, 0, M_PI_2);
-    cairo_arc(cr, bar_x + radius, gpu_bar_y + config->layout_bar_height - radius, radius, M_PI_2, M_PI);
-    cairo_arc(cr, bar_x + radius, gpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
-    cairo_close_path(cr);
-    cairo_fill(cr);
-    // Draw temp_2 bar fill (temperature color, rounded)
-    cairo_set_source_rgb(cr, r/255.0, g/255.0, b/255.0);
-    fill_width = safe_temp_2_val_w;
-    cairo_new_sub_path(cr);
-    if (fill_width > 2 * radius) {
-        cairo_arc(cr, bar_x + fill_width - radius, gpu_bar_y + radius, radius, -M_PI_2, 0);
-        cairo_arc(cr, bar_x + fill_width - radius, gpu_bar_y + config->layout_bar_height - radius, radius, 0, M_PI_2);
-        cairo_arc(cr, bar_x + radius, gpu_bar_y + config->layout_bar_height - radius, radius, M_PI_2, M_PI);
-        cairo_arc(cr, bar_x + radius, gpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
-    } else {
-        cairo_rectangle(cr, bar_x, gpu_bar_y, fill_width, config->layout_bar_height);
-    }
-    cairo_close_path(cr);
-    cairo_fill(cr);
-    // Draw temp_2 bar border (rounded)
-    cairo_set_line_width(cr, config->layout_bar_border_width);
-    cairo_set_source_rgb(cr, config->layout_bar_color_border.r / 255.0, config->layout_bar_color_border.g / 255.0, config->layout_bar_color_border.b / 255.0);
-    cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, gpu_bar_y + radius, radius, -M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - radius, gpu_bar_y + config->layout_bar_height - radius, radius, 0, M_PI_2);
-    cairo_arc(cr, bar_x + radius, gpu_bar_y + config->layout_bar_height - radius, radius, M_PI_2, M_PI);
-    cairo_arc(cr, bar_x + radius, gpu_bar_y + radius, radius, M_PI, 1.5 * M_PI);
+    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, -M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, 0, M_PI_2);
+    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, M_PI_2, M_PI);
+    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, M_PI, 1.5 * M_PI);
     cairo_close_path(cr);
     cairo_stroke(cr);
 }
@@ -282,10 +262,9 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
  * @brief Calculate color gradient for temperature bars (green → orange → hot orange → red).
  * @details Determines the RGB color for a given temperature value according to the defined thresholds from config.
  * @example
- *     int r, g, b;
- *     draw_color_temperature_bars(&config, 65.0f, &r, &g, &b);
+ *     Color color = get_temperature_bar_color(&config, 65.0f);
  */
-static void draw_color_temperature_bars(const Config *config, float val, int* r, int* g, int* b) {
+static Color get_temperature_bar_color(const Config *config, float val) {
     // Temperature threshold and color mapping table
     const struct {
         float threshold;
@@ -300,12 +279,11 @@ static void draw_color_temperature_bars(const Config *config, float val, int* r,
     // Find the appropriate color range for the given temperature
     for (size_t i = 0; i < sizeof(temp_ranges) / sizeof(temp_ranges[0]); i++) {
         if (val <= temp_ranges[i].threshold) {
-            *r = temp_ranges[i].color.r;
-            *g = temp_ranges[i].color.g;
-            *b = temp_ranges[i].color.b;
-            return;
+            return temp_ranges[i].color;
         }
     }
+    
+    return config->temp_threshold_4_bar; // fallback
 }
 
 /**
@@ -317,10 +295,10 @@ static void draw_color_temperature_bars(const Config *config, float val, int* r,
 static void draw_labels(cairo_t *cr, const Config *config) {
     // Font und Farbe werden im Haupt-Rendering gesetzt!
     // CPU label: left in top box
-    cairo_move_to(cr, 0, config->layout_box_height / 2 + config->font_size_labels / 2 + 8);
+    cairo_move_to(cr, 0, config->layout_box_height / 2 + config->font_size_labels / 2 + LABEL_Y_OFFSET_1);
     cairo_show_text(cr, "CPU");
     // GPU label: left in bottom box
-    cairo_move_to(cr, 0, config->layout_box_height + config->layout_box_height / 2 + config->font_size_labels / 2 - 15);
+    cairo_move_to(cr, 0, config->layout_box_height + config->layout_box_height / 2 + config->font_size_labels / 2 - LABEL_Y_OFFSET_2);
     cairo_show_text(cr, "GPU");
 }
 

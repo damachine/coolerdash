@@ -60,37 +60,26 @@ const Config *g_config_ptr = NULL;
  *     check_existing_instance_and_handle(config.pid_file, is_service_start);
  */
 static int check_existing_instance_and_handle(const char *pid_file, int is_service_start) {
-    (void)pid_file;
+    (void)is_service_start;
     
-    // Skip service check if started by systemd
-    if (!is_service_start) {
-        if (system("systemctl is-active --quiet coolerdash.service") == 0) {
-            printf("CoolerDash: Error - systemd service is already running\n"
-                   "Stop the service first: sudo systemctl stop coolerdash.service\n");
-            return -1;
+    FILE *fp = fopen(pid_file, "r");
+    if (fp) {
+        int existing_pid;
+        if (fscanf(fp, "%d", &existing_pid) == 1) {
+            fclose(fp);
+            // Check if process exists using kill(pid, 0)
+            if (kill(existing_pid, 0) == 0) {
+                printf("CoolerDash: Error - another instance is running (PID %d)\n", existing_pid);
+                return -1;
+            } else if (errno == EPERM) {
+                printf("CoolerDash: Error - another instance may be running (PID %d)\n", existing_pid);
+                return -1;
+            }
+            // Process doesn't exist, remove stale PID file
+            unlink(pid_file);
+        } else {
+            fclose(fp);
         }
-    }
-    
-    // Check for running process using pgrep
-    FILE *fp = popen("pgrep -x coolerdash", "r");
-    if (!fp) {
-        return 0; // If pgrep fails, assume no conflicts
-    }
-    
-    int found_pid = 0;
-    int pid;
-    while (fscanf(fp, "%d", &pid) == 1) {
-        if (!is_service_start || pid != getpid()) {
-            found_pid = pid;
-            break;
-        }
-    }
-    pclose(fp);
-    
-    if (found_pid > 0) {
-        printf("CoolerDash: Error - another coolerdash process is already running (PID %d)\n"
-               "Stop it first: kill %d\n", found_pid, found_pid);
-        return -1;
     }
     
     return 0;
@@ -159,42 +148,22 @@ static int run_daemon(const Config *config) {
         .tv_nsec = config->display_refresh_interval_nsec
     };
     
+    struct timespec next_time;
+    clock_gettime(CLOCK_MONOTONIC, &next_time);
+
     while (running) {
-        struct timespec start, end;
+        // Calculate next execution time
+        next_time.tv_sec += interval.tv_sec;
+        next_time.tv_nsec += interval.tv_nsec;
+        if (next_time.tv_nsec >= 1000000000) {
+            next_time.tv_sec++;
+            next_time.tv_nsec -= 1000000000;
+        }
         
-        clock_gettime(CLOCK_MONOTONIC, &start);
         draw_combined_image(config);
-        clock_gettime(CLOCK_MONOTONIC, &end);
         
-        // Calculate elapsed time
-        struct timespec elapsed = {
-            .tv_sec = end.tv_sec - start.tv_sec,
-            .tv_nsec = end.tv_nsec - start.tv_nsec
-        };
-        
-        // Normalize negative nanoseconds
-        if (elapsed.tv_nsec < 0) {
-            elapsed.tv_sec--;
-            elapsed.tv_nsec += 1000000000;
-        }
-        
-        // Calculate remaining sleep time
-        struct timespec sleep_time = {
-            .tv_sec = interval.tv_sec - elapsed.tv_sec,
-            .tv_nsec = interval.tv_nsec - elapsed.tv_nsec
-        };
-        
-        // Normalize negative nanoseconds
-        if (sleep_time.tv_nsec < 0) {
-            sleep_time.tv_sec--;
-            sleep_time.tv_nsec += 1000000000;
-        }
-        
-        // Sleep only if there's remaining time
-        if (sleep_time.tv_sec > 0 || 
-            (sleep_time.tv_sec == 0 && sleep_time.tv_nsec > 0)) {
-            nanosleep(&sleep_time, NULL);
-        }
+        // Sleep until absolute time
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
     }
     
     return 0;
@@ -229,18 +198,6 @@ static void show_help(const char *program_name, const Config *config) {
            program_name, program_name);
 }
 
-/**
- * @brief Signal handler for clean shutdown (sends shutdown image).
- * @details Sends the shutdown image to the LCD if not already sent and UID is available, then sets running=0.
- * @example
- *     handle_shutdown_signal(signum);
- */
-static void handle_shutdown_signal(int signum)
-{
-    (void)signum;  // Suppress unused parameter warning
-    running = 0;   // Signal graceful shutdown
-}
-
 static void send_shutdown_image_if_needed(void) {
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
         cc_sensor_data_t shutdown_data = {0};
@@ -252,6 +209,19 @@ static void send_shutdown_image_if_needed(void) {
             }
         }
     }
+}
+
+/**
+ * @brief Signal handler for clean shutdown (sends shutdown image).
+ * @details Sends the shutdown image to the LCD if not already sent and UID is available, then sets running=0.
+ * @example
+ *     handle_shutdown_signal(signum);
+ */
+static void handle_shutdown_signal(int signum)
+{
+    (void)signum;  // Suppress unused parameter warning
+    send_shutdown_image_if_needed();  // Send shutdown image immediately
+    running = 0;   // Signal graceful shutdown
 }
 
 /**
@@ -324,7 +294,6 @@ int main(int argc, char **argv)
 
     // Run daemon and cleanup
     int result = run_daemon(&config);
-    send_shutdown_image_if_needed();
     remove_pid_file(config.paths_pid);
     running = 0;
     return result;

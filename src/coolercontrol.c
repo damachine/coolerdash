@@ -184,9 +184,15 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     // Perform request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     
-    // Get response code
-    long response_code = 0;
-    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
+    // Get HTTP response code
+    long http_response_code = -1;
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
+
+    // Validate response code is within valid HTTP range
+    if (http_response_code < 100 || http_response_code > 599) {
+        fprintf(stderr, "Invalid HTTP response code: %ld\n", http_response_code);
+        return CC_ERROR_INVALID_RESPONSE;
+    }
     
     // Cleanup
     curl_mime_free(form);
@@ -195,7 +201,7 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
     
     // Return success status
-    return (res == CURLE_OK && response_code == 200);
+    return (res == CURLE_OK && http_response_code == 200);
 }
 
 /**
