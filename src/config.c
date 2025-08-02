@@ -27,179 +27,233 @@
 
 // Include project headers
 #include "../include/config.h"
+#include "../include/coolercontrol.h"
 
 /**
- * @brief INI parser handler, sets values in Config struct.
- * @details Called for each key-value pair in the INI file. Matches section and key names and sets the corresponding field in the Config struct. Unrecognized keys are ignored. For string fields, strncpy is used and buffers are always null-terminated for safety.
+ * @brief Helper function for color parsing with validation.
+ * @details Parses RGB color values and clamps them to valid range (0-255).
+ * @example
+ *     parse_color_component(value, &config->font_color_temp.r);
+ */
+static void parse_color_component(const char *value, int *component) {
+    if (!value || !component) return;
+    int val = atoi(value);
+    *component = (val < 0) ? 0 : (val > 255) ? 255 : val;
+}
+
+/**
+ * @brief Handle daemon section configuration.
+ * @details Processes daemon-related configuration keys (address, password).
+ * @example
+ *     handle_daemon_section(config, "address", "http://localhost:11987");
+ */
+static int handle_daemon_section(Config *config, const char *name, const char *value) {
+    if (strcmp(name, "address") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->daemon_address, value);
+        }
+    } else if (strcmp(name, "password") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->daemon_password, value);
+        }
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle paths section configuration.
+ * @details Processes path-related configuration keys (images, pid, etc.).
+ * @example
+ *     handle_paths_section(config, "images", "/opt/coolerdash/images");
+ */
+static int handle_paths_section(Config *config, const char *name, const char *value) {
+    if (strcmp(name, "images") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->paths_images, value);
+        }
+    } else if (strcmp(name, "image_coolerdash") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->paths_image_coolerdash, value);
+        }
+    } else if (strcmp(name, "image_shutdown") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->paths_image_shutdown, value);
+        }
+    } else if (strcmp(name, "pid") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->paths_pid, value);
+        }
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle display section configuration.
+ * @details Processes display-related configuration keys (width, height, brightness, etc.).
+ * @example
+ *     handle_display_section(config, "width", "240");
+ */
+static int handle_display_section(Config *config, const char *name, const char *value) {
+    if (strcmp(name, "width") == 0) {
+        int width = atoi(value);
+        config->display_width = (width > 0) ? width : 0;
+    } else if (strcmp(name, "height") == 0) {
+        int height = atoi(value);
+        config->display_height = (height > 0) ? height : 0;
+    } else if (strcmp(name, "refresh_interval_sec") == 0) {
+        config->display_refresh_interval_sec = (value && value[0] != '\0') ? atoi(value) : 0;
+    } else if (strcmp(name, "refresh_interval_nsec") == 0) {
+        config->display_refresh_interval_nsec = (value && value[0] != '\0') ? atoi(value) : 0;
+    } else if (strcmp(name, "brightness") == 0) {
+        int brightness = (value && value[0] != '\0') ? atoi(value) : 0;
+        config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? brightness : 0;
+    } else if (strcmp(name, "orientation") == 0) {
+        config->lcd_orientation = (value && value[0] != '\0') ? atoi(value) : 0;
+    } else if (strcmp(name, "temp_1_update_threshold") == 0) {
+        config->temp_1_update_threshold = (value && value[0] != '\0') ? (float)atof(value) : 0.0f;
+    } else if (strcmp(name, "temp_2_update_threshold") == 0) {
+        config->temp_2_update_threshold = (value && value[0] != '\0') ? (float)atof(value) : 0.0f;
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle layout section configuration.
+ * @details Processes layout-related configuration keys (box dimensions, bar settings, etc.).
+ * @example
+ *     handle_layout_section(config, "box_width", "240");
+ */
+static int handle_layout_section(Config *config, const char *name, const char *value) {
+    if (strcmp(name, "box_width") == 0) {
+        config->layout_box_width = (value && value[0] != '\0') ? atoi(value) : 0;
+    } else if (strcmp(name, "box_height") == 0) {
+        config->layout_box_height = (value && value[0] != '\0') ? atoi(value) : 0;
+    } else if (strcmp(name, "box_gap") == 0) {
+        config->layout_box_gap = atoi(value);
+    } else if (strcmp(name, "bar_width") == 0) {
+        config->layout_bar_width = atoi(value);
+    } else if (strcmp(name, "bar_height") == 0) {
+        config->layout_bar_height = atoi(value);
+    } else if (strcmp(name, "bar_gap") == 0) {
+        config->layout_bar_gap = atoi(value);
+    } else if (strcmp(name, "bar_border_width") == 0) {
+        config->layout_bar_border_width = (float)atof(value);
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle font section configuration.
+ * @details Processes font-related configuration keys (face, sizes).
+ * @example
+ *     handle_font_section(config, "font_face", "Roboto Black");
+ */
+static int handle_font_section(Config *config, const char *name, const char *value) {
+    if (strcmp(name, "font_face") == 0) {
+        if (value && value[0] != '\0') {
+            SAFE_STRCPY(config->font_face, value);
+        }
+    } else if (strcmp(name, "font_size_temp") == 0) {
+        config->font_size_temp = (float)atof(value);
+    } else if (strcmp(name, "font_size_labels") == 0) {
+        config->font_size_labels = (float)atof(value);
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle temperature section configuration.
+ * @details Processes temperature threshold configuration keys.
+ * @example
+ *     handle_temperature_section(config, "temp_threshold_1", "55.0");
+ */
+static int handle_temperature_section(Config *config, const char *name, const char *value) {
+    if (strcmp(name, "temp_threshold_1") == 0) {
+        config->temp_threshold_1 = (float)atof(value);
+    } else if (strcmp(name, "temp_threshold_2") == 0) {
+        config->temp_threshold_2 = (float)atof(value);
+    } else if (strcmp(name, "temp_threshold_3") == 0) {
+        config->temp_threshold_3 = (float)atof(value);
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle color section configuration.
+ * @details Processes color-related configuration keys for various UI elements.
+ * @example
+ *     handle_color_section(config, "bar_color_background", "r", "64");
+ */
+static int handle_color_section(Config *config, const char *section, const char *name, const char *value) {
+    if (strcmp(section, "bar_color_background") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->layout_bar_color_background.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->layout_bar_color_background.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->layout_bar_color_background.b);
+    } else if (strcmp(section, "bar_color_border") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->layout_bar_color_border.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->layout_bar_color_border.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->layout_bar_color_border.b);
+    } else if (strcmp(section, "font_color_temp") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->font_color_temp.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->font_color_temp.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->font_color_temp.b);
+    } else if (strcmp(section, "font_color_label") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->font_color_label.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->font_color_label.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->font_color_label.b);
+    } else if (strcmp(section, "temp_threshold_1_bar") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->temp_threshold_1_bar.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->temp_threshold_1_bar.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->temp_threshold_1_bar.b);
+    } else if (strcmp(section, "temp_threshold_2_bar") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->temp_threshold_2_bar.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->temp_threshold_2_bar.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->temp_threshold_2_bar.b);
+    } else if (strcmp(section, "temp_threshold_3_bar") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->temp_threshold_3_bar.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->temp_threshold_3_bar.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->temp_threshold_3_bar.b);
+    } else if (strcmp(section, "temp_threshold_4_bar") == 0) {
+        if (strcmp(name, "r") == 0) parse_color_component(value, &config->temp_threshold_4_bar.r);
+        else if (strcmp(name, "g") == 0) parse_color_component(value, &config->temp_threshold_4_bar.g);
+        else if (strcmp(name, "b") == 0) parse_color_component(value, &config->temp_threshold_4_bar.b);
+    }
+    return 1;
+}
+
+/**
+ * @brief Main INI parser handler, delegates to section-specific handlers.
+ * @details Called for each key-value pair in the INI file. Routes to appropriate section handler for cleaner code organization.
  * @example
  *     ini_parse("/opt/coolerdash/config.ini", inih_config_handler, &cfg);
  */
-static int inih_config_handler(void *user, const char *section, const char *name, const char *value)
-{
+static int inih_config_handler(void *user, const char *section, const char *name, const char *value) {
     Config *config = (Config *)user;
 
-    // Helper function for color parsing with validation
-    #define PARSE_COLOR(color_struct, component) \
-        if (strcmp(name, #component) == 0) { \
-            int val = atoi(value); \
-            color_struct.component = (val < 0) ? 0 : (val > 255) ? 255 : val; \
-        }
-
-    // Daemon section
+    // Route to appropriate section handler
     if (strcmp(section, "daemon") == 0) {
-        if (strcmp(name, "address") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->daemon_address, value);
-            } else {
-                SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
-            }
-        } else if (strcmp(name, "password") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->daemon_password, value);
-            } else {
-                SAFE_STRCPY(config->daemon_password, "coolAdmin");
-            }
-        }
+        return handle_daemon_section(config, name, value);
+    } else if (strcmp(section, "paths") == 0) {
+        return handle_paths_section(config, name, value);
+    } else if (strcmp(section, "display") == 0) {
+        return handle_display_section(config, name, value);
+    } else if (strcmp(section, "layout") == 0) {
+        return handle_layout_section(config, name, value);
+    } else if (strcmp(section, "font") == 0) {
+        return handle_font_section(config, name, value);
+    } else if (strcmp(section, "temperature") == 0) {
+        return handle_temperature_section(config, name, value);
+    } else if (strstr(section, "color") != NULL || strstr(section, "_bar") != NULL) {
+        // Handle all color sections (bar_color_*, font_color_*, temp_threshold_*_bar)
+        return handle_color_section(config, section, name, value);
     }
-    // Paths section
-    else if (strcmp(section, "paths") == 0) {
-        if (strcmp(name, "images") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->paths_images, value);
-            } else {
-                SAFE_STRCPY(config->paths_images, "/opt/coolerdash/images");
-            }
-        } else if (strcmp(name, "image_coolerdash") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->paths_image_coolerdash, value);
-            } else {
-                SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
-            }
-        } else if (strcmp(name, "image_shutdown") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->paths_image_shutdown, value);
-            } else {
-                SAFE_STRCPY(config->paths_image_shutdown, "/opt/coolerdash/images/shutdown.png");
-            }
-        } else if (strcmp(name, "pid") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->paths_pid, value);
-            } else {
-                SAFE_STRCPY(config->paths_pid, "/run/coolerdash/coolerdash.pid");
-            }
-        }
-    }
-    // Display section
-    else if (strcmp(section, "display") == 0) {
-        if (strcmp(name, "width") == 0) {
-            int width = atoi(value);
-            config->display_width = (width > 0) ? width : 240;
-        }
-        else if (strcmp(name, "height") == 0) {
-            int height = atoi(value);
-            config->display_height = (height > 0) ? height : 240;
-        }
-        else if (strcmp(name, "refresh_interval_sec") == 0) {
-            config->display_refresh_interval_sec = (value && value[0] != '\0') ? atoi(value) : 2;
-        }
-        else if (strcmp(name, "refresh_interval_nsec") == 0) {
-            config->display_refresh_interval_nsec = (value && value[0] != '\0') ? atoi(value) : 500000000;
-        }
-        else if (strcmp(name, "brightness") == 0) {
-            int brightness = (value && value[0] != '\0') ? atoi(value) : 80;
-            config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? brightness : 80;
-        }
-        else if (strcmp(name, "orientation") == 0) {
-            config->lcd_orientation = (value && value[0] != '\0') ? atoi(value) : 0;
-        }
-        else if (strcmp(name, "temp_1_update_threshold") == 0) {
-            config->temp_1_update_threshold = (value && value[0] != '\0') ? (float)atof(value) : 1.0f;
-        }
-        else if (strcmp(name, "temp_2_update_threshold") == 0) {
-            config->temp_2_update_threshold = (value && value[0] != '\0') ? (float)atof(value) : 1.0f;
-        }
-    }
-    // Layout section
-    else if (strcmp(section, "layout") == 0) {
-        if (strcmp(name, "box_width") == 0) {
-            config->layout_box_width = (value && value[0] != '\0') ? atoi(value) : config->display_width;
-        }
-        else if (strcmp(name, "box_height") == 0) {
-            config->layout_box_height = (value && value[0] != '\0') ? atoi(value) : (config->display_height / 2);
-        }
-        else if (strcmp(name, "box_gap") == 0) config->layout_box_gap = atoi(value);
-        else if (strcmp(name, "bar_width") == 0) config->layout_bar_width = atoi(value);
-        else if (strcmp(name, "bar_height") == 0) config->layout_bar_height = atoi(value);
-        else if (strcmp(name, "bar_gap") == 0) config->layout_bar_gap = atoi(value);
-        else if (strcmp(name, "bar_border_width") == 0) config->layout_bar_border_width = (float)atof(value);
-    }
-    // Color sections
-    else if (strcmp(section, "bar_color_background") == 0) {
-        PARSE_COLOR(config->layout_bar_color_background, r);
-        PARSE_COLOR(config->layout_bar_color_background, g);
-        PARSE_COLOR(config->layout_bar_color_background, b);
-    }
-    else if (strcmp(section, "bar_color_border") == 0) {
-        PARSE_COLOR(config->layout_bar_color_border, r);
-        PARSE_COLOR(config->layout_bar_color_border, g);
-        PARSE_COLOR(config->layout_bar_color_border, b);
-    }
-    // Font section
-    else if (strcmp(section, "font") == 0) {
-        if (strcmp(name, "font_face") == 0) {
-            if (value && value[0] != '\0') {
-                SAFE_STRCPY(config->font_face, value);
-            } else {
-                SAFE_STRCPY(config->font_face, "Roboto Black");
-            }
-        } else if (strcmp(name, "font_size_temp") == 0) config->font_size_temp = (float)atof(value);
-        else if (strcmp(name, "font_size_labels") == 0) config->font_size_labels = (float)atof(value);
-    }
-    else if (strcmp(section, "font_color_temp") == 0) {
-        PARSE_COLOR(config->font_color_temp, r);
-        PARSE_COLOR(config->font_color_temp, g);
-        PARSE_COLOR(config->font_color_temp, b);
-    }
-    else if (strcmp(section, "font_color_label") == 0) {
-        PARSE_COLOR(config->font_color_label, r);
-        PARSE_COLOR(config->font_color_label, g);
-        PARSE_COLOR(config->font_color_label, b);
-    }
-    // Temperature section
-    else if (strcmp(section, "temperature") == 0) {
-        if (strcmp(name, "temp_threshold_1") == 0) config->temp_threshold_1 = (float)atof(value);
-        else if (strcmp(name, "temp_threshold_2") == 0) config->temp_threshold_2 = (float)atof(value);
-        else if (strcmp(name, "temp_threshold_3") == 0) config->temp_threshold_3 = (float)atof(value);
-    }
-    else if (strcmp(section, "temp_threshold_1_bar") == 0) {
-        PARSE_COLOR(config->temp_threshold_1_bar, r);
-        PARSE_COLOR(config->temp_threshold_1_bar, g);
-        PARSE_COLOR(config->temp_threshold_1_bar, b);
-    }
-    else if (strcmp(section, "temp_threshold_2_bar") == 0) {
-        PARSE_COLOR(config->temp_threshold_2_bar, r);
-        PARSE_COLOR(config->temp_threshold_2_bar, g);
-        PARSE_COLOR(config->temp_threshold_2_bar, b);
-    }
-    else if (strcmp(section, "temp_threshold_3_bar") == 0) {
-        PARSE_COLOR(config->temp_threshold_3_bar, r);
-        PARSE_COLOR(config->temp_threshold_3_bar, g);
-        PARSE_COLOR(config->temp_threshold_3_bar, b);
-    }
-    else if (strcmp(section, "temp_threshold_4_bar") == 0) {
-        PARSE_COLOR(config->temp_threshold_4_bar, r);
-        PARSE_COLOR(config->temp_threshold_4_bar, g);
-        PARSE_COLOR(config->temp_threshold_4_bar, b);
-    }
-
-    #undef PARSE_COLOR
     
-    return 1;
+    return 1; // Unknown section, but continue parsing
 }
 
 /*
  * @brief Sets fallback default values for missing or empty configuration fields.
- * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided.
+ * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided. Tries to get LCD display dimensions from Liquidctl device as fallback.
  * @example
  *     Config cfg;
  *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) { // handle error }
@@ -215,9 +269,15 @@ void config_apply_fallbacks(Config *config){
     if (config->paths_image_coolerdash[0] == '\0') SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
     if (config->paths_image_shutdown[0] == '\0') SAFE_STRCPY(config->paths_image_shutdown, "/opt/coolerdash/images/shutdown.png");
     if (config->paths_pid[0] == '\0') SAFE_STRCPY(config->paths_pid, "/run/coolerdash/coolerdash.pid");
-    // Display
-    if (config->display_width == 0) config->display_width = 240;
-    if (config->display_height == 0) config->display_height = 240;
+    // Display - try to get dimensions from Liquidctl device first
+    if (config->display_width == 0 || config->display_height == 0) {
+        int lcd_width = 0, lcd_height = 0;
+        // Try to get LCD display info from Liquidctl device via API
+        if (get_liquidctl_display_info(config, &lcd_width, &lcd_height) && lcd_width > 0 && lcd_height > 0) {
+            if (config->display_width == 0) config->display_width = lcd_width;
+            if (config->display_height == 0) config->display_height = lcd_height;
+        }
+    }
     if (config->display_refresh_interval_sec == 0) config->display_refresh_interval_sec = 2;
     if (config->display_refresh_interval_nsec == 0) config->display_refresh_interval_nsec = 500000000;
     if (config->lcd_brightness == 0) config->lcd_brightness = 80;
@@ -284,7 +344,7 @@ void config_apply_fallbacks(Config *config){
 
 /**
  * @brief Loads configuration from INI file.
- * @details Parses the INI file and fills the Config struct. Returns 0 on success, -1 on error. Always check the return value.
+ * @details Parses the INI file and fills the Config struct. Returns 0 on success, -1 on error. Always check the return value. Initializes config struct with zeros first, then applies fallbacks.
  * @example
  *     Config cfg;
  *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) {
@@ -298,15 +358,24 @@ int load_config_ini(Config *config, const char *path)
         return -1;
     }
     
+    // Initialize config struct with zeros to ensure fallbacks work
+    memset(config, 0, sizeof(Config));
+    
     // Check if file exists and is readable
     FILE *file = fopen(path, "r");
     if (!file) {
-        return -1;
+        // File doesn't exist - use fallbacks only
+        printf("Config file '%s' not found, using fallback values\n", path);
+        config_apply_fallbacks(config);
+        return 0; // Return success, fallbacks are valid
     }
     fclose(file);
     
     // Parse INI file and return success/failure
     int result = (ini_parse(path, inih_config_handler, config) < 0) ? -1 : 0;
+    
+    // Always apply fallbacks after parsing (for missing/commented values)
     config_apply_fallbacks(config);
+    
     return result;
 }

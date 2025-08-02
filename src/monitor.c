@@ -8,10 +8,10 @@
 
 /**
  * @brief Monitor API for reading CPU and GPU temperatures via CoolerControl OpenAPI.
- * @details Provides functions to initialize the monitor subsystem and read sensor values (CPU/GPU) from the API.
+ * @details Provides functions to initialize the monitor subsystem and read CPU/GPU temperature values from the API. Liquidctl device handling is in coolercontrol.c.
  * @example
- *     float cpu, gpu;
- *     if (monitor_get_sensor_data(&config, &cpu, &gpu)) { ... }
+ *     float temp_1, temp_2;
+ *     if (get_temperature_data(&config, &temp_1, &temp_2)) { ... }
  */
 
 // Include necessary headers
@@ -27,31 +27,18 @@
 #include "../include/coolercontrol.h"
 
 /**
- * @brief Initialize the monitor component with the given configuration.
- * @details Currently does nothing but returns success. Future implementations may include initialization logic.
- * @example
- *     if (monitor_init(&config)) { ... }
- */
-int monitor_init(const Config *config) {
-    (void)config;
-    return 1;
-}
-
-/**
- * @brief Parse sensor JSON and extract temperatures and LCD UID.
+ * @brief Parse sensor JSON and extract temperatures from CPU and GPU devices.
  * @details Helper for monitor_get_sensor_data. Returns 1 on success, 0 on failure.
  * @example
- *     float cpu, gpu; char uid[128];
- *     parse_sensor_json(json, &cpu, &gpu, uid, sizeof(uid), &found_liquidctl);
+ *     float cpu, gpu;
+ *     parse_temperature_json(json, &cpu, &gpu);
  */
-static int parse_sensor_json(const char *json, float *temp_1, float *temp_2, char *lcd_uid, size_t uid_size, int *found_liquidctl) {
+static int parse_temperature_json(const char *json, float *temp_1, float *temp_2) {
     // Validate input and initialize output parameters
     if (!json) return 0;
     
     if (temp_1) *temp_1 = 0.0f;
     if (temp_2) *temp_2 = 0.0f;
-    if (lcd_uid && uid_size > 0) lcd_uid[0] = '\0';
-    if (found_liquidctl) *found_liquidctl = 0;
 
     // Parse JSON
     json_t *root = json_loads(json, 0, NULL);
@@ -70,19 +57,6 @@ static int parse_sensor_json(const char *json, float *temp_1, float *temp_2, cha
         if (!type_val || !json_is_string(type_val)) continue;
         
         const char *type_str = json_string_value(type_val);
-
-        // Handle Liquidctl device - mostly LCD devices
-        if (strcmp(type_str, "Liquidctl") == 0) {
-            if (found_liquidctl) *found_liquidctl = 1;
-            if (lcd_uid && uid_size > 0) {
-                json_t *uid_val = json_object_get(dev, "uid");
-                if (uid_val && json_is_string(uid_val)) {
-                    strncpy(lcd_uid, json_string_value(uid_val), uid_size - 1);
-                    lcd_uid[uid_size - 1] = '\0';
-                }
-            }
-            continue;
-        }
 
         // Extract temperatures from CPU or GPU devices
         if (strcmp(type_str, "CPU") != 0 && strcmp(type_str, "GPU") != 0) continue;
@@ -123,15 +97,15 @@ static int parse_sensor_json(const char *json, float *temp_1, float *temp_2, cha
 }
 
 /**
- * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
- * @details Reads the current CPU and GPU temperatures and LCD UID via API. Returns 1 on success, 0 on failure.
+ * @brief Get CPU and GPU temperature data from CoolerControl API.
+ * @details Reads the current CPU and GPU temperatures via API. Returns 1 on success, 0 on failure.
  * @example
- *     cc_sensor_data_t data;
- *     if (monitor_get_sensor_data(&config, &data)) { ... }
+ *     float temp_1, temp_2;
+ *     if (get_temperature_data(&config, &temp_1, &temp_2)) { ... }
  */
-int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
-    // Check if config and data pointers are valid
-    if (!config || !data) return 0;
+int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
+    // Check if config and temperature pointers are valid
+    if (!config || !temp_1 || !temp_2) return 0;
     
     CURL *curl = curl_easy_init();
     if (!curl) return 0;
@@ -167,14 +141,12 @@ int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
     
     // Initialize parsing variables
-    int found_liquidctl = 0; // Flag to check if Liquidctl device is found
-    float temp_1 = 0.0f, temp_2 = 0.0f; // Initialize temperatures
-    char lcd_uid[128] = ""; // Buffer for LCD UID
+    float cpu_temp = 0.0f, gpu_temp = 0.0f; // Initialize temperatures
     int result = 0;
     
     // Perform request and parse response
     if (curl_easy_perform(curl) == CURLE_OK) {
-        result = parse_sensor_json(chunk.data, &temp_1, &temp_2, lcd_uid, sizeof(lcd_uid), &found_liquidctl);
+        result = parse_temperature_json(chunk.data, &cpu_temp, &gpu_temp);
     }
     
     // Clean up resources
@@ -182,16 +154,56 @@ int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     
-    if (!found_liquidctl) {
-        fprintf(stderr, "[coolerdash] ERROR: No Liquidctl device found. Exiting.\n");
-        return 0;
-    }
-    
-    // Fill the cc_sensor_data_t structure with the parsed data
-    data->temp_1 = temp_1;
-    data->temp_2 = temp_2;
-    strncpy(data->device_uid, lcd_uid, sizeof(data->device_uid) - 1);
-    data->device_uid[sizeof(data->device_uid) - 1] = '\0';
+    // Set output values
+    *temp_1 = cpu_temp;
+    *temp_2 = gpu_temp;
     
     return result;
 }
+
+/**
+ * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
+ * @details Reads the current CPU and GPU temperatures and LCD UID via API. Returns 1 on success, 0 on failure.
+ * @example
+ *     cc_sensor_data_t data;
+ *     if (monitor_get_sensor_data(&config, &data)) { ... }
+ */
+int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
+    // Check if config and data pointers are valid
+    if (!config || !data) return 0;
+
+    // Get temperature data from monitor module
+    float temp_1, temp_2;
+    if (!get_temperature_data(config, &temp_1, &temp_2)) {
+        return 0;
+    }
+
+    // If device_uid is already set, use it; otherwise get it from API
+    if (data->device_uid[0] == '\0') {
+        // Get LCD device UID from coolercontrol module
+        char device_uid[CC_UID_SIZE];
+        if (!get_liquidctl_device_uid(config, device_uid, sizeof(device_uid))) {
+            return 0;
+        }
+        strncpy(data->device_uid, device_uid, sizeof(data->device_uid) - 1);
+        data->device_uid[sizeof(data->device_uid) - 1] = '\0';
+    }
+
+    // Fill the temperature data
+    data->temp_1 = temp_1;
+    data->temp_2 = temp_2;
+
+    return 1;
+}
+
+/**
+ * @brief Initialize the monitor component with the given configuration.
+ * @details Currently does nothing but returns success. Future implementations may include initialization logic.
+ * @example
+ *     if (monitor_init(&config)) { ... }
+ */
+int monitor_init(const Config *config) {
+    (void)config;
+    return 1;
+}
+

@@ -100,6 +100,42 @@ void cleanup_and_exit(int sig, const Config *config, volatile sig_atomic_t *shut
  */
 int monitor_init(const Config *config);
 
+/**
+ * @brief Get Liquidctl device UID from CoolerControl API.
+ * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
+ * @example
+ *     char uid[128];
+ *     if (get_liquidctl_device_uid(&config, uid, sizeof(uid))) { ... }
+ */
+int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_size);
+
+/**
+ * @brief Get Liquidctl device display info (screen_width and screen_height) from CoolerControl API.
+ * @details Reads the LCD display dimensions via API. Returns 1 on success, 0 on failure.
+ * @example
+ *     int width, height;
+ *     if (get_liquidctl_display_info(&config, &width, &height)) { ... }
+ */
+int get_liquidctl_display_info(const Config *config, int *screen_width, int *screen_height);
+
+/**
+ * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from CoolerControl API.
+ * @details Reads all LCD device information via API in one call. Returns 1 on success, 0 on failure.
+ * @example
+ *     char uid[128], name[128]; int width, height;
+ *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), name, sizeof(name), &width, &height)) { ... }
+ */
+int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
+
+/**
+ * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
+ * @details Reads the current CPU and GPU temperatures and LCD UID via API. Returns 1 on success, 0 on failure.
+ * @example
+ *     cc_sensor_data_t data;
+ *     if (monitor_get_sensor_data(&config, &data)) { ... }
+ */
+int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data);
+
 /*
  * @brief Response buffer for libcurl HTTP operations.
  * @details Used to collect HTTP response data in memory.

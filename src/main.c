@@ -266,31 +266,53 @@ int main(int argc, char **argv)
     // Initialize CoolerControl session
     if (!init_coolercontrol_session(&config)) {
         fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
-                       "Please check:\n"
-                       "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
-                       "  - Is the daemon running on localhost:11987?\n"
-                       "  - Is the password correct? (see config.h)\n");
+                        "Please check:\n"
+                        "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
+                        "  - Is the daemon running on localhost:11987?\n"
+                        "  - Is the password correct? (see config.h)\n");
         fflush(stderr);
         remove_pid_file(config.paths_pid);
         return 1;
     }
 
-    printf("Coolercontrol sensor API initialized\n");
+    printf("CoolerDash sensor API initialized to Coolercontrol\n");
     fflush(stdout);
 
-    // Retrieve and display device information
+    printf("CoolerDash read config file: %s\n", config_path);
+    fflush(stdout);
+
+    // Retrieve all device information in one API call
     cc_sensor_data_t cc_data = {0};
-    if (monitor_get_sensor_data(&config, &cc_data)) {
-        const char *uid_msg = (cc_data.device_uid[0] != '\0') 
-            ? cc_data.device_uid 
+    char device_name[128] = {0};
+    int api_screen_width = 0, api_screen_height = 0;
+
+    // Get complete device info (UID, name, dimensions) in single API call
+    if (get_liquidctl_device_info(&config, cc_data.device_uid, sizeof(cc_data.device_uid),
+                                device_name, sizeof(device_name), &api_screen_width, &api_screen_height)) {
+        const char *uid_msg = (cc_data.device_uid[0] != '\0')
+            ? cc_data.device_uid
             : "Unknown device UID detected";
-        fprintf(stderr, "CoolerDash connected device UID: %s\n", uid_msg);
+        fprintf(stderr, "CoolerDash connected retrieved device UID: %s\n", uid_msg);
+        printf("CoolerDash retrieved device name: %s\n", device_name[0] ? device_name : "Unknown");
+
+        // Now get temperature data using the retrieved UID
+        if (!monitor_get_sensor_data(&config, &cc_data)) {
+            fprintf(stderr, "CoolerDash could not retrieve temperature sensor data.\n");
+        }
     } else {
-        fprintf(stderr, "CoolerDash could not retrieve device UID and name.\n");
+        fprintf(stderr, "CoolerDash could not retrieve device information.\n");
     }
 
-    printf("CoolerDash read config file:\n");
-    fflush(stdout);
+    // Display configured dimensions from config.ini
+    printf("CoolerDash display dimensions (configured): %dx%d pixels\n",
+           config.display_width, config.display_height);
+
+    // Optionally show API dimensions for comparison if they differ
+    if (api_screen_width > 0 && api_screen_height > 0 &&
+        (api_screen_width != config.display_width || api_screen_height != config.display_height)) {
+        printf("Coolercontrol display dimensions (from API): %dx%d pixels\n",
+               api_screen_width, api_screen_height);
+    }
 
     // Run daemon and cleanup
     int result = run_daemon(&config);

@@ -41,7 +41,7 @@
 #include "../include/display.h"
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
-#include "monitor.h"
+#include "../include/monitor.h"
 
 /**
  * @brief Forward declarations for internal display rendering functions.
