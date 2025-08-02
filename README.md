@@ -16,8 +16,6 @@ Transform your cooling system into an intelligent monitoring hub that keeps you 
 
 Special thanks to @codifryed, the developer of CoolerControl, for making this possible!
 
----
-
 ### 📸 Screenshot – Example LCD Output
 
 <div align="center">
@@ -27,10 +25,6 @@ Special thanks to @codifryed, the developer of CoolerControl, for making this po
 
 *Left: Live temperature monitoring image on NZXT Kraken 2023 LCD display  
 Right: AI-generated image to demonstrate LCD output*
-
-**👨‍💻 Author:** DAMACHINE ([christkue79@gmail.com](mailto:christkue79@gmail.com))  
-**🧪 Tested with:** NZXT Kraken 2023 (Z-Series) - Developer's personal system  
-**🔗 Compatible:** NZXT Kraken X-Series, Z-Series and other LCD-capable models (Asus, MSI, NZXT, etc.)*(theoretical)*
 
 ## ✨ Features
 
@@ -42,6 +36,8 @@ Right: AI-generated image to demonstrate LCD output*
 - **🔒 Enhanced Security**: Runs as dedicated non-root user for improved system security
 
 > **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
+
+---
 
 ## 🖥️ System Requirements
 
@@ -275,7 +271,7 @@ If you find CoolerDash useful and want to support its development:
 
 ---
 
-**👨‍💻 Developed by DAMACHINE for maximum efficiency and stability.**  
+**👨‍💻 Developed by DAMACHINE**  
 **📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)  
 **📖 Manual:** `man coolerdash`  
 **📍 Binary:** `/opt/coolerdash/bin/coolerdash` (also available as `coolerdash`)  
