@@ -330,26 +330,20 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
         // Extract LCD dimensions with reduced nesting
         if (screen_width || screen_height) {
             json_t *info = json_object_get(dev, "info");
-            if (info) {
-                json_t *channels = json_object_get(info, "channels");
-                if (channels) {
-                    json_t *lcd_channel = json_object_get(channels, "lcd");
-                    if (lcd_channel) {
-                        json_t *lcd_info = json_object_get(lcd_channel, "lcd_info");
-                        if (lcd_info) {
-                            if (screen_width) {
-                                json_t *width_val = json_object_get(lcd_info, "screen_width");
-                                if (width_val && json_is_integer(width_val)) {
-                                    *screen_width = (int)json_integer_value(width_val);
-                                }
-                            }
-                            if (screen_height) {
-                                json_t *height_val = json_object_get(lcd_info, "screen_height");
-                                if (height_val && json_is_integer(height_val)) {
-                                    *screen_height = (int)json_integer_value(height_val);
-                                }
-                            }
-                        }
+            json_t *channels = info ? json_object_get(info, "channels") : NULL;
+            json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
+            json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
+            if (lcd_info) {
+                if (screen_width) {
+                    json_t *width_val = json_object_get(lcd_info, "screen_width");
+                    if (width_val && json_is_integer(width_val)) {
+                        *screen_width = (int)json_integer_value(width_val);
+                    }
+                }
+                if (screen_height) {
+                    json_t *height_val = json_object_get(lcd_info, "screen_height");
+                    if (height_val && json_is_integer(height_val)) {
+                        *screen_height = (int)json_integer_value(height_val);
                     }
                 }
             }
