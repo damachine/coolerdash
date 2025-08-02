@@ -13,33 +13,11 @@
  *     See function documentation for usage examples.
  */
 
-// POSIX and security feature requirements
-#define _POSIX_C_SOURCE 200112L
-
-// Security, performance and layout constants
-#define COLOR_SCALE_FACTOR (1.0/255.0)
-#define CORNER_RADIUS 8.0
-#define DIRECTORY_PERMISSIONS 0755
-#define LABEL_Y_OFFSET_1 8
-#define LABEL_Y_OFFSET_2 15
-#define MAX_TEMP_VALUE 200.0f
-#define MIN_TEMP_VALUE -50.0f
-#define TEMP_DISPLAY_X_OFFSET 22
-#define TEMP_DISPLAY_Y_OFFSET 22
-#define TEMP_STRING_BUFFER_SIZE 16
-
-// Mathematical constants with precision
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-#ifndef M_PI_2  
-#define M_PI_2 1.57079632679489661923
-#endif
-
 // Include necessary headers in logical order
 #include <cairo/cairo.h>
 #include <errno.h>
 #include <math.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,11 +32,38 @@
 #include "../include/monitor.h"
 
 /**
+ * @brief Secure logging function with consistent format.
+ * @details Centralized logging with timestamp and proper error handling.
+ * @example
+ *     log_message(LOG_ERROR, "Failed to initialize: %s", error_msg);
+ */
+typedef enum {
+    LOG_INFO,
+    LOG_WARNING, 
+    LOG_ERROR
+} log_level_t;
+
+static void log_message(log_level_t level, const char *format, ...) {
+    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
+    
+    fprintf(output, "[CoolerDash %s] ", prefix[level]);
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(output, format, args);
+    va_end(args);
+    
+    fprintf(output, "\n");
+    fflush(output);
+}
+
+/**
  * @brief Forward declarations for internal display rendering functions.
  * @details These functions provide modular, optimized rendering with input validationand error handling. All functions use const parameters where appropriate.
+ * @example
+ *     
  */
-
-// Core rendering functions
 static int should_update_display(const sensor_data_t *data, const Config *config);
 static inline void draw_temp_safe(cairo_t *cr, const Config *config, 
                                   double temp_value, double y_offset);
@@ -84,8 +89,8 @@ static int validate_cairo_objects(cairo_t *cr, cairo_surface_t *surface);
  *     float safe_temp = clamp_temperature(raw_temp);
  */
 static inline float clamp_temperature(float temp) {
-    if (temp < MIN_TEMP_VALUE) return MIN_TEMP_VALUE;
-    if (temp > MAX_TEMP_VALUE) return MAX_TEMP_VALUE;
+    if (temp < DISPLAY_MIN_TEMP_VALUE) return DISPLAY_MIN_TEMP_VALUE;
+    if (temp > DISPLAY_MAX_TEMP_VALUE) return DISPLAY_MAX_TEMP_VALUE;
     return temp;
 }
 
@@ -96,7 +101,7 @@ static inline float clamp_temperature(float temp) {
  *     double red = cairo_color_convert(config->font_color_temp.r);
  */
 static inline double cairo_color_convert(uint8_t color_component) {
-    return color_component * COLOR_SCALE_FACTOR;
+    return color_component * DISPLAY_COLOR_SCALE_FACTOR;
 }
 
 /**
@@ -106,7 +111,10 @@ static inline double cairo_color_convert(uint8_t color_component) {
  *     if (create_directory_if_needed(config->paths_images) != 0) handle_error();
  */
 static int create_directory_if_needed(const char *path) {
-    if (!path || !path[0]) return -1;
+    if (!path || !path[0]) {
+        log_message(LOG_ERROR, "Invalid path parameter for directory creation");
+        return -1;
+    }
     
     struct stat st;
     if (stat(path, &st) == 0) {
@@ -114,7 +122,8 @@ static int create_directory_if_needed(const char *path) {
     }
     
     // Directory doesn't exist, create it
-    if (mkdir(path, DIRECTORY_PERMISSIONS) == 0) {
+    if (mkdir(path, DISPLAY_DIRECTORY_PERMISSIONS) == 0) {
+        log_message(LOG_INFO, "Created directory: %s", path);
         return 0;
     }
     
@@ -123,6 +132,7 @@ static int create_directory_if_needed(const char *path) {
         return 0;
     }
     
+    log_message(LOG_ERROR, "Failed to create directory %s: %s", path, strerror(errno));
     return -1;
 }
 
@@ -134,10 +144,15 @@ static int create_directory_if_needed(const char *path) {
  *     if (!validate_cairo_objects(cr, surface)) cleanup_and_return();
  */
 static int validate_cairo_objects(cairo_t *cr, cairo_surface_t *surface) {
-    if (!cr || !surface) return 0;
+    if (!cr || !surface) {
+        log_message(LOG_ERROR, "Invalid cairo objects: cr=%p, surface=%p", cr, surface);
+        return 0;
+    }
     
     if (cairo_status(cr) != CAIRO_STATUS_SUCCESS ||
         cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        log_message(LOG_ERROR, "Cairo objects in error state: cr_status=%d, surface_status=%d", 
+                   cairo_status(cr), cairo_surface_status(surface));
         return 0;
     }
     
@@ -165,6 +180,8 @@ static int should_update_display(const sensor_data_t *data, const Config *config
     
     if (first_run) {
         first_run = false;
+        log_message(LOG_INFO, "Initial temperature reading: CPU=%.1f°C, GPU=%.1f°C", 
+                   current_temp1, current_temp2);
         last_data.temp_1 = current_temp1;
         last_data.temp_2 = current_temp2;
         return 1; // Always update on first run
@@ -178,10 +195,17 @@ static int should_update_display(const sensor_data_t *data, const Config *config
     const bool temp_2_changed = temp_2_delta >= config->temp_2_update_threshold;
     
     if (temp_1_changed || temp_2_changed) {
+        log_message(LOG_INFO, "Temperature update: CPU=%.1f°C (Δ%.1f), GPU=%.1f°C (Δ%.1f)", 
+                   current_temp1, temp_1_delta, current_temp2, temp_2_delta);
         last_data.temp_1 = current_temp1;
         last_data.temp_2 = current_temp2;
         return 1;
     }
+    
+    // No significant change - log for debugging
+    log_message(LOG_INFO, "No update needed: CPU=%.1f°C (Δ%.1f), GPU=%.1f°C (Δ%.1f) - thresholds: %.1f/%.1f", 
+               current_temp1, temp_1_delta, current_temp2, temp_2_delta,
+               config->temp_1_update_threshold, config->temp_2_update_threshold);
     
     return 0; // No significant change
 }
@@ -189,13 +213,16 @@ static int should_update_display(const sensor_data_t *data, const Config *config
 /**
  * @brief Enhanced display rendering with comprehensive error handling and validation.
  * @details Renders the LCD display image using provided sensor data with security features, resource management, and performance optimizations.
+ * @return 1 if display was updated successfully, -1 if no update needed, 0 on error
  * @example
  *     int result = render_display(&config, &sensor_data);
- *     if (!result) handle_rendering_error();
+ *     if (result == 0) handle_rendering_error();
+ *     else if (result == 1) send_to_lcd();
  */
 int render_display(const Config *config, const sensor_data_t *data) {
     // Input validation
     if (!data || !config) {
+        log_message(LOG_ERROR, "Invalid parameters for render_display: config=%p, data=%p", config, data);
         return 0;
     }
     
@@ -204,12 +231,15 @@ int render_display(const Config *config, const sensor_data_t *data) {
         config->display_width > CONFIG_MAX_DISPLAY_SIZE ||
         config->display_height < CONFIG_MIN_DISPLAY_SIZE || 
         config->display_height > CONFIG_MAX_DISPLAY_SIZE) {
+        log_message(LOG_ERROR, "Invalid display dimensions: %dx%d (allowed: %d-%d)", 
+                   config->display_width, config->display_height, 
+                   CONFIG_MIN_DISPLAY_SIZE, CONFIG_MAX_DISPLAY_SIZE);
         return 0;
     }
 
     // Only update if sensor data changed significantly
     if (!should_update_display(data, config)) {
-        return 1; // No update needed, but no error
+        return -1; // No update needed (different from error)
     }
 
     // Create cairo surface with error checking
@@ -217,10 +247,12 @@ int render_display(const Config *config, const sensor_data_t *data) {
                                                          config->display_width, 
                                                          config->display_height);
     if (!surface) {
+        log_message(LOG_ERROR, "Failed to create cairo surface");
         return 0;
     }
     
     if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
+        log_message(LOG_ERROR, "Cairo surface creation failed with status: %d", cairo_surface_status(surface));
         cairo_surface_destroy(surface);
         return 0;
     }
@@ -228,6 +260,7 @@ int render_display(const Config *config, const sensor_data_t *data) {
     // Create cairo context with validation
     cairo_t *cr = cairo_create(surface);
     if (!cr) {
+        log_message(LOG_ERROR, "Failed to create cairo context");
         cairo_surface_destroy(surface);
         return 0;
     }
@@ -267,6 +300,7 @@ int render_display(const Config *config, const sensor_data_t *data) {
 
     // Ensure image directory exists with proper error handling
     if (create_directory_if_needed(config->paths_images) != 0) {
+        log_message(LOG_ERROR, "Failed to create image directory: %s", config->paths_images);
         cairo_destroy(cr);
         cairo_surface_destroy(surface);
         return 0;
@@ -277,8 +311,12 @@ int render_display(const Config *config, const sensor_data_t *data) {
     int success = (write_status == CAIRO_STATUS_SUCCESS);
     
     if (success) {
+        log_message(LOG_INFO, "Display rendered successfully to: %s", config->paths_image_coolerdash);
         // Ensure PNG is written to disk before proceeding (non-blocking)
         fsync(STDOUT_FILENO);
+    } else {
+        log_message(LOG_ERROR, "Failed to write PNG image: %s (status: %d)", 
+                   config->paths_image_coolerdash, write_status);
     }
 
     // Clean up resources
@@ -295,7 +333,7 @@ int render_display(const Config *config, const sensor_data_t *data) {
  *     draw_temp_safe(cr, config, temp_value, y_offset);
  */
 static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp_value, double y_offset) {
-    char temp_str[TEMP_STRING_BUFFER_SIZE];
+    char temp_str[DISPLAY_TEMP_STRING_BUFFER_SIZE];
     cairo_text_extents_t ext;
     
     // Clamp temperature and format safely
@@ -311,7 +349,7 @@ static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp
     }
     
     cairo_text_extents(cr, temp_str, &ext);
-    const double x = (config->layout_box_width - ext.width) / 2 + TEMP_DISPLAY_X_OFFSET;
+    const double x = (config->layout_box_width - ext.width) / 2 + DISPLAY_TEMP_DISPLAY_X_OFFSET;
     const double y = y_offset + (config->layout_box_height + ext.height) / 2;
     cairo_move_to(cr, x, y);
     cairo_show_text(cr, temp_str);
@@ -327,10 +365,10 @@ static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, co
     if (!cr || !data || !config) return;
     
     // temp_1 display (CPU temperature) with validation
-    draw_temp_safe(cr, config, data->temp_1, -TEMP_DISPLAY_Y_OFFSET);
+    draw_temp_safe(cr, config, data->temp_1, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
     
     // temp_2 display (GPU temperature) with validation
-    draw_temp_safe(cr, config, data->temp_2, config->layout_box_height + TEMP_DISPLAY_Y_OFFSET);
+    draw_temp_safe(cr, config, data->temp_2, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
 }
 
 /**
@@ -397,10 +435,10 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
                          cairo_color_convert(config->layout_bar_color_background.b));
     
     cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, -M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, 0, M_PI_2);
-    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, M_PI_2, M_PI);
-    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, M_PI, 1.5 * M_PI);
+    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, -DISPLAY_M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, 0, DISPLAY_M_PI_2);
+    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI_2, DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
     cairo_close_path(cr);
     cairo_fill(cr);
     
@@ -414,12 +452,12 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
     cairo_new_sub_path(cr);
     
     // Optimized rendering based on fill width
-    if (fill_width > 2 * CORNER_RADIUS) {
+    if (fill_width > 2 * DISPLAY_CORNER_RADIUS) {
         // Full rounded corners for wider fills
-        cairo_arc(cr, bar_x + fill_width - CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, -M_PI_2, 0);
-        cairo_arc(cr, bar_x + fill_width - CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, 0, M_PI_2);
-        cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, M_PI_2, M_PI);
-        cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, M_PI, 1.5 * M_PI);
+        cairo_arc(cr, bar_x + fill_width - DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, -DISPLAY_M_PI_2, 0);
+        cairo_arc(cr, bar_x + fill_width - DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, 0, DISPLAY_M_PI_2);
+        cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI_2, DISPLAY_M_PI);
+        cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
     } else if (fill_width > 0) {
         // Simple rectangle for narrow fills (performance optimization)
         cairo_rectangle(cr, bar_x, bar_y, fill_width, config->layout_bar_height);
@@ -438,10 +476,10 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
                          cairo_color_convert(config->layout_bar_color_border.b));
     
     cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, -M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, 0, M_PI_2);
-    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + config->layout_bar_height - CORNER_RADIUS, CORNER_RADIUS, M_PI_2, M_PI);
-    cairo_arc(cr, bar_x + CORNER_RADIUS, bar_y + CORNER_RADIUS, CORNER_RADIUS, M_PI, 1.5 * M_PI);
+    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, -DISPLAY_M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, 0, DISPLAY_M_PI_2);
+    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI_2, DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
     cairo_close_path(cr);
     cairo_stroke(cr);
 }
@@ -485,6 +523,8 @@ static void draw_labels(cairo_t *cr, const Config *config) {
     
     // Validate font size to prevent rendering issues
     if (config->font_size_labels <= 0 || config->font_size_labels > CONFIG_MAX_FONT_SIZE) {
+        log_message(LOG_WARNING, "Invalid font size for labels: %d (max: %d)", 
+                   config->font_size_labels, CONFIG_MAX_FONT_SIZE);
         return;
     }
     
@@ -493,14 +533,14 @@ static void draw_labels(cairo_t *cr, const Config *config) {
     const double font_half_height = config->font_size_labels / 2.0;
     
     // CPU label: left aligned in top box with optimized positioning
-    const double cpu_label_y = box_center_y + font_half_height + LABEL_Y_OFFSET_1;
+    const double cpu_label_y = box_center_y + font_half_height + DISPLAY_LABEL_Y_OFFSET_1;
     if (cpu_label_y > 0 && cpu_label_y < config->display_height) {
         cairo_move_to(cr, 0, cpu_label_y);
         cairo_show_text(cr, "CPU");
     }
     
     // GPU label: left aligned in bottom box with optimized positioning  
-    const double gpu_label_y = config->layout_box_height + box_center_y + font_half_height - LABEL_Y_OFFSET_2;
+    const double gpu_label_y = config->layout_box_height + box_center_y + font_half_height - DISPLAY_LABEL_Y_OFFSET_2;
     if (gpu_label_y > 0 && gpu_label_y < config->display_height) {
         cairo_move_to(cr, 0, gpu_label_y);
         cairo_show_text(cr, "GPU");
@@ -515,7 +555,10 @@ static void draw_labels(cairo_t *cr, const Config *config) {
  */
 void draw_combined_image(const Config *config) {
     // Input validation with early return
-    if (!config) return;
+    if (!config) {
+        log_message(LOG_ERROR, "Invalid config parameter for draw_combined_image");
+        return;
+    }
     
     // Initialize data structures with safe defaults
     sensor_data_t sensor_data = {.temp_1 = 0.0f, .temp_2 = 0.0f};
@@ -523,6 +566,7 @@ void draw_combined_image(const Config *config) {
 
     // Retrieve temperature data with validation
     if (!monitor_get_temperature_data(config, &temp_data)) {
+        log_message(LOG_WARNING, "Failed to retrieve temperature data");
         return; // Silently handle sensor data retrieval failure
     }
 
@@ -535,13 +579,31 @@ void draw_combined_image(const Config *config) {
     const bool device_available = get_device_uid(config, &device_data);
     const bool valid_device_uid = device_available && (device_data.device_uid[0] != '\0');
     
-    // Render display with comprehensive error checking
-    const bool render_success = render_display(config, &sensor_data);
+    if (!valid_device_uid) {
+        log_message(LOG_WARNING, "No valid LCD device UID available");
+    }
     
-    // Send to LCD only if all conditions are met (performance optimization)
-    if (render_success && is_session_initialized() && valid_device_uid) {
+    // Render display with comprehensive error checking
+    const int render_result = render_display(config, &sensor_data);
+    
+    if (render_result == 0) {
+        log_message(LOG_ERROR, "Display rendering failed");
+        return;
+    }
+    
+    if (render_result == -1) {
+        // No update needed, temperatures unchanged
+        return;
+    }
+    
+    // render_result == 1: Update successful, send to LCD
+    if (is_session_initialized() && valid_device_uid) {
+        log_message(LOG_INFO, "Sending image to LCD device: %s", device_data.device_uid);
         // Send image twice to ensure reliable upload and prevent display artifacts
         send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
         send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
+    } else {
+        log_message(LOG_WARNING, "Skipping LCD upload - conditions not met (session:%d, device:%d)", 
+                   is_session_initialized(), valid_device_uid);
     }
 }

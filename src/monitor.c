@@ -16,14 +16,64 @@
 // Include necessary headers
 #include <curl/curl.h>
 #include <jansson.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 // Include project headers
 #include "../include/monitor.h"
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
+
+/**
+ * @brief Log levels for consistent logging across modules.
+ * @details Matches the logging style from main.c for consistency.
+ * @example
+ *     log_message(LOG_ERROR, "Failed to parse JSON: %s", error_msg);
+ */
+typedef enum {
+    LOG_INFO,
+    LOG_WARNING, 
+    LOG_ERROR
+} log_level_t;
+
+/**
+ * @brief Centralized logging function with consistent format.
+ * @details Provides consistent logging style matching main.c implementation.
+ * @example
+ *     log_message(LOG_ERROR, "Temperature out of range: %.1f°C", temp);
+ */
+static void log_message(log_level_t level, const char *format, ...) {
+    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
+    
+    fprintf(output, "[CoolerDash %s] ", prefix[level]);
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(output, format, args);
+    va_end(args);
+    
+    fprintf(output, "\n");
+    fflush(output);
+}
+
+/**
+ * @brief Sleep for the specified number of milliseconds.
+ * @details Portable sleep function using nanosleep for precise timing.
+ * @example
+ *     sleep_ms(500); // Sleep for 500 milliseconds
+ */
+static void sleep_ms(int milliseconds) {
+    if (milliseconds <= 0) return;
+    
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
 
 /**
  * @brief Parse sensor JSON and extract temperatures from CPU and GPU devices.
@@ -35,14 +85,14 @@
 static int parse_temperature_json(const char *json, float *temp_1, float *temp_2) {
     // Validate input and initialize output parameters
     if (!json || strlen(json) == 0) {
-        fprintf(stderr, "[coolerdash] Error: Empty or null JSON input\n");
+        log_message(LOG_ERROR, "Empty or null JSON input");
         return 0;
     }
     
     // Security: Check for reasonable JSON size (prevent memory exhaustion)
     const size_t json_len = strlen(json);
     if (json_len > 10 * 1024 * 1024) { // 10MB limit - more realistic for status data
-        fprintf(stderr, "[coolerdash] Error: JSON response too large (%zu bytes)\n", json_len);
+        log_message(LOG_ERROR, "JSON response too large (%zu bytes)", json_len);
         return 0;
     }
     
@@ -53,8 +103,8 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
     json_error_t json_error;
     json_t *root = json_loads(json, 0, &json_error);
     if (!root) {
-        fprintf(stderr, "[coolerdash] JSON parse error in monitor: %s at line %d\n", 
-                json_error.text, json_error.line);
+        log_message(LOG_ERROR, "JSON parse error in monitor: %s at line %d", 
+                    json_error.text, json_error.line);
         return 0;
     }
 
@@ -114,7 +164,7 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
             
             // Validate temperature range (reasonable limits for CPU/GPU)
             if (temperature < -50.0f || temperature > 150.0f) {
-                fprintf(stderr, "[coolerdash] Warning: Temperature %0.1f°C out of range, skipping\n", temperature);
+                log_message(LOG_WARNING, "Temperature %.1f°C out of range, skipping", temperature);
                 continue;
             }
 
@@ -158,101 +208,134 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
     
     // Validate daemon address is present
     if (strlen(config->daemon_address) == 0) {
-        fprintf(stderr, "[coolerdash] Error: No daemon address configured\n");
+        log_message(LOG_ERROR, "No daemon address configured");
         return 0;
     }
     
-    CURL *curl = curl_easy_init();
-    if (!curl) {
-        fprintf(stderr, "[coolerdash] Error: Failed to initialize CURL\n");
-        return 0;
-    }
+    // Retry loop with exponential backoff
+    int retry_delay = MONITOR_INITIAL_RETRY_DELAY_MS;
     
-    // Construct URL with size validation
-    char url[256];
-    const int url_len = snprintf(url, sizeof(url), "%s/status", config->daemon_address);
-    if (url_len < 0 || url_len >= (int)sizeof(url)) {
-        curl_easy_cleanup(curl);
-        return 0;
-    }
-    
-    // Initialize response buffer with reasonable starting capacity
-    struct http_response chunk = {0};
-    const size_t initial_capacity = 8192;
-    chunk.data = malloc(initial_capacity);
-    if (!chunk.data) {
-        fprintf(stderr, "[coolerdash] Error: Failed to allocate response buffer\n");
-        curl_easy_cleanup(curl);
-        return 0;
-    }
-    chunk.size = 0;
-    chunk.capacity = initial_capacity;
-    
-    // Configure curl options with enhanced security and error handling
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // Reasonable timeout for status check
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); // Quick connection timeout
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L); // Security: no redirects
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
-    curl_easy_setopt(curl, CURLOPT_POST, 1L); // Use POST to ensure we get the latest data
-    // Remove CURLOPT_MAXFILESIZE - it's too restrictive for status endpoint
-    
-    // Set HTTP headers
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "accept: application/json");
-    headers = curl_slist_append(headers, "content-type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    
-    // Send POST request with empty body
-    const char *post_data = "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}";
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
-    
-    // Initialize parsing variables
-    float cpu_temp = 0.0f, gpu_temp = 0.0f; // Initialize temperatures
-    int result = 0;
-    
-    // Perform request and parse response with enhanced error handling
-    CURLcode curl_result = curl_easy_perform(curl);
-    if (curl_result == CURLE_OK) {
-        // Check HTTP response code
-        long response_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+    for (int attempt = 1; attempt <= MONITOR_MAX_RETRIES; attempt++) {
+        CURL *curl = curl_easy_init();
+        if (!curl) {
+            log_message(LOG_ERROR, "Failed to initialize CURL (attempt %d/%d)", attempt, MONITOR_MAX_RETRIES);
+            if (attempt < MONITOR_MAX_RETRIES) {
+                sleep_ms(retry_delay);
+                retry_delay = (retry_delay * 2 > MONITOR_MAX_RETRY_DELAY_MS) ? MONITOR_MAX_RETRY_DELAY_MS : retry_delay * 2;
+            }
+            continue;
+        }
         
-        if (response_code == 200) {
-            result = parse_temperature_json(chunk.data, &cpu_temp, &gpu_temp);
-            if (!result) {
-                fprintf(stderr, "[coolerdash] Warning: Failed to parse temperature JSON\n");
+        // Construct URL with size validation
+        char url[256];
+        const int url_len = snprintf(url, sizeof(url), "%s/status", config->daemon_address);
+        if (url_len < 0 || url_len >= (int)sizeof(url)) {
+            curl_easy_cleanup(curl);
+            return 0;
+        }
+        
+        // Initialize response buffer with reasonable starting capacity
+        struct http_response chunk = {0};
+        const size_t initial_capacity = 8192;
+        chunk.data = malloc(initial_capacity);
+        if (!chunk.data) {
+            log_message(LOG_ERROR, "Failed to allocate response buffer (attempt %d/%d)", attempt, MONITOR_MAX_RETRIES);
+            curl_easy_cleanup(curl);
+            if (attempt < MONITOR_MAX_RETRIES) {
+                sleep_ms(retry_delay);
+                retry_delay = (retry_delay * 2 > MONITOR_MAX_RETRY_DELAY_MS) ? MONITOR_MAX_RETRY_DELAY_MS : retry_delay * 2;
+            }
+            continue;
+        }
+        chunk.size = 0;
+        chunk.capacity = initial_capacity;
+        
+        // Configure curl options with enhanced security and error handling
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // Reasonable timeout for status check
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); // Quick connection timeout
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L); // Security: no redirects
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
+        curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
+        curl_easy_setopt(curl, CURLOPT_POST, 1L); // Use POST to ensure we get the latest data
+        
+        // Set HTTP headers
+        struct curl_slist *headers = NULL;
+        headers = curl_slist_append(headers, "accept: application/json");
+        headers = curl_slist_append(headers, "content-type: application/json");
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        
+        // Send POST request with empty body
+        const char *post_data = "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}";
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
+        
+        // Initialize parsing variables
+        float cpu_temp = 0.0f, gpu_temp = 0.0f; // Initialize temperatures
+        int result = 0;
+        
+        // Perform request and parse response with enhanced error handling
+        CURLcode curl_result = curl_easy_perform(curl);
+        if (curl_result == CURLE_OK) {
+            // Check HTTP response code
+            long response_code = 0;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+            
+            if (response_code == 200) {
+                result = parse_temperature_json(chunk.data, &cpu_temp, &gpu_temp);
+                if (result) {
+                    // Success! Set output values and clean up
+                    *temp_1 = cpu_temp;
+                    *temp_2 = gpu_temp;
+                    
+                    if (chunk.data) {
+                        free(chunk.data);
+                        chunk.data = NULL;
+                    }
+                    if (headers) {
+                        curl_slist_free_all(headers);
+                        headers = NULL;
+                    }
+                    curl_easy_cleanup(curl);
+                    
+                    if (attempt > 1) {
+                        log_message(LOG_INFO, "Temperature data retrieved successfully on attempt %d", attempt);
+                    }
+                    return 1;
+                } else {
+                    log_message(LOG_WARNING, "Failed to parse temperature JSON (attempt %d/%d)", attempt, MONITOR_MAX_RETRIES);
+                }
+            } else {
+                log_message(LOG_ERROR, "HTTP error: %ld when fetching temperature data (attempt %d/%d)", 
+                           response_code, attempt, MONITOR_MAX_RETRIES);
             }
         } else {
-            fprintf(stderr, "[coolerdash] HTTP error: %ld when fetching temperature data\n", response_code);
-            result = 0;
+            log_message(LOG_ERROR, "CURL error: %s (attempt %d/%d)", 
+                       curl_easy_strerror(curl_result), attempt, MONITOR_MAX_RETRIES);
         }
-    } else {
-        fprintf(stderr, "[coolerdash] CURL error: %s\n", curl_easy_strerror(curl_result));
-        result = 0;
+        
+        // Clean up resources for this attempt
+        if (chunk.data) {
+            free(chunk.data);
+            chunk.data = NULL;
+        }
+        if (headers) {
+            curl_slist_free_all(headers);
+            headers = NULL;
+        }
+        curl_easy_cleanup(curl);
+        
+        // Wait before next attempt (if not the last attempt)
+        if (attempt < MONITOR_MAX_RETRIES) {
+            log_message(LOG_INFO, "Retrying temperature data request in %dms...", retry_delay);
+            sleep_ms(retry_delay);
+            retry_delay = (retry_delay * 2 > MONITOR_MAX_RETRY_DELAY_MS) ? MONITOR_MAX_RETRY_DELAY_MS : retry_delay * 2;
+        }
     }
     
-    // Clean up resources
-    if (chunk.data) {
-        free(chunk.data);
-        chunk.data = NULL;
-    }
-    if (headers) {
-        curl_slist_free_all(headers);
-        headers = NULL;
-    }
-    curl_easy_cleanup(curl);
-    
-    // Set output values only on success
-    if (result) {
-        *temp_1 = cpu_temp;
-        *temp_2 = gpu_temp;
-    }
-    
-    return result;
+    log_message(LOG_ERROR, "Failed to get temperature data after %d attempts", MONITOR_MAX_RETRIES);
+    return 0;
 }
 
 /**

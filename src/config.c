@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <ini.h>
 #include <limits.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +31,39 @@
 // Include project headers
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
+
+/**
+ * @brief Log levels for consistent logging across modules.
+ * @details Matches the logging style from main.c for consistency.
+ * @example
+ *     log_message(LOG_ERROR, "Failed to parse config: %s", error_msg);
+ */
+typedef enum {
+    LOG_INFO,
+    LOG_WARNING, 
+    LOG_ERROR
+} log_level_t;
+
+/**
+ * @brief Centralized logging function with consistent format.
+ * @details Provides consistent logging style matching main.c implementation.
+ * @example
+ *     log_message(LOG_WARNING, "Config file not found: %s", path);
+ */
+static void log_message(log_level_t level, const char *format, ...) {
+    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
+    
+    fprintf(output, "[CoolerDash %s] ", prefix[level]);
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(output, format, args);
+    va_end(args);
+    
+    fprintf(output, "\n");
+    fflush(output);
+}
 
 /**
  * @brief Secure helper functions for string parsing with validation.
@@ -447,7 +481,7 @@ int load_config(const char *path, Config *config) {
     FILE *file = fopen(path, "r");
     if (!file) {
         // File doesn't exist - use fallbacks only
-        printf("Config file '%s' not found, using fallback values\n", path);
+        log_message(LOG_INFO, "Config file '%s' not found, using fallback values", path);
         config_apply_fallbacks(config);
         return 0; // Return success, fallbacks are valid
     }

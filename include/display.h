@@ -11,20 +11,17 @@
  * @details Provides secure, optimized interface for display rendering with validation and performance enhancements.
  * Enhanced with input validation, buffer overflow protection, and cache-friendly data structures.
  * @example
- *     sensor_data_t data;
- *     if (display_render_safe(&config, &data)) { ... }
+ *     See function documentation for usage examples.
  */
 
+// POSIX and security feature requirements (must be first)
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200112L
+#endif
+
+// Function prototypes
 #ifndef DISPLAY_H
 #define DISPLAY_H
-
-// Include minimal necessary headers
-#include <stddef.h>
-#include <stdint.h>
-
-// Forward declarations to reduce compilation dependencies
-struct Config;
-struct CoolerControlSession;
 
 // Display constants for validation and security limits
 #define DISPLAY_MAX_FILEPATH 512
@@ -35,6 +32,38 @@ struct CoolerControlSession;
 #define DISPLAY_TEMP_INVALID -999.0f
 #define DISPLAY_TEMP_MAX 150.0f
 #define DISPLAY_TEMP_MIN -50.0f
+
+// Security, performance and layout constants
+#define DISPLAY_COLOR_SCALE_FACTOR (1.0/255.0)
+#define DISPLAY_CORNER_RADIUS 8.0
+#define DISPLAY_DIRECTORY_PERMISSIONS 0755
+#define DISPLAY_LABEL_Y_OFFSET_1 8
+#define DISPLAY_LABEL_Y_OFFSET_2 15
+#define DISPLAY_MAX_TEMP_VALUE 200.0f
+#define DISPLAY_MIN_TEMP_VALUE -50.0f
+#define DISPLAY_TEMP_DISPLAY_X_OFFSET 22
+#define DISPLAY_TEMP_DISPLAY_Y_OFFSET 22
+#define DISPLAY_TEMP_STRING_BUFFER_SIZE 16
+
+// Mathematical constants with precision
+#ifndef M_PI
+#define DISPLAY_M_PI 3.14159265358979323846
+#else
+#define DISPLAY_M_PI M_PI
+#endif
+#ifndef M_PI_2  
+#define DISPLAY_M_PI_2 1.57079632679489661923
+#else
+#define DISPLAY_M_PI_2 M_PI_2
+#endif
+
+// Include minimal necessary headers
+#include <stddef.h>
+#include <stdint.h>
+
+// Forward declarations to reduce compilation dependencies
+struct Config;
+struct CoolerControlSession;
 
 /**
  * @brief Sensor data structure for display rendering.

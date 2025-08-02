@@ -10,23 +10,22 @@
   * @brief Monitor API for reading CPU and GPU temperatures via CoolerControl OpenAPI.
   * @details Provides functions to initialize the monitor subsystem and read CPU/GPU temperature values from the API.
   * @example
-  *     #include "monitor.h"
-  *
-  *     int main() {
-  *         struct Config config;
-  *         // Load or set your configuration here...
-  *
-  *         float cpuTemp, gpuTemp;
-  *         if (get_temperature_data(&config, &cpuTemp, &gpuTemp)) {
-  *             printf("CPU Temp: %.2f°C\n", cpuTemp);
-  *             printf("GPU Temp: %.2f°C\n", gpuTemp);
-  *         } else {
-  *             fprintf(stderr, "Failed to retrieve temperature data.\n");
+  *     See function documentation for usage examples.
   */
 
 // Include necessary headers
 #ifndef MONITOR_H
 #define MONITOR_H
+
+// Temperature validation constants
+#define MONITOR_TEMP_MIN -50.0f
+#define MONITOR_TEMP_MAX 150.0f
+#define MONITOR_TEMP_INVALID -999.0f
+
+// Network retry constants for robust API communication
+#define MONITOR_INITIAL_RETRY_DELAY_MS 100
+#define MONITOR_MAX_RETRIES 3
+#define MONITOR_MAX_RETRY_DELAY_MS 2000
 
 // Include minimal necessary headers
 #include <stddef.h>
@@ -34,11 +33,6 @@
 
 // Forward declaration to avoid circular dependency
 struct Config;
-
-// Temperature validation constants
-#define MONITOR_TEMP_MIN -50.0f    // Minimum valid temperature (°C)
-#define MONITOR_TEMP_MAX 150.0f    // Maximum valid temperature (°C)
-#define MONITOR_TEMP_INVALID -999.0f // Invalid temperature indicator
 
 /**
  * @brief Structure to hold temperature sensor data.

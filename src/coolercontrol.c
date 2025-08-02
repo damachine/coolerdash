@@ -7,28 +7,78 @@
  */
 
 /**
- * @brief CoolerControl API implementation for LCD device communication and sensor data.
- * @details Implements functions for initializing, authenticating, communicating with CoolerControl LCD devices, and reading sensor values (CPU/GPU) via the REST API.
+ * @brief CoolerControl API implementation for LCD device communication
+ * @details Implements functions for initializing, authenticating, communicating with CoolerControl LCD devices, and reading sensor values (CPU/GPU) via the REST API with retry logic and memory limits.
  * @example
  *     See function documentation for usage examples.
  */
+
+// Constants for memory limits are defined in coolercontrol.h
 
 // Include necessary headers
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 // Include project headers
 #include "../include/coolercontrol.h"
 #include "../include/config.h"
 
+/**
+ * @brief Log levels for consistent logging across modules.
+ * @details Matches the logging style from main.c for consistency.
+ * @example
+ *     log_message(LOG_ERROR, "Failed to connect: %s", error_msg);
+ */
+typedef enum {
+    LOG_INFO,
+    LOG_WARNING, 
+    LOG_ERROR
+} log_level_t;
+
+/**
+ * @brief Centralized logging function with consistent format.
+ * @details Provides consistent logging style matching main.c implementation.
+ * @example
+ *     log_message(LOG_ERROR, "HTTP request failed: %ld", response_code);
+ */
+static void log_message(log_level_t level, const char *format, ...) {
+    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
+    
+    fprintf(output, "[CoolerDash %s] ", prefix[level]);
+    
+    va_list args;
+    va_start(args, format);
+    vfprintf(output, format, args);
+    va_end(args);
+    
+    fprintf(output, "\n");
+    fflush(output);
+}
+
+/**
+ * @brief Sleep function for retry delays with millisecond precision.
+ * @details Cross-platform sleep implementation for retry logic delays.
+ * @example
+ *     sleep_ms(100);  // Sleep for 100 milliseconds
+ */
+static void sleep_ms(int milliseconds) {
+    struct timespec ts;
+    ts.tv_sec = milliseconds / 1000;
+    ts.tv_nsec = (milliseconds % 1000) * 1000000;
+    nanosleep(&ts, NULL);
+}
+
 /*
- * @brief Callback for libcurl to write received data into a buffer.
- * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer. It reallocates the buffer as needed and appends the new data chunk. If memory allocation fails, it frees the buffer and returns 0 to signal an error to libcurl.
+ * @brief Callback for libcurl to write received data into a buffer with size limits.
+ * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer. It includes memory limits to prevent DoS attacks and reallocates the buffer as needed. If memory allocation fails or size limit is exceeded, it frees the buffer and returns 0 to signal an error to libcurl.
  * @example
  *     struct http_response resp = {0};
  *     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
@@ -38,6 +88,17 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
     const size_t realsize = size * nmemb;
     const size_t new_size = response->size + realsize + 1;
 
+    // Check memory limit to prevent DoS attacks
+    if (new_size > CC_MAX_RESPONSE_SIZE) {
+        log_message(LOG_ERROR, "Response size limit exceeded: %zu bytes (max: %d)", 
+                    new_size, CC_MAX_RESPONSE_SIZE);
+        free(response->data);
+        response->data = NULL;
+        response->size = 0;
+        response->capacity = 0;
+        return 0;
+    }
+
     // Only reallocate if we need more capacity (reduces realloc calls by ~60%)
     if (new_size > response->capacity) {
         // Grow capacity by 1.5x or minimum needed size, whichever is larger
@@ -45,7 +106,7 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
 
         char *ptr = realloc(response->data, new_capacity);
         if (!ptr) {
-            fprintf(stderr, "Error: realloc failed for response->data\n");
+            log_message(LOG_ERROR, "Memory allocation failed for response data: %zu bytes", new_capacity);
             free(response->data);
             response->data = NULL;
             response->size = 0;
@@ -142,7 +203,7 @@ int init_coolercontrol_session(const Config *config) {
         cc_session.session_initialized = 1;
         return 1;
     } else {
-        fprintf(stderr, "[coolerdash] Login failed: CURL code %d, HTTP code %ld\n", res, response_code);
+        log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, response_code);
     }
 
     return 0;
@@ -163,13 +224,13 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     // Additional security: validate file exists and is readable
     struct stat file_stat;
     if (stat(image_path, &file_stat) != 0 || !S_ISREG(file_stat.st_mode)) {
-        fprintf(stderr, "Error: Image file '%s' does not exist or is not a regular file\n", image_path);
+        log_message(LOG_ERROR, "Image file '%s' does not exist or is not a regular file", image_path);
         return 0;
     }
     
-    // Security: validate device_uid format (basic sanity check)
-    if (strlen(device_uid) == 0 || strlen(device_uid) > 128) {
-        fprintf(stderr, "Error: Invalid device UID format\n");
+    // Validate device UID format (basic sanity check)
+    if (strlen(device_uid) < 8 || strlen(device_uid) > 64) {
+        log_message(LOG_ERROR, "Invalid device UID format");
         return 0;
     }
     
@@ -179,7 +240,7 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
              config->daemon_address, device_uid);
     
     if (url_len < 0 || url_len >= (int)sizeof(upload_url)) {
-        fprintf(stderr, "Error: Upload URL too long\n");
+        log_message(LOG_ERROR, "Upload URL too long");
         return 0;
     }
     
@@ -233,7 +294,7 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
 
     // Validate response code is within valid HTTP range
     if (http_response_code < 100 || http_response_code > 599) {
-        fprintf(stderr, "Invalid HTTP response code: %ld\n", http_response_code);
+        log_message(LOG_ERROR, "Invalid HTTP response code: %ld", http_response_code);
         return CC_ERROR_INVALID_RESPONSE;
     }
     
@@ -307,7 +368,7 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
     json_error_t error;
     json_t *root = json_loads(json, 0, &error);
     if (!root) {
-        fprintf(stderr, "[coolerdash] JSON parse error: %s\n", error.text);
+        log_message(LOG_ERROR, "JSON parse error: %s", error.text);
         return 0;
     }
 
@@ -330,8 +391,20 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
 
         const char *type_str = json_string_value(type_val);
 
-        // Use direct string comparison with early exit
-        if (type_str[0] != 'L' || strcmp(type_str, "Liquidctl") != 0) continue;
+        // Use optimized string comparison with early exit for device type detection
+        // Support multiple device types that might have LCD capability
+        const char *liquid_types[] = {"Liquidctl", "NZXT", "Corsair", "EVGA"};
+        const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
+        
+        int is_supported_device = 0;
+        for (size_t j = 0; j < num_types; j++) {
+            if (strcmp(type_str, liquid_types[j]) == 0) {
+                is_supported_device = 1;
+                break;
+            }
+        }
+        
+        if (!is_supported_device) continue;
 
         // Found Liquidctl device
         if (found_liquidctl) *found_liquidctl = 1;
@@ -469,31 +542,51 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     int width = 0, height = 0; // Initialize display dimensions
     int result = 0;
 
-    // Perform request and parse response with enhanced error handling
-    CURLcode curl_result = curl_easy_perform(curl);
-    if (curl_result == CURLE_OK) {
-        // Check HTTP response code
-        long response_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-        
-        if (response_code == 200) {
-            result = parse_liquidctl_devices_json(chunk.data, lcd_uid, sizeof(lcd_uid), &found_liquidctl, &width, &height, lcd_name, sizeof(lcd_name));
+    // Retry loop with exponential backoff for network requests
+    int retry_delay = CC_INITIAL_RETRY_DELAY_MS;
+    for (int attempt = 0; attempt < CC_MAX_RETRIES; attempt++) {
+        if (attempt > 0) {
+            log_message(LOG_WARNING, "Device info request attempt %d/%d after %dms delay", 
+                        attempt + 1, CC_MAX_RETRIES, retry_delay);
+            sleep_ms(retry_delay);
+            retry_delay = (retry_delay * 2 < CC_MAX_RETRY_DELAY_MS) ? retry_delay * 2 : CC_MAX_RETRY_DELAY_MS;
+            
+            // Reset response buffer for retry
+            chunk.size = 0;
+        }
+
+        // Perform request and parse response with enhanced error handling
+        CURLcode curl_result = curl_easy_perform(curl);
+        if (curl_result == CURLE_OK) {
+            // Check HTTP response code
+            long response_code = 0;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+            
+            if (response_code == 200) {
+                result = parse_liquidctl_devices_json(chunk.data, lcd_uid, sizeof(lcd_uid), &found_liquidctl, &width, &height, lcd_name, sizeof(lcd_name));
+                break; // Success - exit retry loop
         } else {
-            fprintf(stderr, "[coolerdash] HTTP error: %ld when fetching device info\n", response_code);
+            log_message(LOG_WARNING, "HTTP error: %ld when fetching device info (attempt %d/%d)", 
+                        response_code, attempt + 1, CC_MAX_RETRIES);
             result = 0;
         }
     } else {
-        fprintf(stderr, "[coolerdash] CURL error: %s\n", curl_easy_strerror(curl_result));
+        log_message(LOG_WARNING, "CURL error: %s (attempt %d/%d)", 
+                    curl_easy_strerror(curl_result), attempt + 1, CC_MAX_RETRIES);
         result = 0;
     }
+}
 
-    // Clean up resources
+// Log final failure if all retries exhausted
+if (result == 0) {
+    log_message(LOG_ERROR, "Failed to fetch device info after %d attempts", CC_MAX_RETRIES);
+}    // Clean up resources
     free(chunk.data);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
     if (!found_liquidctl) {
-        fprintf(stderr, "[coolerdash] ERROR: No Liquidctl device found. Exiting.\n");
+        log_message(LOG_ERROR, "No Liquidctl device found. Exiting.");
         return 0;
     }
 
@@ -519,3 +612,5 @@ int get_device_uid(const Config *config, cc_device_data_t *data) {
     // Use the existing function to get UID
     return get_liquidctl_device_uid(config, data->device_uid, sizeof(data->device_uid));
 }
+
+// Future sensor detection and device validation functions can be added here when needed

@@ -11,18 +11,12 @@
  * @details Provides secure configuration loading with validation and optimized data structures.
  * Enhanced with buffer overflow protection, input validation, and cache-friendly alignment.
  * @example
- *     Config cfg;
- *     if (load_config("/opt/coolerdash/config.ini", &cfg) == 0) {
- *         // Use cfg fields safely with built-in validation
- *     }
+ *     See function documentation for usage examples.
  */
 
 // Include necessary headers
 #ifndef CONFIG_H
 #define CONFIG_H
-
-#include <ini.h>
-#include <stdint.h>
 
 // Security and validation constants
 #define CONFIG_MAX_BRIGHTNESS 100
@@ -36,6 +30,9 @@
 #define CONFIG_MIN_DISPLAY_SIZE 32
 #define CONFIG_MIN_FONT_SIZE 6
 #define CONFIG_MIN_TEMP -50.0f
+
+#include <ini.h>
+#include <stdint.h>
 
 /**
  * @brief Optimized color structure with memory efficiency and validation.

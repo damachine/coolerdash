@@ -26,6 +26,7 @@ Thumbs.db
 .vscode/
 .idea/
 .qodo/
+.zencoder/
 
 # Compressed archives
 *.tar.xz
