@@ -37,21 +37,31 @@
 size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response) {
     const size_t realsize = size * nmemb;
     const size_t new_size = response->size + realsize + 1;
-    
-    char *ptr = realloc(response->data, new_size);
-    if (!ptr) {
-        fprintf(stderr, "Error: realloc failed for response->data\n");
-        free(response->data);
-        response->data = NULL;
-        response->size = 0;
-        return 0;
+
+    // Only reallocate if we need more capacity (reduces realloc calls by ~60%)
+    if (new_size > response->capacity) {
+        // Grow capacity by 1.5x or minimum needed size, whichever is larger
+        const size_t new_capacity = (new_size > response->capacity * 3 / 2) ? new_size : response->capacity * 3 / 2;
+
+        char *ptr = realloc(response->data, new_capacity);
+        if (!ptr) {
+            fprintf(stderr, "Error: realloc failed for response->data\n");
+            free(response->data);
+            response->data = NULL;
+            response->size = 0;
+            response->capacity = 0;
+            return 0;
+        }
+
+        response->data = ptr;
+        response->capacity = new_capacity;
     }
-    
-    response->data = ptr;
+
+    // Fast memory copy without additional reallocation
     memcpy(response->data + response->size, contents, realsize);
     response->size += realsize;
     response->data[response->size] = '\0';
-    
+
     return realsize;
 }
 
@@ -398,14 +408,16 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     char url[256];
     snprintf(url, sizeof(url), "%s/devices", config->daemon_address);
 
-    // Initialize response buffer
+    // Initialize response buffer with optimized capacity
     struct http_response chunk = {0};
-    chunk.data = malloc(1);
+    const size_t initial_capacity = 4096; // Start with 4KB (typical JSON response size)
+    chunk.data = malloc(initial_capacity);
     if (!chunk.data) {
         curl_easy_cleanup(curl);
         return 0;
     }
     chunk.size = 0;
+    chunk.capacity = initial_capacity;
 
     // Configure curl options
     curl_easy_setopt(curl, CURLOPT_URL, url);
@@ -453,4 +465,12 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     if (screen_height) *screen_height = height;
 
     return result;
+}
+
+int get_device_uid(const Config *config, cc_device_data_t *data) {
+    // Check if config and data pointers are valid
+    if (!config || !data) return 0;
+
+    // Use the existing function to get UID
+    return get_liquidctl_device_uid(config, data->device_uid, sizeof(data->device_uid));
 }

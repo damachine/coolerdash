@@ -168,32 +168,12 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
  *     cc_sensor_data_t data;
  *     if (monitor_get_sensor_data(&config, &data)) { ... }
  */
-int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data) {
+int monitor_get_temperature_data(const Config *config, monitor_sensor_data_t *data) {
     // Check if config and data pointers are valid
     if (!config || !data) return 0;
 
     // Get temperature data from monitor module
-    float temp_1, temp_2;
-    if (!get_temperature_data(config, &temp_1, &temp_2)) {
-        return 0;
-    }
-
-    // If device_uid is already set, use it; otherwise get it from API
-    if (data->device_uid[0] == '\0') {
-        // Get LCD device UID from coolercontrol module
-        char device_uid[CC_UID_SIZE];
-        if (!get_liquidctl_device_uid(config, device_uid, sizeof(device_uid))) {
-            return 0;
-        }
-        strncpy(data->device_uid, device_uid, sizeof(data->device_uid) - 1);
-        data->device_uid[sizeof(data->device_uid) - 1] = '\0';
-    }
-
-    // Fill the temperature data
-    data->temp_1 = temp_1;
-    data->temp_2 = temp_2;
-
-    return 1;
+    return get_temperature_data(config, &data->temp_1, &data->temp_2);
 }
 
 /**

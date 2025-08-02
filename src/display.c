@@ -310,22 +310,28 @@ static void draw_labels(cairo_t *cr, const Config *config) {
  */
 void draw_combined_image(const Config *config) {
     sensor_data_t sensor_data = {0};
-    cc_sensor_data_t cc_data = {0};
-    
-    // Early return if sensor data retrieval fails
-    if (!monitor_get_sensor_data(config, &cc_data)) {
+    monitor_sensor_data_t temp_data = {0};
+
+    // Early return if temperature data retrieval fails
+    if (!monitor_get_temperature_data(config, &temp_data)) {
         return;
     }
-    
+
     // Copy temperature data
-    sensor_data.temp_1 = cc_data.temp_1;
-    sensor_data.temp_2 = cc_data.temp_2;
-    
+    sensor_data.temp_1 = temp_data.temp_1;
+    sensor_data.temp_2 = temp_data.temp_2;
+
+    // Get device UID for LCD operations
+    cc_device_data_t device_data = {0};
+    if (!get_device_uid(config, &device_data)) {
+        return; // Cannot send to LCD without device UID
+    }
+
     // Render display and send to LCD if all conditions are met
-    if (render_display(config, &sensor_data) && 
-        is_session_initialized() && 
-        cc_data.device_uid[0] != '\0') {
-        send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid);
-        send_image_to_lcd(config, config->paths_image_coolerdash, cc_data.device_uid); // Send twice to ensure upload and no artfact is displayed
+    if (render_display(config, &sensor_data) &&
+        is_session_initialized() &&
+        device_data.device_uid[0] != '\0') {
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid); // Send twice to ensure upload and no artfact is displayed
     }
 }

@@ -200,11 +200,11 @@ static void show_help(const char *program_name, const Config *config) {
 
 static void send_shutdown_image_if_needed(void) {
     if (!shutdown_sent && is_session_initialized() && g_config_ptr) {
-        cc_sensor_data_t shutdown_data = {0};
-        if (monitor_get_sensor_data(g_config_ptr, &shutdown_data)) {
-            if (shutdown_data.device_uid[0] != '\0') {
-                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid);
-                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, shutdown_data.device_uid); // Send twice to ensure upload and no artfact is displayed
+        cc_device_data_t device_data = {0};
+        if (get_device_uid(g_config_ptr, &device_data)) {
+            if (device_data.device_uid[0] != '\0') {
+                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, device_data.device_uid);
+                send_image_to_lcd(g_config_ptr, g_config_ptr->paths_image_shutdown, device_data.device_uid); // Send twice to ensure upload and no artfact is displayed
                 shutdown_sent = 1;
             }
         }
@@ -281,22 +281,23 @@ int main(int argc, char **argv)
     printf("CoolerDash read config file: %s\n", config_path);
     fflush(stdout);
 
-    // Retrieve all device information in one API call
-    cc_sensor_data_t cc_data = {0};
+    // Retrieve device information and temperature data separately
+    cc_device_data_t device_data = {0};
+    monitor_sensor_data_t temp_data = {0};
     char device_name[128] = {0};
     int api_screen_width = 0, api_screen_height = 0;
 
     // Get complete device info (UID, name, dimensions) in single API call
-    if (get_liquidctl_device_info(&config, cc_data.device_uid, sizeof(cc_data.device_uid),
+    if (get_liquidctl_device_info(&config, device_data.device_uid, sizeof(device_data.device_uid),
                                 device_name, sizeof(device_name), &api_screen_width, &api_screen_height)) {
-        const char *uid_msg = (cc_data.device_uid[0] != '\0')
-            ? cc_data.device_uid
+        const char *uid_msg = (device_data.device_uid[0] != '\0')
+            ? device_data.device_uid
             : "Unknown device UID detected";
         fprintf(stderr, "CoolerDash connected retrieved device UID: %s\n", uid_msg);
         printf("CoolerDash retrieved device name: %s\n", device_name[0] ? device_name : "Unknown");
 
-        // Now get temperature data using the retrieved UID
-        if (!monitor_get_sensor_data(&config, &cc_data)) {
+        // Get temperature data separately
+        if (!monitor_get_temperature_data(&config, &temp_data)) {
             fprintf(stderr, "CoolerDash could not retrieve temperature sensor data.\n");
         }
     } else {

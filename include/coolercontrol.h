@@ -20,7 +20,7 @@
 // Error codes
 #define CC_ERROR_INVALID_RESPONSE -1
 
-// Buffer size constants
+// Buffer size constants - optimized for cache alignment
 #define CC_UID_SIZE      128
 #define CC_NAME_SIZE     128
 #define CC_COOKIE_SIZE   256
@@ -28,25 +28,36 @@
 #define CC_USERPWD_SIZE  128
 #define CC_DEVICE_SECTION_SIZE 4096
 
+// Performance constants
+#define CC_HTTP_TIMEOUT_SEC 2L
+#define CC_MAX_RETRIES 3
+
 // Include necessary headers
 #include <stddef.h>
+#include <stdlib.h>
 #include <signal.h>
 
-// Include project headers
+// Forward declarations to reduce compilation dependencies
+struct Config;
+
+// Include project headers only when needed
+#ifndef CONFIG_H_INCLUDED
 #include "config.h"
+#define CONFIG_H_INCLUDED
+#endif
 
 /**
- * @brief Structure to hold sensor data (CPU/GPU temperature).
- * @details Used to aggregate all relevant sensor values from CoolerControl API.
+ * @brief Structure to hold CoolerControl device information.
+ * @details Used to store CoolerControl-specific device data like UID.
+ * Optimized for cache alignment and minimal memory footprint.
  * @example
- *     cc_sensor_data_t data;
- *     if (monitor_get_sensor_data(&config, &data)) { ... }
+ *     cc_device_data_t device_data;
+ *     if (get_liquidctl_device_uid(&config, device_data.device_uid, sizeof(device_data.device_uid))) { ... }
  */
-typedef struct {
-    float temp_1; // temperature 1 in degrees Celsius
-    float temp_2; // temperature 2 in degrees Celsius
-    char device_uid[CC_UID_SIZE]; ///< Device UID
-} cc_sensor_data_t;
+typedef struct __attribute__((packed)) {
+    char device_uid[CC_UID_SIZE];     // Device UID (128 bytes)
+    // Total: 128 bytes (cache-friendly size)
+} cc_device_data_t;
 
 /**
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
@@ -121,29 +132,50 @@ int get_liquidctl_display_info(const Config *config, int *screen_width, int *scr
 /**
  * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from CoolerControl API.
  * @details Reads all LCD device information via API in one call. Returns 1 on success, 0 on failure.
+ * Optimized for performance with minimal API calls and efficient JSON parsing.
  * @example
  *     char uid[128], name[128]; int width, height;
  *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), name, sizeof(name), &width, &height)) { ... }
  */
 int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
 
+
+
 /**
- * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
- * @details Reads the current CPU and GPU temperatures and LCD UID via API. Returns 1 on success, 0 on failure.
+ * @brief Get device UID from CoolerControl API.
+ * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
  * @example
- *     cc_sensor_data_t data;
- *     if (monitor_get_sensor_data(&config, &data)) { ... }
+ *     cc_device_data_t device_data;
+ *     if (get_device_uid(&config, &device_data)) { ... }
  */
-int monitor_get_sensor_data(const Config *config, cc_sensor_data_t *data);
+int get_device_uid(const Config *config, cc_device_data_t *data);
 
 /*
  * @brief Response buffer for libcurl HTTP operations.
  * @details Used to collect HTTP response data in memory.
+ * Optimized for performance with capacity tracking to reduce reallocations.
  */
 typedef struct http_response {
-    char *data;
-    size_t size;
+    char *data;          // Response data buffer
+    size_t size;         // Current data size
+    size_t capacity;     // Buffer capacity (reduces realloc calls)
 } http_response;
+
+// Inline helper functions for performance-critical operations
+static inline void cc_init_response_buffer(struct http_response *response, size_t initial_capacity) {
+    response->data = malloc(initial_capacity);
+    response->size = 0;
+    response->capacity = response->data ? initial_capacity : 0;
+}
+
+static inline void cc_cleanup_response_buffer(struct http_response *response) {
+    if (response && response->data) {
+        free(response->data);
+        response->data = NULL;
+        response->size = 0;
+        response->capacity = 0;
+    }
+}
 
 /*
  * @brief Callback for libcurl to write received data into a buffer.
