@@ -145,9 +145,9 @@ systemctl stop coolerdash.service
 >
 > **If `/etc/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
 
-### 🔧 Usage & Tips
+## 🔧 Usage & Tips
 
-# Service Management
+#### Service Management
 
 ```bash
 # Service control
@@ -169,7 +169,7 @@ make status     # systemctl status coolerdash
 make logs       # journalctl -u coolerdash -f
 ```
 
-### Build Commands
+#### Build Commands
 
 ```bash
 make            # Standard C99 build
@@ -180,7 +180,7 @@ make debug      # Debug build with AddressSanitizer
 make help       # Show all options
 ```
 
-### Debugging Steps
+#### Debugging Steps
 
 ```bash
 # 1. Check CoolerControl status
