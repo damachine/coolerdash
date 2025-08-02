@@ -30,16 +30,14 @@ Right: AI-generated image to demonstrate LCD output*
 
 **👨‍💻 Author:** DAMACHINE ([christkue79@gmail.com](mailto:christkue79@gmail.com))  
 **🧪 Tested with:** NZXT Kraken 2023 (Z-Series) - Developer's personal system  
-**🔗 Compatible:** NZXT Kraken X-Series, Z-Series and other LCD-capable models *(theoretical)*
+**🔗 Compatible:** NZXT Kraken X-Series, Z-Series and other LCD-capable models (Asus, MSI, NZXT, etc.)*(theoretical)*
 
 ## ✨ Features
 
-- **🚀 Intelligent Installation**: Automatic dependency detection and installation for all major Linux distributions
+- **🚀 Intelligent Installation**: Easy installation for all major Linux distributions
 - **⚡ Performance-Optimized**: Caching, change detection, minimal I/O operations
 - **📊 Efficient Sensor Polling**: Only necessary sensor data is queried (no mode logic)
-- **📊 CoolerControl Open-API**: Complete sensor data access via CoolerControl Open-API
-- **🔧 Automatic Device Detection**: Coolercontrol Open-API detection and native integration
-- **� Automatic LCD Resolution Detection**: Automatically detects and adapts to your LCD's resolution
+- **📊 CoolerControl Open-API**: Complete device and sensor data access via CoolerControl Open-API
 - **🔄 Systemd Integration**: Service management with detailed logs
 - **🔒 Enhanced Security**: Runs as dedicated non-root user for improved system security
 
@@ -50,16 +48,16 @@ Right: AI-generated image to demonstrate LCD output*
 - **OS**: Linux
 - **CoolerControl**: REQUIRED - must be installed and running
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
-- **LCD**: LCD displays supported by CoolerControl (Asus, NZXT, etc.)
+- **LCD**: LCD displays supported by CoolerControl (Asus, MSI, NZXT, etc.)
 
 **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
 **Supported Distributions and Dependencies:**
-- **Arch Linux / Manjaro (Recommended)**: `pacman -S cairo libcurl-gnutls jansson coolercontrol libini gcc make pkg-config`
-- **Ubuntu / Debian**: `apt install libcairo2-dev libcurl4-openssl-dev libjansson-dev coolercontrol libini-dev gcc make pkg-config`
-- **Fedora**: `dnf install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
-- **RHEL / CentOS**: `yum install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
-- **openSUSE**: `zypper install cairo-devel libcurl-devel jansson-devel coolercontrol libini-devel gcc make pkg-config`
+- **Arch Linux / Manjaro (Recommended)**
+- **Ubuntu / Debian**
+- **Fedora**
+- **RHEL / CentOS**
+- **openSUSE**
 
 > **Note:** Dependencies are usually installed automatically when using the provided PKGBUILD or package manager scripts.  
 > If you install manually, please ensure all required dependencies are present on
@@ -136,92 +134,24 @@ systemctl stop coolerdash.service
 ## ⚙️ Configuration
 
 > **The following settings were tested with an NZXT Kraken 2023.**  
-> CoolerDash should work with any LCD device supported by CoolerControl (NZXT, Asus, etc.).  
+> CoolerDash should work with any LCD device supported by CoolerControl (Asus, MSI, NZXT, etc.).  
 > **Note:** 
+
+> **Runtime configuration:** CoolerDash automatic detect most essentiality settings and no configuration are need.
+> All relevant configuration options (display, thresholds, font, colors, paths, daemon and many more settings) are set in `/etc/coolerdash/config.ini`. 
+> After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
+> **Tip:** Edit `/etc/coolerdash/config.ini` to change the look, update interval, thresholds, or LCD behavior to your needs.
+
+> **If `/etc/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
 
 ---
 
-> **Runtime configuration:** All settings are managed in `/etc/coolerdash/config.ini`.
-> After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
->
-> **If `/etc/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
-
 ### Important customizable values
 
-All relevant configuration options (display, thresholds, colors, paths, daemon and many more settings) are set in `/etc/coolerdash/config.ini`. 
-> **Tip:** Edit `/etc/coolerdash/config.ini` to change the look, update interval, thresholds, or LCD behavior to your needs.
 
-## 🔍 Troubleshooting
+### 🔧 Usage & Tips
 
-### Common Issues
-
-- **"Device not found"**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
-- **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
-- **"Connection problem"**: No devices found or wrong device UID → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
-- **"Another instance may be running"**: CoolerDash is already running → Check with `systemctl status coolerdash.service` and stop the service if needed
-
-**Troubleshooting: Verify connection**, you can manually check if devices are detected correctly:
-```bash
-# Start CoolerControl (if not running)
-systemctl start coolercontrold
-
-# Check available devices
-curl http://localhost:11987/devices | jq
-```
-
-**Example CoolerControl API output:**
-```json
-{
-      "name": "NZXT Kraken 2023",
-      "type": "Liquidctl",
-      "type_index": 1,
-      "uid": "8d4becb03bca2a8e8d4213ac376a1094f39d2786f688549ad3b6a591c3affdf9",
-      "lc_info": {
-        "driver_type": "KrakenZ3",
-        "firmware_version": "2.0.0",
-        "unknown_asetek": false
-      }
-```
-
-## Troubleshooting: Manual Installation Conflicts
-If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
-
-**Solution:**
-- The PKGBUILD will attempt to clean up automatically.
-- If problems persist, run:
-  ```
-  sudo make uninstall
-  ```
-- Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
-- Then retry the installation.
-
-If you need help, open an issue at https://github.com/damachine/coolerdash/issues
-
-## Troubleshooting: Systemd Service User Issues
-If you encounter errors like "User not found" or "Permission denied" when starting the systemd service, it may be due to a missing or misconfigured system user for CoolerDash.
-
-**Solution:**
-- CoolerDash is designed to run as a dedicated user for security. If the user was not created automatically, you can add it manually:
-  ```bash
-  sudo useradd --system --no-create-home --shell /usr/sbin/nologin coolerdash
-  ```
-- Ensure all relevant directories are owned by the `coolerdash` user:
-  ```bash
-  sudo chown -R coolerdash:coolerdash /opt/coolerdash
-  sudo chown -R coolerdash:coolerdash /run/coolerdash
-  sudo chown -R coolerdash:coolerdash /tmp/coolerdash
-  ```
-- If you use a custom config or image path, check permissions for `/etc/coolerdash/config.ini` and `/tmp/coolerdash/coolerdash.png`.
-- After creating the user and setting permissions, restart the service:
-  ```bash
-  systemctl restart coolerdash.service
-  ```
-
-> **Note:** The systemd unit file expects the user `coolerdash` to exist. If you use a different username, edit `/etc/systemd/system/coolerdash.service` accordingly.
-
-## 🔧 Usage & Tips
-
-### Service Management
+# Service Management
 
 ```bash
 # Service control
@@ -270,6 +200,52 @@ make debug && coolerdash
 # 4. Check service logs
 journalctl -u coolerdash.service -f
 ```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+- **"Device not found"**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
+- **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
+- **"Connection problem"**: No devices found or wrong device UID → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
+- **"Another instance may be running"**: CoolerDash is already running → Check with `systemctl status coolerdash.service` and stop the service if needed
+
+**Troubleshooting: Verify connection**, you can manually check if devices are detected correctly:
+```bash
+# Start CoolerControl (if not running)
+systemctl start coolercontrold
+
+# Check available devices
+curl http://localhost:11987/devices | jq
+```
+
+**Example CoolerControl API output:**
+```json
+{
+      "name": "NZXT Kraken 2023",
+      "type": "Liquidctl",
+      "type_index": 1,
+      "uid": "8d4becb03bca2a8e8d4213ac376a1094f39d2786f688549ad3b6a591c3affdf9",
+      "lc_info": {
+        "driver_type": "KrakenZ3",
+        "firmware_version": "2.0.0",
+        "unknown_asetek": false
+      }
+```
+
+## Troubleshooting: Manual Installation Conflicts
+If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
+
+**Solution:**
+- The PKGBUILD will attempt to clean up automatically.
+- If problems persist, run:
+  ```
+  sudo make uninstall
+  ```
+- Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
+- Then retry the installation.
+
+If you need help, open an issue at https://github.com/damachine/coolerdash/issues
 
 ## 📄 License
 
