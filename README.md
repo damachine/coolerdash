@@ -43,7 +43,7 @@ Right: AI-generated image to demonstrate LCD output*
 
 > **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
 
-### 🖥️ System Requirements
+## 🖥️ System Requirements
 
 - **OS**: Linux
 - **CoolerControl**: REQUIRED - must be installed and running
@@ -62,7 +62,7 @@ Right: AI-generated image to demonstrate LCD output*
 > **Note:** Dependencies are usually installed automatically when using the provided PKGBUILD or package manager scripts.  
 > If you install manually, please ensure all required dependencies are present on
 
-### Prerequisites
+## Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
@@ -118,7 +118,7 @@ journalctl -u coolerdash.service
 
 ---
 
-### Manual Usage 
+#### Manual Usage 
 
 ```bash
 # Run manually
@@ -134,6 +134,8 @@ coolerdash
 ```bash
 systemctl stop coolerdash.service
 ```
+
+---
 
 ## ⚙️ Configuration
 
