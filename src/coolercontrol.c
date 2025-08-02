@@ -14,13 +14,13 @@
  */
 
 // Include necessary headers
-#include <jansson.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <curl/curl.h>
+#include <jansson.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // Include project headers
 #include "../include/coolercontrol.h"

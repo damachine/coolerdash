@@ -6,6 +6,25 @@
  * @version 1.0
  */
 
+ /**
+  * @brief Monitor API for reading CPU and GPU temperatures via CoolerControl OpenAPI.
+  * @details Provides functions to initialize the monitor subsystem and read CPU/GPU temperature values from the API.
+  * @example
+  *     #include "monitor.h"
+  *
+  *     int main() {
+  *         struct Config config;
+  *         // Load or set your configuration here...
+  *
+  *         float cpuTemp, gpuTemp;
+  *         if (get_temperature_data(&config, &cpuTemp, &gpuTemp)) {
+  *             printf("CPU Temp: %.2f°C\n", cpuTemp);
+  *             printf("GPU Temp: %.2f°C\n", gpuTemp);
+  *         } else {
+  *             fprintf(stderr, "Failed to retrieve temperature data.\n");
+  */
+
+// Include necessary headers
 #ifndef MONITOR_H
 #define MONITOR_H
 
@@ -23,8 +42,7 @@ struct Config;
 
 /**
  * @brief Structure to hold temperature sensor data.
- * @details Used to aggregate temperature values from monitoring sensors.
- * Optimized for cache alignment and minimal memory footprint with built-in validation.
+ * @details Used to aggregate temperature values from monitoring sensors. Optimized for cache alignment and minimal memory footprint with built-in validation.
  * @example
  *     monitor_sensor_data_t data;
  *     if (monitor_get_temperature_data(&config, &data)) { ... }
@@ -37,8 +55,7 @@ typedef struct __attribute__((aligned(8))) {  // 8-byte alignment for optimal ca
 
 /**
  * @brief Get CPU and GPU temperature data from CoolerControl API.
- * @details Reads the current CPU and GPU temperatures via API. Returns 1 on success, 0 on failure.
- * Enhanced with input validation and buffer overflow protection.
+ * @details Reads the current CPU and GPU temperatures via API. Returns 1 on success, 0 on failure. Enhanced with input validation and buffer overflow protection.
  * @example
  *     float temp_1, temp_2;
  *     if (get_temperature_data(&config, &temp_1, &temp_2)) { ... }

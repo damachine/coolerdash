@@ -8,21 +8,25 @@
 
 /**
  * @brief Enhanced LCD rendering and image upload implementation for CoolerDash.
- * @details Implements optimized display rendering logic with security features, performance
- * improvements, and efficient resource management for temperature visualization.
+ * @details Implements optimized display rendering logic with security features, performance improvements, and efficient resource management for temperature visualization.
  * @example
- *     // Main functions: render_display(), draw_combined_image()
+ *     See function documentation for usage examples.
  */
 
 // POSIX and security feature requirements
 #define _POSIX_C_SOURCE 200112L
 
-// Security and performance constants
-#define TEMP_STRING_BUFFER_SIZE 16     // Safe buffer size for temperature strings
-#define MAX_TEMP_VALUE 200.0f          // Maximum valid temperature value
-#define MIN_TEMP_VALUE -50.0f          // Minimum valid temperature value
-#define DIRECTORY_PERMISSIONS 0755     // Standard directory permissions
-#define COLOR_SCALE_FACTOR (1.0/255.0) // Precomputed 1/255 for color scaling
+// Security, performance and layout constants
+#define COLOR_SCALE_FACTOR (1.0/255.0)
+#define CORNER_RADIUS 8.0
+#define DIRECTORY_PERMISSIONS 0755
+#define LABEL_Y_OFFSET_1 8
+#define LABEL_Y_OFFSET_2 15
+#define MAX_TEMP_VALUE 200.0f
+#define MIN_TEMP_VALUE -50.0f
+#define TEMP_DISPLAY_X_OFFSET 22
+#define TEMP_DISPLAY_Y_OFFSET 22
+#define TEMP_STRING_BUFFER_SIZE 16
 
 // Mathematical constants with precision
 #ifndef M_PI
@@ -32,23 +36,16 @@
 #define M_PI_2 1.57079632679489661923
 #endif
 
-// Layout constants - optimized for performance
-#define TEMP_DISPLAY_X_OFFSET 22
-#define TEMP_DISPLAY_Y_OFFSET 22
-#define CORNER_RADIUS 8.0
-#define LABEL_Y_OFFSET_1 8
-#define LABEL_Y_OFFSET_2 15
-
 // Include necessary headers in logical order
+#include <cairo/cairo.h>
+#include <errno.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <cairo/cairo.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 // Include project headers
 #include "../include/display.h"
@@ -56,14 +53,9 @@
 #include "../include/coolercontrol.h"
 #include "../include/monitor.h"
 
-////////////////////////////////////////////////////////////////////////////////
-// FORWARD DECLARATIONS AND UTILITY FUNCTIONS
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Forward declarations for internal display rendering functions.
- * @details These functions provide modular, optimized rendering with input validation
- * and error handling. All functions use const parameters where appropriate.
+ * @details These functions provide modular, optimized rendering with input validationand error handling. All functions use const parameters where appropriate.
  */
 
 // Core rendering functions
@@ -85,14 +77,9 @@ static inline double cairo_color_convert(uint8_t color_component);
 static int create_directory_if_needed(const char *path);
 static int validate_cairo_objects(cairo_t *cr, cairo_surface_t *surface);
 
-////////////////////////////////////////////////////////////////////////////////
-// UTILITY FUNCTIONS WITH SECURITY ENHANCEMENTS
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Clamp temperature value to valid range for security and stability.
- * @details Ensures temperature values are within reasonable bounds to prevent
- * rendering issues and potential security vulnerabilities.
+ * @details Ensures temperature values are within reasonable bounds to prevent rendering issues and potential security vulnerabilities.
  * @example
  *     float safe_temp = clamp_temperature(raw_temp);
  */
@@ -104,8 +91,7 @@ static inline float clamp_temperature(float temp) {
 
 /**
  * @brief Optimized color component conversion with precomputed scaling.
- * @details Converts uint8_t color values to cairo double format efficiently.
- * Uses precomputed scaling factor to avoid repeated divisions.
+ * @details Converts uint8_t color values to cairo double format efficiently. Uses precomputed scaling factor to avoid repeated divisions.
  * @example
  *     double red = cairo_color_convert(config->font_color_temp.r);
  */
@@ -116,7 +102,6 @@ static inline double cairo_color_convert(uint8_t color_component) {
 /**
  * @brief Create directory if it doesn't exist with proper error handling.
  * @details Creates directory with appropriate permissions and handles errors safely.
- * Returns 0 on success, -1 on error.
  * @example
  *     if (create_directory_if_needed(config->paths_images) != 0) handle_error();
  */
@@ -159,14 +144,9 @@ static int validate_cairo_objects(cairo_t *cr, cairo_surface_t *surface) {
     return 1;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// CORE DISPLAY UPDATE LOGIC
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Enhanced display update detection with improved performance.
- * @details Compares current sensor data with last drawn values and determines if a redraw 
- * is necessary. Uses static variables with proper initialization and validation.
+ * @details Compares current sensor data with last drawn values and determines if a redraw is necessary. Uses static variables with proper initialization and validation.
  * @example
  *     if (should_update_display(&sensor_data, config)) {
  *         // Redraw required
@@ -206,14 +186,9 @@ static int should_update_display(const sensor_data_t *data, const Config *config
     return 0; // No significant change
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// MAIN RENDERING FUNCTIONS WITH ENHANCED SECURITY
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Enhanced display rendering with comprehensive error handling and validation.
- * @details Renders the LCD display image using provided sensor data with security features,
- * resource management, and performance optimizations.
+ * @details Renders the LCD display image using provided sensor data with security features, resource management, and performance optimizations.
  * @example
  *     int result = render_display(&config, &sensor_data);
  *     if (!result) handle_rendering_error();
@@ -263,10 +238,6 @@ int render_display(const Config *config, const sensor_data_t *data) {
         return 0;
     }
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // RENDERING PIPELINE WITH OPTIMIZED OPERATIONS
-    ////////////////////////////////////////////////////////////////////////////////
-    
     // Fill background with black (optimized single operation)
     cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
     cairo_paint(cr);
@@ -294,10 +265,6 @@ int render_display(const Config *config, const sensor_data_t *data) {
     }
     draw_labels(cr, config);
 
-    ////////////////////////////////////////////////////////////////////////////////
-    // FILE OPERATIONS WITH SECURITY AND ERROR HANDLING
-    ////////////////////////////////////////////////////////////////////////////////
-    
     // Ensure image directory exists with proper error handling
     if (create_directory_if_needed(config->paths_images) != 0) {
         cairo_destroy(cr);
@@ -321,14 +288,9 @@ int render_display(const Config *config, const sensor_data_t *data) {
     return success;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// TEMPERATURE DRAWING FUNCTIONS WITH OPTIMIZATIONS
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Draw a single temperature value at the given y offset with enhanced safety.
- * @details Helper for draw_temperature_displays with buffer overflow protection
- * and optimized string formatting.
+ * @details Helper for draw_temperature_displays with buffer overflow protection and optimized string formatting.
  * @example
  *     draw_temp_safe(cr, config, temp_value, y_offset);
  */
@@ -357,8 +319,7 @@ static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp
 
 /**
  * @brief Draw temperature displays with enhanced positioning and validation.
- * @details Draws the temperature values for CPU and GPU in their respective boxes 
- * with improved accuracy and safety checks.
+ * @details Draws the temperature values for CPU and GPU in their respective boxes with improved accuracy and safety checks.
  * @example
  *     draw_temperature_displays(cr, &sensor_data, &config);
  */
@@ -374,8 +335,7 @@ static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, co
 
 /**
  * @brief Draw optimized temperature bars with enhanced performance and validation.
- * @details Draws horizontal bars representing CPU and GPU temperatures with enhanced 
- * color gradients, input validation, and optimized positioning calculations.
+ * @details Draws horizontal bars representing CPU and GPU temperatures with enhanced color gradients, input validation, and optimized positioning calculations.
  * @example
  *     draw_temperature_bars(cr, &sensor_data, &config);
  */
@@ -404,8 +364,7 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
 
 /**
  * @brief Draw a single temperature bar with enhanced safety and optimizations.
- * @details Helper function that draws background, fill, and border for a temperature bar 
- * with rounded corners, comprehensive validation, and optimized cairo operations.
+ * @details Helper function that draws background, fill, and border for a temperature bar with rounded corners, comprehensive validation, and optimized cairo operations.
  * @example
  *     draw_single_temperature_bar(cr, config, temp_value, bar_x, bar_y);
  */
@@ -430,10 +389,6 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
     // Ensure filled width is within valid bounds
     const int safe_temp_val_w = (temp_val_w < 0) ? 0 : 
         (temp_val_w > config->layout_bar_width) ? config->layout_bar_width : temp_val_w;
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // OPTIMIZED CAIRO RENDERING OPERATIONS
-    ////////////////////////////////////////////////////////////////////////////////
     
     // Draw bar background with rounded corners (optimized color conversion)
     cairo_set_source_rgb(cr, 
@@ -521,8 +476,7 @@ static Color get_temperature_bar_color(const Config *config, float val) {
 
 /**
  * @brief Draw CPU/GPU labels with enhanced positioning and validation.
- * @details Draws text labels for CPU and GPU with optimized positioning calculations
- * and comprehensive input validation. Font and color are set by the main rendering pipeline.
+ * @details Draws text labels for CPU and GPU with optimized positioning calculations and comprehensive input validation. Font and color are set by the main rendering pipeline.
  * @example
  *     draw_labels(cr, &config);
  */
@@ -555,9 +509,7 @@ static void draw_labels(cairo_t *cr, const Config *config) {
 
 /**
  * @brief Main entry point for display updates with enhanced error handling.
- * @details Collects sensor data and renders display with comprehensive validation,
- * error handling, and optimized resource management. Handles LCD communication
- * and ensures robust operation in all conditions.
+ * @details Collects sensor data and renders display with comprehensive validation, error handling, and optimized resource management. Handles LCD communication and ensures robust operation in all conditions.
  * @example
  *     draw_combined_image(&config);
  */

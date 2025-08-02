@@ -20,12 +20,12 @@
 } while(0)
 
 // Include necessary headers
+#include <errno.h>
 #include <ini.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>    // For INT_MIN, INT_MAX
-#include <errno.h>     // For errno checking
 
 // Include project headers
 #include "../include/config.h"
@@ -34,6 +34,8 @@
 /**
  * @brief Secure helper functions for string parsing with validation.
  * @details Replaces unsafe atoi/atof with secure parsing that validates input.
+ * @example
+ *     int val = safe_atoi("123", 0);
  */
 
 // Safe integer parsing with validation
@@ -58,7 +60,6 @@ static inline float safe_atof(const char *str, float default_value) {
 /**
  * @brief Helper function for secure color parsing with validation.
  * @details Parses RGB color values and automatically validates with uint8_t type safety.
- * Enhanced with input validation and automatic range clamping.
  * @example
  *     parse_color_component(value, &config->font_color_temp.r);
  */
@@ -380,7 +381,6 @@ void config_apply_fallbacks(Config *config) {
 /**
  * @brief Validate complete configuration structure.
  * @details Performs comprehensive validation of all configuration fields.
- * Enhanced with security checks and input validation.
  * @example
  *     if (config_validate(&cfg)) { ... }
  */
@@ -428,7 +428,6 @@ void config_init_defaults(Config *config) {
 /**
  * @brief Main configuration loading function with enhanced security.
  * @details Loads configuration from INI file with comprehensive validation and secure defaults.
- * Enhanced with buffer overflow protection and input validation.
  * @example
  *     Config cfg;
  *     if (load_config("/etc/coolerdash/config.ini", &cfg) != 0) {

@@ -8,13 +8,9 @@
 
 /**
  * @brief Enhanced main entry point for CoolerDash daemon with security and performance optimizations.
- * @details Implements the main daemon logic with improved error handling, secure PID management,
- * and optimized signal processing. Enhanced with input validation, dynamic version loading,
- * and modern C practices.
+ * @details Implements the main daemon logic with improved error handling, secure PID management, and optimized signal processing. Enhanced with input validation, dynamic version loading, and modern C practices.
  * @example
- *     coolerdash [config_path] - starts the daemon with optional config file
- *     coolerdash --help - shows usage information
- *     systemctl start coolerdash - starts as system service (recommended)
+ *     See function documentation for usage examples.
  */
 
 // POSIX and system feature requirements
@@ -22,27 +18,26 @@
 #define _XOPEN_SOURCE 600
 
 // Security and performance constants
-#define MAX_PID_STR_LEN 32         // Maximum length for PID string representation
-#define MAX_ERROR_MSG_LEN 512      // Maximum error message length
-#define SHUTDOWN_RETRY_COUNT 2     // Number of shutdown image send attempts
-#define PID_READ_BUFFER_SIZE 64    // Buffer size for reading PID files
-#define VERSION_BUFFER_SIZE 32     // Buffer size for version string
-#define DEFAULT_VERSION "unknown"  // Fallback version string
+#define DEFAULT_VERSION "unknown"
+#define MAX_ERROR_MSG_LEN 512
+#define MAX_PID_STR_LEN 32
+#define PID_READ_BUFFER_SIZE 64
+#define SHUTDOWN_RETRY_COUNT 2
+#define VERSION_BUFFER_SIZE 32
 
 // Include necessary headers in logical order
 #include <errno.h>
+#include <limits.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <limits.h>                // For safe integer parsing
-
-#include <stdarg.h>                // For va_list in log_message
+#include <time.h>
+#include <unistd.h>
 
 // Include project headers
 #include "../include/config.h"
@@ -67,10 +62,6 @@ static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image w
  *     g_config_ptr = &config;
  */
 const Config *g_config_ptr = NULL;
-
-////////////////////////////////////////////////////////////////////////////////
-// SECURE HELPER FUNCTIONS
-////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Secure logging function with consistent format.
@@ -101,8 +92,7 @@ static void log_message(log_level_t level, const char *format, ...) {
 
 /**
  * @brief Read version string from VERSION file with enhanced security.
- * @details Safely reads version from VERSION file with buffer overflow protection
- * and proper validation. Returns fallback version on error.
+ * @details Safely reads version from VERSION file with buffer overflow protection and proper validation. Returns fallback version on error.
  * @example
  *     const char* version = read_version_from_file();
  */
@@ -171,14 +161,10 @@ static pid_t safe_parse_pid(const char *pid_str) {
     
     return (pid_t)pid;
 }
-////////////////////////////////////////////////////////////////////////////////
-// INSTANCE MANAGEMENT WITH ENHANCED SECURITY
-////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Check if another instance of CoolerDash is running with secure PID validation.
- * @details Uses secure file reading and PID validation. Returns -1 if another instance is active, 0 otherwise.
- * Enhanced with buffer overflow protection and proper error handling.
+ * @details Uses secure file reading and PID validation.
  * @example
  *     if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) { ... }
  */
@@ -230,7 +216,6 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
 /**
  * @brief Write current PID to file with enhanced security and error checking.
  * @details Creates PID file with proper permissions and atomic write operation.
- * Enhanced with directory creation and comprehensive error handling.
  * @example
  *     if (write_pid_file("/var/run/coolerdash.pid") != 0) { ... }
  */
@@ -317,14 +302,9 @@ static void remove_pid_file(const char *pid_file) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// DEBUG AND DIAGNOSTICS FUNCTIONS
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Display comprehensive system and device information for diagnostics.
- * @details Shows detailed system state including device info, display config,
- * and sensor data. Only called in debug mode or on explicit request.
+ * @details Shows detailed system state including device info, display config, and sensor data. Only called in debug mode or on explicit request.
  * @example
  *     show_system_diagnostics(&config, &device_data, api_screen_width, api_screen_height);
  */
@@ -332,16 +312,20 @@ static void show_system_diagnostics(const Config *config, const cc_device_data_t
                                    int api_width, int api_height) {
     if (!config || !device_data) return;
     
-    log_message(LOG_INFO, "Display configuration: %dx%d pixels", 
-               config->display_width, config->display_height);
-    
+    // Display configuration with API validation integrated
     if (api_width > 0 && api_height > 0) {
         if (api_width != config->display_width || api_height != config->display_height) {
+            log_message(LOG_INFO, "Display configuration: %dx%d pixels", 
+                       config->display_width, config->display_height);
             log_message(LOG_WARNING, "API reports different dimensions: %dx%d pixels", 
                        api_width, api_height);
         } else {
-            log_message(LOG_INFO, "API dimensions match configuration");
+            log_message(LOG_INFO, "Display configuration: %dx%d pixels (API confirmed)", 
+                       config->display_width, config->display_height);
         }
+    } else {
+        log_message(LOG_INFO, "Display configuration: %dx%d pixels", 
+                   config->display_width, config->display_height);
     }
     
     log_message(LOG_INFO, "Refresh interval: %d.%03d seconds", 
@@ -349,14 +333,9 @@ static void show_system_diagnostics(const Config *config, const cc_device_data_t
                config->display_refresh_interval_nsec / 1000000);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// DAEMON CORE FUNCTIONALITY
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Enhanced main daemon loop with improved timing and error handling.
  * @details Runs the main loop with precise timing, optimized sleep, and graceful error recovery.
- * Uses clock_nanosleep for better precision and reduced CPU usage.
  * @example
  *     int result = run_daemon(&config);
  */
@@ -377,7 +356,6 @@ static int run_daemon(const Config *config) {
         return -1;
     }
     
-    unsigned long iteration_count = 0;
     while (running) {
         // Calculate next execution time with overflow protection
         next_time.tv_sec += interval.tv_sec;
@@ -389,12 +367,6 @@ static int run_daemon(const Config *config) {
         
         // Execute main rendering task
         draw_combined_image(config);
-        iteration_count++;
-        
-        // Periodic status logging (every 500 iterations to reduce spam)
-        if (iteration_count % 500 == 0) {
-            log_message(LOG_INFO, "Daemon running (%lu iterations)", iteration_count);
-        }
         
         // Sleep until absolute time with error handling
         int sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
@@ -405,10 +377,6 @@ static int run_daemon(const Config *config) {
     
     return 0;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// UTILITY AND SIGNAL HANDLING FUNCTIONS
-////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @brief Detect if we were started by systemd with enhanced validation.
@@ -476,7 +444,6 @@ static void show_help(const char *program_name, const Config *config) {
 /**
  * @brief Enhanced shutdown image sending with retry logic and validation.
  * @details Sends shutdown image to LCD with multiple attempts and proper error handling.
- * Uses the updated config field names from optimized Config structure.
  * @example
  *     send_shutdown_image_if_needed();
  */
@@ -523,14 +490,9 @@ static void send_shutdown_image_if_needed(void) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// ENHANCED SIGNAL HANDLING WITH SECURITY
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Enhanced signal handler with atomic operations and secure shutdown.
  * @details Signal-safe implementation using only async-signal-safe functions.
- * Provides graceful shutdown with proper resource cleanup and shutdown image.
  * @example
  *     struct sigaction sa = { .sa_handler = handle_shutdown_signal };
  */
@@ -573,7 +535,6 @@ static void handle_shutdown_signal(int signum) {
 /**
  * @brief Setup enhanced signal handlers with comprehensive signal management.
  * @details Installs signal handlers for graceful shutdown and blocks unwanted signals.
- * Uses sigaction for more reliable signal handling than signal().
  * @example
  *     setup_enhanced_signal_handlers();
  */
@@ -606,14 +567,9 @@ static void setup_enhanced_signal_handlers(void) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// MAIN ENTRY POINT WITH ENHANCED INITIALIZATION
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @brief Enhanced main entry point for CoolerDash with comprehensive error handling.
- * @details Loads configuration, ensures single instance, initializes all modules, and starts
- * the main daemon loop with proper resource management and cleanup.
+ * @details Loads configuration, ensures single instance, initializes all modules, and starts the main daemon loop.
  * @example
  *     coolerdash
  *     coolerdash /custom/config.ini
@@ -632,11 +588,7 @@ int main(int argc, char **argv) {
     }
     
     log_message(LOG_INFO, "CoolerDash v%s starting up...", read_version_from_file());
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // CONFIGURATION LOADING WITH VALIDATION
-    ////////////////////////////////////////////////////////////////////////////////
-    
+
     // Determine configuration path with fallback
     const char *config_path = (argc > 1) ? argv[1] : "/etc/coolerdash/config.ini";
     Config config = {0};
@@ -651,11 +603,7 @@ int main(int argc, char **argv) {
         fprintf(stderr, "  - All required sections are present\n");
         return EXIT_FAILURE;
     }
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // INSTANCE MANAGEMENT AND PID FILE HANDLING
-    ////////////////////////////////////////////////////////////////////////////////
-    
+
     // Check for existing instances and create PID file with enhanced validation
     int is_service_start = is_started_by_systemd();
     log_message(LOG_INFO, "Running mode: %s", is_service_start ? "systemd service" : "manual");
@@ -677,17 +625,11 @@ int main(int argc, char **argv) {
     
     // Set global config pointer for signal handlers and cleanup
     g_config_ptr = &config;
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // SIGNAL HANDLER SETUP
-    ////////////////////////////////////////////////////////////////////////////////
-    
+
+    // Setup enhanced signal handlers with comprehensive error handling
     setup_enhanced_signal_handlers();
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // COOLERCONTROL SESSION INITIALIZATION
-    ////////////////////////////////////////////////////////////////////////////////
-    
+
+    // Initialize CoolerControl session
     log_message(LOG_INFO, "Initializing CoolerControl session...");
     if (!init_coolercontrol_session(&config)) {
         log_message(LOG_ERROR, "CoolerControl session initialization failed");
@@ -701,11 +643,7 @@ int main(int argc, char **argv) {
         remove_pid_file(config.paths_pid);
         return EXIT_FAILURE;
     }
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // DEVICE INFORMATION RETRIEVAL
-    ////////////////////////////////////////////////////////////////////////////////
-    
+
     // Initialize device data structures
     cc_device_data_t device_data = {0};
     monitor_sensor_data_t temp_data = {0};
@@ -725,9 +663,15 @@ int main(int argc, char **argv) {
             
         log_message(LOG_INFO, "Device: %s [%s]", name_display, uid_display);
         
-        // Get temperature data separately for validation
-        if (!monitor_get_temperature_data(&config, &temp_data)) {
-            log_message(LOG_WARNING, "Could not retrieve initial temperature sensor data");
+        // Get temperature data separately for validation and log sensor detection status
+        if (monitor_get_temperature_data(&config, &temp_data)) {
+            if (temp_data.temp_1 > 0.0f || temp_data.temp_2 > 0.0f) {
+                log_message(LOG_INFO, "Sensor values successfully detected");
+            } else {
+                log_message(LOG_WARNING, "Sensor detection issues - temperature values not available");
+            }
+        } else {
+            log_message(LOG_WARNING, "Sensor detection issues - check CoolerControl connection");
         }
         
         // Show diagnostic information in debug mode
@@ -736,14 +680,8 @@ int main(int argc, char **argv) {
         log_message(LOG_ERROR, "Could not retrieve device information");
         // Continue execution - some functionality may still work
     }
-    
-    ////////////////////////////////////////////////////////////////////////////////
-    // DAEMON EXECUTION AND CLEANUP
-    ////////////////////////////////////////////////////////////////////////////////
-    
-    log_message(LOG_INFO, "Starting daemon (refresh: %d.%03ds)", 
-               config.display_refresh_interval_sec,
-               config.display_refresh_interval_nsec / 1000000);
+
+    log_message(LOG_INFO, "Starting daemon");
     
     // Run daemon with proper error handling
     int result = run_daemon(&config);

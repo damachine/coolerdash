@@ -10,16 +10,15 @@
  * @brief Monitor API for reading CPU and GPU temperatures via CoolerControl OpenAPI.
  * @details Provides functions to initialize the monitor subsystem and read CPU/GPU temperature values from the API. Liquidctl device handling is in coolercontrol.c.
  * @example
- *     float temp_1, temp_2;
- *     if (get_temperature_data(&config, &temp_1, &temp_2)) { ... }
+ *     See function documentation for usage examples.
  */
 
 // Include necessary headers
+#include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <curl/curl.h>
 
 // Include project headers
 #include "../include/monitor.h"
@@ -144,7 +143,7 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
 
 /**
  * @brief Get CPU and GPU temperature data from CoolerControl API.
- * @details Reads the current CPU and GPU temperatures via API. Returns 1 on success, 0 on failure.
+ * @details Reads the current CPU and GPU temperatures via API.
  * @example
  *     float temp_1, temp_2;
  *     if (get_temperature_data(&config, &temp_1, &temp_2)) { ... }
@@ -179,7 +178,7 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
     
     // Initialize response buffer with reasonable starting capacity
     struct http_response chunk = {0};
-    const size_t initial_capacity = 8192; // Start with 8KB for status endpoint (increased from 2KB)
+    const size_t initial_capacity = 8192;
     chunk.data = malloc(initial_capacity);
     if (!chunk.data) {
         fprintf(stderr, "[coolerdash] Error: Failed to allocate response buffer\n");
@@ -258,7 +257,7 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
 
 /**
  * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
- * @details Reads the current CPU and GPU temperatures and LCD UID via API. Returns 1 on success, 0 on failure.
+ * @details Reads the current CPU and GPU temperatures and LCD UID via API.
  * @example
  *     cc_sensor_data_t data;
  *     if (monitor_get_sensor_data(&config, &data)) { ... }

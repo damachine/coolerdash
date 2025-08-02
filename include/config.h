@@ -25,17 +25,17 @@
 #include <stdint.h>
 
 // Security and validation constants
-#define CONFIG_MAX_STRING_LEN 256          // Maximum length for general strings
-#define CONFIG_MAX_PASSWORD_LEN 128        // Maximum password length for security
-#define CONFIG_MAX_PATH_LEN 512            // Maximum path length (Linux PATH_MAX consideration)
-#define CONFIG_MAX_FONT_NAME_LEN 64        // Maximum font name length
-#define CONFIG_MIN_DISPLAY_SIZE 32         // Minimum display dimension
-#define CONFIG_MAX_DISPLAY_SIZE 4096       // Maximum display dimension
-#define CONFIG_MIN_TEMP -50.0f             // Minimum valid temperature (°C)
-#define CONFIG_MAX_TEMP 150.0f             // Maximum valid temperature (°C)
-#define CONFIG_MAX_BRIGHTNESS 100          // Maximum LCD brightness value
-#define CONFIG_MAX_FONT_SIZE 128           // Maximum font size
-#define CONFIG_MIN_FONT_SIZE 6             // Minimum readable font size
+#define CONFIG_MAX_BRIGHTNESS 100
+#define CONFIG_MAX_DISPLAY_SIZE 4096
+#define CONFIG_MAX_FONT_NAME_LEN 64
+#define CONFIG_MAX_FONT_SIZE 128
+#define CONFIG_MAX_PASSWORD_LEN 128
+#define CONFIG_MAX_PATH_LEN 512
+#define CONFIG_MAX_STRING_LEN 256
+#define CONFIG_MAX_TEMP 150.0f
+#define CONFIG_MIN_DISPLAY_SIZE 32
+#define CONFIG_MIN_FONT_SIZE 6
+#define CONFIG_MIN_TEMP -50.0f
 
 /**
  * @brief Optimized color structure with memory efficiency and validation.

@@ -31,27 +31,24 @@ struct curl_slist;
 // Error codes
 #define CC_ERROR_INVALID_RESPONSE -1
 
-// Buffer size constants - optimized for cache alignment and security
-#define CC_UID_SIZE      128      // Device UID buffer size
-#define CC_NAME_SIZE     128      // Device name buffer size  
-#define CC_COOKIE_SIZE   256      // Cookie jar path buffer size
-#define CC_URL_SIZE      512      // URL buffer size (increased for security)
-#define CC_USERPWD_SIZE  128      // Username:password buffer size
-#define CC_DEVICE_SECTION_SIZE 4096 // Device section buffer size
-
-// Performance and security constants
-#define CC_HTTP_TIMEOUT_SEC 10L   // Increased timeout for stability
-#define CC_HTTP_CONNECT_TIMEOUT_SEC 5L // Connection timeout
-#define CC_MAX_RETRIES 3          // Maximum retry attempts
-#define CC_MAX_RESPONSE_SIZE (10 * 1024 * 1024) // 10MB response limit
+// Constants optimized for cache alignment, security and performance
+#define CC_COOKIE_SIZE   256
+#define CC_DEVICE_SECTION_SIZE 4096
+#define CC_HTTP_CONNECT_TIMEOUT_SEC 5L
+#define CC_HTTP_TIMEOUT_SEC 10L
+#define CC_MAX_RESPONSE_SIZE (10 * 1024 * 1024)
+#define CC_MAX_RETRIES 3
+#define CC_NAME_SIZE     128
+#define CC_UID_SIZE      128
+#define CC_URL_SIZE      512
+#define CC_USERPWD_SIZE  128
 
 // Include project headers
 #include "config.h"
 
 /**
  * @brief Structure to hold CoolerControl device information.
- * @details Used to store CoolerControl-specific device data like UID.
- * Optimized for cache alignment and minimal memory footprint.
+ * @details Used to store CoolerControl-specific device data like UID. Optimized for cache alignment and minimal memory footprint.
  * @example
  *     cc_device_data_t device_data;
  *     if (get_liquidctl_device_uid(&config, device_data.device_uid, sizeof(device_data.device_uid))) { ... }
@@ -133,9 +130,7 @@ int get_liquidctl_display_info(const Config *config, int *screen_width, int *scr
 
 /**
  * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from CoolerControl API.
- * @details Reads all LCD device information via API in one call. Returns 1 on success, 0 on failure.
- * Optimized for performance with minimal API calls and efficient JSON parsing.
- * Enhanced with input validation and buffer overflow protection.
+ * @details Reads all LCD device information via API in one call. Optimized for performance with minimal API calls and efficient JSON parsing. Enhanced with input validation and buffer overflow protection.
  * @example
  *     char uid[CC_UID_SIZE], name[CC_NAME_SIZE]; int width, height;
  *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), name, sizeof(name), &width, &height)) { ... }
@@ -193,10 +188,9 @@ static inline void* cc_secure_malloc(size_t size) {
  */
 int get_device_uid(const Config *config, cc_device_data_t *data);
 
-/*
+/**
  * @brief Response buffer for libcurl HTTP operations.
- * @details Used to collect HTTP response data in memory.
- * Optimized for performance with capacity tracking to reduce reallocations.
+ * @details Used to collect HTTP response data in memory. Optimized for performance with capacity tracking to reduce reallocations.
  * Cache-aligned for better memory performance.
  */
 typedef struct __attribute__((aligned(8))) http_response {
@@ -252,7 +246,7 @@ static inline void cc_cleanup_response_buffer(struct http_response *response) {
     }
 }
 
-/*
+/**
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer. It reallocates the buffer as needed and appends the new data chunk. If memory allocation fails, it frees the buffer and returns 0 to signal an error to libcurl.
  * @example

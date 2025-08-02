@@ -27,19 +27,18 @@ struct Config;
 struct CoolerControlSession;
 
 // Display constants for validation and security limits
-#define DISPLAY_TEMP_MIN -50.0f       // Minimum displayable temperature (°C)
-#define DISPLAY_TEMP_MAX 150.0f       // Maximum displayable temperature (°C)
-#define DISPLAY_TEMP_INVALID -999.0f  // Invalid temperature indicator
-#define DISPLAY_MAX_WIDTH 4096        // Maximum supported display width (increased for modern displays)
-#define DISPLAY_MAX_HEIGHT 4096       // Maximum supported display height
-#define DISPLAY_MIN_WIDTH 32          // Minimum supported display width (reduced for edge cases)
-#define DISPLAY_MIN_HEIGHT 32         // Minimum supported display height
-#define DISPLAY_MAX_FILEPATH 512      // Maximum file path length for security
+#define DISPLAY_MAX_FILEPATH 512
+#define DISPLAY_MAX_HEIGHT 4096
+#define DISPLAY_MAX_WIDTH 4096
+#define DISPLAY_MIN_HEIGHT 32
+#define DISPLAY_MIN_WIDTH 32
+#define DISPLAY_TEMP_INVALID -999.0f
+#define DISPLAY_TEMP_MAX 150.0f
+#define DISPLAY_TEMP_MIN -50.0f
 
 /**
  * @brief Sensor data structure for display rendering.
- * @details Holds temperature values for temp_1 and temp_2 with validation support.
- * Optimized for cache alignment and safe rendering operations.
+ * @details Holds temperature values for temp_1 and temp_2 with validation support. Optimized for cache alignment and safe rendering operations.
  * @example
  *     sensor_data_t data = { .temp_1 = 55.0f, .temp_2 = 48.0f };
  *     if (display_validate_sensor_data(&data)) { ... }
@@ -66,8 +65,7 @@ int render_display(const struct Config *config, const sensor_data_t *data);
 
 /**
  * @brief Enhanced display rendering with session management.
- * @details Collects sensor data and renders display with explicit session handling.
- * Provides better error reporting and resource management than draw_combined_image.
+ * @details Collects sensor data and renders display with explicit session handling. Provides better error reporting and resource management than draw_combined_image.
  * @example
  *     if (draw_combined_image_safe(session, &config, &sensor_data)) { ... }
  */
@@ -76,7 +74,6 @@ int draw_combined_image_safe(struct CoolerControlSession *session, const struct 
 /**
  * @brief Legacy function: Collects sensor data and renders display.
  * @details Reads all relevant sensor data (temperatures) and renders the display image.
- * DEPRECATED: Use draw_combined_image_safe() for better error handling.
  * @example
  *     draw_combined_image(&config);  // Legacy usage
  */
@@ -89,8 +86,6 @@ void draw_combined_image(const struct Config *config);
  *     if (send_shutdown_image(session, "/path/to/shutdown.png")) { ... }
  */
 int send_shutdown_image(struct CoolerControlSession *session, const char *image_path);
-
-// Inline helper functions for performance-critical display operations with validation
 
 /**
  * @brief Validate sensor data for display rendering.
