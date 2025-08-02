@@ -1,103 +1,23 @@
 .TH COOLERDASH 1 "July 2025" "coolerdash 1.25.07.16.0000" "User Commands"
 .SH NAME
-coolerdash \- CoolerDash Temperature Monitor (Professional Modular C Daemon)
+coolerdash \- CoolerDash - LCD dashboard for CoolerControl
 .SH SYNOPSIS
 .B coolerdash
 .br
 .B coolerdash
 [\fB\-\-help\fR]
 .SH DESCRIPTION
-.B coolerdash
-is a modular, high-performance C99 system daemon for Linux that displays real-time CPU and GPU temperatures on the LCD of supported liquid coolers (e.g. NZXT Kraken). CoolerDash integrates natively with the CoolerControl REST API and provides a professional, production-ready service with strict C99 compliance and systemd integration.
+.B CoolerDash
+This system daemon empowers you to harness the potential of your LCD-equipped liquid coolers. Display comprehensive system monitoring data including CPU and GPU temperatures directly on your LCD screen through seamless CoolerControl Open-API integration.
 
-The program always runs in a fixed two-box layout (CPU top, GPU bottom) for clear, reliable temperature monitoring. No display mode selection or coolant display is available in this version; only essential sensor data is shown for maximum stability and performance.
+Transform your cooling system into an intelligent monitoring hub that keeps you informed about your system's vital signs at a glance.
 
-All device communication is handled via the CoolerControl REST API—no Python dependencies required. All actions and errors are logged in detail via systemd for robust service management.
+Special thanks to @codifryed, the developer of CoolerControl, for making this possible!
 
-.SH CODING STANDARDS
-The source code follows strict ISO/IEC 9899:1999 (C99) and project coding standards:
-.TP
-- Build and packaging standards: see PKGBUILD and Makefile
-
-.SH ARCHITECTURE
-The program follows the standard C project structure:
-.TP
-.I src/
-Source code files (.c)
-.TP
-.I include/
-Header files (.h) and central configuration
-.TP
-.I build/
-Compiled object files (.o)
-.TP
-.I man/
-Documentation
-.TP
-.I PKGBUILD
-Arch Linux packaging script
-.TP
-.I Makefile
-Build and install automation
-.TP
-.I etc/systemd/coolerdash.service
-Systemd service file
-.TP
-.I src/main.c
-Daemon management and sensor coordination
-.TP
-.I include/config.h
-Central configuration (UUID, paths, colors, layout)
-.TP
-.I src/config.c
-Configuration file parsing and validation
-.TP
-.I src/monitor.c
-CPU and GPU temperature monitoring via sensors
-.TP
-.I src/display.c
-Rendering engine and Cairo graphics
-.TP
-.I src/coolercontrol.c
-REST API communication and session management
-
-.SH OPTIONS
-.TP
-.BR \-\-help
-Shows help information and usage examples
-
-.SH FILES
-.TP
-.I /usr/bin/coolerdash
-Main program executable (installed location)
-.TP
-.I /opt/coolerdash/
-Installation directory with binaries and resources
-.TP
-.I /opt/coolerdash/images/
-Generated temperature images and resources
-.TP
-.I /etc/systemd/system/coolerdash.service
-Systemd service file
-.TP
-.I /run/coolerdash/coolerdash.pid
-PID file for process management (runtime directory)
-.TP
-.I /etc/coolerdash/config.ini
-Main runtime configuration file
-.TP
-.I VERSION
-Version information file
-.TP
-.I PKGBUILD
-Arch Linux packaging script
-.TP
-.I Makefile
-Build and install automation
 
 .SH EXAMPLES
 .TP
-Start program (fixed two-box layout, CPU/GPU temperature only):
+Start program
 .B coolerdash
 .TP
 Show help:
@@ -111,7 +31,7 @@ Service management:
 .B journalctl -u coolerdash -f
 
 .SH SYSTEMD INTEGRATION
-The program provides professional systemd integration with detailed logs:
+The program provides systemd integration with detailed logs:
 .TP
 .B Service Installation
 .B make install
@@ -133,19 +53,6 @@ Shows module initialization, CoolerControl connection, and operating status.
 .B Makefile Service Shortcuts
 .B make start, make stop, make restart, make status, make logs
 
-.SH PERFORMANCE OPTIMIZATIONS
-The streamlined design offers the following performance benefits:
-.TP
-.B Minimal I/O
-Only temperature sensors are read for CPU and GPU (no mode-dependent logic).
-.TP
-.B Sensor data caching
-CPU: hwmon paths are cached at startup.
-GPU: 2.5-second cache with nvidia-smi.
-.TP
-.B Change detection
-Display updates only on significant changes (0.1°C for temperatures).
-
 .SH SECURITY ARCHITECTURE
 CoolerDash follows security best practices and does not require root privileges:
 .TP
@@ -155,11 +62,6 @@ Runs as user 'coolerdash' via systemd, not as root.
 .B API Communication Only
 Communicates via CoolerControl's HTTP REST API (port 11987) - no direct hardware access.
 .TP
-.B Process Isolation
-Uses systemd's security features: ProtectSystem=full, dedicated RuntimeDirectory.
-.TP
-.B Secure PID Management
-Atomic PID file operations with proper permissions and validation.
 
 .SH CONFIGURATION
 All important runtime and build-time settings are managed via configuration files:
@@ -170,11 +72,6 @@ After editing, restart the service with:
 .br
 \fBsystemctl restart coolerdash.service\fR
 .br
-Values in config.ini always take precedence over those in include/config.h.
-If config.ini is missing, all settings from include/config.h are used as defaults.
-.TP
-.B include/config.h
-Build-time defaults for all configuration values. Edit before compiling to set initial values for display, thresholds, colors, and paths.
 
 .SH DEPENDENCIES
 .TP
@@ -188,9 +85,6 @@ GCC with C99 support, Make, pkg-config
 .TP
 .B Runtime Libraries
 Cairo (graphics rendering), cURL (HTTP client), jansson (JSON parsing), inih (INI file parsing)
-.TP
-.B Optional Runtime Dependencies
-nvidia-smi (for NVIDIA GPU temperature monitoring), hwmon kernel module (CPU sensors)
 
 .SH INSTALLATION
 Installs the main binary to /usr/bin/coolerdash.
@@ -263,7 +157,6 @@ Written by DAMACHINE (christkue79@gmail.com).
 .SH SEE ALSO
 .BR systemctl (1),
 .BR coolercontrol (1),
-.BR nvidia-smi (1),
 .BR journalctl (1)
 .br
 Project repository: https://github.com/damachine/coolerdash
