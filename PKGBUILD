@@ -40,7 +40,7 @@ depends=('cairo' 'libcurl-gnutls' 'libinih' 'coolercontrol' 'ttf-roboto' 'jansso
 makedepends=('gcc' 'make' 'pkg-config')
 optdepends=('nvidia-utils: for GPU temperature monitoring'
             'lm_sensors: for additional hardware monitoring')
-backup=('opt/coolerdash/config.ini')
+backup=('etc/coolerdash/config.ini')
 install=coolerdash.install
 source=()
 sha256sums=()
@@ -110,7 +110,7 @@ package() {
     install -Dm644 "$srcdir/VERSION" "$pkgdir/opt/coolerdash/VERSION"
     install -Dm644 "$srcdir/LICENSE" "$pkgdir/opt/coolerdash/LICENSE"
     install -Dm644 "$srcdir/CHANGELOG.md" "$pkgdir/opt/coolerdash/CHANGELOG.md"
-    install -Dm644 "$srcdir/config.ini" "$pkgdir/opt/coolerdash/config.ini"
+    install -Dm644 "$srcdir/config.ini" "$pkgdir/etc/coolerdash/config.ini"
     install -dm755 "$pkgdir/opt/coolerdash/bin"
     install -Dm755 "$srcdir/bin/coolerdash" "$pkgdir/opt/coolerdash/bin/coolerdash"
     install -dm755 "$pkgdir/opt/coolerdash/images"

@@ -49,11 +49,11 @@ Daemon management and sensor coordination
 .I include/config.h
 Central configuration (UUID, paths, colors, layout)
 .TP
-.I src/cpu_monitor.c
-CPU temperature, CPU load, and RAM monitoring
+.I src/config.c
+Configuration file parsing and validation
 .TP
-.I src/gpu_monitor.c
-GPU temperature and GPU load (NVIDIA)
+.I src/monitor.c
+CPU and GPU temperature monitoring via sensors
 .TP
 .I src/display.c
 Rendering engine and Cairo graphics
@@ -68,23 +68,26 @@ Shows help information and usage examples
 
 .SH FILES
 .TP
-.I /opt/coolerdash/bin/coolerdash
-Main program (modern modular version)
+.I /usr/bin/coolerdash
+Main program executable (installed location)
 .TP
-.I /opt/coolerdash/man/README.md
-Documentation
+.I /opt/coolerdash/
+Installation directory with binaries and resources
 .TP
-.I /opt/coolerdash/images/coolerdash.png
-Generated temperature image
+.I /opt/coolerdash/images/
+Generated temperature images and resources
 .TP
 .I /etc/systemd/system/coolerdash.service
 Systemd service file
 .TP
-.I /var/run/coolerdash.pid
-PID file for process management
+.I /run/coolerdash/coolerdash.pid
+PID file for process management (runtime directory)
 .TP
 .I /etc/coolerdash/config.ini
 Main runtime configuration file
+.TP
+.I VERSION
+Version information file
 .TP
 .I PKGBUILD
 Arch Linux packaging script
@@ -101,9 +104,9 @@ Show help:
 .B coolerdash --help
 .TP
 Service management:
-.B sudo systemctl start coolerdash
+.B systemctl start coolerdash
 .br
-.B sudo systemctl status coolerdash
+.B systemctl status coolerdash
 .br
 .B journalctl -u coolerdash -f
 
@@ -111,16 +114,16 @@ Service management:
 The program provides professional systemd integration with detailed logs:
 .TP
 .B Service Installation
-.B sudo make install
+.B make install
 .br
 Automatically installs the service and restarts it on updates.
 .TP
 .B Service Management
-.B sudo systemctl enable coolerdash.service
+.B systemctl enable coolerdash.service
 .br
-.B sudo systemctl start coolerdash.service
+.B systemctl start coolerdash.service
 .br
-.B sudo systemctl status coolerdash.service
+.B systemctl status coolerdash.service
 .TP
 .B Detailed Logs
 .B journalctl -u coolerdash.service --since "10 minutes ago"
@@ -143,6 +146,21 @@ GPU: 2.5-second cache with nvidia-smi.
 .B Change detection
 Display updates only on significant changes (0.1°C for temperatures).
 
+.SH SECURITY ARCHITECTURE
+CoolerDash follows security best practices and does not require root privileges:
+.TP
+.B Dedicated User Service
+Runs as user 'coolerdash' via systemd, not as root.
+.TP
+.B API Communication Only
+Communicates via CoolerControl's HTTP REST API (port 11987) - no direct hardware access.
+.TP
+.B Process Isolation
+Uses systemd's security features: ProtectSystem=full, dedicated RuntimeDirectory.
+.TP
+.B Secure PID Management
+Atomic PID file operations with proper permissions and validation.
+
 .SH CONFIGURATION
 All important runtime and build-time settings are managed via configuration files:
 .TP
@@ -150,7 +168,7 @@ All important runtime and build-time settings are managed via configuration file
 Main runtime configuration file. Edit this file to change display, thresholds, colors, paths, and daemon settings without recompiling.
 After editing, restart the service with:
 .br
-\fBsudo systemctl restart coolerdash.service\fR
+\fBsystemctl restart coolerdash.service\fR
 .br
 Values in config.ini always take precedence over those in include/config.h.
 If config.ini is missing, all settings from include/config.h are used as defaults.
@@ -161,27 +179,49 @@ Build-time defaults for all configuration values. Edit before compiling to set i
 .SH DEPENDENCIES
 .TP
 .B CoolerControl (REQUIRED)
-Must be installed and running (coolercontrold.service)
+Must be installed and running (coolercontrold.service and coolercontrol-liqctld.service)
 .br
 Installation guide: https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md
 .TP
-.B System Libraries
-Cairo (graphics), cURL (HTTP), NVIDIA-SMI (GPU data), hwmon (temperature sensors), libinih (INI parsing)
+.B Build Dependencies
+GCC with C99 support, Make, pkg-config
+.TP
+.B Runtime Libraries
+Cairo (graphics rendering), cURL (HTTP client), jansson (JSON parsing), inih (INI file parsing)
+.TP
+.B Optional Runtime Dependencies
+nvidia-smi (for NVIDIA GPU temperature monitoring), hwmon kernel module (CPU sensors)
 
 .SH INSTALLATION
-Installs to /opt/coolerdash/bin/ and /opt/coolerdash/images/.
+Installs the main binary to /usr/bin/coolerdash.
+Resources and images are installed to /opt/coolerdash/.
 Systemd service file is installed to /etc/systemd/system/coolerdash.service.
 Default config file is installed to /etc/coolerdash/config.ini.
+Runtime directory /run/coolerdash/ is created automatically by systemd.
+.TP
+.B Standard Installation
+.B make install
+.br
+Installs all components and enables the systemd service.
 .TP
 .B PKGBUILD and AUR
 Arch Linux users can build and install via PKGBUILD and AUR. See PKGBUILD for details.
 
 .SH UNINSTALL
-Removes all files from /opt/coolerdash/ and disables the service.
-The config file /etc/coolerdash/config.ini is preserved unless unchanged (Arch standard).
+.TP
+.B Standard Uninstall
+.B make uninstall
+.br
+Stops and disables the service, removes all installed files from /usr/bin/, /opt/coolerdash/, and /etc/systemd/system/.
+The config file /etc/coolerdash/config.ini is preserved unless unchanged from defaults.
+.TP
+.B Manual Cleanup
+If needed, manually remove remaining files:
+.br
+.B rm -rf /opt/coolerdash/ /etc/coolerdash/
 .TP
 .B PKGBUILD
-Provides uninstall logic for Arch Linux packaging.
+Arch Linux users can uninstall via package manager: \fBpacman -R coolerdash\fR
 
 .SH USAGE
 .TP
@@ -192,17 +232,17 @@ Provides uninstall logic for Arch Linux packaging.
 .B coolerdash --help
 .TP
 .B Service management:
-.B sudo systemctl start coolerdash
+.B systemctl start coolerdash
 .br
-.B sudo systemctl status coolerdash
+.B systemctl status coolerdash
 .br
-.B sudo systemctl restart coolerdash
+.B systemctl restart coolerdash
 .br
 .B journalctl -u coolerdash -f
 
 > **Note:** The systemd service must be stopped before running manually to avoid conflicts:
 .B
-sudo systemctl stop coolerdash.service
+systemctl stop coolerdash.service
 
 .SH NOTES
 - All runtime settings can be changed via /etc/coolerdash/config.ini.

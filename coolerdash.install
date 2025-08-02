@@ -17,7 +17,7 @@ post_install() {
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable --now coolerdash.service 2>/dev/null || true
     echo "CoolerDash has been installed successfully!"
-    echo "To start the service, run: sudo systemctl enable --now coolerdash.service"
+    echo "To start the service, run: systemctl enable --now coolerdash.service"
 }
 
 pre_remove() {
@@ -42,6 +42,9 @@ pre_remove() {
     rm -f /usr/bin/coolerdash 2>/dev/null || true
     rm -rf /run/coolerdash 2>/dev/null || true
     rm -rf /opt/coolerdash 2>/dev/null || true
+    
+    # Remove config directory only if empty (preserves modified configs)
+    rmdir /etc/coolerdash 2>/dev/null || true
 }
 
 post_remove() {

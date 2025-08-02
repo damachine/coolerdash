@@ -77,7 +77,7 @@ ICON_UNINSTALL = 🗑️
 # Standard Build Target - Standard C project structure
 $(TARGET): $(OBJDIR) $(BINDIR) $(OBJECTS) $(MAIN_SOURCE)
 	@printf "\n$(PURPLE)Manual Installation Check:$(RESET)\n"
-	@printf "If you see errors about 'conflicting files' or manual installation, run 'sudo make uninstall' and remove leftover files in /opt/coolerdash, /usr/bin/coolerdash, /etc/systemd/system/coolerdash.service.\n\n"
+	@printf "If you see errors about 'conflicting files' or manual installation, run 'make uninstall' and remove leftover files in /opt/coolerdash, /usr/bin/coolerdash, /etc/systemd/system/coolerdash.service.\n\n"
 	@printf "$(ICON_BUILD) $(CYAN)Compiling $(TARGET) (Standard C structure)...$(RESET)\n"
 	@printf "$(BLUE)Structure:$(RESET) src/ include/ build/ bin/\n"
 	@printf "$(BLUE)CFLAGS:$(RESET) $(CFLAGS)\n"
@@ -272,7 +272,8 @@ install: check-deps-for-install $(TARGET)
 	sudo cp CHANGELOG.md /opt/coolerdash/ 2>/dev/null || true
 	sudo cp VERSION /opt/coolerdash/ 2>/dev/null || true
 	@printf "$(ICON_INFO) $(CYAN)Installing default config...$(RESET)\n"
-	sudo cp etc/coolerdash/config.ini /opt/coolerdash/config.ini 2>/dev/null || true
+	sudo mkdir -p /etc/coolerdash 2>/dev/null || true
+	sudo cp etc/coolerdash/config.ini /etc/coolerdash/config.ini 2>/dev/null || true
 	@printf "  $(GREEN)→$(RESET) Default config installed: /etc/coolerdash/config.ini\n"
 	@printf "\n"
 	@printf "  $(GREEN)→$(RESET) Program: /opt/coolerdash/bin/$(TARGET)\n"
@@ -341,6 +342,8 @@ uninstall:
 	sudo rm -f /usr/bin/coolerdash 2>/dev/null || true
 	sudo rm -f /run/coolerdash/coolerdash.pid 2>/dev/null || true
 	sudo rm -rf /run/coolerdash 2>/dev/null || true
+	# Remove config directory only if empty (preserves modified configs)
+	sudo rmdir /etc/coolerdash 2>/dev/null || true
 	# Remove any remaining files in /opt/coolerdash (catch-all, safe if dir already gone)
 	sudo rm -f /opt/coolerdash/* 2>/dev/null || true
 	@printf "  $(RED)✗$(RESET) Service: /etc/systemd/system/coolerdash.service\n"
@@ -371,7 +374,7 @@ debug: $(TARGET)
 
 logs:
 	@printf "$(ICON_INFO) $(CYAN)Live logs (Ctrl+C to exit):$(RESET)\n"
-	sudo journalctl -u coolerdash.service -f
+	journalctl -u coolerdash.service -f
 
 # Help
 help:
@@ -390,13 +393,13 @@ help:
 	@printf "  $(GREEN)make uninstall$(RESET)- Uninstalls the program\n"
 	@printf "\n"
 	@printf "$(YELLOW)⚙️  Service Management:$(RESET)\n"
-	@printf "  $(GREEN)sudo systemctl start coolerdash.service$(RESET)    - Starts the service\n"
-	@printf "  $(GREEN)sudo systemctl stop coolerdash.service$(RESET)     - Stops the service (sends shutdown.png to LCD automatically)\n"
-	@printf "  $(GREEN)sudo systemctl restart coolerdash.service$(RESET)  - Restarts the service\n"
-	@printf "  $(GREEN)sudo systemctl status coolerdash.service$(RESET)   - Shows service status\n"
-	@printf "  $(GREEN)sudo systemctl enable coolerdash.service$(RESET)   - Enables autostart\n"
-	@printf "  $(GREEN)sudo systemctl disable coolerdash.service$(RESET)  - Disables autostart\n"
-	@printf "  $(GREEN)sudo journalctl -u coolerdash.service -f$(RESET)   - Shows live logs\n"
+	@printf "  $(GREEN)systemctl start coolerdash.service$(RESET)    - Starts the service\n"
+	@printf "  $(GREEN)systemctl stop coolerdash.service$(RESET)     - Stops the service (sends shutdown.png to LCD automatically)\n"
+	@printf "  $(GREEN)systemctl restart coolerdash.service$(RESET)  - Restarts the service\n"
+	@printf "  $(GREEN)systemctl status coolerdash.service$(RESET)   - Shows service status\n"
+	@printf "  $(GREEN)systemctl enable coolerdash.service$(RESET)   - Enables autostart\n"
+	@printf "  $(GREEN)systemctl disable coolerdash.service$(RESET)  - Disables autostart\n"
+	@printf "  $(GREEN)journalctl -u coolerdash.service -f$(RESET)   - Shows live logs\n"
 	@printf "  $(BLUE)Shutdown:$(RESET) Service automatically displays shutdown.png when stopped (integrated in C code)\n"
 	@printf "\n"
 	@printf "$(YELLOW)📚 Documentation:$(RESET)\n"

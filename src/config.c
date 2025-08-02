@@ -24,21 +24,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>    // For INT_MIN, INT_MAX
+#include <errno.h>     // For errno checking
 
 // Include project headers
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
 
 /**
- * @brief Helper function for color parsing with validation.
- * @details Parses RGB color values and clamps them to valid range (0-255).
+ * @brief Secure helper functions for string parsing with validation.
+ * @details Replaces unsafe atoi/atof with secure parsing that validates input.
+ */
+
+// Safe integer parsing with validation
+static inline int safe_atoi(const char *str, int default_value) {
+    if (!str || !str[0]) return default_value;
+    char *endptr;
+    long val = strtol(str, &endptr, 10);
+    if (endptr == str || *endptr != '\0') return default_value; // Invalid conversion
+    if (val < INT_MIN || val > INT_MAX) return default_value;   // Overflow
+    return (int)val;
+}
+
+// Safe float parsing with validation  
+static inline float safe_atof(const char *str, float default_value) {
+    if (!str || !str[0]) return default_value;
+    char *endptr;
+    float val = strtof(str, &endptr);
+    if (endptr == str || *endptr != '\0') return default_value; // Invalid conversion
+    return val;
+}
+
+/**
+ * @brief Helper function for secure color parsing with validation.
+ * @details Parses RGB color values and automatically validates with uint8_t type safety.
+ * Enhanced with input validation and automatic range clamping.
  * @example
  *     parse_color_component(value, &config->font_color_temp.r);
  */
-static void parse_color_component(const char *value, int *component) {
+static void parse_color_component(const char *value, uint8_t *component) {
     if (!value || !component) return;
-    int val = atoi(value);
-    *component = (val < 0) ? 0 : (val > 255) ? 255 : val;
+    int val = safe_atoi(value, 0);
+    *component = (val < 0) ? 0 : (val > 255) ? 255 : (uint8_t)val;
 }
 
 /**
@@ -95,24 +122,24 @@ static int handle_paths_section(Config *config, const char *name, const char *va
  */
 static int handle_display_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "width") == 0) {
-        int width = atoi(value);
-        config->display_width = (width > 0) ? width : 0;
+        int width = safe_atoi(value, 0);
+        config->display_width = (width > 0) ? (uint16_t)width : 0;
     } else if (strcmp(name, "height") == 0) {
-        int height = atoi(value);
-        config->display_height = (height > 0) ? height : 0;
+        int height = safe_atoi(value, 0);
+        config->display_height = (height > 0) ? (uint16_t)height : 0;
     } else if (strcmp(name, "refresh_interval_sec") == 0) {
-        config->display_refresh_interval_sec = (value && value[0] != '\0') ? atoi(value) : 0;
+        config->display_refresh_interval_sec = safe_atoi(value, 0);
     } else if (strcmp(name, "refresh_interval_nsec") == 0) {
-        config->display_refresh_interval_nsec = (value && value[0] != '\0') ? atoi(value) : 0;
+        config->display_refresh_interval_nsec = safe_atoi(value, 0);
     } else if (strcmp(name, "brightness") == 0) {
-        int brightness = (value && value[0] != '\0') ? atoi(value) : 0;
-        config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? brightness : 0;
+        int brightness = safe_atoi(value, 0);
+        config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? (uint8_t)brightness : 0;
     } else if (strcmp(name, "orientation") == 0) {
-        config->lcd_orientation = (value && value[0] != '\0') ? atoi(value) : 0;
+        config->lcd_orientation = safe_atoi(value, 0);
     } else if (strcmp(name, "temp_1_update_threshold") == 0) {
-        config->temp_1_update_threshold = (value && value[0] != '\0') ? (float)atof(value) : 0.0f;
+        config->temp_1_update_threshold = safe_atof(value, 0.0f);
     } else if (strcmp(name, "temp_2_update_threshold") == 0) {
-        config->temp_2_update_threshold = (value && value[0] != '\0') ? (float)atof(value) : 0.0f;
+        config->temp_2_update_threshold = safe_atof(value, 0.0f);
     }
     return 1;
 }
@@ -125,19 +152,19 @@ static int handle_display_section(Config *config, const char *name, const char *
  */
 static int handle_layout_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "box_width") == 0) {
-        config->layout_box_width = (value && value[0] != '\0') ? atoi(value) : 0;
+        config->layout_box_width = safe_atoi(value, 0);
     } else if (strcmp(name, "box_height") == 0) {
-        config->layout_box_height = (value && value[0] != '\0') ? atoi(value) : 0;
+        config->layout_box_height = safe_atoi(value, 0);
     } else if (strcmp(name, "box_gap") == 0) {
-        config->layout_box_gap = atoi(value);
+        config->layout_box_gap = safe_atoi(value, 0);
     } else if (strcmp(name, "bar_width") == 0) {
-        config->layout_bar_width = atoi(value);
+        config->layout_bar_width = safe_atoi(value, 0);
     } else if (strcmp(name, "bar_height") == 0) {
-        config->layout_bar_height = atoi(value);
+        config->layout_bar_height = safe_atoi(value, 0);
     } else if (strcmp(name, "bar_gap") == 0) {
-        config->layout_bar_gap = atoi(value);
+        config->layout_bar_gap = safe_atoi(value, 0);
     } else if (strcmp(name, "bar_border_width") == 0) {
-        config->layout_bar_border_width = (float)atof(value);
+        config->layout_bar_border_width = safe_atof(value, 0.0f);
     }
     return 1;
 }
@@ -154,9 +181,9 @@ static int handle_font_section(Config *config, const char *name, const char *val
             SAFE_STRCPY(config->font_face, value);
         }
     } else if (strcmp(name, "font_size_temp") == 0) {
-        config->font_size_temp = (float)atof(value);
+        config->font_size_temp = safe_atof(value, 12.0f);
     } else if (strcmp(name, "font_size_labels") == 0) {
-        config->font_size_labels = (float)atof(value);
+        config->font_size_labels = safe_atof(value, 10.0f);
     }
     return 1;
 }
@@ -169,11 +196,11 @@ static int handle_font_section(Config *config, const char *name, const char *val
  */
 static int handle_temperature_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "temp_threshold_1") == 0) {
-        config->temp_threshold_1 = (float)atof(value);
+        config->temp_threshold_1 = safe_atof(value, 50.0f);
     } else if (strcmp(name, "temp_threshold_2") == 0) {
-        config->temp_threshold_2 = (float)atof(value);
+        config->temp_threshold_2 = safe_atof(value, 65.0f);
     } else if (strcmp(name, "temp_threshold_3") == 0) {
-        config->temp_threshold_3 = (float)atof(value);
+        config->temp_threshold_3 = safe_atof(value, 80.0f);
     }
     return 1;
 }
@@ -225,7 +252,7 @@ static int handle_color_section(Config *config, const char *section, const char 
  * @brief Main INI parser handler, delegates to section-specific handlers.
  * @details Called for each key-value pair in the INI file. Routes to appropriate section handler for cleaner code organization.
  * @example
- *     ini_parse("/opt/coolerdash/config.ini", inih_config_handler, &cfg);
+ *     ini_parse("/etc/coolerdash/config.ini", inih_config_handler, &cfg);
  */
 static int inih_config_handler(void *user, const char *section, const char *name, const char *value) {
     Config *config = (Config *)user;
@@ -256,7 +283,7 @@ static int inih_config_handler(void *user, const char *section, const char *name
  * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided. Tries to get LCD display dimensions from Liquidctl device as fallback.
  * @example
  *     Config cfg;
- *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) { // handle error }
+ *     if (load_config_ini(&cfg, "/etc/coolerdash/config.ini") != 0) { // handle error }
  *     config_apply_fallbacks(&cfg);
  */
 void config_apply_fallbacks(Config *config){
@@ -343,15 +370,64 @@ void config_apply_fallbacks(Config *config){
 }
 
 /**
- * @brief Loads configuration from INI file.
- * @details Parses the INI file and fills the Config struct. Returns 0 on success, -1 on error. Always check the return value. Initializes config struct with zeros first, then applies fallbacks.
+ * @brief Validate complete configuration structure.
+ * @details Performs comprehensive validation of all configuration fields.
+ * Enhanced with security checks and input validation.
+ * @example
+ *     if (config_validate(&cfg)) { ... }
+ */
+int config_validate(const Config *config) {
+    if (!config) return 0;
+    
+    // Validate daemon settings
+    if (!config->daemon_address[0] || !config->daemon_password[0]) return 0;
+    
+    // Validate paths exist and are not empty
+    if (!config->paths_images[0] || !config->paths_image_coolerdash[0] || 
+        !config->paths_image_shutdown[0] || !config->paths_pid[0]) return 0;
+    
+    // Validate display dimensions
+    if (!config_validate_display_size(config->display_width, config->display_height)) return 0;
+    
+    // Validate font sizes
+    if (config->font_size_temp < CONFIG_MIN_FONT_SIZE || config->font_size_temp > CONFIG_MAX_FONT_SIZE) return 0;
+    if (config->font_size_labels < CONFIG_MIN_FONT_SIZE || config->font_size_labels > CONFIG_MAX_FONT_SIZE) return 0;
+    
+    // Validate temperature thresholds
+    if (!config_validate_temperature(config->temp_threshold_1) ||
+        !config_validate_temperature(config->temp_threshold_2) ||
+        !config_validate_temperature(config->temp_threshold_3)) return 0;
+    
+    return 1;
+}
+
+/**
+ * @brief Initialize config structure with safe defaults.
+ * @details Sets all fields to safe default values with security considerations.
  * @example
  *     Config cfg;
- *     if (load_config_ini(&cfg, "/opt/coolerdash/config.ini") != 0) {
+ *     config_init_defaults(&cfg);
+ */
+void config_init_defaults(Config *config) {
+    if (!config) return;
+    
+    memset(config, 0, sizeof(Config));
+    
+    // Apply all fallback values
+    config_apply_fallbacks(config);
+}
+
+/**
+ * @brief Main configuration loading function with enhanced security.
+ * @details Loads configuration from INI file with comprehensive validation and secure defaults.
+ * Enhanced with buffer overflow protection and input validation.
+ * @example
+ *     Config cfg;
+ *     if (load_config("/etc/coolerdash/config.ini", &cfg) != 0) {
  *         // handle error
  *     }
  */
-int load_config_ini(Config *config, const char *path)
+int load_config(const char *path, Config *config)
 {
     // Validate input parameters
     if (!config || !path) {

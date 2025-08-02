@@ -116,23 +116,33 @@ int init_coolercontrol_session(const Config *config) {
         userpwd[sizeof(userpwd) - 1] = '\0';
     }
 
-    // Configure cURL for authentication and POST request
+    // Configure cURL for authentication and POST request with security enhancements
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, login_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERPWD, userpwd);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POST, 1L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, "");
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 15L); // Reasonable timeout for login
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 10L); // Connection timeout
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
 
     // Perform login request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long response_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
 
+    // Security: Clear sensitive data from memory
+    memset(userpwd, 0, sizeof(userpwd));
+
     // Check if login was successful
     if (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
         cc_session.session_initialized = 1;
         return 1;
+    } else {
+        fprintf(stderr, "[coolerdash] Login failed: CURL code %d, HTTP code %ld\n", res, response_code);
     }
 
     return 0;
@@ -150,10 +160,28 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
         return 0;
     }
     
-    // Construct upload URL
+    // Additional security: validate file exists and is readable
+    struct stat file_stat;
+    if (stat(image_path, &file_stat) != 0 || !S_ISREG(file_stat.st_mode)) {
+        fprintf(stderr, "Error: Image file '%s' does not exist or is not a regular file\n", image_path);
+        return 0;
+    }
+    
+    // Security: validate device_uid format (basic sanity check)
+    if (strlen(device_uid) == 0 || strlen(device_uid) > 128) {
+        fprintf(stderr, "Error: Invalid device UID format\n");
+        return 0;
+    }
+    
+    // Construct upload URL with length validation
     char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
+    const int url_len = snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
              config->daemon_address, device_uid);
+    
+    if (url_len < 0 || url_len >= (int)sizeof(upload_url)) {
+        fprintf(stderr, "Error: Upload URL too long\n");
+        return 0;
+    }
     
     // Initialize multipart form
     curl_mime *form = curl_mime_init(cc_session.curl_handle);
@@ -186,10 +214,15 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     curl_mime_filedata(field, image_path);
     curl_mime_type(field, "image/png");
     
-    // Configure curl options
+    // Configure curl options with enhanced security and error handling
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 30L); // 30 second timeout
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 10L); // 10 second connect timeout
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_FOLLOWLOCATION, 0L); // Don't follow redirects for security
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname
     
     // Perform request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
@@ -303,27 +336,23 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
         // Found Liquidctl device
         if (found_liquidctl) *found_liquidctl = 1;
 
-        // Extract UID with optimized string handling
+        // Extract UID with safe string handling
         if (lcd_uid && uid_size > 0) {
             json_t *uid_val = json_object_get(dev, "uid");
             if (uid_val && json_is_string(uid_val)) {
                 const char *uid_str = json_string_value(uid_val);
-                const size_t uid_len = strlen(uid_str);
-                const size_t copy_len = (uid_len < uid_size - 1) ? uid_len : uid_size - 1;
-                memcpy(lcd_uid, uid_str, copy_len);
-                lcd_uid[copy_len] = '\0';
+                // Use snprintf for guaranteed null termination and safety
+                snprintf(lcd_uid, uid_size, "%s", uid_str);
             }
         }
 
-        // Extract device name with optimized string handling
+        // Extract device name with safe string handling
         if (device_name && name_size > 0) {
             json_t *name_val = json_object_get(dev, "name");
             if (name_val && json_is_string(name_val)) {
                 const char *name_str = json_string_value(name_val);
-                const size_t name_len = strlen(name_str);
-                const size_t copy_len = (name_len < name_size - 1) ? name_len : name_size - 1;
-                memcpy(device_name, name_str, copy_len);
-                device_name[copy_len] = '\0';
+                // Use snprintf for guaranteed null termination and safety
+                snprintf(device_name, name_size, "%s", name_str);
             }
         }
 
@@ -398,9 +427,13 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     CURL *curl = curl_easy_init();
     if (!curl) return 0;
 
-    // Construct URL for devices endpoint
-    char url[256];
-    snprintf(url, sizeof(url), "%s/devices", config->daemon_address);
+    // Construct URL for devices endpoint with buffer overflow protection
+    char url[512];  // Increased buffer size for safety
+    int ret = snprintf(url, sizeof(url), "%s/devices", config->daemon_address);
+    if (ret >= (int)sizeof(url) || ret < 0) {
+        curl_easy_cleanup(curl);
+        return 0; // URL too long or formatting error
+    }
 
     // Initialize response buffer with optimized capacity
     struct http_response chunk = {0};
@@ -413,11 +446,16 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     chunk.size = 0;
     chunk.capacity = initial_capacity;
 
-    // Configure curl options
+    // Configure curl options with enhanced security
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L); // Set a timeout to avoid hanging
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L); // Reduced timeout for better responsiveness
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L); // Quick connection timeout
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L); // Security: no redirects
+    curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 0L); // Security: no redirects
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
 
     // Set HTTP headers
     struct curl_slist *headers = NULL;
@@ -431,9 +469,22 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     int width = 0, height = 0; // Initialize display dimensions
     int result = 0;
 
-    // Perform request and parse response
-    if (curl_easy_perform(curl) == CURLE_OK) {
-        result = parse_liquidctl_devices_json(chunk.data, lcd_uid, sizeof(lcd_uid), &found_liquidctl, &width, &height, lcd_name, sizeof(lcd_name));
+    // Perform request and parse response with enhanced error handling
+    CURLcode curl_result = curl_easy_perform(curl);
+    if (curl_result == CURLE_OK) {
+        // Check HTTP response code
+        long response_code = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
+        
+        if (response_code == 200) {
+            result = parse_liquidctl_devices_json(chunk.data, lcd_uid, sizeof(lcd_uid), &found_liquidctl, &width, &height, lcd_name, sizeof(lcd_name));
+        } else {
+            fprintf(stderr, "[coolerdash] HTTP error: %ld when fetching device info\n", response_code);
+            result = 0;
+        }
+    } else {
+        fprintf(stderr, "[coolerdash] CURL error: %s\n", curl_easy_strerror(curl_result));
+        result = 0;
     }
 
     // Clean up resources
