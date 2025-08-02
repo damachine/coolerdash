@@ -32,16 +32,17 @@ struct curl_slist;
 #define CC_ERROR_INVALID_RESPONSE -1
 
 // Constants optimized for cache alignment, security and performance
-#define CC_COOKIE_SIZE   256
+#define CC_COOKIE_SIZE 256
 #define CC_DEVICE_SECTION_SIZE 4096
 #define CC_HTTP_CONNECT_TIMEOUT_SEC 5L
 #define CC_HTTP_TIMEOUT_SEC 10L
 #define CC_MAX_RESPONSE_SIZE (10 * 1024 * 1024)
 #define CC_MAX_RETRIES 3
-#define CC_NAME_SIZE     128
-#define CC_UID_SIZE      128
-#define CC_URL_SIZE      512
-#define CC_USERPWD_SIZE  128
+#define CC_NAME_SIZE 128
+#define CC_RESPONSE_MAGIC 0xDEADBEEF
+#define CC_UID_SIZE 128
+#define CC_URL_SIZE 512
+#define CC_USERPWD_SIZE 128
 
 // Include project headers
 #include "config.h"
@@ -178,7 +179,6 @@ static inline void* cc_secure_malloc(size_t size) {
 }
 
 
-
 /**
  * @brief Get device UID from CoolerControl API.
  * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
@@ -200,9 +200,6 @@ typedef struct __attribute__((aligned(8))) http_response {
     uint32_t magic;      // Magic number for corruption detection (0xDEADBEEF)
 } http_response;
 
-// Magic number for buffer integrity checking
-#define CC_RESPONSE_MAGIC 0xDEADBEEF
-
 // Inline helper functions for performance-critical operations with safety checks
 static inline int cc_init_response_buffer(struct http_response *response, size_t initial_capacity) {
     if (!response || initial_capacity == 0 || initial_capacity > CC_MAX_RESPONSE_SIZE) {
@@ -214,13 +211,13 @@ static inline int cc_init_response_buffer(struct http_response *response, size_t
         response->size = 0;
         response->capacity = 0;
         response->magic = 0;
-        return 0; // Allocation failed
+        return 0;
     }
     
     response->size = 0;
     response->capacity = initial_capacity;
     response->magic = CC_RESPONSE_MAGIC;
-    response->data[0] = '\0'; // Initialize with null terminator
+    response->data[0] = '\0';
     return 1; // Success
 }
 
@@ -242,7 +239,7 @@ static inline void cc_cleanup_response_buffer(struct http_response *response) {
         }
         response->size = 0;
         response->capacity = 0;
-        response->magic = 0; // Clear magic number
+        response->magic = 0;
     }
 }
 
