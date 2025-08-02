@@ -134,11 +134,9 @@ systemctl stop coolerdash.service
 ## ⚙️ Configuration
 
 > **The following settings were tested with an NZXT Kraken 2023.**  
-> CoolerDash should work with any LCD device supported by CoolerControl (Asus, MSI, NZXT, etc.).  
-> **Note:** 
+> CoolerDash should work with any LCD device supported by CoolerControl (Asus, MSI, NZXT, etc.).
 
-> **Runtime configuration:** CoolerDash automatic detect most essentiality settings and no configuration are need.
-> All relevant configuration options (display, thresholds, font, colors, paths, daemon and many more settings) are set in `/etc/coolerdash/config.ini`. 
+> **Note:** CoolerDash automatic detect most essentiality settings and no configuration are need. All relevant configuration options (display, thresholds, font, colors, paths, daemon and many more settings) are set in `/etc/coolerdash/config.ini`. 
 > After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 > **Tip:** Edit `/etc/coolerdash/config.ini` to change the look, update interval, thresholds, or LCD behavior to your needs.
 
