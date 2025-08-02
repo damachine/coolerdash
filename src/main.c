@@ -454,10 +454,9 @@ static void show_help(const char *program_name, const Config *config) {
     printf("OPTIONS:\n");
     printf("  -h, --help     Show this help message and exit\n\n");
     printf("EXAMPLES:\n");
-    printf("  sudo systemctl start coolerdash    # Start as system service (recommended)\n");
-    printf("  systemctl --user start coolerdash  # Start as user service\n");
-    printf("  %s                                # Manual start with default config\n", program_name);
-    printf("  %s /custom/config.ini             # Start with custom configuration\n\n", program_name);
+    printf("  sudo systemctl start coolerdash     # Start as system service (recommended)\n");
+    printf("  %s                                  # Manual start with default config\n", program_name);
+    printf("  %s /custom/config.ini               # Start with custom configuration\n\n", program_name);
     printf("FILES:\n");
     printf("  /usr/bin/coolerdash                # Main program executable\n");
     printf("  /opt/coolerdash/                   # Installation directory\n");

@@ -278,7 +278,7 @@ static int inih_config_handler(void *user, const char *section, const char *name
     return 1; // Unknown section, but continue parsing
 }
 
-/*
+/**
  * @brief Sets fallback default values for missing or empty configuration fields.
  * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided. Tries to get LCD display dimensions from Liquidctl device as fallback.
  * @example
@@ -286,16 +286,19 @@ static int inih_config_handler(void *user, const char *section, const char *name
  *     if (load_config_ini(&cfg, "/etc/coolerdash/config.ini") != 0) { // handle error }
  *     config_apply_fallbacks(&cfg);
  */
-void config_apply_fallbacks(Config *config){
+void config_apply_fallbacks(Config *config) {
     if (!config) return;
+    
     // Daemon
     if (config->daemon_address[0] == '\0') SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
     if (config->daemon_password[0] == '\0') SAFE_STRCPY(config->daemon_password, "coolAdmin");
+    
     // Paths
     if (config->paths_images[0] == '\0') SAFE_STRCPY(config->paths_images, "/opt/coolerdash/images");
     if (config->paths_image_coolerdash[0] == '\0') SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
     if (config->paths_image_shutdown[0] == '\0') SAFE_STRCPY(config->paths_image_shutdown, "/opt/coolerdash/images/shutdown.png");
     if (config->paths_pid[0] == '\0') SAFE_STRCPY(config->paths_pid, "/run/coolerdash/coolerdash.pid");
+    
     // Display - try to get dimensions from Liquidctl device first
     if (config->display_width == 0 || config->display_height == 0) {
         int lcd_width = 0, lcd_height = 0;
@@ -310,6 +313,7 @@ void config_apply_fallbacks(Config *config){
     if (config->lcd_brightness == 0) config->lcd_brightness = 80;
     if (config->temp_1_update_threshold == 0.0f) config->temp_1_update_threshold = 1.0f;
     if (config->temp_2_update_threshold == 0.0f) config->temp_2_update_threshold = 1.0f;
+    
     // Layout
     if (config->layout_box_width == 0) config->layout_box_width = config->display_width;
     if (config->layout_box_height == 0) config->layout_box_height = config->display_height / 2;
@@ -317,14 +321,17 @@ void config_apply_fallbacks(Config *config){
     if (config->layout_bar_height == 0) config->layout_bar_height = 22;
     if (config->layout_bar_gap == 0) config->layout_bar_gap = 10;
     if (config->layout_bar_border_width == 0.0f) config->layout_bar_border_width = 1.5f;
+    
     // Font
     if (config->font_face[0] == '\0') SAFE_STRCPY(config->font_face, "Roboto Black");
     if (config->font_size_temp == 0.0f) config->font_size_temp = 100.0f;
     if (config->font_size_labels == 0.0f) config->font_size_labels = 30.0f;
+    
     // Temperature thresholds
     if (config->temp_threshold_1 == 0.0f) config->temp_threshold_1 = 55.0f;
     if (config->temp_threshold_2 == 0.0f) config->temp_threshold_2 = 65.0f;
     if (config->temp_threshold_3 == 0.0f) config->temp_threshold_3 = 75.0f;
+    
     // Colors
     if (config->layout_bar_color_background.r == 0 && config->layout_bar_color_background.g == 0 && config->layout_bar_color_background.b == 0) {
         config->layout_bar_color_background.r = 64;
@@ -346,6 +353,7 @@ void config_apply_fallbacks(Config *config){
         config->font_color_label.g = 200;
         config->font_color_label.b = 200;
     }
+    
     // Temperature bar colors
     if (config->temp_threshold_1_bar.r == 0 && config->temp_threshold_1_bar.g == 0 && config->temp_threshold_1_bar.b == 0) {
         config->temp_threshold_1_bar.r = 0;
@@ -427,8 +435,7 @@ void config_init_defaults(Config *config) {
  *         // handle error
  *     }
  */
-int load_config(const char *path, Config *config)
-{
+int load_config(const char *path, Config *config) {
     // Validate input parameters
     if (!config || !path) {
         return -1;
