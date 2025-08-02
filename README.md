@@ -1,10 +1,10 @@
-# CoolerDash - LCD dashboard for CoolerControl
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
 [![Donate BTC](https://img.shields.io/badge/Donate-Bitcoin-f7931a.svg)](bitcoin:13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo)
 [![Donate DOGE](https://img.shields.io/badge/Donate-Dogecoin-c2a633.svg)](https://dogechain.info/address/DRSY4cA8eCALn819MjWLbwaePFNti9oS3y)
+
+# CoolerDash - LCD dashboard for CoolerControl
 
 ## 📖 Description
 
@@ -34,11 +34,14 @@ Right: AI-generated image to demonstrate LCD output*
 
 ## ✨ Features
 
+- **🚀 Intelligent Installation**: Automatic dependency detection and installation for all major Linux distributions
 - **⚡ Performance-Optimized**: Caching, change detection, minimal I/O operations
 - **📊 Efficient Sensor Polling**: Only necessary sensor data is queried (no mode logic)
+- **📊 CoolerControl Open-API**: Complete sensor data access via CoolerControl Open-API
 - **🔧 Automatic Device Detection**: Coolercontrol Open-API detection and native integration
+- **� Automatic LCD Resolution Detection**: Automatically detects and adapts to your LCD's resolution
 - **🔄 Systemd Integration**: Service management with detailed logs
-- **🚀 Intelligent Installation**: Automatic dependency detection and installation for all major Linux distributions
+- **🔒 Enhanced Security**: Runs as dedicated non-root user for improved system security
 
 > **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
 
@@ -64,8 +67,8 @@ Right: AI-generated image to demonstrate LCD output*
 ### Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
-3. **Start CoolerControl daemon**: `sudo systemctl start coolercontrold`
-4. **Step Coolercontrol configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
+2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
+3. **CoolerControl configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
 
 ## 📦 Installation
 
@@ -75,42 +78,42 @@ Right: AI-generated image to demonstrate LCD output*
 
 ```bash
 # STEP 1: Clone repository
- git clone https://github.com/damachine/coolerdash.git
- cd coolerdash
+git clone https://github.com/damachine/coolerdash.git
+cd coolerdash
 
-# STEP 2: Start CoolerControl daemon  if not already running
- sudo systemctl start coolercontrold
+# STEP 2: Start CoolerControl daemon if not already running
+systemctl start coolercontrold
 
 # STEP 3: Build and install (includes automatic dependency management)
- makepkg -si
+makepkg -si
 
 # STEP 4: Enable autostart and start CoolerDash
- sudo systemctl enable --now coolerdash.service
+systemctl enable --now coolerdash.service
 
-# STEP 5: (optional) Status CoolerDash service
- sudo systemctl status coolerdash.service
- journalctl -xeu coolerdash.service
+# STEP 5: (optional) Check CoolerDash service status
+systemctl status coolerdash.service
+journalctl -u coolerdash.service
 ```
 
 #### Manual Installation (All Distributions)
 
 ```bash
 # STEP 1: Clone repository
- git clone https://github.com/damachine/coolerdash.git
- cd coolerdash
+git clone https://github.com/damachine/coolerdash.git
+cd coolerdash
 
-# STEP 2: Start CoolerControl daemon  if not already running
- sudo systemctl start coolercontrold
+# STEP 2: Start CoolerControl daemon if not already running
+systemctl start coolercontrold
 
 # STEP 3: Build and install (auto-detects Linux distribution and installs dependencies)
- sudo make install
+sudo make install
 
 # STEP 4: Enable autostart
- sudo systemctl enable --now coolerdash.service
+systemctl enable --now coolerdash.service
 
-# STEP 5: (optional) Status CoolerDash service
- sudo systemctl status coolerdash.service
- journalctl -xeu coolerdash.service
+# STEP 5: (optional) Check CoolerDash service status
+systemctl status coolerdash.service
+journalctl -u coolerdash.service
 ```
 
 ### Manual Usage 
@@ -125,9 +128,9 @@ coolerdash
 # From directory
 ./coolerdash
 ```
-> **Note:** The systemd service must be stop before running manually to avoid conflicts:
+> **Note:** The systemd service must be stopped before running manually to avoid conflicts:
 ```bash
-sudo systemctl stop coolerdash.service
+systemctl stop coolerdash.service
 ```
 
 ## ⚙️ Configuration
@@ -138,14 +141,14 @@ sudo systemctl stop coolerdash.service
 
 ---
 
-> **Runtime configuration:** All settings are managed in `/opt/coolerdash/config.ini`.
-> After editing the config file, restart the service with `sudo systemctl restart coolerdash.service` to apply your changes.
+> **Runtime configuration:** All settings are managed in `/etc/coolerdash/config.ini`.
+> After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 >
-> **If `/opt/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
+> **If `/etc/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
 
 ### Important customizable values
 
-All relevant configuration options (display, thresholds, colors, paths, daemon and many more settings) are set in `/opt/coolerdash/config.ini`. 
+All relevant configuration options (display, thresholds, colors, paths, daemon and many more settings) are set in `/etc/coolerdash/config.ini`. 
 > **Tip:** Edit `/etc/coolerdash/config.ini` to change the look, update interval, thresholds, or LCD behavior to your needs.
 
 ## 🔍 Troubleshooting
@@ -153,14 +156,14 @@ All relevant configuration options (display, thresholds, colors, paths, daemon a
 ### Common Issues
 
 - **"Device not found"**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
-- **"Connection refused"**: CoolerControl daemon not running → `sudo systemctl start coolercontrold`
+- **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
 - **"Connection problem"**: No devices found or wrong device UID → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
-- 
+- **"Another instance may be running"**: CoolerDash is already running → Check with `systemctl status coolerdash.service` and stop the service if needed
 
-**Troubleshooting: Verify connection**, you can manually check devices are detected right:
+**Troubleshooting: Verify connection**, you can manually check if devices are detected correctly:
 ```bash
 # Start CoolerControl (if not running)
-sudo systemctl start coolercontrold
+systemctl start coolercontrold
 
 # Check available devices
 curl http://localhost:11987/devices | jq
@@ -211,7 +214,7 @@ If you encounter errors like "User not found" or "Permission denied" when starti
 - If you use a custom config or image path, check permissions for `/etc/coolerdash/config.ini` and `/tmp/coolerdash/coolerdash.png`.
 - After creating the user and setting permissions, restart the service:
   ```bash
-  sudo systemctl restart coolerdash.service
+  systemctl restart coolerdash.service
   ```
 
 > **Note:** The systemd unit file expects the user `coolerdash` to exist. If you use a different username, edit `/etc/systemd/system/coolerdash.service` accordingly.
@@ -222,16 +225,16 @@ If you encounter errors like "User not found" or "Permission denied" when starti
 
 ```bash
 # Service control
-sudo systemctl start coolerdash.service     # Start
-sudo systemctl stop coolerdash.service      # Stop (displays face.png automatically)
-sudo systemctl restart coolerdash.service   # Restart
-sudo systemctl status coolerdash.service    # Status + recent logs
+systemctl start coolerdash.service     # Start
+systemctl stop coolerdash.service      # Stop (displays face.png automatically)
+systemctl restart coolerdash.service   # Restart
+systemctl status coolerdash.service    # Status + recent logs
 
 # Journal log
-journalctl -xeu coolerdash.service
+journalctl -u coolerdash.service
 
 # Live logs
-sudo journalctl -u coolerdash.service -f
+journalctl -u coolerdash.service -f
 
 # Makefile shortcuts
 make start      # systemctl start coolerdash
@@ -255,7 +258,7 @@ make help       # Show all options
 
 ```bash
 # 1. Check CoolerControl status
-sudo systemctl status coolercontrold
+systemctl status coolercontrold
 curl http://localhost:11987/devices
 
 # 2. Test CoolerDash manually
@@ -265,7 +268,7 @@ coolerdash
 make debug && coolerdash
 
 # 4. Check service logs
-sudo journalctl -u coolerdash.service -f
+journalctl -u coolerdash.service -f
 ```
 
 ## 📄 License
@@ -294,4 +297,5 @@ If you find CoolerDash useful and want to support its development:
 **📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)  
 **📖 Manual:** `man coolerdash`  
 **📍 Binary:** `/opt/coolerdash/bin/coolerdash` (also available as `coolerdash`)  
+**⚙️ Config:** `/etc/coolerdash/config.ini`  
 **💝 Donate:** BTC: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo` | DOGE: `DRSY4cA8eCALn819MjWLbwaePFNti9oS3y`
