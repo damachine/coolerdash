@@ -68,6 +68,8 @@ Right: AI-generated image to demonstrate LCD output*
 2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
 3. **CoolerControl configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
 
+---
+
 ## 📦 Installation
 
 ### Install CoolerDash
@@ -114,6 +116,8 @@ systemctl status coolerdash.service
 journalctl -u coolerdash.service
 ```
 
+---
+
 ### Manual Usage 
 
 ```bash
@@ -136,8 +140,6 @@ systemctl stop coolerdash.service
 > **The following settings were tested with an NZXT Kraken 2023.**  
 > CoolerDash should work with any LCD device supported by CoolerControl (Asus, MSI, NZXT, etc.).
 
----
-
 > **Zero Configuration Required:** CoolerDash automatically detects essential settings including LCD resolution, device UIDs, and optimal display parameters. No manual configuration is needed for basic operation.
 >
 > **Runtime Configuration:** All settings are managed in `/etc/coolerdash/config.ini`.
@@ -145,7 +147,9 @@ systemctl stop coolerdash.service
 >
 > **If `/etc/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
 
-## 🔧 Usage & Tips
+---
+
+## 🔧 Usage
 
 #### Service Management
 
@@ -197,9 +201,11 @@ make debug && coolerdash
 journalctl -u coolerdash.service -f
 ```
 
+---
+
 ## 🔍 Troubleshooting
 
-### Common Issues
+#### Common Issues
 
 - **"Device not found"**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
 - **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
@@ -229,7 +235,7 @@ curl http://localhost:11987/devices | jq
       }
 ```
 
-## Troubleshooting: Manual Installation Conflicts
+#### Manual Installation Conflicts
 If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
 **Solution:**
@@ -242,6 +248,8 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 - Then retry the installation.
 
 If you need help, open an issue at https://github.com/damachine/coolerdash/issues
+
+---
 
 ## 📄 License
 
