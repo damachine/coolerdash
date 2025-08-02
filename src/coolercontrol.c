@@ -260,9 +260,13 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
     if (screen_height) *screen_height = 0;
     if (device_name && name_size > 0) device_name[0] = '\0';
 
-    // Parse JSON
-    json_t *root = json_loads(json, 0, NULL);
-    if (!root) return 0;
+    // Parse JSON with error handling
+    json_error_t error;
+    json_t *root = json_loads(json, 0, &error);
+    if (!root) {
+        fprintf(stderr, "[coolerdash] JSON parse error: %s\n", error.text);
+        return 0;
+    }
 
     json_t *devices = json_object_get(root, "devices");
     if (!devices || !json_is_array(devices)) {
@@ -270,65 +274,84 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
         return 0;
     }
 
-    size_t i;
-    json_t *dev;
-    json_array_foreach(devices, i, dev) {
+    // Pre-calculate array size to avoid repeated calls
+    const size_t device_count = json_array_size(devices);
+
+    // Use direct array access instead of foreach for better performance
+    for (size_t i = 0; i < device_count; i++) {
+        json_t *dev = json_array_get(devices, i);
+        if (!dev) continue;
+
         json_t *type_val = json_object_get(dev, "type");
         if (!type_val || !json_is_string(type_val)) continue;
 
         const char *type_str = json_string_value(type_val);
 
-        // Handle Liquidctl device - mostly LCD devices
-        if (strcmp(type_str, "Liquidctl") == 0) {
-            if (found_liquidctl) *found_liquidctl = 1;
+        // Use direct string comparison with early exit
+        if (type_str[0] != 'L' || strcmp(type_str, "Liquidctl") != 0) continue;
 
-            // Extract UID
-            if (lcd_uid && uid_size > 0) {
-                json_t *uid_val = json_object_get(dev, "uid");
-                if (uid_val && json_is_string(uid_val)) {
-                    strncpy(lcd_uid, json_string_value(uid_val), uid_size - 1);
-                    lcd_uid[uid_size - 1] = '\0';
-                }
+        // Found Liquidctl device
+        if (found_liquidctl) *found_liquidctl = 1;
+
+        // Extract UID with optimized string handling
+        if (lcd_uid && uid_size > 0) {
+            json_t *uid_val = json_object_get(dev, "uid");
+            if (uid_val && json_is_string(uid_val)) {
+                const char *uid_str = json_string_value(uid_val);
+                const size_t uid_len = strlen(uid_str);
+                const size_t copy_len = (uid_len < uid_size - 1) ? uid_len : uid_size - 1;
+                memcpy(lcd_uid, uid_str, copy_len);
+                lcd_uid[copy_len] = '\0';
             }
+        }
 
-            // Extract device name
-            if (device_name && name_size > 0) {
-                json_t *name_val = json_object_get(dev, "name");
-                if (name_val && json_is_string(name_val)) {
-                    strncpy(device_name, json_string_value(name_val), name_size - 1);
-                    device_name[name_size - 1] = '\0';
-                }
+        // Extract device name with optimized string handling
+        if (device_name && name_size > 0) {
+            json_t *name_val = json_object_get(dev, "name");
+            if (name_val && json_is_string(name_val)) {
+                const char *name_str = json_string_value(name_val);
+                const size_t name_len = strlen(name_str);
+                const size_t copy_len = (name_len < name_size - 1) ? name_len : name_size - 1;
+                memcpy(device_name, name_str, copy_len);
+                device_name[copy_len] = '\0';
             }
+        }
 
-            // Extract LCD info from info.channels.lcd.lcd_info
+        // Extract LCD dimensions with reduced nesting
+        if (screen_width || screen_height) {
             json_t *info = json_object_get(dev, "info");
-            if (info && json_is_object(info)) {
+            if (info) {
                 json_t *channels = json_object_get(info, "channels");
-                if (channels && json_is_object(channels)) {
+                if (channels) {
                     json_t *lcd_channel = json_object_get(channels, "lcd");
-                    if (lcd_channel && json_is_object(lcd_channel)) {
+                    if (lcd_channel) {
                         json_t *lcd_info = json_object_get(lcd_channel, "lcd_info");
-                        if (lcd_info && json_is_object(lcd_info)) {
-                            json_t *width_val = json_object_get(lcd_info, "screen_width");
-                            json_t *height_val = json_object_get(lcd_info, "screen_height");
-
-                            if (width_val && json_is_integer(width_val) && screen_width) {
-                                *screen_width = (int)json_integer_value(width_val);
+                        if (lcd_info) {
+                            if (screen_width) {
+                                json_t *width_val = json_object_get(lcd_info, "screen_width");
+                                if (width_val && json_is_integer(width_val)) {
+                                    *screen_width = (int)json_integer_value(width_val);
+                                }
                             }
-                            if (height_val && json_is_integer(height_val) && screen_height) {
-                                *screen_height = (int)json_integer_value(height_val);
+                            if (screen_height) {
+                                json_t *height_val = json_object_get(lcd_info, "screen_height");
+                                if (height_val && json_is_integer(height_val)) {
+                                    *screen_height = (int)json_integer_value(height_val);
+                                }
                             }
                         }
                     }
                 }
             }
-
-            break; // Found Liquidctl device, no need to continue
         }
+
+        // Early exit - found what we need
+        json_decref(root);
+        return 1;
     }
 
     json_decref(root);
-    return 1;
+    return 1; // Return success even if no Liquidctl device found
 }
 
 
