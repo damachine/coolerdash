@@ -117,8 +117,11 @@ journalctl -u coolerdash.service
 #### Manual Usage 
 
 ```bash
-# Run manually
+# Run manually (with minimal status logging)
 coolerdash
+
+# Run with detailed debug logging
+coolerdash --log
 
 # Or use full path
 /opt/coolerdash/bin/coolerdash
@@ -129,6 +132,26 @@ coolerdash
 > **Note:** The systemd service must be stopped before running manually to avoid conflicts:
 ```bash
 systemctl stop coolerdash.service
+```
+
+#### Logging Levels
+
+CoolerDash uses an intelligent logging system with four levels:
+
+- **STATUS**: Important startup messages (always shown, visible in systemd logs)
+- **INFO**: Detailed debug information (only shown with `--log` parameter)
+- **WARNING**: Non-critical issues (always shown)
+- **ERROR**: Critical errors (always shown)
+
+```bash
+# Normal operation - shows STATUS, WARNING, ERROR only
+coolerdash
+
+# Debug mode - shows all logging levels including INFO
+coolerdash --log
+
+# View logs via systemd
+journalctl -u coolerdash.service
 ```
 
 ---
@@ -189,14 +212,20 @@ make help       # Show all options
 systemctl status coolercontrold
 curl http://localhost:11987/devices
 
-# 2. Test CoolerDash manually
+# 2. Test CoolerDash manually (with clean output)
 coolerdash
 
-# 3. Debug build for detailed information
-make debug && coolerdash
+# 3. Test CoolerDash with detailed debug logging
+coolerdash --log
 
-# 4. Check service logs
+# 4. Debug build for detailed information (if needed)
+make debug && coolerdash --log
+
+# 5. Check service logs (STATUS messages always visible)
 journalctl -u coolerdash.service -f
+
+# 6. View recent logs with context
+journalctl -u coolerdash.service -n 50
 ```
 
 ---

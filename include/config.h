@@ -199,6 +199,27 @@ static inline int config_clamp_int(int value, int min, int max) {
 }
 
 /**
+ * @brief Global logging control from main.c
+ * @details External reference to verbose logging flag set by --log parameter.
+ * @example
+ *     extern int verbose_logging; // Set by --log parameter
+ */
+extern int verbose_logging;
+
+/**
+ * @brief Common log levels for all modules.
+ * @details Standardized log levels used across all CoolerDash modules.
+ * @example
+ *     typedef enum { LOG_INFO, LOG_STATUS, LOG_WARNING, LOG_ERROR } log_level_t;
+ */
+typedef enum {
+    LOG_INFO,       // Detailed information (only with --log)
+    LOG_STATUS,     // Important status messages (always shown)
+    LOG_WARNING,    // Warning messages (always shown)
+    LOG_ERROR       // Error messages (always shown)
+} log_level_t;
+
+/**
  * @brief Clamp float value to valid range.
  * @details Ensures float value is within specified bounds.
  * @example

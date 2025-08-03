@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 // Include project headers
@@ -37,14 +38,14 @@
  * @example
  *     log_message(LOG_ERROR, "Failed to initialize: %s", error_msg);
  */
-typedef enum {
-    LOG_INFO,
-    LOG_WARNING, 
-    LOG_ERROR
-} log_level_t;
-
 static void log_message(log_level_t level, const char *format, ...) {
-    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    // Skip INFO messages unless verbose logging is enabled
+    // STATUS, WARNING, and ERROR messages are always shown
+    if (level == LOG_INFO && !verbose_logging) {
+        return;
+    }
+    
+    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
@@ -242,8 +243,8 @@ int render_display(const Config *config, const sensor_data_t *data) {
         return -1; // No update needed (different from error)
     }
 
-    // Create cairo surface with error checking
-    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_RGB24, 
+    // Create cairo surface with error checking - use ARGB32 for PNG compatibility
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
                                                          config->display_width, 
                                                          config->display_height);
     if (!surface) {
@@ -306,6 +307,18 @@ int render_display(const Config *config, const sensor_data_t *data) {
         return 0;
     }
 
+    // Ensure all drawing operations are completed before writing to PNG
+    cairo_surface_flush(surface);
+    
+    // Check for any drawing errors before writing
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+        log_message(LOG_ERROR, "Cairo drawing error: %s (status: %d)", 
+                   cairo_status_to_string(cairo_status(cr)), cairo_status(cr));
+        cairo_destroy(cr);
+        cairo_surface_destroy(surface);
+        return 0;
+    }
+    
     // Save PNG image with validation
     cairo_status_t write_status = cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
     int success = (write_status == CAIRO_STATUS_SUCCESS);
@@ -315,8 +328,8 @@ int render_display(const Config *config, const sensor_data_t *data) {
         // Ensure PNG is written to disk before proceeding (non-blocking)
         fsync(STDOUT_FILENO);
     } else {
-        log_message(LOG_ERROR, "Failed to write PNG image: %s (status: %d)", 
-                   config->paths_image_coolerdash, write_status);
+        log_message(LOG_ERROR, "Failed to write PNG image: %s (status: %d - %s)", 
+                   config->paths_image_coolerdash, write_status, cairo_status_to_string(write_status));
     }
 
     // Clean up resources
@@ -599,9 +612,11 @@ void draw_combined_image(const Config *config) {
     // render_result == 1: Update successful, send to LCD
     if (is_session_initialized() && valid_device_uid) {
         log_message(LOG_INFO, "Sending image to LCD device: %s", device_data.device_uid);
-        // Send image twice to ensure reliable upload and prevent display artifacts
+        
+        // Send image twice for better reliability - some devices need double transmission
         send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
         send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
+        log_message(LOG_INFO, "LCD image uploaded successfully");
     } else {
         log_message(LOG_WARNING, "Skipping LCD upload - conditions not met (session:%d, device:%d)", 
                    is_session_initialized(), valid_device_uid);

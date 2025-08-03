@@ -56,6 +56,14 @@ static volatile sig_atomic_t running = 1; // flag whether daemon is running
 static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
 
 /**
+ * @brief Global logging control.
+ * @details Controls whether detailed INFO logs are shown (enabled with --log parameter).
+ * @example
+ *     int verbose_logging = 0; // Only ERROR and WARNING by default
+ */
+int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
+
+/**
  * @brief Global pointer to configuration.
  * @details Points to the current configuration used by the daemon. Initialized in main().
  * @example
@@ -69,14 +77,14 @@ const Config *g_config_ptr = NULL;
  * @example
  *     log_message(LOG_ERROR, "Failed to initialize: %s", error_msg);
  */
-typedef enum {
-    LOG_INFO,
-    LOG_WARNING, 
-    LOG_ERROR
-} log_level_t;
-
 static void log_message(log_level_t level, const char *format, ...) {
-    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    // Skip INFO messages unless verbose logging is enabled
+    // STATUS, WARNING, and ERROR messages are always shown
+    if (level == LOG_INFO && !verbose_logging) {
+        return;
+    }
+    
+    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
@@ -282,7 +290,7 @@ static int write_pid_file(const char *pid_file) {
         log_message(LOG_WARNING, "Could not set permissions on PID file '%s': %s", pid_file, strerror(errno));
     }
     
-    log_message(LOG_INFO, "PID file: %s (PID: %d)", pid_file, current_pid);
+    log_message(LOG_STATUS, "PID file: %s (PID: %d)", pid_file, current_pid);
     return 0;
 }
 
@@ -303,6 +311,22 @@ static void remove_pid_file(const char *pid_file) {
 }
 
 /**
+ * @brief Remove generated image file during cleanup.
+ * @details Securely removes the generated PNG image file with proper error reporting.
+ * @example
+ *     remove_image_file("/tmp/coolerdash.png");
+ */
+static void remove_image_file(const char *image_file) {
+    if (!image_file || !image_file[0]) return;
+    
+    if (unlink(image_file) == 0) {
+        log_message(LOG_INFO, "Image file removed");
+    } else if (errno != ENOENT) {
+        log_message(LOG_WARNING, "Could not remove image file '%s': %s", image_file, strerror(errno));
+    }
+}
+
+/**
  * @brief Display comprehensive system and device information for diagnostics.
  * @details Shows detailed system state including device info, display config, and sensor data. Only called in debug mode or on explicit request.
  * @example
@@ -315,20 +339,20 @@ static void show_system_diagnostics(const Config *config, const cc_device_data_t
     // Display configuration with API validation integrated
     if (api_width > 0 && api_height > 0) {
         if (api_width != config->display_width || api_height != config->display_height) {
-            log_message(LOG_INFO, "Display configuration: %dx%d pixels", 
+            log_message(LOG_STATUS, "Display configuration: %dx%d pixels", 
                        config->display_width, config->display_height);
             log_message(LOG_WARNING, "API reports different dimensions: %dx%d pixels", 
                        api_width, api_height);
         } else {
-            log_message(LOG_INFO, "Display configuration: %dx%d pixels (API confirmed)", 
+            log_message(LOG_STATUS, "Display configuration: %dx%d pixels (API confirmed)", 
                        config->display_width, config->display_height);
         }
     } else {
-        log_message(LOG_INFO, "Display configuration: %dx%d pixels", 
+        log_message(LOG_STATUS, "Display configuration: %dx%d pixels", 
                    config->display_width, config->display_height);
     }
     
-    log_message(LOG_INFO, "Refresh interval: %d.%03d seconds", 
+    log_message(LOG_STATUS, "Refresh interval: %d.%03d seconds", 
                config->display_refresh_interval_sec,
                config->display_refresh_interval_nsec / 1000000);
 }
@@ -379,22 +403,29 @@ static int run_daemon(const Config *config) {
 }
 
 /**
- * @brief Detect if we were started by systemd with enhanced validation.
- * @details Checks if the parent process is PID 1 with additional systemd environment validation.
+ * @brief Detect if we were started by systemd service (not user session).
+ * @details Distinguishes between systemd service and user session/terminal.
  * @example
  *     int is_service = is_started_by_systemd();
  */
 static int is_started_by_systemd(void) {
-    // Primary check: parent process is PID 1
-    if (getppid() != 1) return 0;
-    
-    // Additional validation: check for systemd environment variables
-    const char *systemd_vars[] = {"SYSTEMD_EXEC_PID", "INVOCATION_ID", NULL};
-    for (int i = 0; systemd_vars[i]; i++) {
-        if (getenv(systemd_vars[i])) return 1;
+    // Check if running as systemd service by looking at process hierarchy
+    // Real systemd services have parent PID 1 and specific unit name
+    if (getppid() != 1) {
+        return 0; // Not direct child of init/systemd
     }
     
-    return 1; // Assume systemd if parent is PID 1
+    // Check if we have a proper systemd service unit name
+    const char *invocation_id = getenv("INVOCATION_ID");
+    if (invocation_id && invocation_id[0]) {
+        // Check if we're running as a proper service (not user session)
+        // Services typically have no controlling terminal
+        if (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) && !isatty(STDERR_FILENO)) {
+            return 1; // Likely a real systemd service
+        }
+    }
+    
+    return 0; // User session or manual start
 }
 
 /**
@@ -419,16 +450,18 @@ static void show_help(const char *program_name, const Config *config) {
     printf("USAGE:\n");
     printf("  %s [OPTIONS] [CONFIG_PATH]\n\n", program_name);
     printf("OPTIONS:\n");
-    printf("  -h, --help     Show this help message and exit\n\n");
+    printf("  -h, --help     Show this help message and exit\n");
+    printf("  --log          Enable detailed INFO logging for debugging\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl start coolerdash           # Start as system service (recommended)\n");
     printf("  %s                                # Manual start with default config\n", program_name);
+    printf("  %s --log                          # Start with detailed logging enabled\n", program_name);
     printf("  %s /custom/config.ini             # Start with custom configuration\n\n", program_name);
     printf("FILES:\n");
     printf("  /usr/bin/coolerdash                       # Main program executable\n");
     printf("  /opt/coolerdash/                          # Installation directory\n");
     printf("  /etc/coolerdash/config.ini                # Default configuration file\n");
-    printf("  /run/coolerdash/coolerdash.pid            # PID file (auto-managed)\n");
+    printf("  /tmp/coolerdash.pid                       # PID file (auto-managed, user-accessible)\n");
     printf("  /var/log/syslog                           # Log output (when run as service)\n\n");
     printf("SECURITY:\n");
     printf("  - Runs as dedicated user 'coolerdash' for enhanced security\n");
@@ -464,27 +497,12 @@ static void send_shutdown_image_if_needed(void) {
     
     log_message(LOG_INFO, "Sending shutdown image to device %s", device_data.device_uid);
     
-    // Send shutdown image with retry logic for reliability
-    int success_count = 0;
-    for (int attempt = 0; attempt < SHUTDOWN_RETRY_COUNT; attempt++) {
-        if (send_image_to_lcd(g_config_ptr, shutdown_image_path, device_data.device_uid)) {
-            success_count++;
-        } else {
-            log_message(LOG_WARNING, "Shutdown image send attempt %d failed", attempt + 1);
-        }
-        
-        // Small delay between attempts to ensure proper LCD processing
-        if (attempt < SHUTDOWN_RETRY_COUNT - 1) {
-            usleep(100000); // 100ms delay
-        }
-    }
-    
-    if (success_count > 0) {
-        log_message(LOG_INFO, "Shutdown image sent successfully (%d/%d attempts)", 
-                   success_count, SHUTDOWN_RETRY_COUNT);
+    // Send shutdown image once (single transmission for shutdown)
+    if (send_image_to_lcd(g_config_ptr, shutdown_image_path, device_data.device_uid)) {
+        log_message(LOG_INFO, "Shutdown image sent successfully");
         shutdown_sent = 1;
     } else {
-        log_message(LOG_ERROR, "Failed to send shutdown image after %d attempts", SHUTDOWN_RETRY_COUNT);
+        log_message(LOG_ERROR, "Failed to send shutdown image");
     }
 }
 
@@ -526,6 +544,18 @@ static void handle_shutdown_signal(int signum) {
     // Send shutdown image immediately for clean LCD state
     send_shutdown_image_if_needed();
     
+    // Clean up temporary files (PID and image) - signal-safe operations
+    if (g_config_ptr) {
+        // Remove PID file - array address is never NULL, just check if path is set
+        if (g_config_ptr->paths_pid[0]) {
+            unlink(g_config_ptr->paths_pid);
+        }
+        // Remove generated image file - array address is never NULL, just check if path is set
+        if (g_config_ptr->paths_image_coolerdash[0]) {
+            unlink(g_config_ptr->paths_image_coolerdash);
+        }
+    }
+    
     // Signal graceful shutdown atomically
     running = 0;
 }
@@ -548,11 +578,11 @@ static void setup_enhanced_signal_handlers(void) {
     
     // Install handlers for graceful shutdown signals
     if (sigaction(SIGTERM, &sa, NULL) == -1) {
-        fprintf(stderr, "Warning: Failed to install SIGTERM handler: %s\n", strerror(errno));
+        log_message(LOG_WARNING, "Failed to install SIGTERM handler: %s", strerror(errno));
     }
     
     if (sigaction(SIGINT, &sa, NULL) == -1) {
-        fprintf(stderr, "Warning: Failed to install SIGINT handler: %s\n", strerror(errno));
+        log_message(LOG_WARNING, "Failed to install SIGINT handler: %s", strerror(errno));
     }
     
     // Block unwanted signals to prevent interference
@@ -561,7 +591,7 @@ static void setup_enhanced_signal_handlers(void) {
     sigaddset(&block_mask, SIGHUP);   // Ignore hangup signal for daemon operation
     
     if (pthread_sigmask(SIG_BLOCK, &block_mask, NULL) != 0) {
-        fprintf(stderr, "Warning: Failed to block unwanted signals\n");
+        log_message(LOG_WARNING, "Failed to block unwanted signals");
     }
 }
 
@@ -573,25 +603,30 @@ static void setup_enhanced_signal_handlers(void) {
  *     coolerdash /custom/config.ini
  */
 int main(int argc, char **argv) {
-    // Early argument validation and help display
-    if (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
-        show_help(argv[0], NULL);
-        return EXIT_SUCCESS;
+    // Parse arguments for logging and help
+    const char *config_path = "/etc/coolerdash/config.ini"; // Default config path
+    
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+            show_help(argv[0], NULL);
+            return EXIT_SUCCESS;
+        } else if (strcmp(argv[i], "--log") == 0) {
+            verbose_logging = 1; // Enable detailed INFO logging
+        } else if (argv[i][0] != '-') {
+            // This is the config path (no dash prefix)
+            config_path = argv[i];
+        } else {
+            fprintf(stderr, "Error: Unknown option '%s'. Use --help for usage information.\n", argv[i]);
+            return EXIT_FAILURE;
+        }
     }
     
-    // Validate argument count for security
-    if (argc > 2) {
-        fprintf(stderr, "Error: Too many arguments. Use --help for usage information.\n");
-        return EXIT_FAILURE;
-    }
-    
-    log_message(LOG_INFO, "CoolerDash v%s starting up...", read_version_from_file());
+    log_message(LOG_STATUS, "CoolerDash v%s starting up...", read_version_from_file());
 
-    // Determine configuration path with fallback
-    const char *config_path = (argc > 1) ? argv[1] : "/etc/coolerdash/config.ini";
+    // Load configuration
     Config config = {0};
     
-    log_message(LOG_INFO, "Loading configuration from: %s", config_path);
+    log_message(LOG_STATUS, "Loading configuration from: %s", config_path);
     if (load_config_ini(&config, config_path) != 0) {
         log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
@@ -604,7 +639,7 @@ int main(int argc, char **argv) {
 
     // Check for existing instances and create PID file with enhanced validation
     int is_service_start = is_started_by_systemd();
-    log_message(LOG_INFO, "Running mode: %s", is_service_start ? "systemd service" : "manual");
+    log_message(LOG_STATUS, "Running mode: %s", is_service_start ? "systemd service" : "manual");
     
     if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) {
         log_message(LOG_ERROR, "Instance management failed");
@@ -628,7 +663,7 @@ int main(int argc, char **argv) {
     setup_enhanced_signal_handlers();
 
     // Initialize CoolerControl session
-    log_message(LOG_INFO, "Initializing CoolerControl session...");
+    log_message(LOG_STATUS, "Initializing CoolerControl session...");
     if (!init_coolercontrol_session(&config)) {
         log_message(LOG_ERROR, "CoolerControl session initialization failed");
         fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
@@ -659,12 +694,12 @@ int main(int argc, char **argv) {
             ? device_name 
             : "Unknown device";
             
-        log_message(LOG_INFO, "Device: %s [%s]", name_display, uid_display);
+        log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
         
         // Get temperature data separately for validation and log sensor detection status
         if (monitor_get_temperature_data(&config, &temp_data)) {
             if (temp_data.temp_1 > 0.0f || temp_data.temp_2 > 0.0f) {
-                log_message(LOG_INFO, "Sensor values successfully detected");
+                log_message(LOG_STATUS, "Sensor values successfully detected");
             } else {
                 log_message(LOG_WARNING, "Sensor detection issues - temperature values not available");
             }
@@ -679,7 +714,7 @@ int main(int argc, char **argv) {
         // Continue execution - some functionality may still work
     }
 
-    log_message(LOG_INFO, "Starting daemon");
+    log_message(LOG_STATUS, "Starting daemon");
     
     // Run daemon with proper error handling
     int result = run_daemon(&config);
@@ -688,6 +723,7 @@ int main(int argc, char **argv) {
     log_message(LOG_INFO, "Daemon shutdown initiated");
     send_shutdown_image_if_needed(); // Ensure shutdown image is sent on normal exit
     remove_pid_file(config.paths_pid);
+    remove_image_file(config.paths_image_coolerdash);
     running = 0;
     
     log_message(LOG_INFO, "CoolerDash shutdown complete");

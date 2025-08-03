@@ -10,7 +10,28 @@
  * @brief INI parser handler for CoolerDash configuration.
  * @details Parses the configuration file and sets values in the Config struct.
  * @example
- *     See function documentation for usage examples.
+ *     See fu    if (config->paths_image_coolerdash[0] == '\0') {
+        // Check if running as systemd service first  
+        const char *invocation_id = getenv("INVOCATION_ID");
+        int has_invocation = (invocation_id && invocation_id[0]);
+        int is_systemd_service = has_invocation && (getppid() == 1) && 
+                                (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) && !isatty(STDERR_FILENO));
+        
+        log_message(LOG_INFO, "Image path config: INVOCATION_ID=%s, PPID=%d, systemd_service=%d", 
+                   has_invocation ? "set" : "unset", getppid(), is_systemd_service);
+        
+        if (is_systemd_service) {
+            // Running as systemd service - use runtime directory
+            SAFE_STRCPY(config->paths_image_coolerdash, "/run/coolerdash/coolerdash.png");
+            log_message(LOG_INFO, "Using systemd image path: /run/coolerdash/coolerdash.png");
+        } else {
+            // Use /tmp for user accessibility (everyone can write)
+            SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
+            log_message(LOG_INFO, "Using manual image path: /tmp/coolerdash.png");
+        }
+    } else {
+        log_message(LOG_INFO, "Image path already configured: %s", config->paths_image_coolerdash);
+    }umentation for usage examples.
  */
 
 // Helper function for safe string copying
@@ -27,22 +48,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 // Include project headers
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
-
-/**
- * @brief Log levels for consistent logging across modules.
- * @details Matches the logging style from main.c for consistency.
- * @example
- *     log_message(LOG_ERROR, "Failed to parse config: %s", error_msg);
- */
-typedef enum {
-    LOG_INFO,
-    LOG_WARNING, 
-    LOG_ERROR
-} log_level_t;
 
 /**
  * @brief Centralized logging function with consistent format.
@@ -51,7 +61,13 @@ typedef enum {
  *     log_message(LOG_WARNING, "Config file not found: %s", path);
  */
 static void log_message(log_level_t level, const char *format, ...) {
-    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    // Skip INFO messages unless verbose logging is enabled
+    // STATUS, WARNING, and ERROR messages are always shown
+    if (level == LOG_INFO && !verbose_logging) {
+        return;
+    }
+    
+    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
@@ -328,11 +344,34 @@ void config_apply_fallbacks(Config *config) {
     if (config->daemon_address[0] == '\0') SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
     if (config->daemon_password[0] == '\0') SAFE_STRCPY(config->daemon_password, "coolAdmin");
     
+    // Debug: Log all path states before processing
+    log_message(LOG_INFO, "Path fallback DEBUG: paths_image_coolerdash='%s' (empty=%d)", 
+               config->paths_image_coolerdash, config->paths_image_coolerdash[0] == '\0');
+    log_message(LOG_INFO, "Path fallback DEBUG: paths_pid='%s' (empty=%d)", 
+               config->paths_pid, config->paths_pid[0] == '\0');
+    
     // Paths
     if (config->paths_images[0] == '\0') SAFE_STRCPY(config->paths_images, "/opt/coolerdash/images");
-    if (config->paths_image_coolerdash[0] == '\0') SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
+    
+    // ALWAYS log the image path status for debugging
+    log_message(LOG_INFO, "BEFORE image path processing: '%s' (empty=%d)", 
+               config->paths_image_coolerdash, config->paths_image_coolerdash[0] == '\0');
+    
+    if (config->paths_image_coolerdash[0] == '\0') {
+        // Always use /tmp for all scenarios - universally accessible without permission issues
+        SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
+        log_message(LOG_INFO, "Using image path: /tmp/coolerdash.png");
+    }
     if (config->paths_image_shutdown[0] == '\0') SAFE_STRCPY(config->paths_image_shutdown, "/opt/coolerdash/images/shutdown.png");
-    if (config->paths_pid[0] == '\0') SAFE_STRCPY(config->paths_pid, "/run/coolerdash/coolerdash.pid");
+    
+    // Use user-accessible PID path instead of requiring root permissions
+    if (config->paths_pid[0] == '\0') {
+        // Always use /tmp for all scenarios - universally accessible without permission issues
+        SAFE_STRCPY(config->paths_pid, "/tmp/coolerdash.pid");
+        log_message(LOG_INFO, "Using PID path: /tmp/coolerdash.pid");
+    } else {
+        log_message(LOG_INFO, "PID path already configured: %s", config->paths_pid);
+    }
     
     // Display - try to get dimensions from Liquidctl device first
     if (config->display_width == 0 || config->display_height == 0) {

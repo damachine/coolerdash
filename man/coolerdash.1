@@ -3,6 +3,7 @@
 coolerdash \- CoolerDash - LCD dashboard for CoolerControl
 .SH SYNOPSIS
 .B coolerdash
+[\fB\-\-log\fR]
 .br
 .B coolerdash
 [\fB\-\-help\fR]
@@ -12,13 +13,30 @@ This system daemon empowers you to harness the potential of your LCD-equipped li
 
 Transform your cooling system into an intelligent monitoring hub that keeps you informed about your system's vital signs at a glance.
 
+.B Features:
+.br
+• Intelligent path management with automatic cleanup
+.br
+• Double LCD transmission for enhanced reliability
+.br
+• Optimized refresh cycles without unnecessary delays
+.br
+• Automatic temporary file cleanup on shutdown/termination
+.br
+• Universal file access using /tmp/ paths
+.br
+• Enhanced security with dedicated non-root user execution
+
 Special thanks to @codifryed, the developer of CoolerControl, for making this possible!
 
 
 .SH EXAMPLES
 .TP
-Start program
+Start program (minimal logging)
 .B coolerdash
+.TP
+Start program with detailed debug logging
+.B coolerdash --log
 .TP
 Show help:
 .B coolerdash --help
@@ -29,6 +47,34 @@ Service management:
 .B systemctl status coolerdash
 .br
 .B journalctl -u coolerdash -f
+
+.SH LOGGING SYSTEM
+CoolerDash uses an intelligent four-level logging system:
+.TP
+.B STATUS
+Important startup and operational messages (always shown, visible in systemd logs)
+.TP
+.B INFO
+Detailed debug information (only shown with \fB\-\-log\fR parameter)
+.TP
+.B WARNING
+Non-critical issues (always shown)
+.TP
+.B ERROR
+Critical errors (always shown)
+.TP
+.B Examples
+.B coolerdash
+.br
+Shows STATUS, WARNING, and ERROR messages only for clean production logs.
+.br
+.B coolerdash --log
+.br
+Shows all logging levels including detailed INFO messages for debugging.
+.br
+.B journalctl -u coolerdash.service
+.br
+View systemd logs (STATUS messages always visible without --log parameter).
 
 .SH SYSTEMD INTEGRATION
 The program provides systemd integration with detailed logs:
@@ -49,6 +95,11 @@ Automatically installs the service and restarts it on updates.
 .B journalctl -u coolerdash.service --since "10 minutes ago"
 .br
 Shows module initialization, CoolerControl connection, and operating status.
+Important STATUS messages are always visible without requiring \fB\-\-log\fR parameter.
+.br
+.B journalctl -u coolerdash.service -f
+.br
+Live log monitoring for real-time troubleshooting.
 .TP
 .B Makefile Service Shortcuts
 .B make start, make stop, make restart, make status, make logs
@@ -73,6 +124,26 @@ After editing, restart the service with:
 \fBsystemctl restart coolerdash.service\fR
 .br
 
+.SH PATH MANAGEMENT
+CoolerDash uses intelligent path management for optimal compatibility:
+.TP
+.B Universal Access
+All temporary files are stored in /tmp/ for universal read/write access without permission issues.
+.TP
+.B Automatic Cleanup
+Temporary files are automatically cleaned up on normal shutdown and signal termination:
+.br
+• Image files: /tmp/coolerdash.png
+.br
+• PID files: /tmp/coolerdash.pid
+.TP
+.B File Lifecycle
+Normal shutdown: Files cleaned via main cleanup routine
+.br
+Signal termination (SIGTERM/SIGINT): Files cleaned via signal handler
+.br
+Force kill (SIGKILL): Files may remain but are cleaned on next start
+
 .SH DEPENDENCIES
 .TP
 .B CoolerControl (REQUIRED)
@@ -91,7 +162,7 @@ Installs the main binary to /usr/bin/coolerdash.
 Resources and images are installed to /opt/coolerdash/.
 Systemd service file is installed to /etc/systemd/system/coolerdash.service.
 Default config file is installed to /etc/coolerdash/config.ini.
-Runtime directory /run/coolerdash/ is created automatically by systemd.
+Temporary files are managed in /tmp/ for universal access.
 .TP
 .B Standard Installation
 .B make install
@@ -119,8 +190,11 @@ Arch Linux users can uninstall via package manager: \fBpacman -R coolerdash\fR
 
 .SH USAGE
 .TP
-.B Start program (fixed two-box layout, CPU/GPU temperature only):
+.B Start program (clean production logging):
 .B coolerdash
+.TP
+.B Start program with detailed debug logging:
+.B coolerdash --log
 .TP
 .B Show help:
 .B coolerdash --help
@@ -138,11 +212,22 @@ Arch Linux users can uninstall via package manager: \fBpacman -R coolerdash\fR
 .B
 systemctl stop coolerdash.service
 
+.SH OPTIONS
+.TP
+.B \-\-log
+Enable detailed INFO logging for debugging purposes. Without this parameter, only STATUS, WARNING, and ERROR messages are shown for clean production logs.
+.TP
+.B \-\-help
+Display help information and exit.
+
 .SH NOTES
 - All runtime settings can be changed via /etc/coolerdash/config.ini.
 - After editing config.ini, restart the service to apply changes.
 - If config.ini is missing, build-time defaults from include/config.h are used.
-- No legacy mode selection, cache directories, or UID files are used.
+- Intelligent path management uses /tmp/ for universal access without permission issues.
+- Double LCD transmission ensures reliable image upload with enhanced stability.
+- Automatic file cleanup removes temporary files on shutdown/termination.
+- Optimized refresh cycles provide immediate LCD updates without unnecessary delays.
 - All code is documented with Doxygen-style comments and follows strict coding standards.
 - See PKGBUILD and Makefile for build and packaging documentation.
 

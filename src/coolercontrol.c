@@ -31,25 +31,19 @@
 #include "../include/config.h"
 
 /**
- * @brief Log levels for consistent logging across modules.
- * @details Matches the logging style from main.c for consistency.
- * @example
- *     log_message(LOG_ERROR, "Failed to connect: %s", error_msg);
- */
-typedef enum {
-    LOG_INFO,
-    LOG_WARNING, 
-    LOG_ERROR
-} log_level_t;
-
-/**
  * @brief Centralized logging function with consistent format.
  * @details Provides consistent logging style matching main.c implementation.
  * @example
  *     log_message(LOG_ERROR, "HTTP request failed: %ld", response_code);
  */
 static void log_message(log_level_t level, const char *format, ...) {
-    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    // Skip INFO messages unless verbose logging is enabled
+    // STATUS, WARNING, and ERROR messages are always shown
+    if (level == LOG_INFO && !verbose_logging) {
+        return;
+    }
+    
+    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
@@ -184,10 +178,15 @@ int init_coolercontrol_session(const Config *config) {
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POST, 1L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, "");
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 15L); // Reasonable timeout for login
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 10L); // Connection timeout
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, CC_HTTP_TIMEOUT_SEC); // Use configured timeout
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, CC_HTTP_CONNECT_TIMEOUT_SEC); // Use configured connection timeout
+    
+    // Only enable SSL verification if using HTTPS
+    if (strncmp(config->daemon_address, "https://", 8) == 0) {
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates for HTTPS
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname for HTTPS
+    }
+    
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
 
     // Perform login request
@@ -210,14 +209,47 @@ int init_coolercontrol_session(const Config *config) {
 }
 
 /**
- * @brief Sends an image to the LCD display.
- * @details Uploads an image to the LCD display using a multipart HTTP PUT request. The image is specified by its file path, and the device UID is used to identify the target device.
+ * @brief Validates LCD parameters against device capabilities.
+ * @details Checks if brightness and orientation values are within valid device ranges.
+ * @example
+ *     if (validate_lcd_parameters(config)) { ... }
+ */
+static int validate_lcd_parameters(const Config *config) {
+    // Validate brightness range (0-100 is standard for most LCD devices)
+    // Note: lcd_brightness is uint8_t, so only check upper bound
+    if (config->lcd_brightness > 100) {
+        log_message(LOG_ERROR, "Invalid LCD brightness: %d (must be 0-100)", config->lcd_brightness);
+        return 0;
+    }
+    
+    // Validate orientation values (0, 90, 180 degrees - 270 not supported due to uint8_t limit)
+    // Note: lcd_orientation is uint8_t (0-255), so 270 would overflow
+    if (config->lcd_orientation != 0 && config->lcd_orientation != 90 && 
+        config->lcd_orientation != 180) {
+        log_message(LOG_ERROR, "Invalid LCD orientation: %d (must be 0, 90, or 180)", config->lcd_orientation);
+        return 0;
+    }
+    
+    log_message(LOG_INFO, "LCD parameters validated: brightness=%d, orientation=%d°", 
+                config->lcd_brightness, config->lcd_orientation);
+    return 1;
+}
+
+/**
+ * @brief Sends an image to the LCD display with enhanced Open API compatibility.
+ * @details Uploads an image to the LCD display using multipart HTTP PUT request with improved parameter handling for CoolerControl Open API.
  * @example
  *    send_image_to_lcd(&config, "/opt/coolerdash/images/coolerdash.png", "device_uid");
  */
 int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid) {
     // Validate input parameters and session state
     if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) {
+        log_message(LOG_ERROR, "Invalid parameters or session not initialized");
+        return 0;
+    }
+    
+    // Validate LCD parameters before sending
+    if (!validate_lcd_parameters(config)) {
         return 0;
     }
     
@@ -228,84 +260,276 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
         return 0;
     }
     
+    // Check file size (reasonable limit for LCD images)
+    if (file_stat.st_size > (2 * 1024 * 1024)) { // 2MB limit
+        log_message(LOG_ERROR, "Image file too large: %ld bytes (max 2MB)", file_stat.st_size);
+        return 0;
+    }
+    
     // Validate device UID format (basic sanity check)
     if (strlen(device_uid) < 8 || strlen(device_uid) > 64) {
-        log_message(LOG_ERROR, "Invalid device UID format");
+        log_message(LOG_ERROR, "Invalid device UID format: %s", device_uid);
         return 0;
     }
     
     // Construct upload URL with length validation
     char upload_url[CC_URL_SIZE];
-    const int url_len = snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
-             config->daemon_address, device_uid);
+    const int url_len = snprintf(upload_url, sizeof(upload_url), 
+                                "%s/devices/%s/settings/%s/lcd/images", 
+                                config->daemon_address, device_uid, "lcd");
     
     if (url_len < 0 || url_len >= (int)sizeof(upload_url)) {
         log_message(LOG_ERROR, "Upload URL too long");
         return 0;
     }
     
+    log_message(LOG_INFO, "Attempting LCD upload to: %s", upload_url);
+    
     // Initialize multipart form
     curl_mime *form = curl_mime_init(cc_session.curl_handle);
-    if (!form) return 0;
+    if (!form) {
+        log_message(LOG_ERROR, "Failed to initialize multipart form");
+        return 0;
+    }
     
     curl_mimepart *field;
+    CURLcode mime_result;
     
-    // Add mode field
+    // Add mode field with error checking
     field = curl_mime_addpart(form);
-    curl_mime_name(field, "mode");
-    curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create mode field");
+        curl_mime_free(form);
+        return 0;
+    }
     
-    // Add brightness field
+    mime_result = curl_mime_name(field, "mode");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set mode field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set mode field data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Add brightness field with enhanced validation and error checking
     char brightness_str[8];
     snprintf(brightness_str, sizeof(brightness_str), "%d", config->lcd_brightness);
-    field = curl_mime_addpart(form);
-    curl_mime_name(field, "brightness");
-    curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
     
-    // Add orientation field
+    field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create brightness field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_name(field, "brightness");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set brightness field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set brightness field data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Add orientation field with enhanced validation and error checking
     char orientation_str[8];
     snprintf(orientation_str, sizeof(orientation_str), "%d", config->lcd_orientation);
-    field = curl_mime_addpart(form);
-    curl_mime_name(field, "orientation");
-    curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
     
-    // Add image file
     field = curl_mime_addpart(form);
-    curl_mime_name(field, "images[]");
-    curl_mime_filedata(field, image_path);
-    curl_mime_type(field, "image/png");
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create orientation field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_name(field, "orientation");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set orientation field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set orientation field data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Add image file with enhanced error checking
+    field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create image field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_name(field, "images[]");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set image field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_filedata(field, image_path);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    mime_result = curl_mime_type(field, "image/png");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set image MIME type: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Initialize response buffer to capture detailed error messages
+    struct http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096)) {
+        log_message(LOG_ERROR, "Failed to initialize response buffer");
+        curl_mime_free(form);
+        return 0;
+    }
     
     // Configure curl options with enhanced security and error handling
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 30L); // 30 second timeout
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 10L); // 10 second connect timeout
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_FOLLOWLOCATION, 0L); // Don't follow redirects for security
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, CC_HTTP_TIMEOUT_SEC * 2); // Extended timeout for file upload
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, CC_HTTP_CONNECT_TIMEOUT_SEC);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_FOLLOWLOCATION, 0L);
     
-    // Perform request
-    CURLcode res = curl_easy_perform(cc_session.curl_handle);
-    
-    // Get HTTP response code
-    long http_response_code = -1;
-    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
-
-    // Validate response code is within valid HTTP range
-    if (http_response_code < 100 || http_response_code > 599) {
-        log_message(LOG_ERROR, "Invalid HTTP response code: %ld", http_response_code);
-        return CC_ERROR_INVALID_RESPONSE;
+    // Only enable SSL verification if using HTTPS
+    if (strncmp(config->daemon_address, "https://", 8) == 0) {
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
     }
     
-    // Cleanup
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
+    
+    // Add debugging headers to identify our application
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
+    headers = curl_slist_append(headers, "Accept: application/json");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
+    
+    // Retry loop for LCD communication with smart retry logic
+    int success = 0;
+    int retry_delay = CC_INITIAL_RETRY_DELAY_MS;
+    
+    for (int attempt = 0; attempt < CC_MAX_RETRIES && !success; attempt++) {
+        if (attempt > 0) {
+            log_message(LOG_WARNING, "LCD upload attempt %d/%d after %dms delay", 
+                        attempt + 1, CC_MAX_RETRIES, retry_delay);
+            sleep_ms(retry_delay);
+            retry_delay = (retry_delay * 2 < CC_MAX_RETRY_DELAY_MS) ? retry_delay * 2 : CC_MAX_RETRY_DELAY_MS;
+            
+            // Reset response buffer for retry
+            response.size = 0;
+        }
+        
+        // Perform request
+        CURLcode res = curl_easy_perform(cc_session.curl_handle);
+        
+        // Get HTTP response code and timing information
+        long http_response_code = -1;
+        double total_time = 0;
+        curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
+        curl_easy_getinfo(cc_session.curl_handle, CURLINFO_TOTAL_TIME, &total_time);
+
+        // Enhanced error handling with detailed logging
+        if (res != CURLE_OK) {
+            log_message(LOG_WARNING, "CURL error during LCD upload (attempt %d/%d): %s (took %.2fs)", 
+                        attempt + 1, CC_MAX_RETRIES, curl_easy_strerror(res), total_time);
+            continue;
+        }
+        
+        // Validate response code is within valid HTTP range
+        if (http_response_code < 100 || http_response_code > 599) {
+            log_message(LOG_ERROR, "Invalid HTTP response code: %ld", http_response_code);
+            continue;
+        }
+        
+        if (http_response_code == 200) {
+            success = 1;
+            log_message(LOG_INFO, "LCD image uploaded successfully (took %.2fs)", total_time);
+        } else if (http_response_code == 500) {
+            // Server error - log detailed response body
+            if (response.data && response.size > 0) {
+                // Null-terminate response for safe string operations
+                if (response.size < response.capacity) {
+                    response.data[response.size] = '\0';
+                }
+                log_message(LOG_ERROR, "LCD upload failed with 500 error (attempt %d/%d): %s", 
+                            attempt + 1, CC_MAX_RETRIES, response.data);
+            } else {
+                log_message(LOG_ERROR, "LCD upload failed with 500 Internal Server Error (attempt %d/%d)", 
+                            attempt + 1, CC_MAX_RETRIES);
+            }
+            
+            // For 500 errors, use maximum delay before retry (likely device communication issue)
+            if (attempt < CC_MAX_RETRIES - 1) {
+                retry_delay = CC_MAX_RETRY_DELAY_MS;
+                log_message(LOG_WARNING, "Device communication error detected - waiting %dms before retry", retry_delay);
+                log_message(LOG_INFO, "Suggestion: Check 'systemctl status coolercontrold' and device USB connection");
+            }
+        } else if (http_response_code >= 400 && http_response_code < 500) {
+            // Client error - log response and don't retry (likely parameter issue)
+            if (response.data && response.size > 0) {
+                if (response.size < response.capacity) {
+                    response.data[response.size] = '\0';
+                }
+                log_message(LOG_ERROR, "LCD upload failed with client error %ld: %s", 
+                            http_response_code, response.data);
+            } else {
+                log_message(LOG_ERROR, "LCD upload failed with client error: %ld", http_response_code);
+            }
+            break; // Don't retry client errors - likely a parameter issue
+        } else {
+            log_message(LOG_WARNING, "Unexpected HTTP response code %ld (attempt %d/%d, took %.2fs)", 
+                        http_response_code, attempt + 1, CC_MAX_RETRIES, total_time);
+        }
+    }
+    
+    // Final error logging if all attempts failed
+    if (!success) {
+        log_message(LOG_ERROR, "LCD upload failed after %d attempts. Check CoolerControl device communication and Open API compatibility.", CC_MAX_RETRIES);
+        
+        // Provide detailed troubleshooting information
+        log_message(LOG_INFO, "Troubleshooting steps:");
+        log_message(LOG_INFO, "1. Check device status: systemctl status coolercontrold");
+        log_message(LOG_INFO, "2. Verify device UID '%s' is correct and responsive", device_uid);
+        log_message(LOG_INFO, "3. Check CoolerControl logs: journalctl -u coolercontrold -n 20");
+        log_message(LOG_INFO, "4. Ensure device USB connection is stable");
+        log_message(LOG_INFO, "5. Try restarting CoolerControl: sudo systemctl restart coolercontrold");
+        log_message(LOG_INFO, "6. Verify daemon accessibility at '%s'", config->daemon_address);
+    }
+    
+    // Cleanup resources
+    cc_cleanup_response_buffer(&response);
+    if (headers) curl_slist_free_all(headers);
     curl_mime_free(form);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
     
-    // Return success status
-    return (res == CURLE_OK && http_response_code == 200);
+    return success;
 }
 
 /**
@@ -511,23 +735,26 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     // Initialize response buffer with optimized capacity
     struct http_response chunk = {0};
     const size_t initial_capacity = 4096; // Start with 4KB (typical JSON response size)
-    chunk.data = malloc(initial_capacity);
-    if (!chunk.data) {
+    if (!cc_init_response_buffer(&chunk, initial_capacity)) {
         curl_easy_cleanup(curl);
         return 0;
     }
-    chunk.size = 0;
-    chunk.capacity = initial_capacity;
 
     // Configure curl options with enhanced security
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L); // Reduced timeout for better responsiveness
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L); // Quick connection timeout
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, CC_HTTP_TIMEOUT_SEC); // Use configured timeout for responsiveness
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, CC_HTTP_CONNECT_TIMEOUT_SEC); // Use configured connection timeout
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L); // Security: no redirects
     curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 0L); // Security: no redirects
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
+    
+    // Only enable SSL verification if using HTTPS
+    if (strncmp(config->daemon_address, "https://", 8) == 0) {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates for HTTPS
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname for HTTPS
+    }
+    
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
 
     // Set HTTP headers
@@ -581,7 +808,7 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
 if (result == 0) {
     log_message(LOG_ERROR, "Failed to fetch device info after %d attempts", CC_MAX_RETRIES);
 }    // Clean up resources
-    free(chunk.data);
+    cc_cleanup_response_buffer(&chunk);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 

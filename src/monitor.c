@@ -28,25 +28,19 @@
 #include "../include/coolercontrol.h"
 
 /**
- * @brief Log levels for consistent logging across modules.
- * @details Matches the logging style from main.c for consistency.
- * @example
- *     log_message(LOG_ERROR, "Failed to parse JSON: %s", error_msg);
- */
-typedef enum {
-    LOG_INFO,
-    LOG_WARNING, 
-    LOG_ERROR
-} log_level_t;
-
-/**
  * @brief Centralized logging function with consistent format.
  * @details Provides consistent logging style matching main.c implementation.
  * @example
  *     log_message(LOG_ERROR, "Temperature out of range: %.1f°C", temp);
  */
 static void log_message(log_level_t level, const char *format, ...) {
-    const char *prefix[] = {"INFO", "WARNING", "ERROR"};
+    // Skip INFO messages unless verbose logging is enabled
+    // STATUS, WARNING, and ERROR messages are always shown
+    if (level == LOG_INFO && !verbose_logging) {
+        return;
+    }
+    
+    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
@@ -257,7 +251,13 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L); // Reasonable timeout for status check
         curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L); // Quick connection timeout
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L); // Security: no redirects
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates
+        
+        // Only enable SSL verification if using HTTPS
+        if (strncmp(config->daemon_address, "https://", 8) == 0) {
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L); // Verify SSL certificates for HTTPS
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L); // Verify SSL hostname for HTTPS
+        }
+        
         curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0"); // Identify our application
         curl_easy_setopt(curl, CURLOPT_POST, 1L); // Use POST to ensure we get the latest data
         

@@ -18,20 +18,18 @@
 #define COOLERCONTROL_H
 
 // Constants optimized for cache alignment, security and performance
-#define CC_COOKIE_SIZE 256
-#define CC_DEVICE_SECTION_SIZE 4096
-#define CC_ERROR_INVALID_RESPONSE -1
-#define CC_HTTP_CONNECT_TIMEOUT_SEC 5L
-#define CC_HTTP_TIMEOUT_SEC 10L
-#define CC_INITIAL_RETRY_DELAY_MS 100
-#define CC_MAX_RESPONSE_SIZE (10 * 1024 * 1024)
-#define CC_MAX_RETRIES 3
-#define CC_MAX_RETRY_DELAY_MS 2000
-#define CC_NAME_SIZE 128
-#define CC_RESPONSE_MAGIC 0xDEADBEEF
-#define CC_UID_SIZE 128
-#define CC_URL_SIZE 512
-#define CC_USERPWD_SIZE 128
+#define CC_COOKIE_SIZE 512                              // Increased for modern session cookies
+#define CC_HTTP_CONNECT_TIMEOUT_SEC 5L                  // Connection timeout for curl operations
+#define CC_HTTP_TIMEOUT_SEC 15L                         // Total timeout for HTTP requests
+#define CC_INITIAL_RETRY_DELAY_MS 100                   // Initial retry delay in milliseconds
+#define CC_MAX_RESPONSE_SIZE (4 * 1024 * 1024)          // Increased to 4MB for CoolerControl API responses
+#define CC_MAX_RETRIES 3                                // Maximum retry attempts
+#define CC_MAX_RETRY_DELAY_MS 2000                      // Maximum retry delay in milliseconds
+#define CC_NAME_SIZE 128                                // Device name buffer size
+#define CC_RESPONSE_MAGIC 0xDEADBEEF                    // Magic number for response validation
+#define CC_UID_SIZE 128                                 // Device UID buffer size
+#define CC_URL_SIZE 512                                 // URL buffer size
+#define CC_USERPWD_SIZE 128                             // Username:password buffer size
 
 // Include necessary headers with minimal dependencies
 #include <signal.h>
