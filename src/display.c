@@ -1,4 +1,4 @@
-/*
+/**
  * @author damachine (christkue79@gmail.com)
  * @website https://github.com/damachine
  * @copyright (c) 2025 damachine
@@ -7,10 +7,8 @@
  */
 
 /**
- * @brief Enhanced LCD rendering and image upload implementation for CoolerDash.
- * @details Implements optimized display rendering logic with security features, performance improvements, and efficient resource management for temperature visualization.
- * @example
- *     See function documentation for usage examples.
+ * @brief LCD rendering and image upload implementation for CoolerDash.
+ * @details Provides functions for rendering the LCD display based on sensor data and configuration.
  */
 
 // Include necessary headers in logical order
@@ -33,10 +31,8 @@
 #include "../include/monitor.h"
 
 /**
- * @brief Secure logging function with consistent format.
- * @details Centralized logging with timestamp and proper error handling.
- * @example
- *     log_message(LOG_ERROR, "Failed to initialize: %s", error_msg);
+ * @brief Centralized logging function.
+ * @details Provides consistent logging style matching main.c implementation.
  */
 static void log_message(log_level_t level, const char *format, ...) {
     // Skip INFO messages unless verbose logging is enabled
@@ -61,189 +57,37 @@ static void log_message(log_level_t level, const char *format, ...) {
 
 /**
  * @brief Forward declarations for internal display rendering functions.
- * @details These functions provide modular, optimized rendering with input validationand error handling. All functions use const parameters where appropriate.
- * @example
- *     
+ * @details Function prototypes for internal display rendering helpers and utility functions used by the main rendering pipeline.
  */
-static int should_update_display(const sensor_data_t *data, const Config *config);
-static inline void draw_temp_safe(cairo_t *cr, const Config *config, 
-                                  double temp_value, double y_offset);
-static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, 
-                                      const Config *config);
-static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, 
-                                  const Config *config);
-static void draw_single_temperature_bar(cairo_t *cr, const Config *config, 
-                                         float temp_value, int bar_x, int bar_y);
+static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp_value, double y_offset);
+static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config);
+static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
+static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y);
 static void draw_labels(cairo_t *cr, const Config *config);
 
-// Utility and validation functions
+// Utility functions
 static Color get_temperature_bar_color(const Config *config, float val);
-static inline float clamp_temperature(float temp);
 static inline double cairo_color_convert(uint8_t color_component);
-static int create_directory_if_needed(const char *path);
-static int validate_cairo_objects(cairo_t *cr, cairo_surface_t *surface);
 
 /**
- * @brief Clamp temperature value to valid range for security and stability.
- * @details Ensures temperature values are within reasonable bounds to prevent rendering issues and potential security vulnerabilities.
- * @example
- *     float safe_temp = clamp_temperature(raw_temp);
- */
-static inline float clamp_temperature(float temp) {
-    if (temp < DISPLAY_MIN_TEMP_VALUE) return DISPLAY_MIN_TEMP_VALUE;
-    if (temp > DISPLAY_MAX_TEMP_VALUE) return DISPLAY_MAX_TEMP_VALUE;
-    return temp;
-}
-
-/**
- * @brief Optimized color component conversion with precomputed scaling.
- * @details Converts uint8_t color values to cairo double format efficiently. Uses precomputed scaling factor to avoid repeated divisions.
- * @example
- *     double red = cairo_color_convert(config->font_color_temp.r);
+ * @brief Convert color component to cairo format.
+ * @details Converts 8-bit color component (0-255) to cairo's double format (0.0-1.0) for rendering operations.
  */
 static inline double cairo_color_convert(uint8_t color_component) {
-    return color_component * DISPLAY_COLOR_SCALE_FACTOR;
+    return color_component / 255.0;
 }
 
 /**
- * @brief Create directory if it doesn't exist with proper error handling.
- * @details Creates directory with appropriate permissions and handles errors safely.
- * @example
- *     if (create_directory_if_needed(config->paths_images) != 0) handle_error();
- */
-static int create_directory_if_needed(const char *path) {
-    if (!path || !path[0]) {
-        log_message(LOG_ERROR, "Invalid path parameter for directory creation");
-        return -1;
-    }
-    
-    struct stat st;
-    if (stat(path, &st) == 0) {
-        return S_ISDIR(st.st_mode) ? 0 : -1; // Path exists but is not a directory
-    }
-    
-    // Directory doesn't exist, create it
-    if (mkdir(path, DISPLAY_DIRECTORY_PERMISSIONS) == 0) {
-        log_message(LOG_INFO, "Created directory: %s", path);
-        return 0;
-    }
-    
-    // Check if another process created it while we were trying
-    if (errno == EEXIST && stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
-        return 0;
-    }
-    
-    log_message(LOG_ERROR, "Failed to create directory %s: %s", path, strerror(errno));
-    return -1;
-}
-
-/**
- * @brief Validate cairo objects for safe operations.
- * @details Checks cairo context and surface for errors before use.
- * Returns 1 if valid, 0 if invalid.
- * @example
- *     if (!validate_cairo_objects(cr, surface)) cleanup_and_return();
- */
-static int validate_cairo_objects(cairo_t *cr, cairo_surface_t *surface) {
-    if (!cr || !surface) {
-        log_message(LOG_ERROR, "Invalid cairo objects: cr=%p, surface=%p", cr, surface);
-        return 0;
-    }
-    
-    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS ||
-        cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-        log_message(LOG_ERROR, "Cairo objects in error state: cr_status=%d, surface_status=%d", 
-                   cairo_status(cr), cairo_surface_status(surface));
-        return 0;
-    }
-    
-    return 1;
-}
-
-/**
- * @brief Enhanced display update detection with improved performance.
- * @details Compares current sensor data with last drawn values and determines if a redraw is necessary. Uses static variables with proper initialization and validation.
- * @example
- *     if (should_update_display(&sensor_data, config)) {
- *         // Redraw required
- *     }
- */
-static int should_update_display(const sensor_data_t *data, const Config *config) {
-    static sensor_data_t last_data = {.temp_1 = -999.0f, .temp_2 = -999.0f}; // Invalid initial values
-    static bool first_run = true;
-    
-    // Input validation
-    if (!data || !config) return 0;
-    
-    // Clamp input temperatures for safety
-    const float current_temp1 = clamp_temperature(data->temp_1);
-    const float current_temp2 = clamp_temperature(data->temp_2);
-    
-    if (first_run) {
-        first_run = false;
-        log_message(LOG_INFO, "Initial temperature reading: CPU=%.1f°C, GPU=%.1f°C", 
-                   current_temp1, current_temp2);
-        last_data.temp_1 = current_temp1;
-        last_data.temp_2 = current_temp2;
-        return 1; // Always update on first run
-    }
-    
-    // Check if either temperature changed significantly using optimized comparison
-    const float temp_1_delta = fabsf(last_data.temp_1 - current_temp1);
-    const float temp_2_delta = fabsf(last_data.temp_2 - current_temp2);
-    
-    const bool temp_1_changed = temp_1_delta >= config->temp_1_update_threshold;
-    const bool temp_2_changed = temp_2_delta >= config->temp_2_update_threshold;
-    
-    if (temp_1_changed || temp_2_changed) {
-        log_message(LOG_INFO, "Temperature update: CPU=%.1f°C (Δ%.1f), GPU=%.1f°C (Δ%.1f)", 
-                   current_temp1, temp_1_delta, current_temp2, temp_2_delta);
-        last_data.temp_1 = current_temp1;
-        last_data.temp_2 = current_temp2;
-        return 1;
-    }
-    
-    // No significant change - log for debugging
-    log_message(LOG_INFO, "No update needed: CPU=%.1f°C (Δ%.1f), GPU=%.1f°C (Δ%.1f) - thresholds: %.1f/%.1f", 
-               current_temp1, temp_1_delta, current_temp2, temp_2_delta,
-               config->temp_1_update_threshold, config->temp_2_update_threshold);
-    
-    return 0; // No significant change
-}
-
-/**
- * @brief Enhanced display rendering with comprehensive error handling and validation.
- * @details Renders the LCD display image using provided sensor data with security features, resource management, and performance optimizations.
- * @return 1 if display was updated successfully, -1 if no update needed, 0 on error
- * @example
- *     int result = render_display(&config, &sensor_data);
- *     if (result == 0) handle_rendering_error();
- *     else if (result == 1) send_to_lcd();
+ * @brief Display rendering.
+ * @details Creates cairo surface and context, renders temperature displays and bars, then saves the result as PNG image.
  */
 int render_display(const Config *config, const sensor_data_t *data) {
-    // Input validation
     if (!data || !config) {
-        log_message(LOG_ERROR, "Invalid parameters for render_display: config=%p, data=%p", config, data);
-        return 0;
-    }
-    
-    // Validate display dimensions for security
-    if (config->display_width < CONFIG_MIN_DISPLAY_SIZE || 
-        config->display_width > CONFIG_MAX_DISPLAY_SIZE ||
-        config->display_height < CONFIG_MIN_DISPLAY_SIZE || 
-        config->display_height > CONFIG_MAX_DISPLAY_SIZE) {
-        log_message(LOG_ERROR, "Invalid display dimensions: %dx%d (allowed: %d-%d)", 
-                   config->display_width, config->display_height, 
-                   CONFIG_MIN_DISPLAY_SIZE, CONFIG_MAX_DISPLAY_SIZE);
+        log_message(LOG_ERROR, "Invalid parameters for render_display");
         return 0;
     }
 
-    // Only update if sensor data changed significantly
-    if (!should_update_display(data, config)) {
-        return -1; // No update needed (different from error)
-    }
-
-    // Create cairo surface with error checking - use ARGB32 for PNG compatibility
+    // Create cairo surface
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 
                                                          config->display_width, 
                                                          config->display_height);
@@ -253,30 +97,24 @@ int render_display(const Config *config, const sensor_data_t *data) {
     }
     
     if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS) {
-        log_message(LOG_ERROR, "Cairo surface creation failed with status: %d", cairo_surface_status(surface));
+        log_message(LOG_ERROR, "Cairo surface creation failed");
         cairo_surface_destroy(surface);
         return 0;
     }
 
-    // Create cairo context with validation
+    // Create cairo context
     cairo_t *cr = cairo_create(surface);
     if (!cr) {
         log_message(LOG_ERROR, "Failed to create cairo context");
         cairo_surface_destroy(surface);
         return 0;
     }
-    
-    if (!validate_cairo_objects(cr, surface)) {
-        cairo_destroy(cr);
-        cairo_surface_destroy(surface);
-        return 0;
-    }
 
-    // Fill background with black (optimized single operation)
+    // Fill background
     cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
     cairo_paint(cr);
 
-    // Configure font and color for temperature values (optimized color conversion)
+    // Configure font and color for temperature values
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, config->font_size_temp);
     cairo_set_source_rgb(cr, 
@@ -288,7 +126,7 @@ int render_display(const Config *config, const sensor_data_t *data) {
     draw_temperature_displays(cr, data, config);
     draw_temperature_bars(cr, data, config);
 
-    // Configure font and color for labels (only if different from temperature settings)
+    // Configure font and color for labels
     if (config->font_size_labels != config->font_size_temp ||
         memcmp(&config->font_color_label, &config->font_color_temp, sizeof(Color)) != 0) {
         cairo_set_font_size(cr, config->font_size_labels);
@@ -298,14 +136,6 @@ int render_display(const Config *config, const sensor_data_t *data) {
                              cairo_color_convert(config->font_color_label.b));
     }
     draw_labels(cr, config);
-
-    // Ensure image directory exists with proper error handling
-    if (create_directory_if_needed(config->paths_images) != 0) {
-        log_message(LOG_ERROR, "Failed to create image directory: %s", config->paths_images);
-        cairo_destroy(cr);
-        cairo_surface_destroy(surface);
-        return 0;
-    }
 
     // Ensure all drawing operations are completed before writing to PNG
     cairo_surface_flush(surface);
@@ -319,17 +149,12 @@ int render_display(const Config *config, const sensor_data_t *data) {
         return 0;
     }
     
-    // Save PNG image with validation
+    // Save PNG image
     cairo_status_t write_status = cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
     int success = (write_status == CAIRO_STATUS_SUCCESS);
     
-    if (success) {
-        log_message(LOG_INFO, "Display rendered successfully to: %s", config->paths_image_coolerdash);
-        // Ensure PNG is written to disk before proceeding (non-blocking)
-        fsync(STDOUT_FILENO);
-    } else {
-        log_message(LOG_ERROR, "Failed to write PNG image: %s (status: %d - %s)", 
-                   config->paths_image_coolerdash, write_status, cairo_status_to_string(write_status));
+    if (!success) {
+        log_message(LOG_ERROR, "Failed to write PNG image: %s", config->paths_image_coolerdash);
     }
 
     // Clean up resources
@@ -340,26 +165,14 @@ int render_display(const Config *config, const sensor_data_t *data) {
 }
 
 /**
- * @brief Draw a single temperature value at the given y offset with enhanced safety.
- * @details Helper for draw_temperature_displays with buffer overflow protection and optimized string formatting.
- * @example
- *     draw_temp_safe(cr, config, temp_value, y_offset);
+ * @brief Draw a single temperature value.
+ * @details Helper function that renders a temperature value as text with proper positioning and formatting.
  */
 static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp_value, double y_offset) {
-    char temp_str[DISPLAY_TEMP_STRING_BUFFER_SIZE];
+    char temp_str[16];
     cairo_text_extents_t ext;
     
-    // Clamp temperature and format safely
-    const double safe_temp = clamp_temperature((float)temp_value);
-    const int formatted_temp = (int)safe_temp;
-    
-    // Safe string formatting with bounds checking
-    int chars_written = snprintf(temp_str, sizeof(temp_str), "%d°", formatted_temp);
-    if (chars_written < 0 || chars_written >= (int)sizeof(temp_str)) {
-        // Fallback for formatting errors
-        strncpy(temp_str, "ERR", sizeof(temp_str) - 1);
-        temp_str[sizeof(temp_str) - 1] = '\0';
-    }
+    snprintf(temp_str, sizeof(temp_str), "%d°", (int)temp_value);
     
     cairo_text_extents(cr, temp_str, &ext);
     const double x = (config->layout_box_width - ext.width) / 2 + DISPLAY_TEMP_DISPLAY_X_OFFSET;
@@ -371,8 +184,6 @@ static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp
 /**
  * @brief Draw temperature displays with enhanced positioning and validation.
  * @details Draws the temperature values for CPU and GPU in their respective boxes with improved accuracy and safety checks.
- * @example
- *     draw_temperature_displays(cr, &sensor_data, &config);
  */
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config) {
     if (!cr || !data || !config) return;
@@ -387,8 +198,6 @@ static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, co
 /**
  * @brief Draw optimized temperature bars with enhanced performance and validation.
  * @details Draws horizontal bars representing CPU and GPU temperatures with enhanced color gradients, input validation, and optimized positioning calculations.
- * @example
- *     draw_temperature_bars(cr, &sensor_data, &config);
  */
 static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config) {
     if (!cr || !data || !config) return;
@@ -404,35 +213,26 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
     const int cpu_bar_y = (config->display_height - total_bar_height) / 2 + 1;
     const int gpu_bar_y = cpu_bar_y + config->layout_bar_height + config->layout_bar_gap;
     
-    // Validate and clamp temperature values
-    const float safe_temp_1 = clamp_temperature(data->temp_1);
-    const float safe_temp_2 = clamp_temperature(data->temp_2);
-    
-    // Draw bars with validated values
-    draw_single_temperature_bar(cr, config, safe_temp_1, bar_x, cpu_bar_y);
-    draw_single_temperature_bar(cr, config, safe_temp_2, bar_x, gpu_bar_y);
+    // Draw bars with temperature values
+    draw_single_temperature_bar(cr, config, data->temp_1, bar_x, cpu_bar_y);
+    draw_single_temperature_bar(cr, config, data->temp_2, bar_x, gpu_bar_y);
 }
 
 /**
  * @brief Draw a single temperature bar with enhanced safety and optimizations.
  * @details Helper function that draws background, fill, and border for a temperature bar with rounded corners, comprehensive validation, and optimized cairo operations.
- * @example
- *     draw_single_temperature_bar(cr, config, temp_value, bar_x, bar_y);
  */
 static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y) {
     if (!cr || !config) return;
     
-    // Validate and clamp temperature value
-    const float safe_temp = clamp_temperature(temp_value);
+    // Get color for temperature
+    Color color = get_temperature_bar_color(config, temp_value);
     
-    // Get optimized color for temperature
-    Color color = get_temperature_bar_color(config, safe_temp);
-    
-    // Calculate filled width with enhanced safety checks
+    // Calculate filled width
     int temp_val_w = 0;
-    if (safe_temp > 0.0f) {
+    if (temp_value > 0.0f) {
         // Use safe division and bounds checking
-        const float temp_ratio = safe_temp / 100.0f;
+        const float temp_ratio = temp_value / 100.0f;
         const float clamped_ratio = fmaxf(0.0f, fminf(1.0f, temp_ratio));
         temp_val_w = (int)(clamped_ratio * config->layout_bar_width);
     }
@@ -448,10 +248,10 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
                          cairo_color_convert(config->layout_bar_color_background.b));
     
     cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, -DISPLAY_M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, 0, DISPLAY_M_PI_2);
-    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI_2, DISPLAY_M_PI);
-    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + 8.0, 8.0, -DISPLAY_M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, 0, DISPLAY_M_PI_2);
+    cairo_arc(cr, bar_x + 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, DISPLAY_M_PI_2, DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + 8.0, bar_y + 8.0, 8.0, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
     cairo_close_path(cr);
     cairo_fill(cr);
     
@@ -465,12 +265,12 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
     cairo_new_sub_path(cr);
     
     // Optimized rendering based on fill width
-    if (fill_width > 2 * DISPLAY_CORNER_RADIUS) {
+    if (fill_width > 2 * 8.0) {
         // Full rounded corners for wider fills
-        cairo_arc(cr, bar_x + fill_width - DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, -DISPLAY_M_PI_2, 0);
-        cairo_arc(cr, bar_x + fill_width - DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, 0, DISPLAY_M_PI_2);
-        cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI_2, DISPLAY_M_PI);
-        cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
+        cairo_arc(cr, bar_x + fill_width - 8.0, bar_y + 8.0, 8.0, -DISPLAY_M_PI_2, 0);
+        cairo_arc(cr, bar_x + fill_width - 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, 0, DISPLAY_M_PI_2);
+        cairo_arc(cr, bar_x + 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, DISPLAY_M_PI_2, DISPLAY_M_PI);
+        cairo_arc(cr, bar_x + 8.0, bar_y + 8.0, 8.0, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
     } else if (fill_width > 0) {
         // Simple rectangle for narrow fills (performance optimization)
         cairo_rectangle(cr, bar_x, bar_y, fill_width, config->layout_bar_height);
@@ -489,10 +289,10 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
                          cairo_color_convert(config->layout_bar_color_border.b));
     
     cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, -DISPLAY_M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, 0, DISPLAY_M_PI_2);
-    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + config->layout_bar_height - DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI_2, DISPLAY_M_PI);
-    cairo_arc(cr, bar_x + DISPLAY_CORNER_RADIUS, bar_y + DISPLAY_CORNER_RADIUS, DISPLAY_CORNER_RADIUS, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + 8.0, 8.0, -DISPLAY_M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, 0, DISPLAY_M_PI_2);
+    cairo_arc(cr, bar_x + 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, DISPLAY_M_PI_2, DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + 8.0, bar_y + 8.0, 8.0, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
     cairo_close_path(cr);
     cairo_stroke(cr);
 }
@@ -500,8 +300,6 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
 /**
  * @brief Calculate color gradient for temperature bars (green → orange → hot orange → red).
  * @details Determines the RGB color for a given temperature value according to the defined thresholds from config.
- * @example
- *     Color color = get_temperature_bar_color(&config, 65.0f);
  */
 static Color get_temperature_bar_color(const Config *config, float val) {
     // Temperature threshold and color mapping table
@@ -528,43 +326,28 @@ static Color get_temperature_bar_color(const Config *config, float val) {
 /**
  * @brief Draw CPU/GPU labels with enhanced positioning and validation.
  * @details Draws text labels for CPU and GPU with optimized positioning calculations and comprehensive input validation. Font and color are set by the main rendering pipeline.
- * @example
- *     draw_labels(cr, &config);
  */
 static void draw_labels(cairo_t *cr, const Config *config) {
     if (!cr || !config) return;
     
-    // Validate font size to prevent rendering issues
-    if (config->font_size_labels <= 0 || config->font_size_labels > CONFIG_MAX_FONT_SIZE) {
-        log_message(LOG_WARNING, "Invalid font size for labels: %d (max: %d)", 
-                   config->font_size_labels, CONFIG_MAX_FONT_SIZE);
-        return;
-    }
-    
-    // Precompute positioning values with safety checks
+    // Positioning values
     const double box_center_y = config->layout_box_height / 2.0;
     const double font_half_height = config->font_size_labels / 2.0;
     
-    // CPU label: left aligned in top box with optimized positioning
+    // CPU label
     const double cpu_label_y = box_center_y + font_half_height + DISPLAY_LABEL_Y_OFFSET_1;
-    if (cpu_label_y > 0 && cpu_label_y < config->display_height) {
-        cairo_move_to(cr, 0, cpu_label_y);
-        cairo_show_text(cr, "CPU");
-    }
+    cairo_move_to(cr, 0, cpu_label_y);
+    cairo_show_text(cr, "CPU");
     
-    // GPU label: left aligned in bottom box with optimized positioning  
+    // GPU label
     const double gpu_label_y = config->layout_box_height + box_center_y + font_half_height - DISPLAY_LABEL_Y_OFFSET_2;
-    if (gpu_label_y > 0 && gpu_label_y < config->display_height) {
-        cairo_move_to(cr, 0, gpu_label_y);
-        cairo_show_text(cr, "GPU");
-    }
+    cairo_move_to(cr, 0, gpu_label_y);
+    cairo_show_text(cr, "GPU");
 }
 
 /**
  * @brief Main entry point for display updates with enhanced error handling.
  * @details Collects sensor data and renders display with comprehensive validation, error handling, and optimized resource management. Handles LCD communication and ensures robust operation in all conditions.
- * @example
- *     draw_combined_image(&config);
  */
 void draw_combined_image(const Config *config) {
     // Input validation with early return
@@ -583,20 +366,25 @@ void draw_combined_image(const Config *config) {
         return; // Silently handle sensor data retrieval failure
     }
 
-    // Copy and validate temperature data
-    sensor_data.temp_1 = clamp_temperature(temp_data.temp_1);
-    sensor_data.temp_2 = clamp_temperature(temp_data.temp_2);
+    // Copy temperature data
+    sensor_data.temp_1 = temp_data.temp_1;
+    sensor_data.temp_2 = temp_data.temp_2;
 
-    // Get device UID for LCD operations with validation
-    cc_device_data_t device_data = {.device_uid = {0}};
-    const bool device_available = get_device_uid(config, &device_data);
-    const bool valid_device_uid = device_available && (device_data.device_uid[0] != '\0');
+    // Get device info for LCD operations
+    char device_uid[128] = {0};
+    char device_name[256] = {0};
+    int screen_width = 0, screen_height = 0;
+    
+    const bool device_available = get_liquidctl_device_info(config, device_uid, sizeof(device_uid),
+                                                           device_name, sizeof(device_name), 
+                                                           &screen_width, &screen_height);
+    const bool valid_device_uid = device_available && (device_uid[0] != '\0');
     
     if (!valid_device_uid) {
         log_message(LOG_WARNING, "No valid LCD device UID available");
     }
     
-    // Render display with comprehensive error checking
+    // Render display
     const int render_result = render_display(config, &sensor_data);
     
     if (render_result == 0) {
@@ -604,19 +392,15 @@ void draw_combined_image(const Config *config) {
         return;
     }
     
-    if (render_result == -1) {
-        // No update needed, temperatures unchanged
-        return;
-    }
-    
-    // render_result == 1: Update successful, send to LCD
+    // Send to LCD
     if (is_session_initialized() && valid_device_uid) {
-        log_message(LOG_INFO, "Sending image to LCD device: %s", device_data.device_uid);
+        const char *name_display = (device_name[0] != '\0') ? device_name : "Unknown Device";
+        log_message(LOG_INFO, "Sending image to LCD device: %s [%s]", name_display, device_uid);
+        log_message(LOG_INFO, "LCD image uploaded successfully");
         
         // Send image twice for better reliability - some devices need double transmission
-        send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
-        send_image_to_lcd(config, config->paths_image_coolerdash, device_data.device_uid);
-        log_message(LOG_INFO, "LCD image uploaded successfully");
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
     } else {
         log_message(LOG_WARNING, "Skipping LCD upload - conditions not met (session:%d, device:%d)", 
                    is_session_initialized(), valid_device_uid);

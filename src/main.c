@@ -1,4 +1,4 @@
-/*
+/**
  * @author damachine (christkue79@gmail.com)
  * @website https://github.com/damachine
  * @copyright (c) 2025 damachine
@@ -9,8 +9,6 @@
 /**
  * @brief Enhanced main entry point for CoolerDash daemon with security and performance optimizations.
  * @details Implements the main daemon logic with improved error handling, secure PID management, and optimized signal processing. Enhanced with input validation, dynamic version loading, and modern C practices.
- * @example
- *     See function documentation for usage examples.
  */
 
 // POSIX and system feature requirements
@@ -48,9 +46,6 @@
 /**
  * @brief Global variables for daemon management.
  * @details Used for controlling the main daemon loop and shutdown image logic.
- * @example
- *     static volatile sig_atomic_t running = 1; // flag whether daemon is running
- *     static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
  */
 static volatile sig_atomic_t running = 1; // flag whether daemon is running
 static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
@@ -58,24 +53,18 @@ static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image w
 /**
  * @brief Global logging control.
  * @details Controls whether detailed INFO logs are shown (enabled with --log parameter).
- * @example
- *     int verbose_logging = 0; // Only ERROR and WARNING by default
  */
 int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
 
 /**
  * @brief Global pointer to configuration.
  * @details Points to the current configuration used by the daemon. Initialized in main().
- * @example
- *     g_config_ptr = &config;
  */
 const Config *g_config_ptr = NULL;
 
 /**
  * @brief Secure logging function with consistent format.
  * @details Centralized logging with timestamp and proper error handling.
- * @example
- *     log_message(LOG_ERROR, "Failed to initialize: %s", error_msg);
  */
 static void log_message(log_level_t level, const char *format, ...) {
     // Skip INFO messages unless verbose logging is enabled
@@ -101,8 +90,6 @@ static void log_message(log_level_t level, const char *format, ...) {
 /**
  * @brief Read version string from VERSION file with enhanced security.
  * @details Safely reads version from VERSION file with buffer overflow protection and proper validation. Returns fallback version on error.
- * @example
- *     const char* version = read_version_from_file();
  */
 static const char* read_version_from_file(void) {
     static char version_buffer[VERSION_BUFFER_SIZE] = {0};
@@ -153,8 +140,6 @@ static const char* read_version_from_file(void) {
 /**
  * @brief Safely parse PID from string with validation.
  * @details Uses strtol for secure parsing with proper error checking.
- * @example
- *     pid_t pid = safe_parse_pid("1234");
  */
 static pid_t safe_parse_pid(const char *pid_str) {
     if (!pid_str || !pid_str[0]) return -1;
@@ -173,8 +158,6 @@ static pid_t safe_parse_pid(const char *pid_str) {
 /**
  * @brief Check if another instance of CoolerDash is running with secure PID validation.
  * @details Uses secure file reading and PID validation.
- * @example
- *     if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) { ... }
  */
 static int check_existing_instance_and_handle(const char *pid_file, int is_service_start) {
     (void)is_service_start; // Mark as intentionally unused
@@ -224,8 +207,6 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
 /**
  * @brief Write current PID to file with enhanced security and error checking.
  * @details Creates PID file with proper permissions and atomic write operation.
- * @example
- *     if (write_pid_file("/var/run/coolerdash.pid") != 0) { ... }
  */
 static int write_pid_file(const char *pid_file) {
     if (!pid_file || !pid_file[0]) {
@@ -297,8 +278,6 @@ static int write_pid_file(const char *pid_file) {
 /**
  * @brief Remove PID file with enhanced error handling.
  * @details Securely removes the PID file with proper error reporting.
- * @example
- *     remove_pid_file("/var/run/coolerdash.pid");
  */
 static void remove_pid_file(const char *pid_file) {
     if (!pid_file || !pid_file[0]) return;
@@ -313,8 +292,6 @@ static void remove_pid_file(const char *pid_file) {
 /**
  * @brief Remove generated image file during cleanup.
  * @details Securely removes the generated PNG image file with proper error reporting.
- * @example
- *     remove_image_file("/tmp/coolerdash.png");
  */
 static void remove_image_file(const char *image_file) {
     if (!image_file || !image_file[0]) return;
@@ -327,14 +304,11 @@ static void remove_image_file(const char *image_file) {
 }
 
 /**
- * @brief Display comprehensive system and device information for diagnostics.
- * @details Shows detailed system state including device info, display config, and sensor data. Only called in debug mode or on explicit request.
- * @example
- *     show_system_diagnostics(&config, &device_data, api_screen_width, api_screen_height);
+ * @brief Display system information for diagnostics.
+ * @details Shows display configuration, API validation results, and refresh interval settings for system diagnostics.
  */
-static void show_system_diagnostics(const Config *config, const cc_device_data_t *device_data, 
-                                   int api_width, int api_height) {
-    if (!config || !device_data) return;
+static void show_system_diagnostics(const Config *config, int api_width, int api_height) {
+    if (!config) return;
     
     // Display configuration with API validation integrated
     if (api_width > 0 && api_height > 0) {
@@ -360,8 +334,6 @@ static void show_system_diagnostics(const Config *config, const cc_device_data_t
 /**
  * @brief Enhanced main daemon loop with improved timing and error handling.
  * @details Runs the main loop with precise timing, optimized sleep, and graceful error recovery.
- * @example
- *     int result = run_daemon(&config);
  */
 static int run_daemon(const Config *config) {
     if (!config) {
@@ -405,8 +377,6 @@ static int run_daemon(const Config *config) {
 /**
  * @brief Detect if we were started by systemd service (not user session).
  * @details Distinguishes between systemd service and user session/terminal.
- * @example
- *     int is_service = is_started_by_systemd();
  */
 static int is_started_by_systemd(void) {
     // Check if running as systemd service by looking at process hierarchy
@@ -431,8 +401,6 @@ static int is_started_by_systemd(void) {
 /**
  * @brief Enhanced help display with improved formatting and security information.
  * @details Prints comprehensive usage information and security recommendations.
- * @example
- *     show_help(argv[0], &config);
  */
 static void show_help(const char *program_name, const Config *config) {
     (void)config; // Mark parameter as intentionally unused
@@ -473,18 +441,16 @@ static void show_help(const char *program_name, const Config *config) {
 }
 
 /**
- * @brief Enhanced shutdown image sending with retry logic and validation.
- * @details Sends shutdown image to LCD with multiple attempts and proper error handling.
- * @example
- *     send_shutdown_image_if_needed();
+ * @brief Send shutdown image if needed.
+ * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met.
  */
 static void send_shutdown_image_if_needed(void) {
     if (shutdown_sent || !is_session_initialized() || !g_config_ptr) {
-        return; // Early exit if conditions not met
+        return;
     }
     
-    cc_device_data_t device_data = {0};
-    if (!get_device_uid(g_config_ptr, &device_data) || !device_data.device_uid[0]) {
+    char device_uid[128];
+    if (!get_liquidctl_device_uid(g_config_ptr, device_uid, sizeof(device_uid)) || !device_uid[0]) {
         log_message(LOG_WARNING, "Cannot send shutdown image - device UID not available");
         return;
     }
@@ -495,10 +461,10 @@ static void send_shutdown_image_if_needed(void) {
         return;
     }
     
-    log_message(LOG_INFO, "Sending shutdown image to device %s", device_data.device_uid);
+    log_message(LOG_INFO, "Sending shutdown image to device %s", device_uid);
     
-    // Send shutdown image once (single transmission for shutdown)
-    if (send_image_to_lcd(g_config_ptr, shutdown_image_path, device_data.device_uid)) {
+    // Send shutdown image once 
+    if (send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid)) {
         log_message(LOG_INFO, "Shutdown image sent successfully");
         shutdown_sent = 1;
     } else {
@@ -509,8 +475,6 @@ static void send_shutdown_image_if_needed(void) {
 /**
  * @brief Enhanced signal handler with atomic operations and secure shutdown.
  * @details Signal-safe implementation using only async-signal-safe functions.
- * @example
- *     struct sigaction sa = { .sa_handler = handle_shutdown_signal };
  */
 static void handle_shutdown_signal(int signum) {
     // Use only async-signal-safe functions in signal handlers
@@ -563,8 +527,6 @@ static void handle_shutdown_signal(int signum) {
 /**
  * @brief Setup enhanced signal handlers with comprehensive signal management.
  * @details Installs signal handlers for graceful shutdown and blocks unwanted signals.
- * @example
- *     setup_enhanced_signal_handlers();
  */
 static void setup_enhanced_signal_handlers(void) {
     struct sigaction sa;
@@ -598,9 +560,6 @@ static void setup_enhanced_signal_handlers(void) {
 /**
  * @brief Enhanced main entry point for CoolerDash with comprehensive error handling.
  * @details Loads configuration, ensures single instance, initializes all modules, and starts the main daemon loop.
- * @example
- *     coolerdash
- *     coolerdash /custom/config.ini
  */
 int main(int argc, char **argv) {
     // Parse arguments for logging and help
@@ -678,17 +637,17 @@ int main(int argc, char **argv) {
     }
 
     // Initialize device data structures
-    cc_device_data_t device_data = {0};
+    char device_uid[128] = {0};
     monitor_sensor_data_t temp_data = {0};
     char device_name[CONFIG_MAX_STRING_LEN] = {0};
     int api_screen_width = 0, api_screen_height = 0;
     
     // Get complete device info (UID, name, dimensions) in single API call
-    if (get_liquidctl_device_info(&config, device_data.device_uid, sizeof(device_data.device_uid),
+    if (get_liquidctl_device_info(&config, device_uid, sizeof(device_uid),
                                 device_name, sizeof(device_name), &api_screen_width, &api_screen_height)) {
         
-        const char *uid_display = (device_data.device_uid[0] != '\0') 
-            ? device_data.device_uid 
+        const char *uid_display = (device_uid[0] != '\0') 
+            ? device_uid 
             : "Unknown device UID";
         const char *name_display = (device_name[0] != '\0') 
             ? device_name 
@@ -708,7 +667,7 @@ int main(int argc, char **argv) {
         }
         
         // Show diagnostic information in debug mode
-        show_system_diagnostics(&config, &device_data, api_screen_width, api_screen_height);
+        show_system_diagnostics(&config, api_screen_width, api_screen_height);
     } else {
         log_message(LOG_ERROR, "Could not retrieve device information");
         // Continue execution - some functionality may still work

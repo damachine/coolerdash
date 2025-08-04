@@ -7,7 +7,7 @@ applyTo: "**"
 
 **Immer ganz oben am Anfang einer Datei `.c` `.h`**
 ```c
-/*
+/**
  * @author damachine (christkue79@gmail.com)
  * @website https://github.com/damachine
  * @copyright (c) 2025 damachine
@@ -35,12 +35,10 @@ applyTo: "**"
 - Nutze als 3. Kommentar `@example` für Codebeispiele, die die Nutzung einer Funktion demonstrieren.
 - Beispiel für nutze als 1. 2. 3. Kommentar:
 ```c
-/*
+/**
  * @brief
  * ...
  * @details
- * ...
- * @example
  * ...
  */
  ```

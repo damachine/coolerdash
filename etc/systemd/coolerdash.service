@@ -11,15 +11,11 @@
 #	Project coding standards and packaging notes (see README for details)
 # 	Maintainer: DAMACHINE <christkue79@gmail.com>
 # Details:
-#   This systemd handles the CoolerDash daemon service.
-#   It is designed to run as a dedicated user for security reasons.
-#   The service requires the coolercontrol-liqctld and coolercontrold services to be running.
-#   It uses a configuration file located at /etc/coolerdash/config.ini.
-#   The service will restart automatically if it fails.
-#   It also sets up runtime directories and file permissions for proper operation.
-#   The service is set to start after the network is available and the required coolercontrol services are running.
-#   The service will run with the user 'coolerdash' and has a dedicated runtime directory at /run/coolerdash.
-#   The service will read and write to the specified paths and has a PID file at /run/coolerdash/coolerdash.pid for process management.
+#   Simple systemd service for CoolerDash daemon.
+#   Runs as dedicated user 'coolerdash' for security.
+#   Requires coolercontrol services to be running.
+#   Uses configuration file at /etc/coolerdash/config.ini.
+#   PID file at /tmp/coolerdash.pid for process management.
 #   Do not run as root. Use dedicated user for security.
 #   See README.md and AUR-README.md for further details.
 # Example:
@@ -42,10 +38,8 @@ Type=simple
 User=coolerdash
 ExecStartPre=/usr/bin/sleep 3
 ExecStart=/usr/bin/coolerdash
-RuntimeDirectory=coolerdash
-RuntimeDirectoryMode=0755
-PIDFile=/run/coolerdash/coolerdash.pid
-ReadWritePaths=/run/coolerdash /opt/coolerdash /tmp
+PIDFile=/tmp/coolerdash.pid
+ReadWritePaths=/tmp /opt/coolerdash
 ProtectSystem=full
 Restart=always
 RestartSec=3

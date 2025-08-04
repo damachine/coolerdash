@@ -1,4 +1,4 @@
-/*
+/**
  * @author damachine (christkue79@gmail.com)
  * @website https://github.com/damachine
  * @copyright (c) 2025 damachine
@@ -9,29 +9,6 @@
 /**
  * @brief INI parser handler for CoolerDash configuration.
  * @details Parses the configuration file and sets values in the Config struct.
- * @example
- *     See fu    if (config->paths_image_coolerdash[0] == '\0') {
-        // Check if running as systemd service first  
-        const char *invocation_id = getenv("INVOCATION_ID");
-        int has_invocation = (invocation_id && invocation_id[0]);
-        int is_systemd_service = has_invocation && (getppid() == 1) && 
-                                (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) && !isatty(STDERR_FILENO));
-        
-        log_message(LOG_INFO, "Image path config: INVOCATION_ID=%s, PPID=%d, systemd_service=%d", 
-                   has_invocation ? "set" : "unset", getppid(), is_systemd_service);
-        
-        if (is_systemd_service) {
-            // Running as systemd service - use runtime directory
-            SAFE_STRCPY(config->paths_image_coolerdash, "/run/coolerdash/coolerdash.png");
-            log_message(LOG_INFO, "Using systemd image path: /run/coolerdash/coolerdash.png");
-        } else {
-            // Use /tmp for user accessibility (everyone can write)
-            SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
-            log_message(LOG_INFO, "Using manual image path: /tmp/coolerdash.png");
-        }
-    } else {
-        log_message(LOG_INFO, "Image path already configured: %s", config->paths_image_coolerdash);
-    }umentation for usage examples.
  */
 
 // Helper function for safe string copying
@@ -56,9 +33,7 @@
 
 /**
  * @brief Centralized logging function with consistent format.
- * @details Provides consistent logging style matching main.c implementation.
- * @example
- *     log_message(LOG_WARNING, "Config file not found: %s", path);
+ * @details Provides consistent logging style matching main.c implementation with appropriate output streams for different log levels.
  */
 static void log_message(log_level_t level, const char *format, ...) {
     // Skip INFO messages unless verbose logging is enabled
@@ -83,9 +58,7 @@ static void log_message(log_level_t level, const char *format, ...) {
 
 /**
  * @brief Secure helper functions for string parsing with validation.
- * @details Replaces unsafe atoi/atof with secure parsing that validates input.
- * @example
- *     int val = safe_atoi("123", 0);
+ * @details Replaces unsafe atoi/atof with secure parsing that validates input and handles overflow conditions.
  */
 
 // Safe integer parsing with validation
@@ -109,9 +82,7 @@ static inline float safe_atof(const char *str, float default_value) {
 
 /**
  * @brief Helper function for secure color parsing with validation.
- * @details Parses RGB color values and automatically validates with uint8_t type safety.
- * @example
- *     parse_color_component(value, &config->font_color_temp.r);
+ * @details Parses RGB color values and automatically validates with uint8_t type safety, clamping values to 0-255 range.
  */
 static void parse_color_component(const char *value, uint8_t *component) {
     if (!value || !component) return;
@@ -121,9 +92,7 @@ static void parse_color_component(const char *value, uint8_t *component) {
 
 /**
  * @brief Handle daemon section configuration.
- * @details Processes daemon-related configuration keys (address, password).
- * @example
- *     handle_daemon_section(config, "address", "http://localhost:11987");
+ * @details Processes daemon-related configuration keys (address, password) with safe string copying.
  */
 static int handle_daemon_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "address") == 0) {
@@ -140,9 +109,7 @@ static int handle_daemon_section(Config *config, const char *name, const char *v
 
 /**
  * @brief Handle paths section configuration.
- * @details Processes path-related configuration keys (images, pid, etc.).
- * @example
- *     handle_paths_section(config, "images", "/opt/coolerdash/images");
+ * @details Processes path-related configuration keys (images, pid, etc.) with validation and safe string operations.
  */
 static int handle_paths_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "images") == 0) {
@@ -167,9 +134,7 @@ static int handle_paths_section(Config *config, const char *name, const char *va
 
 /**
  * @brief Handle display section configuration.
- * @details Processes display-related configuration keys (width, height, brightness, etc.).
- * @example
- *     handle_display_section(config, "width", "240");
+ * @details Processes display-related configuration keys (width, height, brightness, etc.) with range validation and type safety.
  */
 static int handle_display_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "width") == 0) {
@@ -186,20 +151,20 @@ static int handle_display_section(Config *config, const char *name, const char *
         int brightness = safe_atoi(value, 0);
         config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? (uint8_t)brightness : 0;
     } else if (strcmp(name, "orientation") == 0) {
-        config->lcd_orientation = safe_atoi(value, 0);
-    } else if (strcmp(name, "temp_1_update_threshold") == 0) {
-        config->temp_1_update_threshold = safe_atof(value, 0.0f);
-    } else if (strcmp(name, "temp_2_update_threshold") == 0) {
-        config->temp_2_update_threshold = safe_atof(value, 0.0f);
+        int orientation = safe_atoi(value, 0);
+        // Only allow 0, 90, 180 degrees (KISS: simple validation)
+        if (orientation == 0 || orientation == 90 || orientation == 180) {
+            config->lcd_orientation = orientation;
+        } else {
+            config->lcd_orientation = 0; // Default to 0 for invalid values
+        }
     }
     return 1;
 }
 
 /**
  * @brief Handle layout section configuration.
- * @details Processes layout-related configuration keys (box dimensions, bar settings, etc.).
- * @example
- *     handle_layout_section(config, "box_width", "240");
+ * @details Processes layout-related configuration keys (box dimensions, bar settings, etc.) with numeric validation.
  */
 static int handle_layout_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "box_width") == 0) {
@@ -222,9 +187,7 @@ static int handle_layout_section(Config *config, const char *name, const char *v
 
 /**
  * @brief Handle font section configuration.
- * @details Processes font-related configuration keys (face, sizes).
- * @example
- *     handle_font_section(config, "font_face", "Roboto Black");
+ * @details Processes font-related configuration keys (face, sizes) with string and float validation.
  */
 static int handle_font_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "font_face") == 0) {
@@ -241,9 +204,7 @@ static int handle_font_section(Config *config, const char *name, const char *val
 
 /**
  * @brief Handle temperature section configuration.
- * @details Processes temperature threshold configuration keys.
- * @example
- *     handle_temperature_section(config, "temp_threshold_1", "55.0");
+ * @details Processes temperature threshold configuration keys with float validation and safe parsing.
  */
 static int handle_temperature_section(Config *config, const char *name, const char *value) {
     if (strcmp(name, "temp_threshold_1") == 0) {
@@ -258,9 +219,7 @@ static int handle_temperature_section(Config *config, const char *name, const ch
 
 /**
  * @brief Handle color section configuration.
- * @details Processes color-related configuration keys for various UI elements.
- * @example
- *     handle_color_section(config, "bar_color_background", "r", "64");
+ * @details Processes color-related configuration keys for various UI elements with RGB component validation and clamping.
  */
 static int handle_color_section(Config *config, const char *section, const char *name, const char *value) {
     if (strcmp(section, "bar_color_background") == 0) {
@@ -302,8 +261,6 @@ static int handle_color_section(Config *config, const char *section, const char 
 /**
  * @brief Main INI parser handler, delegates to section-specific handlers.
  * @details Called for each key-value pair in the INI file. Routes to appropriate section handler for cleaner code organization.
- * @example
- *     ini_parse("/etc/coolerdash/config.ini", inih_config_handler, &cfg);
  */
 static int inih_config_handler(void *user, const char *section, const char *name, const char *value) {
     Config *config = (Config *)user;
@@ -332,10 +289,6 @@ static int inih_config_handler(void *user, const char *section, const char *name
 /**
  * @brief Sets fallback default values for missing or empty configuration fields.
  * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided. Tries to get LCD display dimensions from Liquidctl device as fallback.
- * @example
- *     Config cfg;
- *     if (load_config_ini(&cfg, "/etc/coolerdash/config.ini") != 0) { // handle error }
- *     config_apply_fallbacks(&cfg);
  */
 void config_apply_fallbacks(Config *config) {
     if (!config) return;
@@ -344,33 +297,16 @@ void config_apply_fallbacks(Config *config) {
     if (config->daemon_address[0] == '\0') SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
     if (config->daemon_password[0] == '\0') SAFE_STRCPY(config->daemon_password, "coolAdmin");
     
-    // Debug: Log all path states before processing
-    log_message(LOG_INFO, "Path fallback DEBUG: paths_image_coolerdash='%s' (empty=%d)", 
-               config->paths_image_coolerdash, config->paths_image_coolerdash[0] == '\0');
-    log_message(LOG_INFO, "Path fallback DEBUG: paths_pid='%s' (empty=%d)", 
-               config->paths_pid, config->paths_pid[0] == '\0');
-    
     // Paths
     if (config->paths_images[0] == '\0') SAFE_STRCPY(config->paths_images, "/opt/coolerdash/images");
     
-    // ALWAYS log the image path status for debugging
-    log_message(LOG_INFO, "BEFORE image path processing: '%s' (empty=%d)", 
-               config->paths_image_coolerdash, config->paths_image_coolerdash[0] == '\0');
-    
     if (config->paths_image_coolerdash[0] == '\0') {
-        // Always use /tmp for all scenarios - universally accessible without permission issues
         SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
-        log_message(LOG_INFO, "Using image path: /tmp/coolerdash.png");
     }
     if (config->paths_image_shutdown[0] == '\0') SAFE_STRCPY(config->paths_image_shutdown, "/opt/coolerdash/images/shutdown.png");
     
-    // Use user-accessible PID path instead of requiring root permissions
     if (config->paths_pid[0] == '\0') {
-        // Always use /tmp for all scenarios - universally accessible without permission issues
         SAFE_STRCPY(config->paths_pid, "/tmp/coolerdash.pid");
-        log_message(LOG_INFO, "Using PID path: /tmp/coolerdash.pid");
-    } else {
-        log_message(LOG_INFO, "PID path already configured: %s", config->paths_pid);
     }
     
     // Display - try to get dimensions from Liquidctl device first
@@ -385,8 +321,6 @@ void config_apply_fallbacks(Config *config) {
     if (config->display_refresh_interval_sec == 0) config->display_refresh_interval_sec = 2;
     if (config->display_refresh_interval_nsec == 0) config->display_refresh_interval_nsec = 500000000;
     if (config->lcd_brightness == 0) config->lcd_brightness = 80;
-    if (config->temp_1_update_threshold == 0.0f) config->temp_1_update_threshold = 1.0f;
-    if (config->temp_2_update_threshold == 0.0f) config->temp_2_update_threshold = 1.0f;
     
     // Layout
     if (config->layout_box_width == 0) config->layout_box_width = config->display_width;
@@ -453,9 +387,7 @@ void config_apply_fallbacks(Config *config) {
 
 /**
  * @brief Validate complete configuration structure.
- * @details Performs comprehensive validation of all configuration fields.
- * @example
- *     if (config_validate(&cfg)) { ... }
+ * @details Performs comprehensive validation of all configuration fields including daemon settings, paths, display dimensions, font sizes, and temperature thresholds.
  */
 int config_validate(const Config *config) {
     if (!config) return 0;
@@ -484,10 +416,7 @@ int config_validate(const Config *config) {
 
 /**
  * @brief Initialize config structure with safe defaults.
- * @details Sets all fields to safe default values with security considerations.
- * @example
- *     Config cfg;
- *     config_init_defaults(&cfg);
+ * @details Sets all fields to safe default values with security considerations by clearing memory and applying fallback values.
  */
 void config_init_defaults(Config *config) {
     if (!config) return;
@@ -500,12 +429,7 @@ void config_init_defaults(Config *config) {
 
 /**
  * @brief Main configuration loading function with enhanced security.
- * @details Loads configuration from INI file with comprehensive validation and secure defaults.
- * @example
- *     Config cfg;
- *     if (load_config("/etc/coolerdash/config.ini", &cfg) != 0) {
- *         // handle error
- *     }
+ * @details Loads configuration from INI file with comprehensive validation and secure defaults, handling missing files gracefully.
  */
 int load_config(const char *path, Config *config) {
     // Validate input parameters
