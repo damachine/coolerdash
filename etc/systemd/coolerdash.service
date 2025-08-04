@@ -36,7 +36,7 @@ Requires=coolercontrold.service
 [Service]
 Type=simple
 User=coolerdash
-ExecStartPre=/usr/bin/sleep 3
+ExecStartPre=/usr/bin/sleep 10
 ExecStart=/usr/bin/coolerdash
 PIDFile=/tmp/coolerdash.pid
 ReadWritePaths=/tmp /opt/coolerdash
