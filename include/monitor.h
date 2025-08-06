@@ -11,6 +11,7 @@
  * @details Provides functions for initializing the monitor subsystem and retrieving temperature sensor data from CoolerControl REST API endpoints.
  */
 
+// Include necessary headers
 #ifndef MONITOR_H
 #define MONITOR_H
 

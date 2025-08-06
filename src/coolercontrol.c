@@ -11,9 +11,10 @@
  * @details Provides functions for initializing, authenticating, communicating with CoolerControl LCD devices, and reading sensor values (CPU/GPU) via the REST API.
  */
 
+// Define POSIX constants
 #define _POSIX_C_SOURCE 200112L
 
-// System headers
+// Include necessary headers
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
@@ -24,7 +25,7 @@
 #include <time.h>
 #include <unistd.h>
 
-// Project headers
+// Include project headers
 #include "../include/coolercontrol.h"
 #include "../include/config.h"
 

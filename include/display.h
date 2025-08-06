@@ -11,6 +11,7 @@
  * @details Provides functions for rendering temperature data to LCD displays, including Cairo-based image generation and upload to CoolerControl devices.
  */
 
+// Include necessary headers
 #ifndef DISPLAY_H
 #define DISPLAY_H
 

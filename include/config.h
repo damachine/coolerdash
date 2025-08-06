@@ -11,6 +11,7 @@
  * @details Provides functions to load and apply configuration settings from an INI file with fallback support.
  */
 
+// Include necessary headers
 #ifndef CONFIG_H
 #define CONFIG_H
 

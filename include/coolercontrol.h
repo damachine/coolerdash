@@ -11,10 +11,11 @@
  * @details Provides functions for initializing, authenticating, communicating with CoolerControl LCD devices, and reading sensor values (CPU/GPU) via the REST API.
  */
 
+// Include necessary headers
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
-// System headers
+// Include necessary headers
 #include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
