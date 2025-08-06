@@ -11,7 +11,6 @@
  * @details Provides functions for initializing, authenticating, communicating with CoolerControl LCD devices, and reading sensor values (CPU/GPU) via the REST API.
  */
 
-// POSIX feature requirement for usleep()
 #define _POSIX_C_SOURCE 200112L
 
 // Include necessary headers
@@ -89,12 +88,20 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
     return realsize;
 }
 
+/**
+ * @brief Structure to hold CoolerControl session state.
+ * @details Contains the CURL handle, cookie jar path, and session initialization status.
+ */
 typedef struct {
     CURL *curl_handle;
     char cookie_jar[CC_COOKIE_SIZE];
     int session_initialized;
 } CoolerControlSession;
 
+/**
+ * @brief Global CoolerControl session state.
+ * @details Holds the state of the CoolerControl session, including the CURL handle and session initialization status.
+*/
 static CoolerControlSession cc_session = {
     .curl_handle = NULL,
     .cookie_jar = {0},
@@ -115,7 +122,7 @@ int init_coolercontrol_session(const Config *config) {
 
     // Create unique cookie jar path using PID
     int written_cookie = snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar), 
-                                  "/tmp/lcd_cookie_%d.txt", getpid());
+                                  "/tmp/coolerdash_cookie_%d.txt", getpid());
     if (written_cookie < 0 || (size_t)written_cookie >= sizeof(cc_session.cookie_jar)) {
         cc_session.cookie_jar[sizeof(cc_session.cookie_jar) - 1] = '\0';
     }
@@ -442,7 +449,7 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
         const char *type_str = json_string_value(type_val);
 
         // Check device type
-        const char *liquid_types[] = {"Liquidctl", "NZXT", "Corsair", "EVGA"};
+        const char *liquid_types[] = {"Liquidctl"};
         const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
         
         int is_supported_device = 0;

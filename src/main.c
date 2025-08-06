@@ -11,7 +11,6 @@
  * @details Implements the main daemon logic with improved error handling, secure PID management, and optimized signal processing. Enhanced with input validation, dynamic version loading, and modern C practices.
  */
 
-// POSIX and system feature requirements
 #define _POSIX_C_SOURCE 200112L
 #define _XOPEN_SOURCE 600
 

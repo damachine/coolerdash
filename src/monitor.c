@@ -55,11 +55,13 @@ static void log_message(log_level_t level, const char *format, ...) {
  * @details Parses the JSON response from CoolerControl API to extract CPU and GPU temperature values from device status history.
  */
 static int parse_temperature_json(const char *json, float *temp_1, float *temp_2) {
+    // Validate input
     if (!json || strlen(json) == 0) {
         log_message(LOG_ERROR, "Empty or null JSON input");
         return 0;
     }
     
+    // Initialize temperature variables
     if (temp_1) *temp_1 = 0.0f;
     if (temp_2) *temp_2 = 0.0f;
 
@@ -72,6 +74,7 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
         return 0;
     }
 
+    // Get devices array
     json_t *devices = json_object_get(root, "devices");
     if (!devices || !json_is_array(devices)) {
         json_decref(root);
@@ -81,13 +84,16 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
     const size_t device_count = json_array_size(devices);
     int cpu_found = 0, gpu_found = 0;
     
+    // Iterate over devices
     for (size_t i = 0; i < device_count && (!cpu_found || !gpu_found); i++) {
         json_t *dev = json_array_get(devices, i);
         if (!dev) continue;
 
+        // Get device type
         json_t *type_val = json_object_get(dev, "type");
         if (!type_val || !json_is_string(type_val)) continue;
-        
+
+        // Extract device type string
         const char *type_str = json_string_value(type_val);
 
         // Check device type
@@ -97,26 +103,35 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
         // Skip if already found
         if ((type_str[0] == 'C' && cpu_found) || (type_str[0] == 'G' && gpu_found)) continue;
 
+        // Get status history
         json_t *status_history = json_object_get(dev, "status_history");
         if (!status_history || !json_is_array(status_history) || json_array_size(status_history) == 0) continue;
 
+        // Get last status
         json_t *last_status = json_array_get(status_history, json_array_size(status_history) - 1);
         if (!last_status) continue;
 
+        // Get temperatures
         json_t *temps = json_object_get(last_status, "temps");
         if (!temps || !json_is_array(temps)) continue;
 
+        // Get temperature count
         const size_t temp_count = json_array_size(temps);
         
+        // Iterate over temperatures
         for (size_t j = 0; j < temp_count; j++) {
+            // Get temperature entry
             json_t *temp_entry = json_array_get(temps, j);
             if (!temp_entry) continue;
 
+            // Get sensor name and temperature value
             json_t *name_val = json_object_get(temp_entry, "name");
             json_t *temp_val = json_object_get(temp_entry, "temp");
             
+            // Validate temperature entry
             if (!name_val || !json_is_string(name_val) || !temp_val || !json_is_number(temp_val)) continue;
 
+            // Extract sensor name and temperature value
             const char *sensor_name = json_string_value(name_val);
             const float temperature = (float)json_number_value(temp_val);
             
@@ -144,6 +159,7 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
         }
     }
 
+    // Cleanup
     json_decref(root);
     return 1;
 }
@@ -153,16 +169,20 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
  * @details Sends HTTP POST request to CoolerControl status endpoint and parses the JSON response to extract temperature values.
  */
 int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
+    // Validate input parameters
     if (!config || !temp_1 || !temp_2) return 0;
     
+    // Initialize temperature variables
     *temp_1 = 0.0f;
     *temp_2 = 0.0f;
     
+    // Validate daemon address
     if (strlen(config->daemon_address) == 0) {
         log_message(LOG_ERROR, "No daemon address configured");
         return 0;
     }
     
+    // Initialize CURL
     CURL *curl = curl_easy_init();
     if (!curl) {
         log_message(LOG_ERROR, "Failed to initialize CURL");
@@ -200,6 +220,7 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
     }
     
+    // Set user agent and request type
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0");
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     
@@ -213,6 +234,7 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
     const char *post_data = "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}";
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
     
+    // Initialize temperature variables
     float cpu_temp = 0.0f, gpu_temp = 0.0f;
     int result = 0;
     

@@ -31,6 +31,15 @@
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
 
+// Forward declarations for static handler functions
+static int handle_daemon_section(Config *config, const char *name, const char *value);
+static int handle_paths_section(Config *config, const char *name, const char *value);
+static int handle_display_section(Config *config, const char *name, const char *value);
+static int handle_layout_section(Config *config, const char *name, const char *value);
+static int handle_font_section(Config *config, const char *name, const char *value);
+static int handle_temperature_section(Config *config, const char *name, const char *value);
+static int handle_color_section(Config *config, const char *section, const char *name, const char *value);
+
 /**
  * @brief Centralized logging function with consistent format.
  * @details Provides consistent logging style matching main.c implementation with appropriate output streams for different log levels.
@@ -57,11 +66,9 @@ static void log_message(log_level_t level, const char *format, ...) {
 }
 
 /**
- * @brief Secure helper functions for string parsing with validation.
- * @details Replaces unsafe atoi/atof with secure parsing that validates input and handles overflow conditions.
+ * @brief Helper functions for string parsing with validation.
+ * @details Replaces atoi with secure parsing that validates input and handles overflow conditions.
  */
-
-// Safe integer parsing with validation
 static inline int safe_atoi(const char *str, int default_value) {
     if (!str || !str[0]) return default_value;
     char *endptr;
@@ -71,7 +78,10 @@ static inline int safe_atoi(const char *str, int default_value) {
     return (int)val;
 }
 
-// Safe float parsing with validation  
+/**
+ * @brief Helper functions for floating-point parsing with validation.
+ * @details Replaces atof with a safer version that validates input and handles overflow conditions.
+ */
 static inline float safe_atof(const char *str, float default_value) {
     if (!str || !str[0]) return default_value;
     char *endptr;
@@ -88,6 +98,33 @@ static void parse_color_component(const char *value, uint8_t *component) {
     if (!value || !component) return;
     int val = safe_atoi(value, 0);
     *component = (val < 0) ? 0 : (val > 255) ? 255 : (uint8_t)val;
+}
+
+/**
+ * @brief Main INI parser handler, delegates to section-specific handlers.
+ * @details Called for each key-value pair in the INI file. Routes to appropriate section handler for cleaner code organization.
+ */
+static int parse_config_handler(void *user, const char *section, const char *name, const char *value) {
+    Config *config = (Config *)user;
+
+    if (strcmp(section, "daemon") == 0) {
+        return handle_daemon_section(config, name, value);
+    } else if (strcmp(section, "paths") == 0) {
+        return handle_paths_section(config, name, value);
+    } else if (strcmp(section, "display") == 0) {
+        return handle_display_section(config, name, value);
+    } else if (strcmp(section, "layout") == 0) {
+        return handle_layout_section(config, name, value);
+    } else if (strcmp(section, "font") == 0) {
+        return handle_font_section(config, name, value);
+    } else if (strcmp(section, "temperature") == 0) {
+        return handle_temperature_section(config, name, value);
+    } else if (strstr(section, "color") != NULL || strstr(section, "_bar") != NULL) {
+        // Handle all color sections (bar_color_*, font_color_*, temp_threshold_*_bar)
+        return handle_color_section(config, section, name, value);
+    }
+    
+    return 1;
 }
 
 /**
@@ -259,34 +296,6 @@ static int handle_color_section(Config *config, const char *section, const char 
 }
 
 /**
- * @brief Main INI parser handler, delegates to section-specific handlers.
- * @details Called for each key-value pair in the INI file. Routes to appropriate section handler for cleaner code organization.
- */
-static int inih_config_handler(void *user, const char *section, const char *name, const char *value) {
-    Config *config = (Config *)user;
-
-    // Route to appropriate section handler
-    if (strcmp(section, "daemon") == 0) {
-        return handle_daemon_section(config, name, value);
-    } else if (strcmp(section, "paths") == 0) {
-        return handle_paths_section(config, name, value);
-    } else if (strcmp(section, "display") == 0) {
-        return handle_display_section(config, name, value);
-    } else if (strcmp(section, "layout") == 0) {
-        return handle_layout_section(config, name, value);
-    } else if (strcmp(section, "font") == 0) {
-        return handle_font_section(config, name, value);
-    } else if (strcmp(section, "temperature") == 0) {
-        return handle_temperature_section(config, name, value);
-    } else if (strstr(section, "color") != NULL || strstr(section, "_bar") != NULL) {
-        // Handle all color sections (bar_color_*, font_color_*, temp_threshold_*_bar)
-        return handle_color_section(config, section, name, value);
-    }
-    
-    return 1; // Unknown section, but continue parsing
-}
-
-/**
  * @brief Sets fallback default values for missing or empty configuration fields.
  * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided. Tries to get LCD display dimensions from Liquidctl device as fallback.
  */
@@ -386,35 +395,6 @@ void config_apply_fallbacks(Config *config) {
 }
 
 /**
- * @brief Validate complete configuration structure.
- * @details Performs comprehensive validation of all configuration fields including daemon settings, paths, display dimensions, font sizes, and temperature thresholds.
- */
-int config_validate(const Config *config) {
-    if (!config) return 0;
-    
-    // Validate daemon settings
-    if (!config->daemon_address[0] || !config->daemon_password[0]) return 0;
-    
-    // Validate paths exist and are not empty
-    if (!config->paths_images[0] || !config->paths_image_coolerdash[0] || 
-        !config->paths_image_shutdown[0] || !config->paths_pid[0]) return 0;
-    
-    // Validate display dimensions
-    if (!config_validate_display_size(config->display_width, config->display_height)) return 0;
-    
-    // Validate font sizes
-    if (config->font_size_temp < CONFIG_MIN_FONT_SIZE || config->font_size_temp > CONFIG_MAX_FONT_SIZE) return 0;
-    if (config->font_size_labels < CONFIG_MIN_FONT_SIZE || config->font_size_labels > CONFIG_MAX_FONT_SIZE) return 0;
-    
-    // Validate temperature thresholds
-    if (!config_validate_temperature(config->temp_threshold_1) ||
-        !config_validate_temperature(config->temp_threshold_2) ||
-        !config_validate_temperature(config->temp_threshold_3)) return 0;
-    
-    return 1;
-}
-
-/**
  * @brief Initialize config structure with safe defaults.
  * @details Sets all fields to safe default values with security considerations by clearing memory and applying fallback values.
  */
@@ -451,7 +431,7 @@ int load_config(const char *path, Config *config) {
     fclose(file);
     
     // Parse INI file and return success/failure
-    int result = (ini_parse(path, inih_config_handler, config) < 0) ? -1 : 0;
+    int result = (ini_parse(path, parse_config_handler, config) < 0) ? -1 : 0;
     
     // Always apply fallbacks after parsing (for missing/commented values)
     config_apply_fallbacks(config);

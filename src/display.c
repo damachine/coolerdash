@@ -65,7 +65,10 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
 static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y);
 static void draw_labels(cairo_t *cr, const Config *config);
 
-// Utility functions
+/**
+ * @brief Calculate color gradient for temperature bars (green → orange → hot orange → red).
+ * @details Determines the RGB color for a given temperature value according to the defined thresholds from config.
+ */
 static Color get_temperature_bar_color(const Config *config, float val);
 static inline double cairo_color_convert(uint8_t color_component);
 
