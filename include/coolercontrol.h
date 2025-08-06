@@ -14,14 +14,14 @@
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
-// Include necessary headers
+// System headers
 #include <signal.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Include project headers
+// Project headers
 #include "config.h"
 
 // Basic constants
@@ -138,12 +138,6 @@ static inline void cc_cleanup_response_buffer(struct http_response *response) {
 size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response);
 
 /**
- * @brief Initialize device information cache.
- * @details Fetches and caches device information once at startup for better performance.
- */
-int init_device_cache(const Config *config);
-
-/**
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
  * @details Must be called before any other CoolerControl API function. Sets up CURL session and performs authentication.
  */
@@ -160,6 +154,12 @@ int is_session_initialized(void);
  * @details Frees all resources and closes the session, including CURL cleanup and cookie file removal.
  */
 void cleanup_coolercontrol_session(void);
+
+/**
+ * @brief Initialize device information cache.
+ * @details Fetches and caches device information once at startup for better performance.
+ */
+int init_device_cache(const Config *config);
 
 /**
  * @brief Get Liquidctl device UID from CoolerControl API.

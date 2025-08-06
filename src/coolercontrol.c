@@ -13,7 +13,7 @@
 
 #define _POSIX_C_SOURCE 200112L
 
-// Include necessary headers
+// System headers
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
@@ -24,9 +24,29 @@
 #include <time.h>
 #include <unistd.h>
 
-// Include project headers
+// Project headers
 #include "../include/coolercontrol.h"
 #include "../include/config.h"
+
+/**
+ * @brief Structure to hold CoolerControl session state.
+ * @details Contains the CURL handle, cookie jar path, and session initialization status.
+ */
+typedef struct {
+    CURL *curl_handle;
+    char cookie_jar[CC_COOKIE_SIZE];
+    int session_initialized;
+} CoolerControlSession;
+
+/**
+ * @brief Global CoolerControl session state.
+ * @details Holds the state of the CoolerControl session, including the CURL handle and session initialization status.
+*/
+static CoolerControlSession cc_session = {
+    .curl_handle = NULL,
+    .cookie_jar = {0},
+    .session_initialized = 0
+};
 
 /**
  * @brief Static cache for device information (never changes during runtime).
@@ -52,26 +72,6 @@ static int initialize_device_cache(const Config *config);
  * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
  */
 static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size);
-
-/**
- * @brief Structure to hold CoolerControl session state.
- * @details Contains the CURL handle, cookie jar path, and session initialization status.
- */
-typedef struct {
-    CURL *curl_handle;
-    char cookie_jar[CC_COOKIE_SIZE];
-    int session_initialized;
-} CoolerControlSession;
-
-/**
- * @brief Global CoolerControl session state.
- * @details Holds the state of the CoolerControl session, including the CURL handle and session initialization status.
-*/
-static CoolerControlSession cc_session = {
-    .curl_handle = NULL,
-    .cookie_jar = {0},
-    .session_initialized = 0
-};
 
 /**
  * @brief Centralized logging function with consistent format.
@@ -139,6 +139,121 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
 
     // Return size
     return realsize;
+}
+
+/**
+ * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
+ * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
+ */
+static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size) {
+    // Validate input
+    if (!json) return 0;
+
+    // Initialize output variables
+    if (lcd_uid && uid_size > 0) lcd_uid[0] = '\0';
+    if (found_liquidctl) *found_liquidctl = 0;
+    if (screen_width) *screen_width = 0;
+    if (screen_height) *screen_height = 0;
+    if (device_name && name_size > 0) device_name[0] = '\0';
+
+    // Parse JSON
+    json_error_t error;
+    json_t *root = json_loads(json, 0, &error);
+    if (!root) {
+        log_message(LOG_ERROR, "JSON parse error: %s", error.text);
+        return 0;
+    }
+
+    // Get devices array
+    json_t *devices = json_object_get(root, "devices");
+    if (!devices || !json_is_array(devices)) {
+        json_decref(root);
+        return 0;
+    }
+
+    // Get device count
+    const size_t device_count = json_array_size(devices);
+
+    // Check each device
+    for (size_t i = 0; i < device_count; i++) {
+        // Get device entry
+        json_t *dev = json_array_get(devices, i);
+        if (!dev) continue;
+
+        // Get device type
+        json_t *type_val = json_object_get(dev, "type");
+        if (!type_val || !json_is_string(type_val)) continue;
+
+        // Extract device type string
+        const char *type_str = json_string_value(type_val);
+
+        // Check device type
+        const char *liquid_types[] = {"Liquidctl"};
+        const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
+        
+        // Check if device type is supported
+        int is_supported_device = 0;
+        for (size_t j = 0; j < num_types; j++) {
+            if (strcmp(type_str, liquid_types[j]) == 0) {
+                is_supported_device = 1;
+                break;
+            }
+        }
+        
+        // Skip if not supported
+        if (!is_supported_device) continue;
+
+        // Found Liquidctl device
+        if (found_liquidctl) *found_liquidctl = 1;
+
+        // Extract UID
+        if (lcd_uid && uid_size > 0) {
+            json_t *uid_val = json_object_get(dev, "uid");
+            if (uid_val && json_is_string(uid_val)) {
+                const char *uid_str = json_string_value(uid_val);
+                snprintf(lcd_uid, uid_size, "%s", uid_str);
+            }
+        }
+
+        // Extract device name
+        if (device_name && name_size > 0) {
+            json_t *name_val = json_object_get(dev, "name");
+            if (name_val && json_is_string(name_val)) {
+                const char *name_str = json_string_value(name_val);
+                snprintf(device_name, name_size, "%s", name_str);
+            }
+        }
+
+        // Extract LCD dimensions
+        if (screen_width || screen_height) {
+            json_t *info = json_object_get(dev, "info");
+            json_t *channels = info ? json_object_get(info, "channels") : NULL;
+            json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
+            json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
+            if (lcd_info) {
+                if (screen_width) {
+                    json_t *width_val = json_object_get(lcd_info, "screen_width");
+                    if (width_val && json_is_integer(width_val)) {
+                        *screen_width = (int)json_integer_value(width_val);
+                    }
+                }
+                if (screen_height) {
+                    json_t *height_val = json_object_get(lcd_info, "screen_height");
+                    if (height_val && json_is_integer(height_val)) {
+                        *screen_height = (int)json_integer_value(height_val);
+                    }
+                }
+            }
+        }
+
+        // Found device, exit early
+        json_decref(root);
+        return 1;
+    }
+
+    // No Liquidctl device found
+    json_decref(root);
+    return 1;
 }
 
 /**
@@ -331,121 +446,6 @@ void cleanup_coolercontrol_session(void) {
 }
 
 /**
- * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
- * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
- */
-static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size) {
-    // Validate input
-    if (!json) return 0;
-
-    // Initialize output variables
-    if (lcd_uid && uid_size > 0) lcd_uid[0] = '\0';
-    if (found_liquidctl) *found_liquidctl = 0;
-    if (screen_width) *screen_width = 0;
-    if (screen_height) *screen_height = 0;
-    if (device_name && name_size > 0) device_name[0] = '\0';
-
-    // Parse JSON
-    json_error_t error;
-    json_t *root = json_loads(json, 0, &error);
-    if (!root) {
-        log_message(LOG_ERROR, "JSON parse error: %s", error.text);
-        return 0;
-    }
-
-    // Get devices array
-    json_t *devices = json_object_get(root, "devices");
-    if (!devices || !json_is_array(devices)) {
-        json_decref(root);
-        return 0;
-    }
-
-    // Get device count
-    const size_t device_count = json_array_size(devices);
-
-    // Check each device
-    for (size_t i = 0; i < device_count; i++) {
-        // Get device entry
-        json_t *dev = json_array_get(devices, i);
-        if (!dev) continue;
-
-        // Get device type
-        json_t *type_val = json_object_get(dev, "type");
-        if (!type_val || !json_is_string(type_val)) continue;
-
-        // Extract device type string
-        const char *type_str = json_string_value(type_val);
-
-        // Check device type
-        const char *liquid_types[] = {"Liquidctl"};
-        const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
-        
-        // Check if device type is supported
-        int is_supported_device = 0;
-        for (size_t j = 0; j < num_types; j++) {
-            if (strcmp(type_str, liquid_types[j]) == 0) {
-                is_supported_device = 1;
-                break;
-            }
-        }
-        
-        // Skip if not supported
-        if (!is_supported_device) continue;
-
-        // Found Liquidctl device
-        if (found_liquidctl) *found_liquidctl = 1;
-
-        // Extract UID
-        if (lcd_uid && uid_size > 0) {
-            json_t *uid_val = json_object_get(dev, "uid");
-            if (uid_val && json_is_string(uid_val)) {
-                const char *uid_str = json_string_value(uid_val);
-                snprintf(lcd_uid, uid_size, "%s", uid_str);
-            }
-        }
-
-        // Extract device name
-        if (device_name && name_size > 0) {
-            json_t *name_val = json_object_get(dev, "name");
-            if (name_val && json_is_string(name_val)) {
-                const char *name_str = json_string_value(name_val);
-                snprintf(device_name, name_size, "%s", name_str);
-            }
-        }
-
-        // Extract LCD dimensions
-        if (screen_width || screen_height) {
-            json_t *info = json_object_get(dev, "info");
-            json_t *channels = info ? json_object_get(info, "channels") : NULL;
-            json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
-            json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
-            if (lcd_info) {
-                if (screen_width) {
-                    json_t *width_val = json_object_get(lcd_info, "screen_width");
-                    if (width_val && json_is_integer(width_val)) {
-                        *screen_width = (int)json_integer_value(width_val);
-                    }
-                }
-                if (screen_height) {
-                    json_t *height_val = json_object_get(lcd_info, "screen_height");
-                    if (height_val && json_is_integer(height_val)) {
-                        *screen_height = (int)json_integer_value(height_val);
-                    }
-                }
-            }
-        }
-
-        // Found device, exit early
-        json_decref(root);
-        return 1;
-    }
-
-    // No Liquidctl device found
-    json_decref(root);
-    return 1;
-}
-
-/**
  * @brief Get Liquidctl device UID from CoolerControl API.
  * @details This function retrieves the UID of the Liquidctl device by calling the main device info function.
  */
@@ -466,10 +466,6 @@ int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_
     return 1;
 }
 
-/**
- * @brief Get Liquidctl device display info (screen_width and screen_height) from CoolerControl API.
- * @details This function retrieves the screen dimensions of the Liquidctl device by calling the main device info function.
- */
 int get_liquidctl_display_info(const Config *config, int *screen_width, int *screen_height) {
     // Initialize cache if not already done
     if (!initialize_device_cache(config)) {
@@ -512,6 +508,10 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     return 1;
 }
 
+/**
+ * @brief Initialize device cache - public interface.
+ * @details Public function to initialize the device cache for external callers.
+ */
 int init_device_cache(const Config *config) {
     return initialize_device_cache(config);
 }
