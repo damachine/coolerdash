@@ -14,6 +14,7 @@
 #ifndef MONITOR_H
 #define MONITOR_H
 
+// Include necessary headers
 #include <stddef.h>
 
 // Forward declaration
@@ -29,21 +30,21 @@ typedef struct {
 } monitor_sensor_data_t;
 
 /**
+ * @brief Initialize the monitor subsystem.
+ * @details Performs any necessary initialization for the monitoring functionality, preparing it for temperature data retrieval. Must be called before using other monitor functions.
+ */
+int monitor_init(const struct Config *config);
+
+/**
  * @brief Get CPU and GPU temperature data from CoolerControl API.
- * @details Retrieves temperature values via HTTP request to CoolerControl daemon and stores them in the provided float pointers.
+ * @details Low-level function that retrieves temperature values via HTTP request to CoolerControl daemon and stores them in the provided float pointers.
  */
 int get_temperature_data(const struct Config *config, float *temp_1, float *temp_2);
 
 /**
  * @brief Get temperature data into structure.
- * @details Convenience function that retrieves temperature data and populates a monitor_sensor_data_t structure with the values.
+ * @details High-level convenience function that retrieves temperature data and populates a monitor_sensor_data_t structure with the values.
  */
 int monitor_get_temperature_data(const struct Config *config, monitor_sensor_data_t *data);
-
-/**
- * @brief Initialize the monitor subsystem.
- * @details Performs any necessary initialization for the monitoring functionality, preparing it for temperature data retrieval.
- */
-int monitor_init(const struct Config *config);
 
 #endif // MONITOR_H

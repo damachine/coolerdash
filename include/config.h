@@ -8,21 +8,20 @@
 
 /**
  * @brief Configuration management for CoolerDash LCD monitoring system.
- * @details Provides functions to load and apply configuration settings from an INI file with comprehensive validation and fallback support.
+ * @details Provides functions to load and apply configuration settings from an INI file with fallback support.
  */
 
 #ifndef CONFIG_H
 #define CONFIG_H
 
-// Configuration limits
+// Include necessary headers
+#include <stdint.h>
+#include <ini.h>
+
 #define CONFIG_MAX_STRING_LEN 256
 #define CONFIG_MAX_PASSWORD_LEN 128
 #define CONFIG_MAX_PATH_LEN 512
 #define CONFIG_MAX_FONT_NAME_LEN 64
-
-// Include necessary headers
-#include <stdint.h>
-#include <ini.h>
 
 /**
  * @brief Simple color structure.
@@ -34,6 +33,17 @@ typedef struct {
     uint8_t b;
     uint8_t _pad;
 } Color;
+
+/**
+ * @brief Common log levels for all modules.
+ * @details Defines standardized logging levels used throughout the application for consistent message categorization.
+ */
+typedef enum {
+    LOG_INFO,
+    LOG_STATUS,
+    LOG_WARNING,
+    LOG_ERROR
+} log_level_t;
 
 /**
  * @brief Configuration structure.
@@ -87,21 +97,10 @@ typedef struct Config {
 } Config;
 
 /**
- * @brief Common log levels for all modules.
- * @details Defines standardized logging levels used throughout the application for consistent message categorization.
+ * @brief Global logging control from main.c
+ * @details External variable controlling verbose logging behavior across all modules.
  */
-typedef enum {
-    LOG_INFO,
-    LOG_STATUS,
-    LOG_WARNING,
-    LOG_ERROR
-} log_level_t;
-
-/**
- * @brief Loads configuration from INI file.
- * @details Parses INI configuration file and populates Config structure with validated values and fallback defaults.
- */
-int load_config(const char *path, Config *config);
+extern int verbose_logging;
 
 /**
  * @brief Initialize config structure with safe defaults.
@@ -110,17 +109,17 @@ int load_config(const char *path, Config *config);
 void config_init_defaults(Config *config);
 
 /**
+ * @brief Loads configuration from INI file.
+ * @details Parses INI configuration file and populates Config structure with fallback defaults.
+ */
+int load_config(const char *path, Config *config);
+
+/**
  * @brief Legacy function name for backward compatibility.
  * @details Provides backward compatibility by calling load_config with swapped parameter order.
  */
 static inline int load_config_ini(Config *config, const char *path) {
     return load_config(path, config);
 }
-
-/**
- * @brief Global logging control from main.c
- * @details External variable controlling verbose logging behavior across all modules.
- */
-extern int verbose_logging;
 
 #endif // CONFIG_H

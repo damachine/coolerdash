@@ -51,16 +51,20 @@ static void log_message(log_level_t level, const char *format, ...) {
         return;
     }
     
+    // Log prefix and output stream
     const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
+    // Log message
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
     
+    // Variable arguments
     va_list args;
     va_start(args, format);
     vfprintf(output, format, args);
     va_end(args);
     
+    // Newline and flush
     fprintf(output, "\n");
     fflush(output);
 }

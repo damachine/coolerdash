@@ -29,64 +29,10 @@
 #include "../include/config.h"
 
 /**
- * @brief Centralized logging function with consistent format.
- * @details Provides consistent logging style matching main.c implementation with appropriate output streams for different log levels.
+ * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
+ * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
  */
-static void log_message(log_level_t level, const char *format, ...) {
-    // Skip INFO messages unless verbose logging is enabled
-    // STATUS, WARNING, and ERROR messages are always shown
-    if (level == LOG_INFO && !verbose_logging) {
-        return;
-    }
-    
-    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
-    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
-    
-    fprintf(output, "[CoolerDash %s] ", prefix[level]);
-    
-    va_list args;
-    va_start(args, format);
-    vfprintf(output, format, args);
-    va_end(args);
-    
-    fprintf(output, "\n");
-    fflush(output);
-}
-
-/**
- * @brief Callback for libcurl to write received data into a buffer.
- * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
- */
-size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response) {
-    const size_t realsize = size * nmemb;
-    const size_t new_size = response->size + realsize + 1;
-
-    // Reallocate if needed
-    if (new_size > response->capacity) {
-        // Grow capacity
-        const size_t new_capacity = (new_size > response->capacity * 3 / 2) ? new_size : response->capacity * 3 / 2;
-
-        char *ptr = realloc(response->data, new_capacity);
-        if (!ptr) {
-            log_message(LOG_ERROR, "Memory allocation failed for response data: %zu bytes", new_capacity);
-            free(response->data);
-            response->data = NULL;
-            response->size = 0;
-            response->capacity = 0;
-            return 0;
-        }
-
-        response->data = ptr;
-        response->capacity = new_capacity;
-    }
-
-    // Copy data
-    memcpy(response->data + response->size, contents, realsize);
-    response->size += realsize;
-    response->data[response->size] = '\0';
-
-    return realsize;
-}
+static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size);
 
 /**
  * @brief Structure to hold CoolerControl session state.
@@ -107,6 +53,74 @@ static CoolerControlSession cc_session = {
     .cookie_jar = {0},
     .session_initialized = 0
 };
+
+/**
+ * @brief Centralized logging function with consistent format.
+ * @details Provides consistent logging style matching main.c implementation with appropriate output streams for different log levels.
+ */
+static void log_message(log_level_t level, const char *format, ...) {
+    // Skip INFO messages unless verbose logging is enabled
+    // STATUS, WARNING, and ERROR messages are always shown
+    if (level == LOG_INFO && !verbose_logging) {
+        return;
+    }
+    
+    // Log prefix and output stream
+    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
+    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
+    
+    // Log message
+    fprintf(output, "[CoolerDash %s] ", prefix[level]);
+    
+    // Variable arguments
+    va_list args;
+    va_start(args, format);
+    vfprintf(output, format, args);
+    va_end(args);
+    
+    // Newline and flush
+    fprintf(output, "\n");
+    fflush(output);
+}
+
+/**
+ * @brief Callback for libcurl to write received data into a buffer.
+ * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
+ */
+size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response) {
+    // Validate input
+    const size_t realsize = size * nmemb;
+    const size_t new_size = response->size + realsize + 1;
+
+    // Reallocate if needed
+    if (new_size > response->capacity) {
+        // Grow capacity
+        const size_t new_capacity = (new_size > response->capacity * 3 / 2) ? new_size : response->capacity * 3 / 2;
+
+        // Reallocate
+        char *ptr = realloc(response->data, new_capacity);
+        if (!ptr) {
+            log_message(LOG_ERROR, "Memory allocation failed for response data: %zu bytes", new_capacity);
+            free(response->data);
+            response->data = NULL;
+            response->size = 0;
+            response->capacity = 0;
+            return 0;
+        }
+
+        // Clear new memory
+        response->data = ptr;
+        response->capacity = new_capacity;
+    }
+
+    // Copy data
+    memcpy(response->data + response->size, contents, realsize);
+    response->size += realsize;
+    response->data[response->size] = '\0';
+
+    // Return size
+    return realsize;
+}
 
 /**
  * @brief Initializes the CoolerControl session (CURL setup and login).
@@ -159,6 +173,7 @@ int init_coolercontrol_session(const Config *config) {
         curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
     }
     
+    // Set user agent
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERAGENT, "CoolerDash/1.0");
 
     // Perform login request
@@ -177,193 +192,16 @@ int init_coolercontrol_session(const Config *config) {
         log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, response_code);
     }
 
+    // Login failed
     return 0;
 }
 
 /**
- * @brief Sends an image to the LCD display.
- * @details This function uploads an image to the LCD display using a multipart HTTP PUT request. It requires the session to be initialized and the device UID to be available.
+ * @brief Checks if the CoolerControl session is initialized.
+ * @details This function returns whether the session has been successfully initialized and is ready for use.
  */
-int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid) {
-    // Basic validation only
-    if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) {
-        log_message(LOG_ERROR, "Invalid parameters or session not initialized");
-        return 0;
-    }
-    
-    // Build upload URL
-    char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
-             config->daemon_address, device_uid);
-    
-    // Initialize multipart form
-    curl_mime *form = curl_mime_init(cc_session.curl_handle);
-    if (!form) {
-        log_message(LOG_ERROR, "Failed to initialize multipart form");
-        return 0;
-    }
-    
-    curl_mimepart *field;
-    CURLcode mime_result;
-    
-    // Add mode field with error checking
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create mode field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_name(field, "mode");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set mode field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set mode field data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Add brightness field
-    char brightness_str[8];
-    snprintf(brightness_str, sizeof(brightness_str), "%d", config->lcd_brightness);
-    
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create brightness field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_name(field, "brightness");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set brightness field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set brightness field data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Add orientation field
-    char orientation_str[8];
-    snprintf(orientation_str, sizeof(orientation_str), "%d", config->lcd_orientation);
-    
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create orientation field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_name(field, "orientation");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set orientation field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set orientation field data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Add image file
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create image field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_name(field, "images[]");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set image field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_filedata(field, image_path);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    mime_result = curl_mime_type(field, "image/png");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set image MIME type: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Initialize response buffer
-    struct http_response response = {0};
-    if (!cc_init_response_buffer(&response, 4096)) {
-        log_message(LOG_ERROR, "Failed to initialize response buffer");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Configure curl options
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
-    
-    // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0) {
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
-    
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
-    
-    // Add headers
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
-    headers = curl_slist_append(headers, "Accept: application/json");
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
-    
-    // Perform request
-    CURLcode res = curl_easy_perform(cc_session.curl_handle);
-    
-    // Get response info
-    long http_response_code = -1;
-    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
-
-    int success = 0;
-    if (res == CURLE_OK && http_response_code == 200) {
-        success = 1;
-    } else {
-        log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res, http_response_code);
-        if (response.data && response.size > 0) {
-            response.data[response.size] = '\0';
-            log_message(LOG_ERROR, "Server response: %s", response.data);
-        }
-    }
-    
-    // Cleanup resources
-    cc_cleanup_response_buffer(&response);
-    if (headers) curl_slist_free_all(headers);
-    curl_mime_free(form);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
-    
-    return success;
+int is_session_initialized(void) {
+    return cc_session.session_initialized;
 }
 
 /**
@@ -400,14 +238,6 @@ void cleanup_coolercontrol_session(void) {
 }
 
 /**
- * @brief Checks if the CoolerControl session is initialized.
- * @details This function returns whether the session has been successfully initialized and is ready for use.
- */
-int is_session_initialized(void) {
-    return cc_session.session_initialized;
-}
-
-/**
  * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
  * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
  */
@@ -415,6 +245,7 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
     // Validate input
     if (!json) return 0;
 
+    // Initialize output variables
     if (lcd_uid && uid_size > 0) lcd_uid[0] = '\0';
     if (found_liquidctl) *found_liquidctl = 0;
     if (screen_width) *screen_width = 0;
@@ -429,6 +260,7 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
         return 0;
     }
 
+    // Get devices array
     json_t *devices = json_object_get(root, "devices");
     if (!devices || !json_is_array(devices)) {
         json_decref(root);
@@ -440,18 +272,22 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
 
     // Check each device
     for (size_t i = 0; i < device_count; i++) {
+        // Get device entry
         json_t *dev = json_array_get(devices, i);
         if (!dev) continue;
 
+        // Get device type
         json_t *type_val = json_object_get(dev, "type");
         if (!type_val || !json_is_string(type_val)) continue;
 
+        // Extract device type string
         const char *type_str = json_string_value(type_val);
 
         // Check device type
         const char *liquid_types[] = {"Liquidctl"};
         const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
         
+        // Check if device type is supported
         int is_supported_device = 0;
         for (size_t j = 0; j < num_types; j++) {
             if (strcmp(type_str, liquid_types[j]) == 0) {
@@ -460,6 +296,7 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
             }
         }
         
+        // Skip if not supported
         if (!is_supported_device) continue;
 
         // Found Liquidctl device
@@ -510,6 +347,7 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
         return 1;
     }
 
+    // No Liquidctl device found
     json_decref(root);
     return 1;
 }
@@ -537,8 +375,10 @@ int get_liquidctl_display_info(const Config *config, int *screen_width, int *scr
  * @details This function retrieves the UID, name, and screen dimensions of the Liquidctl device by calling the main device info function.
  */
 int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height) {
+    // Validate input
     if (!config) return 0;
 
+    // Initialize CURL
     CURL *curl = curl_easy_init();
     if (!curl) return 0;
 
@@ -569,6 +409,7 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
         curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
     }
     
+    // Set user agent
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0");
 
     // Set HTTP headers
@@ -590,6 +431,7 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
         long response_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
         
+        // Parse JSON response
         if (response_code == 200) {
             result = parse_liquidctl_devices_json(chunk.data, lcd_uid, sizeof(lcd_uid), &found_liquidctl, &width, &height, lcd_name, sizeof(lcd_name));
         } else {
@@ -599,11 +441,14 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     } else {
         log_message(LOG_ERROR, "CURL error: %s", curl_easy_strerror(curl_result));
         result = 0;
-    }    // Clean up resources
+    }    
+    
+    // Clean up resources
     cc_cleanup_response_buffer(&chunk);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
+    // Check if Liquidctl device was found
     if (!found_liquidctl) {
         log_message(LOG_ERROR, "No Liquidctl device found. Exiting.");
         return 0;
@@ -621,6 +466,7 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
     if (screen_width) *screen_width = width;
     if (screen_height) *screen_height = height;
 
+    // Return success
     return result;
 }
 
@@ -629,6 +475,209 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
  * @details This function retrieves the device UID from the cc_device_data_t structure, which is typically used to store device information.
  */
 int get_device_uid(const Config *config, cc_device_data_t *data) {
+    // Basic validation only
     if (!config || !data) return 0;
+    // Call main function
     return get_liquidctl_device_uid(config, data->device_uid, sizeof(data->device_uid));
+}
+
+/**
+ * @brief Sends an image to the LCD display.
+ * @details This function uploads an image to the LCD display using a multipart HTTP PUT request. It requires the session to be initialized and the device UID to be available.
+ */
+int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid) {
+    // Basic validation only
+    if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) {
+        log_message(LOG_ERROR, "Invalid parameters or session not initialized");
+        return 0;
+    }
+    
+    // Build upload URL
+    char upload_url[CC_URL_SIZE];
+    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
+             config->daemon_address, device_uid);
+    
+    // Initialize multipart form
+    curl_mime *form = curl_mime_init(cc_session.curl_handle);
+    if (!form) {
+        log_message(LOG_ERROR, "Failed to initialize multipart form");
+        return 0;
+    }
+    
+    // Initialize form fields
+    curl_mimepart *field;
+    CURLcode mime_result;
+    
+    // Add mode field with error checking
+    field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create mode field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set mode field name
+    mime_result = curl_mime_name(field, "mode");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set mode field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set mode field data
+    mime_result = curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set mode field data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Add brightness field
+    char brightness_str[8];
+    snprintf(brightness_str, sizeof(brightness_str), "%d", config->lcd_brightness);
+    
+    // Add brightness field
+    field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create brightness field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set brightness field name
+    mime_result = curl_mime_name(field, "brightness");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set brightness field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set brightness field data
+    mime_result = curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set brightness field data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Add orientation field
+    char orientation_str[8];
+    snprintf(orientation_str, sizeof(orientation_str), "%d", config->lcd_orientation);
+    
+    // Add orientation field
+    field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create orientation field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set orientation field name
+    mime_result = curl_mime_name(field, "orientation");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set orientation field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set orientation field data
+    mime_result = curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set orientation field data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Add image file
+    field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create image field");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set image field name
+    mime_result = curl_mime_name(field, "images[]");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set image field name: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set image file data
+    mime_result = curl_mime_filedata(field, image_path);
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Set image MIME type
+    mime_result = curl_mime_type(field, "image/png");
+    if (mime_result != CURLE_OK) {
+        log_message(LOG_ERROR, "Failed to set image MIME type: %s", curl_easy_strerror(mime_result));
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Initialize response buffer
+    struct http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096)) {
+        log_message(LOG_ERROR, "Failed to initialize response buffer");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Configure curl options
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    
+    // Enable SSL verification for HTTPS
+    if (strncmp(config->daemon_address, "https://", 8) == 0) {
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
+    }
+    
+    // Set write callback
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
+    
+    // Add headers
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
+    headers = curl_slist_append(headers, "Accept: application/json");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
+    
+    // Perform request
+    CURLcode res = curl_easy_perform(cc_session.curl_handle);
+    
+    // Get response info
+    long http_response_code = -1;
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
+
+    // Check response
+    int success = 0;
+    if (res == CURLE_OK && http_response_code == 200) {
+        success = 1;
+    } else {
+        log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res, http_response_code);
+        if (response.data && response.size > 0) {
+            response.data[response.size] = '\0';
+            log_message(LOG_ERROR, "Server response: %s", response.data);
+        }
+    }
+    
+    // Cleanup resources
+    cc_cleanup_response_buffer(&response);
+    if (headers) curl_slist_free_all(headers);
+    curl_mime_free(form);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
+    
+    // Return success
+    return success;
 }

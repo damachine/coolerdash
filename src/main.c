@@ -14,14 +14,6 @@
 #define _POSIX_C_SOURCE 200112L
 #define _XOPEN_SOURCE 600
 
-// Security and performance constants
-#define DEFAULT_VERSION "unknown"
-#define MAX_ERROR_MSG_LEN 512
-#define MAX_PID_STR_LEN 32
-#define PID_READ_BUFFER_SIZE 64
-#define SHUTDOWN_RETRY_COUNT 2
-#define VERSION_BUFFER_SIZE 32
-
 // Include necessary headers in logical order
 #include <errno.h>
 #include <limits.h>
@@ -42,12 +34,19 @@
 #include "../include/display.h"
 #include "../include/monitor.h"
 
+// Security and performance constants
+#define DEFAULT_VERSION "unknown"
+#define MAX_ERROR_MSG_LEN 512
+#define MAX_PID_STR_LEN 32
+#define PID_READ_BUFFER_SIZE 64
+#define SHUTDOWN_RETRY_COUNT 2
+#define VERSION_BUFFER_SIZE 32
+
 /**
  * @brief Global variables for daemon management.
  * @details Used for controlling the main daemon loop and shutdown image logic.
  */
 static volatile sig_atomic_t running = 1; // flag whether daemon is running
-static volatile sig_atomic_t shutdown_sent = 0; // flag whether shutdown image was already sent
 
 /**
  * @brief Global logging control.
@@ -72,16 +71,20 @@ static void log_message(log_level_t level, const char *format, ...) {
         return;
     }
     
+    // Log prefix and output stream
     const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     
+    // Log message
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
     
+    // Variable arguments
     va_list args;
     va_start(args, format);
     vfprintf(output, format, args);
     va_end(args);
     
+    // Newline and flush
     fprintf(output, "\n");
     fflush(output);
 }
@@ -152,6 +155,30 @@ static pid_t safe_parse_pid(const char *pid_str) {
     if (pid <= 0 || pid > INT_MAX) return -1;
     
     return (pid_t)pid;
+}
+
+/**
+ * @brief Detect if we were started by systemd service (not user session).
+ * @details Distinguishes between systemd service and user session/terminal.
+ */
+static int is_started_by_systemd(void) {
+    // Check if running as systemd service by looking at process hierarchy
+    // Real systemd services have parent PID 1 and specific unit name
+    if (getppid() != 1) {
+        return 0; // Not direct child of init/systemd
+    }
+    
+    // Check if we have a proper systemd service unit name
+    const char *invocation_id = getenv("INVOCATION_ID");
+    if (invocation_id && invocation_id[0]) {
+        // Check if we're running as a proper service (not user session)
+        // Services typically have no controlling terminal
+        if (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) && !isatty(STDERR_FILENO)) {
+            return 1; // Likely a real systemd service
+        }
+    }
+    
+    return 0; // User session or manual start
 }
 
 /**
@@ -303,101 +330,6 @@ static void remove_image_file(const char *image_file) {
 }
 
 /**
- * @brief Display system information for diagnostics.
- * @details Shows display configuration, API validation results, and refresh interval settings for system diagnostics.
- */
-static void show_system_diagnostics(const Config *config, int api_width, int api_height) {
-    if (!config) return;
-    
-    // Display configuration with API validation integrated
-    if (api_width > 0 && api_height > 0) {
-        if (api_width != config->display_width || api_height != config->display_height) {
-            log_message(LOG_STATUS, "Display configuration: %dx%d pixels", 
-                       config->display_width, config->display_height);
-            log_message(LOG_WARNING, "API reports different dimensions: %dx%d pixels", 
-                       api_width, api_height);
-        } else {
-            log_message(LOG_STATUS, "Display configuration: %dx%d pixels (API confirmed)", 
-                       config->display_width, config->display_height);
-        }
-    } else {
-        log_message(LOG_STATUS, "Display configuration: %dx%d pixels", 
-                   config->display_width, config->display_height);
-    }
-    
-    log_message(LOG_STATUS, "Refresh interval: %d.%03d seconds", 
-               config->display_refresh_interval_sec,
-               config->display_refresh_interval_nsec / 1000000);
-}
-
-/**
- * @brief Enhanced main daemon loop with improved timing and error handling.
- * @details Runs the main loop with precise timing, optimized sleep, and graceful error recovery.
- */
-static int run_daemon(const Config *config) {
-    if (!config) {
-        log_message(LOG_ERROR, "Invalid configuration provided to daemon");
-        return -1;
-    }
-    
-    const struct timespec interval = {
-        .tv_sec = config->display_refresh_interval_sec,
-        .tv_nsec = config->display_refresh_interval_nsec
-    };
-    
-    struct timespec next_time;
-    if (clock_gettime(CLOCK_MONOTONIC, &next_time) != 0) {
-        log_message(LOG_ERROR, "Failed to get current time: %s", strerror(errno));
-        return -1;
-    }
-    
-    while (running) {
-        // Calculate next execution time with overflow protection
-        next_time.tv_sec += interval.tv_sec;
-        next_time.tv_nsec += interval.tv_nsec;
-        if (next_time.tv_nsec >= 1000000000L) {
-            next_time.tv_sec++;
-            next_time.tv_nsec -= 1000000000L;
-        }
-        
-        // Execute main rendering task
-        draw_combined_image(config);
-        
-        // Sleep until absolute time with error handling
-        int sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
-        if (sleep_result != 0 && sleep_result != EINTR) {
-            log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
-        }
-    }
-    
-    return 0;
-}
-
-/**
- * @brief Detect if we were started by systemd service (not user session).
- * @details Distinguishes between systemd service and user session/terminal.
- */
-static int is_started_by_systemd(void) {
-    // Check if running as systemd service by looking at process hierarchy
-    // Real systemd services have parent PID 1 and specific unit name
-    if (getppid() != 1) {
-        return 0; // Not direct child of init/systemd
-    }
-    
-    // Check if we have a proper systemd service unit name
-    const char *invocation_id = getenv("INVOCATION_ID");
-    if (invocation_id && invocation_id[0]) {
-        // Check if we're running as a proper service (not user session)
-        // Services typically have no controlling terminal
-        if (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) && !isatty(STDERR_FILENO)) {
-            return 1; // Likely a real systemd service
-        }
-    }
-    
-    return 0; // User session or manual start
-}
-
-/**
  * @brief Enhanced help display with improved formatting and security information.
  * @details Prints comprehensive usage information and security recommendations.
  */
@@ -440,35 +372,58 @@ static void show_help(const char *program_name, const Config *config) {
 }
 
 /**
+ * @brief Display system information for diagnostics.
+ * @details Shows display configuration, API validation results, and refresh interval settings for system diagnostics.
+ */
+static void show_system_diagnostics(const Config *config, int api_width, int api_height) {
+    if (!config) return;
+    
+    // Display configuration with API validation integrated
+    if (api_width > 0 && api_height > 0) {
+        if (api_width != config->display_width || api_height != config->display_height) {
+            log_message(LOG_STATUS, "Display configuration: %dx%d pixels", 
+                       config->display_width, config->display_height);
+            log_message(LOG_WARNING, "API reports different dimensions: %dx%d pixels", 
+                       api_width, api_height);
+        } else {
+            log_message(LOG_STATUS, "Display configuration: %dx%d pixels (API confirmed)", 
+                       config->display_width, config->display_height);
+        }
+    } else {
+        log_message(LOG_STATUS, "Display configuration: %dx%d pixels", 
+                   config->display_width, config->display_height);
+    }
+    
+    log_message(LOG_STATUS, "Refresh interval: %d.%03d seconds", 
+               config->display_refresh_interval_sec,
+               config->display_refresh_interval_nsec / 1000000);
+}
+
+/**
  * @brief Send shutdown image if needed.
  * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met.
  */
 static void send_shutdown_image_if_needed(void) {
-    if (shutdown_sent || !is_session_initialized() || !g_config_ptr) {
+    // Basic validation
+    if (!is_session_initialized() || !g_config_ptr) {
         return;
     }
     
+    // Get device UID
     char device_uid[128];
     if (!get_liquidctl_device_uid(g_config_ptr, device_uid, sizeof(device_uid)) || !device_uid[0]) {
-        log_message(LOG_WARNING, "Cannot send shutdown image - device UID not available");
-        return;
+        return; 
     }
     
+    // Get shutdown image path
     const char *shutdown_image_path = g_config_ptr->paths_image_shutdown;
     if (!shutdown_image_path || !shutdown_image_path[0]) {
-        log_message(LOG_WARNING, "Shutdown image path not configured");
         return;
     }
-    
-    log_message(LOG_INFO, "Sending shutdown image to device %s", device_uid);
-    
-    // Send shutdown image once 
-    if (send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid)) {
-        log_message(LOG_INFO, "Shutdown image sent successfully");
-        shutdown_sent = 1;
-    } else {
-        log_message(LOG_ERROR, "Failed to send shutdown image");
-    }
+
+    // Send shutdown image
+    send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
+    send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
 }
 
 /**
@@ -554,6 +509,49 @@ static void setup_enhanced_signal_handlers(void) {
     if (pthread_sigmask(SIG_BLOCK, &block_mask, NULL) != 0) {
         log_message(LOG_WARNING, "Failed to block unwanted signals");
     }
+}
+
+/**
+ * @brief Enhanced main daemon loop with improved timing and error handling.
+ * @details Runs the main loop with precise timing, optimized sleep, and graceful error recovery.
+ */
+static int run_daemon(const Config *config) {
+    if (!config) {
+        log_message(LOG_ERROR, "Invalid configuration provided to daemon");
+        return -1;
+    }
+    
+    const struct timespec interval = {
+        .tv_sec = config->display_refresh_interval_sec,
+        .tv_nsec = config->display_refresh_interval_nsec
+    };
+    
+    struct timespec next_time;
+    if (clock_gettime(CLOCK_MONOTONIC, &next_time) != 0) {
+        log_message(LOG_ERROR, "Failed to get current time: %s", strerror(errno));
+        return -1;
+    }
+    
+    while (running) {
+        // Calculate next execution time with overflow protection
+        next_time.tv_sec += interval.tv_sec;
+        next_time.tv_nsec += interval.tv_nsec;
+        if (next_time.tv_nsec >= 1000000000L) {
+            next_time.tv_sec++;
+            next_time.tv_nsec -= 1000000000L;
+        }
+        
+        // Execute main rendering task
+        draw_combined_image(config);
+        
+        // Sleep until absolute time with error handling
+        int sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
+        if (sleep_result != 0 && sleep_result != EINTR) {
+            log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
+        }
+    }
+    
+    return 0;
 }
 
 /**
