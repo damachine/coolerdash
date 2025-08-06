@@ -381,16 +381,16 @@ static void show_system_diagnostics(const Config *config, int api_width, int api
     // Display configuration with API validation integrated
     if (api_width > 0 && api_height > 0) {
         if (api_width != config->display_width || api_height != config->display_height) {
-            log_message(LOG_STATUS, "Display configuration: %s x (%dx%d pixels)", 
+            log_message(LOG_STATUS, "Display configuration: (%dx%d pixels)", 
                        config->display_width, config->display_height);
             log_message(LOG_WARNING, "API reports different dimensions: %s (%dx%d pixels)", 
                        api_width, api_height);
         } else {
-            log_message(LOG_STATUS, "Display configuration: %s x (%dx%d pixels) (Device confirmed)", 
+            log_message(LOG_STATUS, "Display configuration: (%dx%d pixels) (Device confirmed)", 
                        config->display_width, config->display_height);
         }
     } else {
-        log_message(LOG_STATUS, "Display configuration: %s x (%dx%d pixels) (Device confirmed)", 
+        log_message(LOG_STATUS, "Display configuration: (%dx%d pixels) (Device confirmed)", 
                    config->display_width, config->display_height);
     }
     
