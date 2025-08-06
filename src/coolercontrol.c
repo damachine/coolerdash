@@ -201,7 +201,7 @@ static int initialize_device_cache(const Config *config) {
         // Initialize cache if Liquidctl device found
         if (result && found_liquidctl) {
             device_cache.initialized = 1;
-            log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d)", 
+            log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel)", 
                        device_cache.device_name, device_cache.screen_width, device_cache.screen_height);
         }
     }
