@@ -383,7 +383,7 @@ static void show_system_diagnostics(const Config *config, int api_width, int api
         if (api_width != config->display_width || api_height != config->display_height) {
             log_message(LOG_STATUS, "Display configuration: (%dx%d pixels)", 
                        config->display_width, config->display_height);
-            log_message(LOG_WARNING, "API reports different dimensions: %s (%dx%d pixels)", 
+            log_message(LOG_WARNING, "API reports different dimensions: (%dx%d pixels)", 
                        api_width, api_height);
         } else {
             log_message(LOG_STATUS, "Display configuration: (%dx%d pixels) (Device confirmed)", 
