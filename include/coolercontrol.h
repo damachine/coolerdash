@@ -138,6 +138,12 @@ static inline void cc_cleanup_response_buffer(struct http_response *response) {
 size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response);
 
 /**
+ * @brief Initialize device information cache.
+ * @details Fetches and caches device information once at startup for better performance.
+ */
+int init_device_cache(const Config *config);
+
+/**
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
  * @details Must be called before any other CoolerControl API function. Sets up CURL session and performs authentication.
  */
@@ -174,8 +180,12 @@ int get_device_uid(const Config *config, cc_device_data_t *data);
 int get_liquidctl_display_info(const Config *config, int *screen_width, int *screen_height);
 
 /**
- * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from CoolerControl API.
- * @details Reads all LCD device information via API in one call. Optimized for performance with minimal API calls and efficient JSON parsing. Enhanced with input validation and buffer overflow protection.
+ * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from cache.
+ * @details Reads all LCD device information from cache (no API call). Returns 1 on success, 0 on failure.
+ * Optimized for performance with cached data and no network overhead.
+ * @example
+ *     char uid[128], name[128]; int width, height;
+ *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), name, sizeof(name), &width, &height)) { ... }
  */
 int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
 

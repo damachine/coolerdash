@@ -29,6 +29,25 @@
 #include "../include/config.h"
 
 /**
+ * @brief Static cache for device information (never changes during runtime).
+ * @details Holds the device UID, name, and display dimensions once fetched from the API. Used to avoid redundant API calls and improve performance.
+ */
+static struct {
+    int initialized;                     // Flag to check if cache is populated
+    char device_uid[CC_UID_SIZE];       // Cached device UID
+    char device_name[CC_NAME_SIZE];     // Cached device name
+    int screen_width;                   // Cached screen width
+    int screen_height;                  // Cached screen height
+} device_cache = {0};
+
+/**
+ * @brief Initialize device cache by fetching device information once.
+ * @details Populates the static cache with device UID, name, and display dimensions.
+ * This function should be called once at startup. Returns 1 on success, 0 on failure.
+ */
+static int initialize_device_cache(const Config *config);
+
+/**
  * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
  * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
  */
@@ -120,6 +139,80 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
 
     // Return size
     return realsize;
+}
+
+/**
+ * @brief Initialize device cache by fetching device information once.
+ * @details Populates the static cache with device UID, name, and display dimensions.
+ */
+static int initialize_device_cache(const Config *config) {
+    // Check if already initialized
+    if (device_cache.initialized) {
+        return 1; // Already initialized
+    }
+
+    // Validate input
+    if (!config) return 0;
+
+    // Initialize CURL
+    CURL *curl = curl_easy_init();
+    if (!curl) return 0;
+
+    // Construct URL for devices endpoint
+    char url[512]; // Increased buffer size to prevent truncation
+    int ret = snprintf(url, sizeof(url), "%s/devices", config->daemon_address);
+    if (ret >= (int)sizeof(url) || ret < 0) {
+        return 0; // URL too long or formatting error
+    }
+
+    // Initialize response buffer with optimized capacity
+    struct http_response chunk = {0};
+    const size_t initial_capacity = 4096; // Start with 4KB (typical JSON response size)
+    chunk.data = malloc(initial_capacity);
+    if (!chunk.data) {
+        curl_easy_cleanup(curl);
+        return 0;
+    }
+    chunk.size = 0;
+    chunk.capacity = initial_capacity;
+
+    // Configure curl options
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+
+    // Set HTTP headers
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "accept: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    // Initialize parsing variables
+    int found_liquidctl = 0;
+    int result = 0;
+
+    // Perform request and parse response
+    if (curl_easy_perform(curl) == CURLE_OK) {
+        result = parse_liquidctl_devices_json(chunk.data,
+                                            device_cache.device_uid, sizeof(device_cache.device_uid),
+                                            &found_liquidctl,
+                                            &device_cache.screen_width, &device_cache.screen_height,
+                                            device_cache.device_name, sizeof(device_cache.device_name));
+
+        if (result && found_liquidctl) {
+            device_cache.initialized = 1;
+            printf("[coolerdash] Device cache initialized: %s (%dx%d)\n",
+                   device_cache.device_name, device_cache.screen_width, device_cache.screen_height);
+        }
+    }
+
+    // Clean up resources
+    free(chunk.data);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+
+    // Return success status
+    return device_cache.initialized;
 }
 
 /**
@@ -357,8 +450,20 @@ static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t 
  * @details This function retrieves the UID of the Liquidctl device by calling the main device info function.
  */
 int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_size) {
-    // Call main function
-    return get_liquidctl_device_info(config, device_uid, uid_size, NULL, 0, NULL, NULL);
+    // Initialize cache if not already done
+    if (!initialize_device_cache(config)) {
+        return 0;
+    }
+
+    // Copy UID from cache with safe string handling
+    if (device_uid && uid_size > 0) {
+        const size_t src_len = strlen(device_cache.device_uid);
+        const size_t copy_len = (src_len < uid_size - 1) ? src_len : uid_size - 1;
+        memcpy(device_uid, device_cache.device_uid, copy_len);
+        device_uid[copy_len] = '\0';
+    }
+
+    return 1;
 }
 
 /**
@@ -366,8 +471,16 @@ int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_
  * @details This function retrieves the screen dimensions of the Liquidctl device by calling the main device info function.
  */
 int get_liquidctl_display_info(const Config *config, int *screen_width, int *screen_height) {
-    // Call main function
-    return get_liquidctl_device_info(config, NULL, 0, NULL, 0, screen_width, screen_height);
+    // Initialize cache if not already done
+    if (!initialize_device_cache(config)) {
+        return 0;
+    }
+
+    // Copy dimensions from cache
+    if (screen_width) *screen_width = device_cache.screen_width;
+    if (screen_height) *screen_height = device_cache.screen_height;
+
+    return 1;
 }
 
 /**
@@ -375,99 +488,32 @@ int get_liquidctl_display_info(const Config *config, int *screen_width, int *scr
  * @details This function retrieves the UID, name, and screen dimensions of the Liquidctl device by calling the main device info function.
  */
 int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height) {
-    // Validate input
-    if (!config) return 0;
-
-    // Initialize CURL
-    CURL *curl = curl_easy_init();
-    if (!curl) return 0;
-
-    // Construct URL
-    char url[512];
-    int ret = snprintf(url, sizeof(url), "%s/devices", config->daemon_address);
-    if (ret >= (int)sizeof(url) || ret < 0) {
-        curl_easy_cleanup(curl);
+    // Initialize cache if not already done
+    if (!initialize_device_cache(config)) {
         return 0;
     }
 
-    // Initialize response buffer
-    struct http_response chunk = {0};
-    const size_t initial_capacity = 4096;
-    if (!cc_init_response_buffer(&chunk, initial_capacity)) {
-        curl_easy_cleanup(curl);
-        return 0;
-    }
-
-    // Configure curl options
-    curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
-    
-    // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0) {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
-    
-    // Set user agent
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0");
-
-    // Set HTTP headers
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "accept: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-    // Initialize variables
-    int found_liquidctl = 0;
-    char lcd_uid[128] = "";
-    char lcd_name[128] = "";
-    int width = 0, height = 0;
-    int result = 0;
-
-    // Perform request
-    CURLcode curl_result = curl_easy_perform(curl);
-    if (curl_result == CURLE_OK) {
-        // Check response code
-        long response_code = 0;
-        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-        
-        // Parse JSON response
-        if (response_code == 200) {
-            result = parse_liquidctl_devices_json(chunk.data, lcd_uid, sizeof(lcd_uid), &found_liquidctl, &width, &height, lcd_name, sizeof(lcd_name));
-        } else {
-            log_message(LOG_ERROR, "HTTP error: %ld when fetching device info", response_code);
-            result = 0;
-        }
-    } else {
-        log_message(LOG_ERROR, "CURL error: %s", curl_easy_strerror(curl_result));
-        result = 0;
-    }    
-    
-    // Clean up resources
-    cc_cleanup_response_buffer(&chunk);
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
-
-    // Check if Liquidctl device was found
-    if (!found_liquidctl) {
-        log_message(LOG_ERROR, "No Liquidctl device found. Exiting.");
-        return 0;
-    }
-
-    // Copy values to output buffers
+    // Copy values from cache to output buffers with safe string handling
     if (device_uid && uid_size > 0) {
-        strncpy(device_uid, lcd_uid, uid_size - 1);
-        device_uid[uid_size - 1] = '\0';
+        const size_t uid_len = strlen(device_cache.device_uid);
+        const size_t uid_copy_len = (uid_len < uid_size - 1) ? uid_len : uid_size - 1;
+        memcpy(device_uid, device_cache.device_uid, uid_copy_len);
+        device_uid[uid_copy_len] = '\0';
     }
     if (device_name && name_size > 0) {
-        strncpy(device_name, lcd_name, name_size - 1);
-        device_name[name_size - 1] = '\0';
+        const size_t name_len = strlen(device_cache.device_name);
+        const size_t name_copy_len = (name_len < name_size - 1) ? name_len : name_size - 1;
+        memcpy(device_name, device_cache.device_name, name_copy_len);
+        device_name[name_copy_len] = '\0';
     }
-    if (screen_width) *screen_width = width;
-    if (screen_height) *screen_height = height;
+    if (screen_width) *screen_width = device_cache.screen_width;
+    if (screen_height) *screen_height = device_cache.screen_height;
 
-    // Return success
-    return result;
+    return 1;
+}
+
+int init_device_cache(const Config *config) {
+    return initialize_device_cache(config);
 }
 
 /**

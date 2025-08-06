@@ -633,13 +633,27 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
 
+    // Initialize device cache once at startup for optimal performance
+    log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
+    if (!init_device_cache(&config)) {
+        log_message(LOG_ERROR, "Failed to initialize device cache");
+        fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
+                        "Please check:\n"
+                        "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
+                        "  - Is the daemon running on %s?\n"
+                        "  - Is the password correct in configuration?\n"
+                        "  - Are network connections allowed?\n", config.daemon_address);
+        remove_pid_file(config.paths_pid);
+        return EXIT_FAILURE;
+    }
+
     // Initialize device data structures
     char device_uid[128] = {0};
     monitor_sensor_data_t temp_data = {0};
     char device_name[CONFIG_MAX_STRING_LEN] = {0};
     int api_screen_width = 0, api_screen_height = 0;
-    
-    // Get complete device info (UID, name, dimensions) in single API call
+
+    // Get complete device info from cache (no API call)
     if (get_liquidctl_device_info(&config, device_uid, sizeof(device_uid),
                                 device_name, sizeof(device_name), &api_screen_width, &api_screen_height)) {
         
