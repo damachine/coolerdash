@@ -43,7 +43,6 @@ applyTo: "**"
  */
  ```
 - Entferne Kommentare, die den Code nicht mehr beschreiben oder veraltet sind.
-- Vermeide es, Kommentare zu verwenden, die in den Code-Richtlinien und Codestil beschrieben sind.
 
 **Code-Richtlinien und Codestil**
 - Halte dich an ISO/IEC 9899:1999 (C99).

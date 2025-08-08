@@ -20,7 +20,8 @@ Special thanks to @codifryed, the developer of CoolerControl, for making this po
 
 <div align="center">
   <img src="images/animation.gif" alt="CoolerDash LCD Animation" width="240" height="240"/>
-  <img src="images/gpt.png" alt="AI-generated LCD Demo" width="240" height="240"/>
+  <img src="images/gpt2.png" alt="AI-generated LCD Demo" width="240" height="240"/>
+  <img src="images/gpt3.png" alt="AI-generated LCD Demo" width="240" height="240"/>
 </div>
 
 *Left: Live temperature monitoring image on NZXT Kraken 2023 LCD display  
