@@ -63,7 +63,10 @@ Right: AI-generated image to demonstrate LCD output*
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
-3. **CoolerControl configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode!
+3. **CoolerControl configuration**: In CoolerControl GUI, set CPU/GPU sensors to your desired values!
+4. **CoolerControl configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode and brightness to **"80%"**! 
+
+> **Note:** CoolerDash brightness is set to 80% by default. When you change the brightness in CoolerDash configuration(config.ini), adjust it in CoolerControl as well for optimal results!
 
 ---
 
