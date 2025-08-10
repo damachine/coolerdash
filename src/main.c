@@ -583,7 +583,7 @@ int main(int argc, char **argv) {
     // Load configuration
     Config config = {0};
     
-    log_message(LOG_STATUS, "Loading configuration from: %s", config_path);
+    log_message(LOG_STATUS, "Loading configuration...");
     if (load_config_ini(&config, config_path) != 0) {
         log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
@@ -596,7 +596,7 @@ int main(int argc, char **argv) {
 
     // Check for existing instances and create PID file with enhanced validation
     int is_service_start = is_started_by_systemd();
-    log_message(LOG_STATUS, "Running mode: %s", is_service_start ? "systemd service" : "manual");
+    log_message(LOG_INFO, "Running mode: %s", is_service_start ? "systemd service" : "manual");
     
     if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0) {
         log_message(LOG_ERROR, "Instance management failed");
