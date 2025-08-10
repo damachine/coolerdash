@@ -71,7 +71,7 @@ static inline double cairo_color_convert(uint8_t color_component) {
  * @brief Forward declarations for internal display rendering functions.
  * @details Function prototypes for internal display rendering helpers and utility functions used by the main rendering pipeline.
  */
-static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp_value, double y_offset);
+static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset);
 static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config);
 static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
 static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y);
@@ -109,7 +109,7 @@ static Color get_temperature_bar_color(const Config *config, float val) {
  * @brief Draw a single temperature value.
  * @details Helper function that renders a temperature value as text with proper positioning and formatting.
  */
-static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp_value, double y_offset) {
+static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset) {
     // Input validation with early return
     char temp_str[16];
     cairo_text_extents_t ext;
@@ -120,7 +120,9 @@ static inline void draw_temp_safe(cairo_t *cr, const Config *config, double temp
     // Calculate text extents and position
     cairo_text_extents(cr, temp_str, &ext);
     const double x = (config->layout_box_width - ext.width) / 2 + DISPLAY_TEMP_DISPLAY_X_OFFSET;
-    const double y = y_offset + (config->layout_box_height + ext.height) / 2;
+    const double vertical_adjustment = (y_offset < 0) ? 
+        DISPLAY_TEMP_VERTICAL_ADJUSTMENT_TOP : DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM;
+    const double y = y_offset + (config->layout_box_height + ext.height) / 2 + vertical_adjustment;
     cairo_move_to(cr, x, y);
     cairo_show_text(cr, temp_str);
 }
@@ -134,10 +136,10 @@ static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, co
     if (!cr || !data || !config) return;
     
     // temp_1 display (CPU temperature) with validation
-    draw_temp_safe(cr, config, data->temp_1, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    draw_temp(cr, config, data->temp_1, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
     
     // temp_2 display (GPU temperature) with validation
-    draw_temp_safe(cr, config, data->temp_2, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    draw_temp(cr, config, data->temp_2, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
 }
 
 /**
@@ -155,7 +157,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
     int temp_val_w = 0;
     if (temp_value > 0.0f) {
         // Use safe division and bounds checking
-        const float temp_ratio = temp_value / 100.0f;
+        const float temp_ratio = temp_value / 105.0f;
         const float clamped_ratio = fmaxf(0.0f, fminf(1.0f, temp_ratio));
         temp_val_w = (int)(clamped_ratio * config->layout_bar_width);
     }
@@ -326,17 +328,19 @@ int render_display(const Config *config, const sensor_data_t *data) {
     draw_temperature_displays(cr, data, config);
     draw_temperature_bars(cr, data, config);
 
-    // Configure font and color for labels
-    if (config->font_size_labels != config->font_size_temp ||
-        memcmp(&config->font_color_label, &config->font_color_temp, sizeof(Color)) != 0) {
-        cairo_set_font_size(cr, config->font_size_labels);
-        cairo_set_source_rgb(cr, 
-                             cairo_color_convert(config->font_color_label.r),
-                             cairo_color_convert(config->font_color_label.g), 
-                             cairo_color_convert(config->font_color_label.b));
+    // Configure font and color for labels (only if temperatures are below 99°C)
+    if (data->temp_1 < 99.0 && data->temp_2 < 99.0) {
+        if (config->font_size_labels != config->font_size_temp ||
+            memcmp(&config->font_color_label, &config->font_color_temp, sizeof(Color)) != 0) {
+            cairo_set_font_size(cr, config->font_size_labels);
+            cairo_set_source_rgb(cr, 
+                                 cairo_color_convert(config->font_color_label.r),
+                                 cairo_color_convert(config->font_color_label.g), 
+                                 cairo_color_convert(config->font_color_label.b));
+        }
+        // Render labels only when temperatures are below 99°C
+        draw_labels(cr, config);
     }
-    // Render labels
-    draw_labels(cr, config);
 
     // Ensure all drawing operations are completed before writing to PNG
     cairo_surface_flush(surface);
