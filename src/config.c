@@ -338,15 +338,15 @@ void config_apply_fallbacks(Config *config) {
     // Layout
     if (config->layout_box_width == 0) config->layout_box_width = config->display_width;
     if (config->layout_box_height == 0) config->layout_box_height = config->display_height / 2;
-    if (config->layout_bar_width == 0) config->layout_bar_width = config->layout_box_width - 8;
-    if (config->layout_bar_height == 0) config->layout_bar_height = 20;
-    if (config->layout_bar_gap == 0) config->layout_bar_gap = 8;
-    if (config->layout_bar_border_width == 0.0f) config->layout_bar_border_width = 1.0f;
+    if (config->layout_bar_width == 0) config->layout_bar_width = config->layout_box_width - 10;
+    if (config->layout_bar_height == 0) config->layout_bar_height = 22;
+    if (config->layout_bar_gap == 0) config->layout_bar_gap = 10;
+    if (config->layout_bar_border_width == 0.0f) config->layout_bar_border_width = 1.5f;
     
     // Font
     if (config->font_face[0] == '\0') SAFE_STRCPY(config->font_face, "Roboto Black");
-    if (config->font_size_temp == 0.0f) config->font_size_temp = 108.0f;
-    if (config->font_size_labels == 0.0f) config->font_size_labels = 28.0f;
+    if (config->font_size_temp == 0.0f) config->font_size_temp = 100.0f;
+    if (config->font_size_labels == 0.0f) config->font_size_labels = 30.0f;
     
     // Temperature thresholds
     if (config->temp_threshold_1 == 0.0f) config->temp_threshold_1 = 55.0f;
