@@ -1,6 +1,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
+[![Donate BTC](https://img.shields.io/badge/Donate-Bitcoin-f7931a.svg)](bitcoin:13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo)
+[![Donate DOGE](https://img.shields.io/badge/Donate-Dogecoin-c2a633.svg)](https://dogechain.info/address/DRSY4cA8eCALn819MjWLbwaePFNti9oS3y)
 
 # CoolerDash - LCD dashboard for CoolerControl
 
@@ -332,16 +334,21 @@ MIT License - See LICENSE file for details.
 
 If you find CoolerDash useful and want to support its development:
 
+### 🪙 Cryptocurrency Donations:
+- **Bitcoin (BTC)**: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo`
+- **Dogecoin (DOGE)**: `DRSY4cA8eCALn819MjWLbwaePFNti9oS3y`
+
+### 🤝 Other Ways to Support:
 - ⭐ **Star this repository** on GitHub
 - 🐛 **Report bugs** and suggest improvements  
 - 🔄 **Share** the project with others
 - 📝 **Contribute** code or documentation
 
-> *Thank you for your support!*
+> *All donations help maintain and improve this project. Thank you for your support!*
 
 ---
 
 **👨‍💻 Developed by DAMACHINE**  
-**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)
-**🔗 Website Github:** [@damachine](https://github.com/damachine)
+**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)  
+**🌐 Repository:** [GitHub](https://github.com/damachine/coolerdash)   
 **💝 Donate:** BTC: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo` | DOGE: `DRSY4cA8eCALn819MjWLbwaePFNti9oS3y`
