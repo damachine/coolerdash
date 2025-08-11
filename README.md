@@ -40,6 +40,49 @@ Right: AI-generated image to demonstrate LCD output*
 
 ---
 
+## 🔄 Architecture Overview
+
+CoolerDash is a lightweight, highly optimized daemon that seamlessly integrates with CoolerControl to display real-time temperature data on LCD displays. The architecture follows a modular design with clear responsibilities:
+
+### Core Components:
+
+1. **Main Module (main.c)**
+   - Daemon initialization and lifecycle management
+   - Signal handling and graceful shutdown
+   - PID file management and process security
+
+2. **Configuration Module (config.c)**
+   - Parses the INI configuration file
+   - Provides default values for missing configurations
+   - Manages color schemes and display settings
+
+3. **CoolerControl Module (coolercontrol.c)**
+   - Communicates with the CoolerControl Open-API
+   - Detects and manages LCD devices
+   - Transfers generated images to the LCD display
+
+4. **Monitor Module (monitor.c)**
+   - Polls CPU and GPU temperature data
+   - Parses JSON responses from the CoolerControl API
+   - Provides processed sensor data
+
+5. **Display Module (display.c)**
+   - Renders temperature data using Cairo graphics library
+   - Draws temperature displays and progress bars
+   - Generates PNG images for LCD display
+
+### Data Flow:
+
+1. CoolerDash initializes all modules and reads configuration
+2. The Monitor module regularly polls temperature data from CoolerControl
+3. The Display module renders the data as an appealing image
+4. The CoolerControl module transfers the image to the LCD display
+5. The process repeats at configurable intervals
+
+This modular architecture enables high performance, minimal resource consumption, and easy extensibility for future features.
+
+---
+
 ## 🖥️ System Requirements
 
 - **OS**: Linux
