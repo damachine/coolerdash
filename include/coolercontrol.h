@@ -157,22 +157,10 @@ int is_session_initialized(void);
 void cleanup_coolercontrol_session(void);
 
 /**
- * @brief Initialize device information cache.
- * @details Fetches and caches device information once at startup for better performance.
- */
-int init_device_cache(const Config *config);
-
-/**
  * @brief Get Liquidctl device UID from CoolerControl API.
  * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
  */
 int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_size);
-
-/**
- * @brief Get device UID from CoolerControl API.
- * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
- */
-int get_device_uid(const Config *config, cc_device_data_t *data);
 
 /**
  * @brief Get Liquidctl device display info (screen_width and screen_height) from CoolerControl API.
@@ -189,6 +177,18 @@ int get_liquidctl_display_info(const Config *config, int *screen_width, int *scr
  *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), name, sizeof(name), &width, &height)) { ... }
  */
 int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
+
+/**
+ * @brief Initialize device information cache.
+ * @details Fetches and caches device information once at startup for better performance.
+ */
+int init_device_cache(const Config *config);
+
+/**
+ * @brief Get device UID from CoolerControl API.
+ * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
+ */
+int get_device_uid(const Config *config, cc_device_data_t *data);
 
 /**
  * @brief Sends an image directly to the LCD of the CoolerControl device.
