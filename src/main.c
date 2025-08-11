@@ -401,8 +401,8 @@ static void show_system_diagnostics(const Config *config, int api_width, int api
 }
 
 /**
- * @brief Send shutdown image if needed.
- * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met.
+ * @brief Send shutdown image if needed or turn off LCD if image is missing.
+ * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met. If shutdown image is missing, sets LCD brightness to 0 to turn off the display.
  */
 static void send_shutdown_image_if_needed(void) {
     // Basic validation
@@ -422,9 +422,28 @@ static void send_shutdown_image_if_needed(void) {
         return;
     }
 
-    // Send shutdown image
-    send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
-    send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
+    // Check if shutdown image file exists
+    FILE *image_file = fopen(shutdown_image_path, "r");
+    if (image_file) {
+        // Image exists, send it normally
+        fclose(image_file);
+        send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
+        send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
+    } else {
+        // Image doesn't exist, create temporary config with brightness 0 to turn off LCD
+        log_message(LOG_WARNING, "Shutdown image '%s' not found, turning off LCD display", shutdown_image_path);
+        
+        // Create a temporary config copy with brightness set to 0
+        Config temp_config = *g_config_ptr;
+        temp_config.lcd_brightness = 0;
+        
+        // Use the main coolerdash image as fallback (should exist) or create a minimal black image
+        const char *fallback_image = g_config_ptr->paths_image_coolerdash;
+        if (fallback_image && fallback_image[0]) {
+            send_image_to_lcd(&temp_config, fallback_image, device_uid);
+            send_image_to_lcd(&temp_config, fallback_image, device_uid); // Send twice for better reliability
+        }
+    }
 }
 
 /**

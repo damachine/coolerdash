@@ -334,6 +334,7 @@ void config_apply_fallbacks(Config *config) {
     if (config->display_refresh_interval_sec == 0) config->display_refresh_interval_sec = 2;
     if (config->display_refresh_interval_nsec == 0) config->display_refresh_interval_nsec = 500000000;
     if (config->lcd_brightness == 0) config->lcd_brightness = 80;
+    if (config->lcd_orientation == 0) config->lcd_orientation = 0;
     
     // Layout
     if (config->layout_box_width == 0) config->layout_box_width = config->display_width;

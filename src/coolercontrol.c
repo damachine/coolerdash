@@ -654,7 +654,11 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     // Set image file data
     mime_result = curl_mime_filedata(field, image_path);
     if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(mime_result));
+        // Only log error if the file actually exists
+        struct stat file_stat;
+        if (stat(image_path, &file_stat) == 0) {
+            log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(mime_result));
+        }
         curl_mime_free(form);
         return 0;
     }
