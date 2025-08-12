@@ -47,14 +47,6 @@ typedef struct http_response {
 } http_response;
 
 /**
- * @brief Structure to hold CoolerControl device information.
- * @details Contains device UID, name, and other relevant data for LCD device communication.
- */
-typedef struct {
-    char device_uid[CC_UID_SIZE];
-} cc_device_data_t;
-
-/**
  * @brief Secure string copy with bounds checking.
  * @details Performs safe string copying with buffer overflow protection and null termination guarantee.
  */
@@ -183,12 +175,6 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
  * @details Fetches and caches device information once at startup for better performance.
  */
 int init_device_cache(const Config *config);
-
-/**
- * @brief Get device UID from CoolerControl API.
- * @details Reads the LCD device UID via API. Returns 1 on success, 0 on failure.
- */
-int get_device_uid(const Config *config, cc_device_data_t *data);
 
 /**
  * @brief Sends an image directly to the LCD of the CoolerControl device.

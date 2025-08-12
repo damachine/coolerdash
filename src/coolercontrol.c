@@ -451,19 +451,22 @@ void cleanup_coolercontrol_session(void) {
  * @details This function retrieves the UID of the Liquidctl device by calling the main device info function.
  */
 int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_size) {
+    // Basic validation
+    if (!config || !device_uid || uid_size == 0) {
+        return 0;
+    }
+    
     // Initialize cache if not already done
     if (!initialize_device_cache(config)) {
         return 0;
     }
 
     // Copy UID from cache with safe string handling
-    if (device_uid && uid_size > 0) {
-        const size_t src_len = strlen(device_cache.device_uid);
-        const size_t copy_len = (src_len < uid_size - 1) ? src_len : uid_size - 1;
-        memcpy(device_uid, device_cache.device_uid, copy_len);
-        device_uid[copy_len] = '\0';
-    }
-
+    const size_t src_len = strlen(device_cache.device_uid);
+    const size_t copy_len = (src_len < uid_size - 1) ? src_len : uid_size - 1;
+    memcpy(device_uid, device_cache.device_uid, copy_len);
+    device_uid[copy_len] = '\0';
+    
     return 1;
 }
 
@@ -515,17 +518,6 @@ int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid
  */
 int init_device_cache(const Config *config) {
     return initialize_device_cache(config);
-}
-
-/**
- * @brief Get the device UID from the cc_device_data_t structure.
- * @details This function retrieves the device UID from the cc_device_data_t structure, which is typically used to store device information.
- */
-int get_device_uid(const Config *config, cc_device_data_t *data) {
-    // Basic validation only
-    if (!config || !data) return 0;
-    // Call main function
-    return get_liquidctl_device_uid(config, data->device_uid, sizeof(data->device_uid));
 }
 
 /**
