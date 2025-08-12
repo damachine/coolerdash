@@ -54,11 +54,11 @@ static CoolerControlSession cc_session = {
  * @details Holds the device UID, name, and display dimensions once fetched from the API. Used to avoid redundant API calls and improve performance.
  */
 static struct {
-    int initialized;                     // Flag to check if cache is populated
-    char device_uid[CC_UID_SIZE];       // Cached device UID
-    char device_name[CC_NAME_SIZE];     // Cached device name
-    int screen_width;                   // Cached screen width
-    int screen_height;                  // Cached screen height
+    int initialized;
+    char device_uid[CC_UID_SIZE];
+    char device_name[CC_NAME_SIZE];
+    int screen_width;
+    int screen_height;
 } device_cache = {0};
 
 /**

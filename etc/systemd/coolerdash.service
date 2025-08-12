@@ -29,9 +29,8 @@
 [Unit]
 Description=CoolerDash daemon
 Documentation=man:coolerdash(1)
-After=network.target coolercontrol-liqctld.service coolercontrold.service
-Requires=coolercontrol-liqctld.service
-Requires=coolercontrold.service
+After=coolercontrol-liqctld.service coolercontrold.service
+Requires=coolercontrol-liqctld.service coolercontrold.service
 
 [Service]
 Type=simple
