@@ -1,0 +1,22 @@
+pkgbase = coolerdash
+	pkgdesc = CoolerDash - LCD dashboard for CoolerControl
+	pkgver = 1.2.0
+	pkgrel = 1
+	url = https://github.com/damachine/coolerdash
+	install = coolerdash.install
+	arch = x86_64
+	license = MIT
+	makedepends = gcc
+	makedepends = make
+	makedepends = pkg-config
+	depends = cairo
+	depends = libcurl-gnutls
+	depends = libinih
+	depends = coolercontrol
+	depends = ttf-roboto
+	depends = jansson
+	optdepends = nvidia-utils: for GPU temperature monitoring
+	optdepends = lm_sensors: for additional hardware monitoring
+	backup = etc/coolerdash/config.ini
+
+pkgname = coolerdash

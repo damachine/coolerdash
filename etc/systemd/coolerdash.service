@@ -1,0 +1,48 @@
+# -----------------------------------------------------------------------------
+# author: damachine (christkue79@gmail.com)
+# website: https://github.com/damachine
+# copyright: (c) 2025 damachine
+# license: MIT
+# version: 1.0
+#
+# Info:
+# 	CoolerDash systemd daemon service file
+# 	This file is part of CoolerDash, a C99 LCD daemon for monitoring and controlling
+#	Project coding standards and packaging notes (see README for details)
+# 	Maintainer: DAMACHINE <christkue79@gmail.com>
+# Details:
+#   Simple systemd service for CoolerDash daemon.
+#   Runs as dedicated user 'coolerdash' for security.
+#   Requires coolercontrol services to be running.
+#   Uses configuration file at /etc/coolerdash/config.ini.
+#   PID file at /tmp/coolerdash.pid for process management.
+#   Do not run as root. Use dedicated user for security.
+#   See README.md and AUR-README.md for further details.
+# Example:
+#   To enable and start the service, use:
+#   sudo systemctl enable coolerdash.service
+#   sudo systemctl start coolerdash.service
+#   To check the status of the service, use:
+#   systemctl status coolerdash.service
+# -----------------------------------------------------------------------------
+
+[Unit]
+Description=CoolerDash daemon
+Documentation=man:coolerdash(1)
+After=coolercontrol-liqctld.service coolercontrold.service
+Requires=coolercontrol-liqctld.service coolercontrold.service
+
+[Service]
+Type=simple
+User=coolerdash
+ExecStartPre=/usr/bin/sleep 10
+ExecStart=/usr/bin/coolerdash
+PIDFile=/tmp/coolerdash.pid
+ReadWritePaths=/tmp /opt/coolerdash
+ProtectSystem=full
+Restart=always
+RestartSec=3
+TimeoutStopSec=3
+
+[Install]
+WantedBy=multi-user.target
