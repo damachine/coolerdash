@@ -326,7 +326,7 @@ void config_apply_fallbacks(Config *config) {
     if (config->display_width == 0 || config->display_height == 0) {
         int lcd_width = 0, lcd_height = 0;
         // Try to get LCD display info from Liquidctl device via API
-        if (get_liquidctl_display_info(config, &lcd_width, &lcd_height) && lcd_width > 0 && lcd_height > 0) {
+        if (get_liquidctl_device_info(config, NULL, 0, NULL, 0, &lcd_width, &lcd_height) && lcd_width > 0 && lcd_height > 0) {
             if (config->display_width == 0) config->display_width = lcd_width;
             if (config->display_height == 0) config->display_height = lcd_height;
         }

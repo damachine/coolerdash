@@ -447,40 +447,6 @@ void cleanup_coolercontrol_session(void) {
 }
 
 /**
- * @brief Get Liquidctl device UID from CoolerControl API.
- * @details This function retrieves the UID of the Liquidctl device by calling the main device info function.
- */
-int get_liquidctl_device_uid(const Config *config, char *device_uid, size_t uid_size) {
-    // Initialize cache if not already done
-    if (!initialize_device_cache(config)) {
-        return 0;
-    }
-
-    // Copy UID from cache with safe string handling
-    if (device_uid && uid_size > 0) {
-        const size_t src_len = strlen(device_cache.device_uid);
-        const size_t copy_len = (src_len < uid_size - 1) ? src_len : uid_size - 1;
-        memcpy(device_uid, device_cache.device_uid, copy_len);
-        device_uid[copy_len] = '\0';
-    }
-
-    return 1;
-}
-
-int get_liquidctl_display_info(const Config *config, int *screen_width, int *screen_height) {
-    // Initialize cache if not already done
-    if (!initialize_device_cache(config)) {
-        return 0;
-    }
-
-    // Copy dimensions from cache
-    if (screen_width) *screen_width = device_cache.screen_width;
-    if (screen_height) *screen_height = device_cache.screen_height;
-
-    return 1;
-}
-
-/**
  * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from CoolerControl API.
  * @details This function retrieves the UID, name, and screen dimensions of the Liquidctl device by calling the main device info function.
  */
