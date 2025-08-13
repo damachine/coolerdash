@@ -412,7 +412,7 @@ static void send_shutdown_image_if_needed(void) {
     
     // Get device UID
     char device_uid[128];
-    if (!get_liquidctl_device_uid(g_config_ptr, device_uid, sizeof(device_uid)) || !device_uid[0]) {
+    if (!get_liquidctl_device_info(g_config_ptr, device_uid, sizeof(device_uid), NULL, 0, NULL, NULL) || !device_uid[0]) {
         return; 
     }
     
