@@ -1,0 +1,52 @@
+post_install() {
+    # Create runtime directory for PID file
+    install -d -m 0755 /run/coolerdash || true
+    # Create user for service
+    if ! id -u coolerdash &>/dev/null; then
+        useradd --system --no-create-home coolerdash || true
+    fi
+    chown coolerdash:coolerdash /run/coolerdash || true
+
+    # Stop service before install or update
+    if systemctl is-active --quiet coolerdash.service; then
+        echo "Stopping coolerdash service..."
+        systemctl stop coolerdash.service 2>/dev/null || true
+    fi
+    echo "CoolerDash has been installed successfully!"
+    echo "Start the service..."
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable --now coolerdash.service 2>/dev/null || true
+    echo "CoolerDash has been installed successfully!"
+    echo "To start the service, run: systemctl enable --now coolerdash.service"
+}
+
+pre_remove() {
+    # Stop and disable systemd service before removal
+    if systemctl is-active --quiet coolerdash.service; then
+        echo "Stopping coolerdash service..."
+        systemctl stop coolerdash.service 2>/dev/null || true
+    fi
+    
+    if systemctl is-enabled --quiet coolerdash.service; then
+        echo "Disabling coolerdash service..."
+        systemctl disable coolerdash.service 2>/dev/null || true
+    fi
+    
+    # Remove all installed users, files and directories
+    if id -u coolerdash &>/dev/null; then
+        userdel -rf coolerdash || true
+    fi
+
+    rm -f /etc/systemd/system/coolerdash.service 2>/dev/null || true
+    rm -f /usr/share/man/man1/coolerdash.1 2>/dev/null || true
+    rm -f /usr/bin/coolerdash 2>/dev/null || true
+    rm -rf /run/coolerdash 2>/dev/null || true
+    rm -rf /opt/coolerdash 2>/dev/null || true
+    
+    # Remove config directory only if empty (preserves modified configs)
+    rmdir /etc/coolerdash 2>/dev/null || true
+}
+
+post_remove() {
+  echo "[coolerdash] All files and service removed."
+}

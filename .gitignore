@@ -1,0 +1,43 @@
+# Build artifacts
+build/
+bin/
+*.a
+*.o
+*.so
+
+# Temporary files
+pkg/
+temp/
+*~
+*.tmp
+*.log
+*.bak
+.cache/
+.makepkg/
+
+# OS files
+.directory
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.code-workspace
+*.swp
+*.swo
+.vscode/
+.idea/
+.qodo/
+.zencoder/
+
+# Compressed archives
+*.tar.xz
+*.tar.gz
+*.zip
+
+# Release tarballs
+coolerdash-*.pkg.*
+
+# Local test files
+PKGBUILD-test
+test-*
+debug-*
