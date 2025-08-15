@@ -11,11 +11,6 @@
  * @details Parses the configuration file and sets values in the Config struct.
  */
 
-// Helper function for safe string copying
-#define SAFE_STRCPY(dest, src) do { \
-    strncpy(dest, src, sizeof(dest) - 1); \
-    dest[sizeof(dest) - 1] = '\0'; \
-} while(0)
 
 // Include necessary headers
 #include <errno.h>
@@ -31,43 +26,41 @@
 #include "../include/config.h"
 #include "../include/coolercontrol.h"
 
-// Forward declarations for static handler functions
-static int handle_daemon_section(Config *config, const char *name, const char *value);
-static int handle_paths_section(Config *config, const char *name, const char *value);
-static int handle_display_section(Config *config, const char *name, const char *value);
-static int handle_layout_section(Config *config, const char *name, const char *value);
-static int handle_font_section(Config *config, const char *name, const char *value);
-static int handle_temperature_section(Config *config, const char *name, const char *value);
-static int handle_color_section(Config *config, const char *section, const char *name, const char *value);
-
 /**
- * @brief Centralized logging function with consistent format.
- * @details Provides consistent logging style matching main.c implementation with appropriate output streams for different log levels.
+ * @brief Globale Logging-Implementierung für alle Module außer main.c
+ * @details Einheitliche Log-Ausgabe für Info, Status, Warnung und Fehler.
  */
-static void log_message(log_level_t level, const char *format, ...) {
-    // Skip INFO messages unless verbose logging is enabled
-    // STATUS, WARNING, and ERROR messages are always shown
+void log_message(log_level_t level, const char *format, ...) {
     if (level == LOG_INFO && !verbose_logging) {
         return;
     }
-    
-    // Log prefix and output stream
     const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
-    
-    // Log message
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
-    
-    // Variable arguments
     va_list args;
     va_start(args, format);
     vfprintf(output, format, args);
     va_end(args);
-    
-    // Newline and flush
     fprintf(output, "\n");
     fflush(output);
 }
+
+// Helper function for safe string copying
+#define SAFE_STRCPY(dest, src) do { \
+    strncpy(dest, src, sizeof(dest) - 1); \
+    dest[sizeof(dest) - 1] = '\0'; \
+} while(0)
+
+// Forward declarations for static handler functions
+static int get_daemon_config(Config *config, const char *name, const char *value);
+static int get_paths_config(Config *config, const char *name, const char *value);
+static int get_display_config(Config *config, const char *name, const char *value);
+static int get_layout_config(Config *config, const char *name, const char *value);
+static int get_font_config(Config *config, const char *name, const char *value);
+static int get_temperature_config(Config *config, const char *name, const char *value);
+static int get_color_config(Config *config, const char *section, const char *name, const char *value);
+
+// Logging erfolgt zentral über log_message aus config.h
 
 /**
  * @brief Helper functions for string parsing with validation.
@@ -108,24 +101,24 @@ static void parse_color_component(const char *value, uint8_t *component) {
  * @brief Main INI parser handler, delegates to section-specific handlers.
  * @details Called for each key-value pair in the INI file. Routes to appropriate section handler for cleaner code organization.
  */
-static int parse_config_handler(void *user, const char *section, const char *name, const char *value) {
+static int parse_config_data(void *user, const char *section, const char *name, const char *value) {
     Config *config = (Config *)user;
 
     if (strcmp(section, "daemon") == 0) {
-        return handle_daemon_section(config, name, value);
+        return get_daemon_config(config, name, value);
     } else if (strcmp(section, "paths") == 0) {
-        return handle_paths_section(config, name, value);
+        return get_paths_config(config, name, value);
     } else if (strcmp(section, "display") == 0) {
-        return handle_display_section(config, name, value);
+        return get_display_config(config, name, value);
     } else if (strcmp(section, "layout") == 0) {
-        return handle_layout_section(config, name, value);
+        return get_layout_config(config, name, value);
     } else if (strcmp(section, "font") == 0) {
-        return handle_font_section(config, name, value);
+        return get_font_config(config, name, value);
     } else if (strcmp(section, "temperature") == 0) {
-        return handle_temperature_section(config, name, value);
+        return get_temperature_config(config, name, value);
     } else if (strstr(section, "color") != NULL || strstr(section, "_bar") != NULL) {
         // Handle all color sections (bar_color_*, font_color_*, temp_threshold_*_bar)
-        return handle_color_section(config, section, name, value);
+        return get_color_config(config, section, name, value);
     }
     
     return 1;
@@ -135,7 +128,7 @@ static int parse_config_handler(void *user, const char *section, const char *nam
  * @brief Handle daemon section configuration.
  * @details Processes daemon-related configuration keys (address, password) with safe string copying.
  */
-static int handle_daemon_section(Config *config, const char *name, const char *value) {
+static int get_daemon_config(Config *config, const char *name, const char *value) {
     if (strcmp(name, "address") == 0) {
         if (value && value[0] != '\0') {
             SAFE_STRCPY(config->daemon_address, value);
@@ -152,7 +145,7 @@ static int handle_daemon_section(Config *config, const char *name, const char *v
  * @brief Handle paths section configuration.
  * @details Processes path-related configuration keys (images, pid, etc.) with validation and safe string operations.
  */
-static int handle_paths_section(Config *config, const char *name, const char *value) {
+static int get_paths_config(Config *config, const char *name, const char *value) {
     if (strcmp(name, "images") == 0) {
         if (value && value[0] != '\0') {
             SAFE_STRCPY(config->paths_images, value);
@@ -177,7 +170,7 @@ static int handle_paths_section(Config *config, const char *name, const char *va
  * @brief Handle display section configuration.
  * @details Processes display-related configuration keys (width, height, brightness, etc.) with range validation and type safety.
  */
-static int handle_display_section(Config *config, const char *name, const char *value) {
+static int get_display_config(Config *config, const char *name, const char *value) {
     if (strcmp(name, "width") == 0) {
         int width = safe_atoi(value, 0);
         config->display_width = (width > 0) ? (uint16_t)width : 0;
@@ -207,7 +200,7 @@ static int handle_display_section(Config *config, const char *name, const char *
  * @brief Handle layout section configuration.
  * @details Processes layout-related configuration keys (box dimensions, bar settings, etc.) with numeric validation.
  */
-static int handle_layout_section(Config *config, const char *name, const char *value) {
+static int get_layout_config(Config *config, const char *name, const char *value) {
     if (strcmp(name, "box_width") == 0) {
         config->layout_box_width = safe_atoi(value, 0);
     } else if (strcmp(name, "box_height") == 0) {
@@ -230,7 +223,7 @@ static int handle_layout_section(Config *config, const char *name, const char *v
  * @brief Handle font section configuration.
  * @details Processes font-related configuration keys (face, sizes) with string and float validation.
  */
-static int handle_font_section(Config *config, const char *name, const char *value) {
+static int get_font_config(Config *config, const char *name, const char *value) {
     if (strcmp(name, "font_face") == 0) {
         if (value && value[0] != '\0') {
             SAFE_STRCPY(config->font_face, value);
@@ -247,7 +240,7 @@ static int handle_font_section(Config *config, const char *name, const char *val
  * @brief Handle temperature section configuration.
  * @details Processes temperature threshold configuration keys with float validation and safe parsing.
  */
-static int handle_temperature_section(Config *config, const char *name, const char *value) {
+static int get_temperature_config(Config *config, const char *name, const char *value) {
     if (strcmp(name, "temp_threshold_1") == 0) {
         config->temp_threshold_1 = safe_atof(value, 50.0f);
     } else if (strcmp(name, "temp_threshold_2") == 0) {
@@ -262,7 +255,7 @@ static int handle_temperature_section(Config *config, const char *name, const ch
  * @brief Handle color section configuration.
  * @details Processes color-related configuration keys for various UI elements with RGB component validation and clamping.
  */
-static int handle_color_section(Config *config, const char *section, const char *name, const char *value) {
+static int get_color_config(Config *config, const char *section, const char *name, const char *value) {
     if (strcmp(section, "bar_color_background") == 0) {
         if (strcmp(name, "r") == 0) parse_color_component(value, &config->layout_bar_color_background.r);
         else if (strcmp(name, "g") == 0) parse_color_component(value, &config->layout_bar_color_background.g);
@@ -303,7 +296,7 @@ static int handle_color_section(Config *config, const char *section, const char 
  * @brief Sets fallback default values for missing or empty configuration fields.
  * @details This function should be called after parsing the INI file to ensure all important fields are set to sensible defaults if not provided. Tries to get LCD display dimensions from Liquidctl device as fallback.
  */
-void config_apply_fallbacks(Config *config) {
+void get_config_defaults(Config *config) {
     if (!config) return;
     
     // Daemon
@@ -326,7 +319,7 @@ void config_apply_fallbacks(Config *config) {
     if (config->display_width == 0 || config->display_height == 0) {
         int lcd_width = 0, lcd_height = 0;
         // Try to get LCD display info from Liquidctl device via API
-        if (get_liquidctl_device_info(config, NULL, 0, NULL, 0, &lcd_width, &lcd_height) && lcd_width > 0 && lcd_height > 0) {
+    if (get_liquidctl_data(config, NULL, 0, NULL, 0, &lcd_width, &lcd_height) && lcd_width > 0 && lcd_height > 0) {
             if (config->display_width == 0) config->display_width = lcd_width;
             if (config->display_height == 0) config->display_height = lcd_height;
         }
@@ -403,13 +396,13 @@ void config_apply_fallbacks(Config *config) {
  * @brief Initialize config structure with safe defaults.
  * @details Sets all fields to safe default values with security considerations by clearing memory and applying fallback values.
  */
-void config_init_defaults(Config *config) {
+void init_config_defaults(Config *config) {
     if (!config) return;
     
     memset(config, 0, sizeof(Config));
     
     // Apply all fallback values
-    config_apply_fallbacks(config);
+    get_config_defaults(config);
 }
 
 /**
@@ -430,16 +423,16 @@ int load_config(const char *path, Config *config) {
     if (!file) {
         // File doesn't exist - use fallbacks only
         log_message(LOG_INFO, "Config file '%s' not found, using fallback values", path);
-        config_apply_fallbacks(config);
+        get_config_defaults(config);
         return 0; // Return success, fallbacks are valid
     }
     fclose(file);
     
     // Parse INI file and return success/failure
-    int result = (ini_parse(path, parse_config_handler, config) < 0) ? -1 : 0;
+    int result = (ini_parse(path, parse_config_data, config) < 0) ? -1 : 0;
     
     // Always apply fallbacks after parsing (for missing/commented values)
-    config_apply_fallbacks(config);
+    get_config_defaults(config);
     
     return result;
 }

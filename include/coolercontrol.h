@@ -150,23 +150,9 @@ void cleanup_coolercontrol_session(void);
 
 /**
  * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from cache.
- * @details Reads all LCD device information from cache (no API call). Returns 1 on success, 0 on failure.
- * Optimized for performance with cached data and no network overhead.
- * Pass NULL for any parameters you don't need.
- * @example
- *     // Get all information
- *     char uid[128], name[128]; int width, height;
- *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), name, sizeof(name), &width, &height)) { ... }
- *     
- *     // Get only UID
- *     char uid[128];
- *     if (get_liquidctl_device_info(&config, uid, sizeof(uid), NULL, 0, NULL, NULL)) { ... }
- *     
- *     // Get only display dimensions
- *     int width, height;
- *     if (get_liquidctl_device_info(&config, NULL, 0, NULL, 0, &width, &height)) { ... }
+ * @details Reads all LCD device information from cache (no API call).
  */
-int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
+int get_liquidctl_data(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
 
 /**
  * @brief Initialize device information cache.

@@ -25,39 +25,10 @@
 #include <unistd.h>
 
 // Project headers
-#include "../include/display.h"
 #include "../include/config.h"
+#include "../include/display.h"
 #include "../include/coolercontrol.h"
 #include "../include/monitor.h"
-
-/**
- * @brief Centralized logging function.
- * @details Provides consistent logging style matching main.c implementation.
- */
-static void log_message(log_level_t level, const char *format, ...) {
-    // Skip INFO messages unless verbose logging is enabled
-    // STATUS, WARNING, and ERROR messages are always shown
-    if (level == LOG_INFO && !verbose_logging) {
-        return;
-    }
-    
-    // Log prefix and output stream
-    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
-    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
-    
-    // Log message
-    fprintf(output, "[CoolerDash %s] ", prefix[level]);
-    
-    // Variable arguments
-    va_list args;
-    va_start(args, format);
-    vfprintf(output, format, args);
-    va_end(args);
-    
-    // Newline and flush
-    fprintf(output, "\n");
-    fflush(output);
-}
 
 /**
  * @brief Convert color component to cairo format.
@@ -386,7 +357,7 @@ void draw_combined_image(const struct Config *config) {
     monitor_sensor_data_t sensor_data = {.temp_cpu = 0.0f, .temp_gpu = 0.0f};
 
     // Retrieve temperature data with validation
-    if (!monitor_get_temperature_data(config, &sensor_data)) {
+    if (!get_temperature_monitor_data(config, &sensor_data)) {
         log_message(LOG_WARNING, "Failed to retrieve temperature data");
         return; // Silently handle sensor data retrieval failure
     }
@@ -397,7 +368,7 @@ void draw_combined_image(const struct Config *config) {
     int screen_width = 0, screen_height = 0;
     
     // Get complete device info (UID, name, dimensions) in single API call
-    const bool device_available = get_liquidctl_device_info(config, device_uid, sizeof(device_uid),
+    const bool device_available = get_liquidctl_data(config, device_uid, sizeof(device_uid),
                                                            device_name, sizeof(device_name), 
                                                            &screen_width, &screen_height);
     // Check if device UID is valid

@@ -32,8 +32,7 @@ applyTo: "**"
 - Dokumentiere komplexe Algorithmen und Datenstrukturen ausführlich.
 - Nutze als 1. Kommentar `@brief` für eine kurze Zusammenfassung der Funktion.
 - Nutze als 2. Kommentar `@details` für eine ausführliche Beschreibung der Funktion.
-- Nutze als 3. Kommentar `@example` für Codebeispiele, die die Nutzung einer Funktion demonstrieren.
-- Beispiel für nutze als 1. 2. 3. Kommentar:
+- Beispiel für nutze als 1. 2. Kommentar:
 ```c
 /**
  * @brief

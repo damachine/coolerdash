@@ -97,6 +97,13 @@ typedef struct Config {
     Color temp_threshold_4_bar;
 } Config;
 
+
+/**
+ * @brief Globale Logging-Funktion für alle Module außer main.c
+ * @details Einheitliche Log-Ausgabe für Info, Status, Warnung und Fehler.
+ */
+void log_message(log_level_t level, const char *format, ...);
+
 /**
  * @brief Global logging control from main.c
  * @details External variable controlling verbose logging behavior across all modules.

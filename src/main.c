@@ -62,35 +62,6 @@ int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
 const Config *g_config_ptr = NULL;
 
 /**
- * @brief Secure logging function with consistent format.
- * @details Centralized logging with timestamp and proper error handling.
- */
-static void log_message(log_level_t level, const char *format, ...) {
-    // Skip INFO messages unless verbose logging is enabled
-    // STATUS, WARNING, and ERROR messages are always shown
-    if (level == LOG_INFO && !verbose_logging) {
-        return;
-    }
-    
-    // Log prefix and output stream
-    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
-    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
-    
-    // Log message
-    fprintf(output, "[CoolerDash %s] ", prefix[level]);
-    
-    // Variable arguments
-    va_list args;
-    va_start(args, format);
-    vfprintf(output, format, args);
-    va_end(args);
-    
-    // Newline and flush
-    fprintf(output, "\n");
-    fflush(output);
-}
-
-/**
  * @brief Read version string from VERSION file with enhanced security.
  * @details Safely reads version from VERSION file with buffer overflow protection and proper validation. Returns fallback version on error.
  */
@@ -412,7 +383,7 @@ static void send_shutdown_image_if_needed(void) {
     
     // Get device UID
     char device_uid[128];
-    if (!get_liquidctl_device_info(g_config_ptr, device_uid, sizeof(device_uid), NULL, 0, NULL, NULL) || !device_uid[0]) {
+    if (!get_liquidctl_data(g_config_ptr, device_uid, sizeof(device_uid), NULL, 0, NULL, NULL) || !device_uid[0]) {
         return; 
     }
     
@@ -674,7 +645,7 @@ int main(int argc, char **argv) {
     int api_screen_width = 0, api_screen_height = 0;
 
     // Get complete device info from cache (no API call)
-    if (get_liquidctl_device_info(&config, device_uid, sizeof(device_uid),
+    if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
                                 device_name, sizeof(device_name), &api_screen_width, &api_screen_height)) {
         
         const char *uid_display = (device_uid[0] != '\0') 
@@ -687,7 +658,7 @@ int main(int argc, char **argv) {
         log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
         
         // Get temperature data separately for validation and log sensor detection status
-        if (monitor_get_temperature_data(&config, &temp_data)) {
+    if (get_temperature_monitor_data(&config, &temp_data)) {
             if (temp_data.temp_cpu > 0.0f || temp_data.temp_gpu > 0.0f) {
                 log_message(LOG_STATUS, "Sensor values successfully detected");
             } else {
