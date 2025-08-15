@@ -688,7 +688,7 @@ int main(int argc, char **argv) {
         
         // Get temperature data separately for validation and log sensor detection status
         if (monitor_get_temperature_data(&config, &temp_data)) {
-            if (temp_data.temp_1 > 0.0f || temp_data.temp_2 > 0.0f) {
+            if (temp_data.temp_cpu > 0.0f || temp_data.temp_gpu > 0.0f) {
                 log_message(LOG_STATUS, "Sensor values successfully detected");
             } else {
                 log_message(LOG_WARNING, "Sensor detection issues - temperature values not available");

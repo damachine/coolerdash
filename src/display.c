@@ -71,18 +71,18 @@ static inline double cairo_color_convert(uint8_t color_component) {
  * @brief Forward declarations for internal display rendering functions.
  * @details Function prototypes for internal display rendering helpers and utility functions used by the main rendering pipeline.
  */
-static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset);
-static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config);
-static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config);
-static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y);
-static void draw_labels(cairo_t *cr, const Config *config);
-static Color get_temperature_bar_color(const Config *config, float val);
+static inline void draw_temp(cairo_t *cr, const struct Config *config, double temp_value, double y_offset);
+static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config);
+static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config);
+static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, float temp_value, int bar_x, int bar_y);
+static void draw_labels(cairo_t *cr, const struct Config *config);
+static Color get_temperature_bar_color(const struct Config *config, float val);
 
 /**
  * @brief Calculate color gradient for temperature bars (green → orange → hot orange → red).
  * @details Determines the RGB color for a given temperature value according to the defined thresholds from config.
  */
-static Color get_temperature_bar_color(const Config *config, float val) {
+static Color get_temperature_bar_color(const struct Config *config, float val) {
     // Temperature threshold and color mapping table
     const struct {
         float threshold;
@@ -109,7 +109,7 @@ static Color get_temperature_bar_color(const Config *config, float val) {
  * @brief Draw a single temperature value.
  * @details Helper function that renders a temperature value as text with proper positioning and formatting.
  */
-static inline void draw_temp(cairo_t *cr, const Config *config, double temp_value, double y_offset) {
+static inline void draw_temp(cairo_t *cr, const struct Config *config, double temp_value, double y_offset) {
     // Input validation with early return
     char temp_str[16];
     cairo_text_extents_t ext;
@@ -131,22 +131,22 @@ static inline void draw_temp(cairo_t *cr, const Config *config, double temp_valu
  * @brief Draw temperature displays with enhanced positioning and validation.
  * @details Draws the temperature values for CPU and GPU in their respective boxes with improved accuracy and safety checks.
  */
-static void draw_temperature_displays(cairo_t *cr, const sensor_data_t *data, const Config *config) {
+static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config) {
     // Input validation with early return
     if (!cr || !data || !config) return;
     
-    // temp_1 display (CPU temperature) with validation
-    draw_temp(cr, config, data->temp_1, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    // temp_cpu display (CPU temperature) with validation
+    draw_temp(cr, config, data->temp_cpu, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
     
-    // temp_2 display (GPU temperature) with validation
-    draw_temp(cr, config, data->temp_2, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    // temp_gpu display (GPU temperature) with validation
+    draw_temp(cr, config, data->temp_gpu, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
 }
 
 /**
  * @brief Draw a single temperature bar with enhanced safety and optimizations.
  * @details Helper function that draws background, fill, and border for a temperature bar with rounded corners, comprehensive validation, and optimized cairo operations.
  */
-static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float temp_value, int bar_x, int bar_y) {
+static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, float temp_value, int bar_x, int bar_y) {
     // Input validation with early return
     if (!cr || !config) return;
     
@@ -231,7 +231,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const Config *config, float
  * @brief Draw optimized temperature bars with enhanced performance and validation.
  * @details Draws horizontal bars representing CPU and GPU temperatures with enhanced color gradients, input validation, and optimized positioning calculations.
  */
-static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const Config *config) {
+static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config) {
     // Input validation with early return
     if (!cr || !data || !config) return;
     
@@ -248,15 +248,15 @@ static void draw_temperature_bars(cairo_t *cr, const sensor_data_t *data, const 
     const int gpu_bar_y = cpu_bar_y + config->layout_bar_height + config->layout_bar_gap;
     
     // Draw bars with temperature values
-    draw_single_temperature_bar(cr, config, data->temp_1, bar_x, cpu_bar_y);
-    draw_single_temperature_bar(cr, config, data->temp_2, bar_x, gpu_bar_y);
+    draw_single_temperature_bar(cr, config, data->temp_cpu, bar_x, cpu_bar_y);
+    draw_single_temperature_bar(cr, config, data->temp_gpu, bar_x, gpu_bar_y);
 }
 
 /**
  * @brief Draw CPU/GPU labels with enhanced positioning and validation.
  * @details Draws text labels for CPU and GPU with optimized positioning calculations and comprehensive input validation. Font and color are set by the main rendering pipeline.
  */
-static void draw_labels(cairo_t *cr, const Config *config) {
+static void draw_labels(cairo_t *cr, const struct Config *config) {
     // Input validation with early return
     if (!cr || !config) return;
     
@@ -279,7 +279,7 @@ static void draw_labels(cairo_t *cr, const Config *config) {
  * @brief Display rendering.
  * @details Creates cairo surface and context, renders temperature displays and bars, then saves the result as PNG image.
  */
-int render_display(const Config *config, const sensor_data_t *data) {
+int render_display(const struct Config *config, const monitor_sensor_data_t *data) {
     // Input validation with early return
     if (!data || !config) {
         log_message(LOG_ERROR, "Invalid parameters for render_display");
@@ -329,7 +329,7 @@ int render_display(const Config *config, const sensor_data_t *data) {
     draw_temperature_bars(cr, data, config);
 
     // Configure font and color for labels (only if temperatures are below 99°C)
-    if (data->temp_1 < 99.0 && data->temp_2 < 99.0) {
+    if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0) {
         if (config->font_size_labels != config->font_size_temp ||
             memcmp(&config->font_color_label, &config->font_color_temp, sizeof(Color)) != 0) {
             cairo_set_font_size(cr, config->font_size_labels);
@@ -375,26 +375,21 @@ int render_display(const Config *config, const sensor_data_t *data) {
  * @brief Main entry point for display updates with enhanced error handling.
  * @details Collects sensor data and renders display with comprehensive validation, error handling, and optimized resource management. Handles LCD communication and ensures robust operation in all conditions.
  */
-void draw_combined_image(const Config *config) {
+void draw_combined_image(const struct Config *config) {
     // Input validation with early return
     if (!config) {
         log_message(LOG_ERROR, "Invalid config parameter for draw_combined_image");
         return;
     }
     
-    // Initialize data structures with safe defaults
-    sensor_data_t sensor_data = {.temp_1 = 0.0f, .temp_2 = 0.0f};
-    monitor_sensor_data_t temp_data = {.temp_1 = 0.0f, .temp_2 = 0.0f};
+    // Initialize data structure with safe defaults
+    monitor_sensor_data_t sensor_data = {.temp_cpu = 0.0f, .temp_gpu = 0.0f};
 
     // Retrieve temperature data with validation
-    if (!monitor_get_temperature_data(config, &temp_data)) {
+    if (!monitor_get_temperature_data(config, &sensor_data)) {
         log_message(LOG_WARNING, "Failed to retrieve temperature data");
         return; // Silently handle sensor data retrieval failure
     }
-
-    // Copy temperature data
-    sensor_data.temp_1 = temp_data.temp_1;
-    sensor_data.temp_2 = temp_data.temp_2;
 
     // Get device info for LCD operations
     char device_uid[128] = {0};

@@ -180,10 +180,4 @@ int init_device_cache(const Config *config);
  */
 int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid);
 
-/**
- * @brief Initialize monitor subsystem (CPU/GPU sensors).
- * @details Sets up all available temperature sensors (CPU, GPU, etc.) for data collection.
- */
-int monitor_init(const Config *config);
-
 #endif // COOLERCONTROL_H

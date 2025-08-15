@@ -58,7 +58,7 @@ static void log_message(log_level_t level, const char *format, ...) {
  * @brief Parse sensor JSON and extract temperatures from CPU and GPU devices.
  * @details Parses the JSON response from CoolerControl API to extract CPU and GPU temperature values from device status history.
  */
-static int parse_temperature_json(const char *json, float *temp_1, float *temp_2) {
+static int parse_temperature_json(const char *json, float *temp_cpu, float *temp_gpu) {
     // Validate input
     if (!json || strlen(json) == 0) {
         log_message(LOG_ERROR, "Empty or null JSON input");
@@ -66,8 +66,8 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
     }
     
     // Initialize temperature variables
-    if (temp_1) *temp_1 = 0.0f;
-    if (temp_2) *temp_2 = 0.0f;
+    if (temp_cpu) *temp_cpu = 0.0f;
+    if (temp_gpu) *temp_gpu = 0.0f;
 
     // Parse JSON
     json_error_t json_error;
@@ -146,16 +146,16 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
             }
 
             // Check sensor type and assign temperature
-            if (type_str[0] == 'C' && temp_1 && !cpu_found) { // CPU device
+            if (type_str[0] == 'C' && temp_cpu && !cpu_found) { // CPU device
                 if (sensor_name[0] == 't' && strcmp(sensor_name, "temp1") == 0) {
-                    *temp_1 = temperature;
+                    *temp_cpu = temperature;
                     cpu_found = 1;
                     break;
                 }
-            } else if (type_str[0] == 'G' && temp_2 && !gpu_found) { // GPU device
+            } else if (type_str[0] == 'G' && temp_gpu && !gpu_found) { // GPU device
                 if ((sensor_name[0] == 'G' && strstr(sensor_name, "GPU")) ||
                     (sensor_name[0] == 'g' && strstr(sensor_name, "gpu"))) {
-                    *temp_2 = temperature;
+                    *temp_gpu = temperature;
                     gpu_found = 1;
                     break;
                 }
@@ -172,13 +172,13 @@ static int parse_temperature_json(const char *json, float *temp_1, float *temp_2
  * @brief Get CPU and GPU temperature data from CoolerControl API.
  * @details Sends HTTP POST request to CoolerControl status endpoint and parses the JSON response to extract temperature values.
  */
-int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
+int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu) {
     // Validate input parameters
-    if (!config || !temp_1 || !temp_2) return 0;
+    if (!config || !temp_cpu || !temp_gpu) return 0;
     
     // Initialize temperature variables
-    *temp_1 = 0.0f;
-    *temp_2 = 0.0f;
+    *temp_cpu = 0.0f;
+    *temp_gpu = 0.0f;
     
     // Validate daemon address
     if (strlen(config->daemon_address) == 0) {
@@ -251,8 +251,8 @@ int get_temperature_data(const Config *config, float *temp_1, float *temp_2) {
         if (response_code == 200) {
             result = parse_temperature_json(chunk.data, &cpu_temp, &gpu_temp);
             if (result) {
-                *temp_1 = cpu_temp;
-                *temp_2 = gpu_temp;
+                *temp_cpu = cpu_temp;
+                *temp_gpu = gpu_temp;
             }
         } else {
             log_message(LOG_ERROR, "HTTP error: %ld when fetching temperature data", response_code);
@@ -278,7 +278,7 @@ int monitor_get_temperature_data(const Config *config, monitor_sensor_data_t *da
     if (!config || !data) return 0;
 
     // Get temperature data from monitor module
-    return get_temperature_data(config, &data->temp_1, &data->temp_2);
+    return get_temperature_data(config, &data->temp_cpu, &data->temp_gpu);
 }
 
 /**

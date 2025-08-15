@@ -18,6 +18,7 @@
 // Include necessary headers
 #include <stddef.h>
 #include <stdint.h>
+#include "monitor.h"
 
 // Forward declarations
 struct Config;
@@ -43,15 +44,6 @@ struct Config;
 #define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM -4
 
 /**
- * @brief Sensor data structure for display rendering.
- * @details Contains temperature values (temp_1 and temp_2) used for rendering LCD display content with appropriate color coding and bar charts.
- */
-typedef struct {
-    float temp_1;
-    float temp_2;
-} sensor_data_t;
-
-/**
  * @brief Collects sensor data and renders display.
  * @details High-level entry point function that retrieves temperature data from monitoring subsystem and triggers display rendering with current configuration.
  */
@@ -61,6 +53,6 @@ void draw_combined_image(const struct Config *config);
  * @brief Render display based on sensor data and configuration.
  * @details Low-level function that creates PNG image using Cairo graphics library based on temperature sensor data and configuration settings, then uploads to LCD device.
  */
-int render_display(const struct Config *config, const sensor_data_t *data);
+int render_display(const struct Config *config, const monitor_sensor_data_t *data);
 
 #endif // DISPLAY_H
