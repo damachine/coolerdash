@@ -23,11 +23,11 @@ struct Config;
 
 /**
  * @brief Structure to hold temperature sensor data.
- * @details Contains two temperature values (temp_1 and temp_2) representing CPU and GPU temperatures in degrees Celsius.
+ * @details Contains two temperature values (temp_cpu and temp_gpu) representing CPU and GPU temperatures in degrees Celsius.
  */
 typedef struct {
-    float temp_1;
-    float temp_2;
+    float temp_cpu;
+    float temp_gpu;
 } monitor_sensor_data_t;
 
 /**
@@ -40,7 +40,7 @@ int monitor_init(const struct Config *config);
  * @brief Get CPU and GPU temperature data from CoolerControl API.
  * @details Low-level function that retrieves temperature values via HTTP request to CoolerControl daemon and stores them in the provided float pointers.
  */
-int get_temperature_data(const struct Config *config, float *temp_1, float *temp_2);
+int get_temperature_data(const struct Config *config, float *temp_cpu, float *temp_gpu);
 
 /**
  * @brief Get temperature data into structure.

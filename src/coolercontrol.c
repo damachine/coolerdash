@@ -376,14 +376,18 @@ int init_coolercontrol_session(const Config *config) {
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, "");
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
     
+    // Set HTTP headers for login request
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
+    headers = curl_slist_append(headers, "Accept: application/json");
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
+    
     // Enable SSL verification for HTTPS
     if (strncmp(config->daemon_address, "https://", 8) == 0) {
         curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
         curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
     }
-    
-    // Set user agent
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERAGENT, "CoolerDash/1.0");
 
     // Perform login request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
@@ -392,6 +396,9 @@ int init_coolercontrol_session(const Config *config) {
 
     // Clear sensitive data
     memset(userpwd, 0, sizeof(userpwd));
+
+    // Cleanup headers
+    if (headers) curl_slist_free_all(headers);
 
     // Check if login was successful
     if (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
