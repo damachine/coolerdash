@@ -21,44 +21,15 @@
 #include <time.h>
 
 // Include project headers
-#include "../include/monitor.h"
 #include "../include/config.h"
+#include "../include/monitor.h"
 #include "../include/coolercontrol.h"
-
-/**
- * @brief Centralized logging function with consistent format.
- * @details Provides consistent logging style matching main.c implementation.
- */
-static void log_message(log_level_t level, const char *format, ...) {
-    // Skip INFO messages unless verbose logging is enabled
-    // STATUS, WARNING, and ERROR messages are always shown
-    if (level == LOG_INFO && !verbose_logging) {
-        return;
-    }
-    
-    // Log prefix and output stream
-    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
-    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
-    
-    // Log message
-    fprintf(output, "[CoolerDash %s] ", prefix[level]);
-    
-    // Variable arguments
-    va_list args;
-    va_start(args, format);
-    vfprintf(output, format, args);
-    va_end(args);
-    
-    // Newline and flush
-    fprintf(output, "\n");
-    fflush(output);
-}
 
 /**
  * @brief Parse sensor JSON and extract temperatures from CPU and GPU devices.
  * @details Parses the JSON response from CoolerControl API to extract CPU and GPU temperature values from device status history.
  */
-static int parse_temperature_json(const char *json, float *temp_cpu, float *temp_gpu) {
+static int parse_temperature_data(const char *json, float *temp_cpu, float *temp_gpu) {
     // Validate input
     if (!json || strlen(json) == 0) {
         log_message(LOG_ERROR, "Empty or null JSON input");
@@ -249,7 +220,7 @@ int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu)
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
         
         if (response_code == 200) {
-            result = parse_temperature_json(chunk.data, &cpu_temp, &gpu_temp);
+            result = parse_temperature_data(chunk.data, &cpu_temp, &gpu_temp);
             if (result) {
                 *temp_cpu = cpu_temp;
                 *temp_gpu = gpu_temp;
@@ -273,7 +244,7 @@ int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu)
  * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
  * @details Reads the current CPU and GPU temperatures and LCD UID via API.
  */
-int monitor_get_temperature_data(const Config *config, monitor_sensor_data_t *data) {
+int get_temperature_monitor_data(const Config *config, monitor_sensor_data_t *data) {
     // Check if config and data pointers are valid
     if (!config || !data) return 0;
 
@@ -285,7 +256,7 @@ int monitor_get_temperature_data(const Config *config, monitor_sensor_data_t *da
  * @brief Initialize the monitor component with the given configuration.
  * @details Currently does nothing but returns success. Future implementations may include initialization logic.
  */
-int monitor_init(const Config *config) {
+int init_monitr(const Config *config) {
     (void)config;
     return 1;
 }

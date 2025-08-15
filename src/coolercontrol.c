@@ -26,8 +26,8 @@
 #include <unistd.h>
 
 // Include project headers
-#include "../include/coolercontrol.h"
 #include "../include/config.h"
+#include "../include/coolercontrol.h"
 
 /**
  * @brief Structure to hold CoolerControl session state.
@@ -64,7 +64,6 @@ static struct {
 /**
  * @brief Initialize device cache by fetching device information once.
  * @details Populates the static cache with device UID, name, and display dimensions.
- * This function should be called once at startup. Returns 1 on success, 0 on failure.
  */
 static int initialize_device_cache(const Config *config);
 
@@ -72,36 +71,7 @@ static int initialize_device_cache(const Config *config);
  * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
  * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
  */
-static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size);
-
-/**
- * @brief Centralized logging function with consistent format.
- * @details Provides consistent logging style matching main.c implementation with appropriate output streams for different log levels.
- */
-static void log_message(log_level_t level, const char *format, ...) {
-    // Skip INFO messages unless verbose logging is enabled
-    // STATUS, WARNING, and ERROR messages are always shown
-    if (level == LOG_INFO && !verbose_logging) {
-        return;
-    }
-    
-    // Log prefix and output stream
-    const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
-    FILE *output = (level == LOG_ERROR) ? stderr : stdout;
-    
-    // Log message
-    fprintf(output, "[CoolerDash %s] ", prefix[level]);
-    
-    // Variable arguments
-    va_list args;
-    va_start(args, format);
-    vfprintf(output, format, args);
-    va_end(args);
-    
-    // Newline and flush
-    fprintf(output, "\n");
-    fflush(output);
-}
+static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size);
 
 /**
  * @brief Callback for libcurl to write received data into a buffer.
@@ -146,7 +116,7 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
  * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
  * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
  */
-static int parse_liquidctl_devices_json(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size) {
+static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size) {
     // Validate input
     if (!json) return 0;
 
@@ -309,7 +279,7 @@ static int initialize_device_cache(const Config *config) {
 
     // Perform request and parse response
     if (curl_easy_perform(curl) == CURLE_OK) {
-        result = parse_liquidctl_devices_json(chunk.data,
+    result = parse_liquidctl_data(chunk.data,
                                             device_cache.device_uid, sizeof(device_cache.device_uid),
                                             &found_liquidctl,
                                             &device_cache.screen_width, &device_cache.screen_height,
@@ -457,7 +427,7 @@ void cleanup_coolercontrol_session(void) {
  * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from CoolerControl API.
  * @details This function retrieves the UID, name, and screen dimensions of the Liquidctl device by calling the main device info function.
  */
-int get_liquidctl_device_info(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height) {
+int get_liquidctl_data(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height) {
     // Initialize cache if not already done
     if (!initialize_device_cache(config)) {
         return 0;
