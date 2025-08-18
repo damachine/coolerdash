@@ -2,15 +2,15 @@
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
 
-# CoolerDash - LCD dashboard for CoolerControl
+# CoolerDash - LCD Dashboard for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)
 
 ## 📖 Description
 
-**CoolerDash is a wrapper tool that extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with advanced LCD display capabilities for your water cooling system.**
+**CoolerDash is a wrapper tool that extends CoolerControl with advanced LCD display capabilities for your water cooling system.**
 
 Turn your water cooling display into a smart, stylish information hub—beyond the default features of CoolerControl alone.
 
-Special thanks to @codifryed, the developer of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)!
+Special thanks to @codifryed, the developer of CoolerControl!
 
 ### 📸 Screenshot – Example LCD Output
 
