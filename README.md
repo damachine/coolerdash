@@ -6,13 +6,11 @@
 
 ## 📖 Description
 
-**Take full control of your liquid cooling system with integrated LCD display to monitor real-time sensor data in style.**
+**CoolerDash is a wrapper tool that extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with advanced LCD display capabilities for your water cooling system.**
 
-This system daemon empowers you to harness the potential of your LCD-equipped liquid coolers. Display comprehensive system monitoring data including CPU and GPU temperatures directly on your LCD screen through seamless CoolerControl Open-API integration.
+Turn your water cooling display into a smart, stylish information hub—beyond the default features of CoolerControl alone.
 
-Transform your cooling system into an intelligent monitoring hub that keeps you informed about your system's vital signs at a glance.
-
-Special thanks to @codifryed, the developer of CoolerControl, for making this possible!
+Special thanks to @codifryed, the developer of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)!
 
 ### 📸 Screenshot – Example LCD Output
 
@@ -25,15 +23,6 @@ Special thanks to @codifryed, the developer of CoolerControl, for making this po
 *Left: Live temperature monitoring image on NZXT Kraken 2023 LCD display  
 Right: AI-generated image to demonstrate LCD output*
 
-## ✨ Features
-
-- **🚀 Intelligent Installation**: Easy installation for all major Linux distributions
-- **⚡ Performance-Optimized**: Caching, change detection, minimal I/O operations
-- **📊 Efficient Sensor Polling**: Only necessary sensor data is queried (no mode logic)
-- **📊 CoolerControl Open-API**: Complete device and sensor data access via CoolerControl Open-API
-- **🔄 Systemd Integration**: Service management with detailed logs
-- **🔒 Enhanced Security**: Runs as dedicated non-root user for improved system security
-
 > **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
 
 ---
@@ -43,7 +32,7 @@ Right: AI-generated image to demonstrate LCD output*
 - **OS**: Linux
 - **CoolerControl**: REQUIRED - must be installed and running
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
-- **LCD**: LCD displays supported by CoolerControl (Asus, MSI, NZXT, etc.)
+- **LCD**: LCD displays supported by CoolerControl (NZXT, etc.)
 
 **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
@@ -61,10 +50,6 @@ Right: AI-generated image to demonstrate LCD output*
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
-3. **CoolerControl configuration**: In CoolerControl GUI, set CPU/GPU sensors to your desired values!
-4. **CoolerControl configuration**: In CoolerControl GUI, set your LCD display to **"Image/gif"** mode and brightness to **"80%"**! 
-
-> **Note:** CoolerDash brightness is set to 80% by default. When you change the brightness in CoolerDash configuration(config.ini), adjust it in CoolerControl as well for optimal results!
 
 ---
 
@@ -139,6 +124,11 @@ systemctl stop coolerdash.service
 ---
 
 ## ⚙️ Configuration
+
+> **CoolerControl configuration**: In CoolerControl GUI, set CPU/GPU sensors to your desired values!
+>                                  In CoolerControl GUI, set your LCD display to **"Image/gif"** mode and brightness to **"80%"**! 
+
+> **Note:** CoolerDash brightness is set to 80% by default. When you change the brightness in CoolerDash configuration(config.ini), adjust it in CoolerControl as well for optimal results!
 
 > **The following settings were tested with an NZXT Kraken 2023.**  
 > CoolerDash should work with any LCD device supported by CoolerControl (Asus, MSI, NZXT, etc.).
@@ -265,7 +255,7 @@ curl http://localhost:11987/devices | jq
       }
 ```
 
-#### Manual Installation Conflicts
+**Manual Installation Conflicts**
 If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
 **Solution:**
@@ -281,6 +271,11 @@ If you need help, open an issue at https://github.com/damachine/coolerdash/issue
 
 ---
 
+## ⚠️ Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied.  
+I do not guarantee that it will work as intended on your system.  
+
 ## 📄 License
 
 MIT License - See LICENSE file for details.
@@ -289,11 +284,6 @@ MIT License - See LICENSE file for details.
 
 If you find CoolerDash useful and want to support its development:
 
-### 🪙 Cryptocurrency Donations:
-- **Bitcoin (BTC)**: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo`
-- **Dogecoin (DOGE)**: `DRSY4cA8eCALn819MjWLbwaePFNti9oS3y`
-
-### 🤝 Other Ways to Support:
 - ⭐ **Star this repository** on GitHub
 - 🐛 **Report bugs** and suggest improvements  
 - 🔄 **Share** the project with others
