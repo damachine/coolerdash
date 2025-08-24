@@ -25,7 +25,6 @@ Thumbs.db
 *.swp
 *.swo
 .vscode/
-.idea/
 .qodo/
 
 # Compressed archives
