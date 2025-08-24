@@ -20,11 +20,6 @@ Special thanks to @codifryed, the developer of CoolerControl!
   <img src="images/gpt3.png" alt="AI-generated LCD Demo" width="240" height="240"/>
 </div>
 
-*Left: Live temperature monitoring image on NZXT Kraken 2023 LCD display  
-Right: AI-generated image to demonstrate LCD output*
-
-> **Note:** Support for selectable display modes may be reintroduced in a future version if there is sufficient demand 🎨.
-
 ---
 
 ## 🖥️ System Requirements
@@ -43,13 +38,13 @@ Right: AI-generated image to demonstrate LCD output*
 - **RHEL / CentOS**
 - **openSUSE**
 
-> **Note:** Dependencies are usually installed automatically when using the provided PKGBUILD or package manager scripts.  
-> If you install manually, please ensure all required dependencies are present on
+> **Note:** If you install manually, please ensure all required dependencies are present on.
 
 ## Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
+3. **In CoolerControl config - Device and Sensor - select one sensor for CPU and GPU**
 
 ---
 
@@ -130,17 +125,11 @@ systemctl stop coolerdash.service
 
 > **Note:** CoolerDash brightness is set to 80% by default. When you change the brightness in CoolerDash configuration(config.ini), adjust it in CoolerControl as well for optimal results!
 
-> **The following settings were tested with an NZXT Kraken 2023.**  
-> CoolerDash should work with any LCD device supported by CoolerControl (Asus, MSI, NZXT, etc.).
-
-> **Zero Configuration Required:** CoolerDash automatically detects essential settings including LCD resolution, device UIDs, and optimal display parameters. No manual configuration is needed for basic operation.
->
 > **Runtime Configuration:** All settings are managed in `/etc/coolerdash/config.ini`.
 > After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
->
-> **If `/etc/coolerdash/config.ini` does not exist, CoolerDash will use built-in defaults.**
->
+
 > **Shutdown Image:** When CoolerDash stops (during system shutdown or reboot), it automatically displays the `shutdown.png` image since sensor data is no longer available. You can customize, disable, or replace this image by editing the `/etc/coolerdash/config.ini` configuration file.
+
 ---
 
 ## 🔧 Usage
@@ -200,28 +189,6 @@ journalctl -u coolerdash.service -f
 # 6. View recent logs with context
 journalctl -u coolerdash.service -n 50
 ```
-
-#### Logging Levels
-
-CoolerDash uses an intelligent logging system with four levels:
-
-- **STATUS**: Important startup messages (always shown, visible in systemd logs)
-- **INFO**: Detailed debug information (only shown with `--log` parameter)
-- **WARNING**: Non-critical issues (always shown)
-- **ERROR**: Critical errors (always shown)
-
-```bash
-# Normal operation - shows STATUS, WARNING, ERROR only
-coolerdash
-
-# Debug mode - shows all logging levels including INFO
-coolerdash --log
-
-# View logs via systemd
-journalctl -u coolerdash.service
-```
-
----
 
 ## 🔍 Troubleshooting
 
