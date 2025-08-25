@@ -1,5 +1,5 @@
 pkgbase = coolerdash
-	pkgdesc = CoolerDash - LCD dashboard for CoolerControl
+	pkgdesc = Extends CoolerControl with a polished LCD dashboard
 	pkgver = 1.25
 	pkgrel = 1
 	url = https://github.com/damachine/coolerdash
@@ -15,6 +15,9 @@ pkgbase = coolerdash
 	depends = libcurl-gnutls
 	depends = libinih
 	depends = ttf-roboto
+	provides = coolerdash-git
+	conflicts = coolerdash-git
+	replaces = coolerdash-git
 	backup = etc/coolerdash/config.ini
 
 pkgname = coolerdash
