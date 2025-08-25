@@ -225,14 +225,11 @@ install: check-deps-for-install $(TARGET)
 	@printf "\n"
 	@printf "$(ICON_INSTALL) $(WHITE)═══ COOLERDASH INSTALLATION ═══$(RESET)\n"
 	@printf "\n"
-	@printf "$(ICON_INFO) $(CYAN)Creating runtime directory for PID file...$(RESET)\n"
-	sudo install -d -m 0755 /run/coolerdash
 	@if ! id -u coolerdash &>/dev/null; then \
 		sudo useradd --system --no-create-home coolerdash; \
+		@printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"
+		@printf "\n"
 	fi
-	sudo chown coolerdash:coolerdash /run/coolerdash
-	@printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"
-	@printf "\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Checking running service and processes...$(RESET)\n"
 	@if sudo systemctl is-active --quiet coolerdash.service; then \
 		printf "  $(YELLOW)→$(RESET) Service running, stopping for update...\n"; \
@@ -340,8 +337,6 @@ uninstall:
 	sudo rm -rf /opt/coolerdash/images/ 2>/dev/null || true
 	sudo rm -rf /opt/coolerdash/ 2>/dev/null || true
 	sudo rm -f /usr/bin/coolerdash 2>/dev/null || true
-	sudo rm -f /run/coolerdash/coolerdash.pid 2>/dev/null || true
-	sudo rm -rf /run/coolerdash 2>/dev/null || true
 	# Remove config directory only if empty (preserves modified configs)
 	sudo rmdir /etc/coolerdash 2>/dev/null || true
 	# Remove any remaining files in /opt/coolerdash (catch-all, safe if dir already gone)

@@ -36,10 +36,9 @@ pkgdesc="CoolerDash - LCD dashboard for CoolerControl"
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
-depends=('cairo' 'libcurl-gnutls' 'libinih' 'coolercontrol' 'ttf-roboto' 'jansson')
+depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config')
-optdepends=('nvidia-utils: for GPU temperature monitoring'
-            'lm_sensors: for additional hardware monitoring')
+optdepends=()
 backup=('etc/coolerdash/config.ini')
 install=coolerdash.install
 source=()
@@ -47,15 +46,15 @@ sha256sums=()
 
 build() {
     echo "================================================================"
-    plain ' '
-    plain '         .--.  '
-    plain '        |o_o | '
-    plain '        |:_/ | '
-    plain '       //   \ \ '
-    plain '      (|     | ) '
-    plain '      /'\''\_   _/'\''\ '
-    plain '      \___)=(___/ '
-    plain ' '
+    echo ' '
+    echo '         .--.  '
+    echo '        |o_o | '
+    echo '        |:_/ | '
+    echo '       //   \ \ '
+    echo '      (|     | ) '
+    echo "      /'\\_   _/'\\ "
+    echo '      \___)=(___/ '
+    echo ' '
 
     # For local build: use current directory directly
     cd "$startdir"
@@ -119,5 +118,4 @@ package() {
     ln -sf /opt/coolerdash/bin/coolerdash "$pkgdir/usr/bin/coolerdash"
     install -Dm644 "$srcdir/systemd/coolerdash.service" "$pkgdir/etc/systemd/system/coolerdash.service"
     install -Dm644 "$srcdir/man/coolerdash.1" "$pkgdir/usr/share/man/man1/coolerdash.1"
-    install -dm755 "$pkgdir/run/coolerdash"
 }
