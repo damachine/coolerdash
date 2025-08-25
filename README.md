@@ -2,13 +2,11 @@
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
 
-# CoolerDash - LCD Dashboard for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)
+# CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD dashboard
 
 ## 📖 Description
 
-**CoolerDash is a wrapper tool that extends CoolerControl with advanced LCD display capabilities for your water cooling system.**
-
-Turn your water cooling display into a smart, stylish information hub—beyond the default features of CoolerControl alone.
+**CoolerDash is a wrapper tool that extends CoolerControl. Turn your water cooling display into a smart, stylish information hub—beyond the default features of CoolerControl alone.**
 
 Special thanks to @codifryed, the developer of CoolerControl!
 
@@ -54,16 +52,21 @@ Special thanks to @codifryed, the developer of CoolerControl!
 
 #### Arch Linux (Recommended)
 
+- Using an AUR helper (recommended):
+```bash
+yay -S coolerdash-git
+```
+
+- Manual AUR install (no AUR helper):
 ```bash
 # STEP 1: Clone repository
-git clone https://github.com/damachine/coolerdash.git
-cd coolerdash
+git clone https://aur.archlinux.org/coolerdash-git.git
+cd coolerdash-git
+makepkg --printsrcinfo > .SRCINFO
+makepkg -si
 
 # STEP 2: Start CoolerControl daemon if not already running
 systemctl start coolercontrold
-
-# STEP 3: Build and install (includes automatic dependency management)
-makepkg -si
 
 # STEP 4: Enable autostart and start CoolerDash
 systemctl enable --now coolerdash.service
@@ -73,7 +76,7 @@ systemctl status coolerdash.service
 journalctl -u coolerdash.service
 ```
 
-#### Manual Installation (All Distributions)
+#### All Distributions (Manual Installation)
 
 ```bash
 # STEP 1: Clone repository
@@ -123,8 +126,6 @@ systemctl stop coolerdash.service
 > **CoolerControl configuration**: In CoolerControl GUI, set CPU/GPU sensors to your desired values!
 >                                  In CoolerControl GUI, set your LCD display to **"Image/gif"** mode and brightness to **"80%"**! 
 
-> **Note:** CoolerDash brightness is set to 80% by default. When you change the brightness in CoolerDash configuration(config.ini), adjust it in CoolerControl as well for optimal results!
-
 > **Runtime Configuration:** All settings are managed in `/etc/coolerdash/config.ini`.
 > After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
@@ -148,12 +149,6 @@ journalctl -u coolerdash.service
 
 # Live logs
 journalctl -u coolerdash.service -f
-
-# Makefile shortcuts
-make start      # systemctl start coolerdash
-make stop       # systemctl stop coolerdash
-make status     # systemctl status coolerdash
-make logs       # journalctl -u coolerdash -f
 ```
 
 #### Build Commands
@@ -197,7 +192,6 @@ journalctl -u coolerdash.service -n 50
 - **"Device not found"**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
 - **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
 - **"Connection problem"**: No devices found or wrong device UID → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
-- **"Another instance may be running"**: CoolerDash is already running → Check with `systemctl status coolerdash.service` and stop the service if needed
 
 **Troubleshooting: Verify connection**, you can manually check if devices are detected correctly:
 ```bash

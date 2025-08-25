@@ -32,7 +32,10 @@
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
-pkgdesc="CoolerDash - LCD dashboard for CoolerControl"
+provides=('coolerdash-git')
+replaces=('coolerdash-git')
+conflicts=('coolerdash-git')
+pkgdesc="Extends CoolerControl with a polished LCD dashboard"
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
