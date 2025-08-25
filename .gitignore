@@ -6,14 +6,15 @@ bin/
 *.so
 
 # Temporary files
+.cache/
+.makepkg/
 pkg/
+src/
 temp/
 *~
 *.tmp
 *.log
 *.bak
-.cache/
-.makepkg/
 
 # OS files
 .directory
@@ -31,6 +32,10 @@ Thumbs.db
 *.tar.xz
 *.tar.gz
 *.zip
+*.gz
+*.xz
+*.zst
+*.pkg.*
 
 # Release tarballs
 coolerdash-*.pkg.*

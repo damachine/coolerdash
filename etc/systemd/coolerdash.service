@@ -38,6 +38,7 @@ User=coolerdash
 ExecStartPre=/usr/bin/sleep 10
 ExecStart=/usr/bin/coolerdash
 PIDFile=/tmp/coolerdash.pid
+RuntimeDirectory=coolerdash
 ReadWritePaths=/tmp /opt/coolerdash
 ProtectSystem=full
 Restart=always
