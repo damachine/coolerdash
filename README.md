@@ -39,7 +39,7 @@ Special thanks to @codifryed, the developer of CoolerControl!
 - **RHEL / CentOS**
 - **openSUSE**
 
-> **Note:** If you install manually, please ensure all required dependencies are present on.
+> **Note:** If you install manually, you must ensure all required dependencies are installed yourself. No automatic updates will be provided for manual installations.
 
 ## Prerequisites
 

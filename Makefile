@@ -5,14 +5,16 @@
 # Copyright: (c) 2025 damachine
 # License: MIT
 # Version: 1.0
+#   This software is provided "as is", without warranty of any kind, express or implied.
+#   I do not guarantee that it will work as intended on your system.
 #
 # Info:
-#   CoolerDash PKGBUILD
+#   CoolerDash 'Makefile' - Installation and Build
 #   Build system for CoolerDash (C99 LCD daemon)
 #   Project coding standards and packaging notes (see README for details)
 #
 # Details:
-#   This PKGBUILD handles build, install, dependencies, and packaging for Arch/AUR.
+#   This 'Makefile' handles build, install, dependencies, and packaging.
 #   Edit dependencies, paths, and user as needed for your system.
 #   Do not run as root. Use dedicated user for security.
 #   Ensure all required dependencies are installed.
@@ -20,16 +22,12 @@
 #   See README.md and AUR-README.md for further details.
 #
 # Build:
-#   makepkg -si
+#   make
 #
 # Dependency:
 #   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality
 #   'ttf-roboto' is required for proper font rendering on the LCD
 #   All dependencies are documented in README.md and AUR-README.md
-#
-# Disclaimer:
-#   This software is provided "as is", without warranty of any kind, express or implied.
-#   I do not guarantee that it will work as intended on your system.
 # -----------------------------------------------------------------------------
 VERSION := $(shell cat VERSION)
 
@@ -101,8 +99,21 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c $(INCDIR)/%.h $(INCDIR)/config.h | $(OBJDIR)
 # Dependencies for header changes
 $(OBJECTS): $(HEADERS)
 
+# Banner
+banner:
+	@echo " "
+	@echo " Developed and maintained by: "
+	@echo "  ____    _    __  __    _    ____ _   _ ___ _   _ _____  "
+	@echo " |  _ \  / \  |  \/  |  / \  / ___| | | |_ _| \ | | ____| "
+	@echo " | | | |/ _ \ | |\/| | / _ \| |   | |_| || ||  \| |  _|   "
+	@echo " | |_| / ___ \| |  | |/ ___ \ |___|  _  || || |\  | |___  "
+	@echo " |____/_/   \_\_|  |_/_/   \_\____|_| |_|___|_| \_|_____| "
+	@echo " Version: $(VERSION) "
+	@echo " "
+
 # Clean Target
 clean:
+	$(MAKE) banner
 	@printf "$(ICON_CLEAN) $(YELLOW)Cleaning up...$(RESET)\n"
 	rm -f $(BINDIR)/$(TARGET) $(OBJECTS) *.o
 	rm -rf $(OBJDIR) $(BINDIR)
