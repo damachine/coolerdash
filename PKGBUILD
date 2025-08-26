@@ -5,19 +5,24 @@
 # Copyright: (c) 2025 damachine
 # License: MIT
 # Version: 1.0
+#   This software is provided "as is", without warranty of any kind, express or implied.
+#   I do not guarantee that it will work as intended on your system.
 #
 # Info:
-#   CoolerDash PKGBUILD
+#   CoolerDash 'PKGBUILD' - For local building only via 'git clone https://github.com/damachine/coolerdash.git'!
+#   This 'PKGBUILD' is not hosted on AUR and is intended for local use only!
+#   If you want automatic updates and AUR hosting, please use the 'coolerdash-git' package from AUR!
+#   This 'PKGBUILD' is designed for Arch Linux and derivatives.
 #   Build system for CoolerDash (C99 LCD daemon)
 #   Project coding standards and packaging notes (see README for details)
 #
 # Details:
-#   This PKGBUILD handles build, install, dependencies, and packaging for Arch/AUR.
+#   This PKGBUILD handles build, install, dependencies, and packaging local building!
 #   Edit dependencies, paths, and user as needed for your system.
 #   Do not run as root. Use dedicated user for security.
 #   Ensure all required dependencies are installed.
 #   It uses color output and Unicode icons for better readability. All paths and dependencies are configurable.
-#   See README.md and AUR-README.md for further details.
+#   See 'README.md' and 'AUR-README.md' for further details.
 #
 # Build:
 #   makepkg -si
@@ -26,10 +31,6 @@
 #   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality
 #   'ttf-roboto' is required for proper font rendering on the LCD
 #   All dependencies are documented in README.md and AUR-README.md
-#
-# Disclaimer:
-#   This software is provided "as is", without warranty of any kind, express or implied.
-#   I do not guarantee that it will work as intended on your system.
 # -----------------------------------------------------------------------------
 pkgname=coolerdash
 pkgver=$(cat VERSION)
@@ -50,26 +51,19 @@ source=()
 sha256sums=()
 
 build() {
-    echo "================================================================"
-    echo "Developed and maintained by"
-    echo "  ____    _    __  __    _    ____ _   _ ___ _   _ _____  "
-    echo " |  _ \  / \  |  \/  |  / \  / ___| | | |_ _| \ | | ____| "
-    echo " | | | |/ _ \ | |\/| | / _ \| |   | |_| || ||  \| |  _|   "
-    echo " | |_| / ___ \| |  | |/ ___ \ |___|  _  || || |\  | |___  "
-    echo " |____/_/   \_\_|  |_/_/   \_\____|_| |_|___|_| \_|_____| "
-    echo " "
-
     # For local build: use current directory directly
     cd "$startdir"
 
     # Remove all previous tarball builds
     rm -rf coolerdash-*.pkg.* || true
+    rm -rf build bin || true
+    mkdir -p build bin || true
 
     # Clean any previous builds
     make clean || true
 
     # Build with Arch Linux specific optimizations and C99 compliance
-    make
+    make || return 1
 
     # Copy binary to $srcdir/bin for packaging
     mkdir -p "$srcdir/bin"
@@ -88,7 +82,6 @@ build() {
     cp -a etc/systemd/coolerdash.service "$srcdir/systemd/coolerdash.service"
     mkdir -p "$srcdir/man"
     cp -a man/coolerdash.1 "$srcdir/man/coolerdash.1"
-    echo "================================================================"
 }
 
 check() {
@@ -97,7 +90,6 @@ check() {
 
     if [[ -f bin/coolerdash ]]; then
         echo "Build successful - binary created"
-        #bin/coolerdash --help > /dev/null && echo "Help function works"
     else
         echo "ERROR: Binary not found"
         return 1

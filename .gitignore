@@ -23,6 +23,7 @@ Thumbs.db
 
 # Editor files
 *.code-workspace
+*.kate-swp
 *.swp
 *.swo
 .vscode/

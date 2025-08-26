@@ -43,13 +43,15 @@ journalctl -u coolerdash.service
  sudo systemctl enable --now coolerdash.service
 ```
 
+> **Note:** If you install manually, you must ensure all required dependencies are installed yourself. No automatic updates will be provided for manual installations.
+
 ---
 
 ## Further Information
 
 For all additional details, usage instructions, configuration options, troubleshooting, and development notes, please refer to the main [README.md](README.md) file in the project root.
 
-The main README contains comprehensive documentation and is the authoritative source for all technical and user
+The main README contains comprehensive documentation and is the authoritative source for all technical and user.
 
 ---
 
