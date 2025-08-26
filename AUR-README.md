@@ -6,23 +6,28 @@ CoolerDash is best installed via the AUR using `makepkg -si` for full dependency
 
 ### Quick Install (AUR/Local Build)
 
+- Using an AUR helper (recommended):
+```bash
+yay -S coolerdash-git
+```
+
+- Manual AUR install (no AUR helper):
 ```bash
 # STEP 1: Clone repository
- git clone https://github.com/damachine/coolerdash.git
- cd coolerdash
+git clone https://aur.archlinux.org/coolerdash-git.git
+cd coolerdash-git
+makepkg --printsrcinfo > .SRCINFO
+makepkg -si
 
-# STEP 2: Start CoolerControl daemon  if not already running
- sudo systemctl start coolercontrold
-
-# STEP 3: Build and install (includes automatic dependency management)
- makepkg -si
+# STEP 2: Start CoolerControl daemon if not already running
+systemctl start coolercontrold
 
 # STEP 4: Enable autostart and start CoolerDash
- sudo systemctl enable --now coolerdash.service
+systemctl enable --now coolerdash.service
 
-# STEP 5: (optional) Status CoolerDash service
- sudo systemctl status coolerdash.service
- journalctl -xeu coolerdash.service
+# STEP 5: (optional) Check CoolerDash service status
+systemctl status coolerdash.service
+journalctl -u coolerdash.service
 ```
 
 ### Alternative: Local .pkg.tar.zst Installation

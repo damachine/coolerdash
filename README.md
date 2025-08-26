@@ -246,15 +246,16 @@ MIT License - See LICENSE file for details.
 If you find CoolerDash useful and want to support its development:
 
 - ⭐ **Star this repository** on GitHub
-- 🐛 **Report bugs** and suggest improvements  
+- 🐛 **Report bugs** and suggest improvements
 - 🔄 **Share** the project with others
 - 📝 **Contribute** code or documentation
+- [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on-GitHub-blue?logo=github)](https://github.com/sponsors/damachine)
 
 > *All donations help maintain and improve this project. Thank you for your support!*
 
 ---
 
-**👨‍💻 Developed by DAMACHINE**  
-**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)  
-**🌐 Repository:** [GitHub](https://github.com/damachine/coolerdash)   
-**💝 Donate:** BTC: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo` | DOGE: `DRSY4cA8eCALn819MjWLbwaePFNti9oS3y`
+**👨‍💻 Developed by DAMACHINE**
+**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)
+**🌐 Repository:** [GitHub](https://github.com/damachine/coolerdash)
+**💝 Donate:** BTC: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo`
