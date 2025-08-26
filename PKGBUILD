@@ -60,7 +60,7 @@ build() {
     echo " "
 
     # For local build: use current directory directly
-    cd "$srcdir/coolerdash"
+    cd "$startdir"
 
     # Remove all previous tarball builds
     rm -rf coolerdash-*.pkg.* || true
@@ -93,7 +93,7 @@ build() {
 
 check() {
     # For local build: use current directory directly
-    cd "$srcdir/coolerdash"
+    cd "$startdir"
 
     if [[ -f bin/coolerdash ]]; then
         echo "Build successful - binary created"
