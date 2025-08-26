@@ -1,6 +1,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
+[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+[![GitHub issues](https://img.shields.io/github/issues/damachine/coolerdash)](https://github.com/damachine/coolerdash/issues)
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on-GitHub-blue?logo=github)](https://github.com/sponsors/damachine)
 
 # CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD dashboard
 
