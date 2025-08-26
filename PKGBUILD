@@ -40,7 +40,7 @@ arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
 depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' 'ttf-roboto')
-makedepends=('gcc' 'make' 'pkg-config')
+makedepends=('gcc' 'make' 'pkg-config' 'git')
 optdepends=()
 backup=('etc/coolerdash/config.ini')
 install=coolerdash.install
@@ -49,18 +49,17 @@ sha256sums=()
 
 build() {
     echo "================================================================"
-    echo ' '
-    echo '         .--.  '
-    echo '        |o_o | '
-    echo '        |:_/ | '
-    echo '       //   \ \ '
-    echo '      (|     | ) '
-    echo "      /'\\_   _/'\\ "
-    echo '      \___)=(___/ '
-    echo ' '
+    echo '   .--.  '
+    echo '  |o_o | '
+    echo '  |:_/ | '
+    echo ' //   \ \ '
+    echo '(|     | ) '
+    echo "/'\\_  _/' \\ "
+    echo '\___)=(___/ '
+    echo " "
 
     # For local build: use current directory directly
-    cd "$startdir"
+    cd "$srcdir/coolerdash"
 
     # Remove all previous tarball builds
     rm -rf coolerdash-*.pkg.* || true
@@ -93,7 +92,7 @@ build() {
 
 check() {
     # For local build: use current directory directly
-    cd "$startdir"
+    cd "$srcdir/coolerdash"
 
     if [[ -f bin/coolerdash ]]; then
         echo "Build successful - binary created"
