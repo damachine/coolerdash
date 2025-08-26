@@ -227,8 +227,8 @@ install: check-deps-for-install $(TARGET)
 	@printf "\n"
 	@if ! id -u coolerdash &>/dev/null; then \
 		sudo useradd --system --no-create-home coolerdash; \
-		@printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"
-		@printf "\n"
+		printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"; \
+		printf "\n"; \
 	fi
 	@printf "$(ICON_SERVICE) $(CYAN)Checking running service and processes...$(RESET)\n"
 	@if sudo systemctl is-active --quiet coolerdash.service; then \
