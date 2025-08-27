@@ -13,7 +13,7 @@
 #   This 'PKGBUILD' is not hosted on AUR and is intended for local use only!
 #   If you want automatic updates and AUR hosting, please use the 'coolerdash-git' package from AUR!
 #   This 'PKGBUILD' is designed for Arch Linux and derivatives.
-#   Build system for CoolerDash (C99 LCD daemon)
+#   Build system for CoolerDash (C99 compliant).
 #   Project coding standards and packaging notes (see README for details)
 #
 # Details:
@@ -28,9 +28,9 @@
 #   'makepkg -si'
 #
 # Dependency:
-#   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality
-#   'ttf-roboto' is required for proper font rendering on the LCD
-#   All dependencies are documented in 'README.md' and 'AUR-README.md'
+#   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality.
+#   'ttf-roboto' is required for proper font rendering on the LCD.
+#   All dependencies are documented in 'README.md'.
 # -----------------------------------------------------------------------------
 pkgname=coolerdash
 pkgver=$(cat VERSION)

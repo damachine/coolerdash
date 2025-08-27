@@ -10,7 +10,7 @@
 #
 # Info:
 #   CoolerDash 'Makefile' - Installation and Build
-#   Build system for CoolerDash (C99 LCD daemon)
+#   Build system for CoolerDash (C99 compliant).
 #   Project coding standards and packaging notes (see README for details)
 #
 # Details:
@@ -19,15 +19,15 @@
 #   Do not run as root. Use dedicated user for security.
 #   Ensure all required dependencies are installed.
 #   It uses color output and Unicode icons for better readability. All paths and dependencies are configurable.
-#   See README.md and AUR-README.md for further details.
+#   See 'README.md' and 'AUR-README.md' for further details.
 #
 # Build:
-#   make
+#   'make'
 #
 # Dependency:
 #   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality
 #   'ttf-roboto' is required for proper font rendering on the LCD
-#   All dependencies are documented in README.md and AUR-README.md
+#   All dependencies are documented in 'README.md'.
 # -----------------------------------------------------------------------------
 VERSION := $(shell cat VERSION)
 
