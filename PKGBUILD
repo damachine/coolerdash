@@ -25,12 +25,12 @@
 #   See 'README.md' and 'AUR-README.md' for further details.
 #
 # Build:
-#   makepkg -si
+#   'makepkg -si'
 #
 # Dependency:
 #   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality
 #   'ttf-roboto' is required for proper font rendering on the LCD
-#   All dependencies are documented in README.md and AUR-README.md
+#   All dependencies are documented in 'README.md' and 'AUR-README.md'
 # -----------------------------------------------------------------------------
 pkgname=coolerdash
 pkgver=$(cat VERSION)
