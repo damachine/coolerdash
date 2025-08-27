@@ -5,6 +5,11 @@
 [![GitHub issues](https://img.shields.io/github/issues/damachine/coolerdash)](https://github.com/damachine/coolerdash/issues)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on-GitHub-blue?logo=github)](https://github.com/sponsors/damachine)
 
+> **⚠️ Warning:** Updates and installation from the AUR may occasionally be difficult or delayed due to server availability or upstream issues.  
+> The AUR has unfortunately become a target for bad actors recently. This project is fully open source, and all code can be reviewed. Please always be careful with AUR packages and check the PKGBUILD first before installing. Transparency and safety are important, and that’s why everything is published openly.
+>
+> **Note:** It is recommended to use the AUR for installation and updates whenever possible. Manual installation from the official GitHub repository is necessary if you specifically want it or encounter persistent problems with the AUR. No automatic updates will be provided for manual installations.
+
 # CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD dashboard
 
 ## 📖 Description
