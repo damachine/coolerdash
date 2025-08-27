@@ -173,7 +173,7 @@ install-deps:
 			;; \
 		opensuse) \
 			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for openSUSE...$(RESET)\n"; \
-			sudo zypper install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
+			sudo zypper install -y cairo-devel libcurl-devel libinih-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
 				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
 				printf "$(YELLOW)Please run manually:$(RESET) sudo zypper install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
 				exit 1; \
