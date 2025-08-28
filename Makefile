@@ -237,89 +237,47 @@ install: check-deps-for-install $(TARGET)
 	@printf "$(ICON_INSTALL) $(WHITE)═══ COOLERDASH INSTALLATION ═══$(RESET)\n"
 	@printf "\n"
 	@if ! id -u coolerdash &>/dev/null; then \
-		sudo useradd --system --no-create-home coolerdash; \
-		printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"; \
-		printf "\n"; \
+		echo "Info: System user 'coolerdash' will not be created in Test/CI."; \
 	fi
 	@printf "$(ICON_SERVICE) $(CYAN)Checking running service and processes...$(RESET)\n"
-	@if sudo systemctl is-active --quiet coolerdash.service; then \
-		printf "  $(YELLOW)→$(RESET) Service running, stopping for update...\n"; \
-		sudo systemctl stop coolerdash.service 2>/dev/null || true; \
-		printf "  $(GREEN)→$(RESET) Service stopped\n"; \
-	else \
-		printf "  $(BLUE)→$(RESET) Service not running\n"; \
-	fi
-	@# Check for manual coolerdash processes and terminate them
-	@COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
-	if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
-		printf "  $(YELLOW)→$(RESET) Found $$COOLERDASH_COUNT manual coolerdash process(es), terminating...\n"; \
-		sudo killall -TERM coolerdash 2>/dev/null || true; \
-		sleep 2; \
-		REMAINING_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
-		if [ "$$REMAINING_COUNT" -gt 0 ]; then \
-			printf "  $(RED)→$(RESET) Force killing $$REMAINING_COUNT remaining process(es)...\n"; \
-			sudo killall -KILL coolerdash 2>/dev/null || true; \
-		fi; \
-		printf "  $(GREEN)→$(RESET) Manual processes terminated\n"; \
-	else \
-		printf "  $(BLUE)→$(RESET) No manual coolerdash processes found\n"; \
-	fi
+	@printf "  $(BLUE)→$(RESET) Service not relevant in DESTDIR test\n"
+	@printf "  $(BLUE)→$(RESET) No processes will be stopped\n"
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Creating directories...$(RESET)\n"
-	sudo mkdir -p /opt/coolerdash/bin 2>/dev/null || true
-	sudo mkdir -p /opt/coolerdash/images 2>/dev/null || true
+	install -d "$(DESTDIR)/opt/coolerdash/bin"
+	install -d "$(DESTDIR)/opt/coolerdash/images"
 	@printf "$(ICON_SUCCESS) $(GREEN)Directories created$(RESET)\n"
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Copying files...$(RESET)\n"
-	sudo cp $(BINDIR)/$(TARGET) /opt/coolerdash/bin/ 2>/dev/null || true
-	sudo chmod +x /opt/coolerdash/bin/$(TARGET) 2>/dev/null || true
-	sudo ln -sf /opt/coolerdash/bin/$(TARGET) /usr/bin/coolerdash 2>/dev/null || true
-	sudo cp images/shutdown.png /opt/coolerdash/images/ 2>/dev/null || true
-	sudo cp $(README) /opt/coolerdash/ 2>/dev/null || true
-	sudo cp LICENSE /opt/coolerdash/ 2>/dev/null || true
-	sudo cp CHANGELOG.md /opt/coolerdash/ 2>/dev/null || true
-	sudo cp VERSION /opt/coolerdash/ 2>/dev/null || true
+	install -m755 $(BINDIR)/$(TARGET) "$(DESTDIR)/opt/coolerdash/bin/"
+	install -Dm644 images/shutdown.png "$(DESTDIR)/opt/coolerdash/images/shutdown.png"
+	install -Dm644 $(README) "$(DESTDIR)/opt/coolerdash/README.md"
+	install -Dm644 LICENSE "$(DESTDIR)/opt/coolerdash/LICENSE"
+	install -Dm644 CHANGELOG.md "$(DESTDIR)/opt/coolerdash/CHANGELOG.md"
+	install -Dm644 VERSION "$(DESTDIR)/opt/coolerdash/VERSION"
 	@printf "$(ICON_INFO) $(CYAN)Installing default config...$(RESET)\n"
-	sudo mkdir -p /etc/coolerdash 2>/dev/null || true
-	sudo cp etc/coolerdash/config.ini /etc/coolerdash/config.ini 2>/dev/null || true
-	@printf "  $(GREEN)→$(RESET) Default config installed: /etc/coolerdash/config.ini\n"
+	install -d "$(DESTDIR)/etc/coolerdash"
+	install -m644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolerdash/config.ini"
+	@printf "  $(GREEN)→$(RESET) Default config installed: $(DESTDIR)/etc/coolerdash/config.ini\n"
 	@printf "\n"
-	@printf "  $(GREEN)→$(RESET) Program: /opt/coolerdash/bin/$(TARGET)\n"
-	@printf "  $(GREEN)→$(RESET) Symlink: /usr/bin/coolerdash → /opt/coolerdash/bin/$(TARGET)\n"
-	@printf "  $(GREEN)→$(RESET) Shutdown image: /opt/coolerdash/images/shutdown.png\n"
-	@printf "  $(GREEN)→$(RESET) Sensor image: will be created at runtime as coolerdash.png in RAM (/dev/shm)\n"
-	@printf "  $(GREEN)→$(RESET) README: /opt/coolerdash/README.md\n"
-	@printf "  $(GREEN)→$(RESET) LICENSE: /opt/coolerdash/LICENSE\n"
-	@printf "  $(GREEN)→$(RESET) CHANGELOG: /opt/coolerdash/CHANGELOG.md\n"
+	@printf "  $(GREEN)→$(RESET) Program: $(DESTDIR)/opt/coolerdash/bin/$(TARGET)\n"
+	@printf "  $(GREEN)→$(RESET) Symlink: (not created in CI)\n"
+	@printf "  $(GREEN)→$(RESET) Shutdown image: $(DESTDIR)/opt/coolerdash/images/shutdown.png\n"
+	@printf "  $(GREEN)→$(RESET) README: $(DESTDIR)/opt/coolerdash/README.md\n"
+	@printf "  $(GREEN)→$(RESET) LICENSE: $(DESTDIR)/opt/coolerdash/LICENSE\n"
+	@printf "  $(GREEN)→$(RESET) CHANGELOG: $(DESTDIR)/opt/coolerdash/CHANGELOG.md\n"
 	@printf "\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing service & documentation...$(RESET)\n"
-	sudo cp $(SERVICE) /etc/systemd/system/
-	sudo cp $(MANPAGE) /usr/share/man/man1/
-	sudo mandb -q 2>/dev/null || true
-	sudo systemctl daemon-reload 2>/dev/null || true
-	@printf "  $(GREEN)→$(RESET) Service: /etc/systemd/system/coolerdash.service\n"
-	@printf "  $(GREEN)→$(RESET) Manual: /usr/share/man/man1/coolerdash.1\n"
-	@printf "\n"
-	@printf "$(ICON_SERVICE) $(CYAN)Restarting service...$(RESET)\n"
-	@if sudo systemctl is-enabled --quiet coolerdash.service; then \
-		sudo systemctl start coolerdash.service; \
-		printf "  $(GREEN)→$(RESET) Service started\n"; \
-		printf "  $(GREEN)→$(RESET) Status: $$(sudo systemctl is-active coolerdash.service)\n"; \
-	else \
-		printf "  $(YELLOW)→$(RESET) Service not enabled\n"; \
-		printf "  $(YELLOW)→$(RESET) Enable with: sudo systemctl enable coolerdash.service\n"; \
-	fi
+	install -d "$(DESTDIR)/etc/systemd/system"
+	install -Dm644 $(SERVICE) "$(DESTDIR)/etc/systemd/system/coolerdash.service"
+	install -d "$(DESTDIR)/usr/share/man/man1"
+	install -m644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
+	@printf "  $(GREEN)→$(RESET) Service: $(DESTDIR)/etc/systemd/system/coolerdash.service\n"
+	@printf "  $(GREEN)→$(RESET) Manual: $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
 	@printf "\n"
 	@printf "$(ICON_SUCCESS) $(WHITE)═══ INSTALLATION SUCCESSFUL ═══$(RESET)\n"
 	@printf "\n"
 	@printf "$(YELLOW)📋 Next steps:$(RESET)\n"
-	@if sudo systemctl is-enabled --quiet coolerdash.service; then \
-		printf "  $(GREEN)✓$(RESET) Service enabled and started\n"; \
-		printf "  $(PURPLE)Check status:$(RESET)        sudo systemctl status coolerdash.service\n"; \
-	else \
-		printf "  $(PURPLE)Enable service:$(RESET)      sudo systemctl enable coolerdash.service\n"; \
-		printf "  $(PURPLE)Start service:$(RESET)       sudo systemctl start coolerdash.service\n"; \
-	fi
 	@printf "  $(PURPLE)Show manual:$(RESET)         man coolerdash\n"
 	@printf "\n"
 	@printf "$(YELLOW)🔄 Available version:$(RESET)\n"

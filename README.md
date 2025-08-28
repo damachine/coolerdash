@@ -3,6 +3,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 [![GitHub issues](https://img.shields.io/github/issues/damachine/coolerdash)](https://github.com/damachine/coolerdash/issues)
+[![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on-GitHub-blue?logo=github)](https://github.com/sponsors/damachine)
 
 > **⚠️ Warning:** Updates and installation from the AUR may occasionally be difficult or delayed due to server availability or upstream issues.  
