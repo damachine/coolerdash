@@ -255,7 +255,6 @@ install: check-deps-for-install $(TARGET)
 		else \
 			printf "  $(BLUE)→$(RESET) Service not running\n"; \
 		fi; \
-		# Check for manual coolerdash processes and terminate them
 		COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 		if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
 			printf "  $(YELLOW)→$(RESET) Found $$COOLERDASH_COUNT manual coolerdash process(es), terminating...\n"; \
