@@ -95,7 +95,7 @@ jobs:
         mkdir -p /tmp/install-test
         
         echo "Running make install with DESTDIR=/tmp/install-test"
-        SERVICEMGMT=no make install || {
+        REALOS=no make install || {
           echo "❌ make install failed"
           echo "Exit code: $?"
           echo "Checking if binary exists:"
@@ -157,7 +157,7 @@ jobs:
         
         export DESTDIR=/tmp/install-test  
         mkdir -p /tmp/install-test
-        SERVICEMGMT=no make install
+        REALOS=no make install
         
         echo "✅ Arch Linux installation test completed (reference)"
 
