@@ -293,7 +293,7 @@ install: check-deps $(TARGET)
 	@if [ "$(REALOS)" = "yes" ]; then \
 		printf "$(ICON_INFO) $(CYAN)Creating system symlink...$(RESET)\n"; \
 		install -dm755 "$(DESTDIR)/usr/bin"; \
-		ln -sf /opt/coolerdash/bin/coolerdash "$(DESTDIR)/usr/bin/coolerdash"; \
+		$(SUDO) ln -sf /opt/coolerdash/bin/coolerdash "$(DESTDIR)/usr/bin/coolerdash"; \
 		printf "  $(GREEN)Symlink:$(RESET) /usr/bin/coolerdash -> /opt/coolerdash/bin/coolerdash\n"; \
 	else \
 		printf "$(ICON_INFO) $(YELLOW)Symlink skipped (CI environment)$(RESET)\n"; \
