@@ -40,11 +40,11 @@ struct Config;
 
 // Display positioning constants for LCD layout
 #define DISPLAY_LABEL_Y_OFFSET_1 10
-#define DISPLAY_LABEL_Y_OFFSET_2 15
+#define DISPLAY_LABEL_Y_OFFSET_2 16
 #define DISPLAY_TEMP_DISPLAY_X_OFFSET 22
 #define DISPLAY_TEMP_DISPLAY_Y_OFFSET 22
 #define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_TOP 2
-#define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM -2
+#define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM -3
 
 /**
  * @brief Collects sensor data and renders display.

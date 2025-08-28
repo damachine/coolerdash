@@ -1,3 +1,10 @@
+> **⚠️ Warning:** Updates and installation from the AUR may occasionally be difficult or delayed due to server availability or upstream issues.  
+> The AUR has unfortunately become a target for bad actors recently. This project is fully open source, and all code can be reviewed. Please always be careful with AUR packages and check the PKGBUILD first before installing. Transparency and safety are important, and that’s why everything is published openly.
+>
+> **Note:** It is recommended to use the AUR for installation and updates whenever possible. Manual installation from the official GitHub repository is necessary if you specifically want it or encounter persistent problems with the AUR. No automatic updates will be provided for manual installations.
+
+# CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD-Dashboard
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
@@ -6,13 +13,6 @@
 [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on-GitHub-blue?logo=github)](https://github.com/sponsors/damachine)
-
-> **⚠️ Warning:** Updates and installation from the AUR may occasionally be difficult or delayed due to server availability or upstream issues.  
-> The AUR has unfortunately become a target for bad actors recently. This project is fully open source, and all code can be reviewed. Please always be careful with AUR packages and check the PKGBUILD first before installing. Transparency and safety are important, and that’s why everything is published openly.
->
-> **Note:** It is recommended to use the AUR for installation and updates whenever possible. Manual installation from the official GitHub repository is necessary if you specifically want it or encounter persistent problems with the AUR. No automatic updates will be provided for manual installations.
-
-# CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD dashboard
 
 ## 📖 Description
 
@@ -23,9 +23,9 @@ Special thanks to @codifryed, the developer of CoolerControl!
 ### 📸 Screenshot – Example LCD Output
 
 <div align="center">
-  <img src="images/animation.gif" alt="CoolerDash LCD Animation" width="240" height="240"/>
-  <img src="images/gpt2.png" alt="AI-generated LCD Demo" width="240" height="240"/>
-  <img src="images/gpt3.png" alt="AI-generated LCD Demo" width="240" height="240"/>
+  <img src="images/animation.gif" alt="CoolerDash LCD Animation" width="240" height="240"/> 
+  <img src="images/gpt2.png" alt="AI-generated LCD Demo" width="240" height="240"/> 
+  <img src="images/gpt3.png" alt="AI-generated LCD Demo" width="240" height="240"/> 
 </div>
 
 ---
@@ -33,20 +33,21 @@ Special thanks to @codifryed, the developer of CoolerControl!
 ## 🖥️ System Requirements
 
 - **OS**: Linux
-- **CoolerControl**: REQUIRED - must be installed and running
+- **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
 - **LCD**: LCD displays supported by CoolerControl (NZXT, etc.)
 
 **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
 **Supported Distributions and Dependencies:**
-- **Arch Linux / Manjaro (Recommended)**
+- **Arch Linux / Manjaro (Recommended)** - [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)
 - **Ubuntu / Debian**
 - **Fedora**
 - **RHEL / CentOS**
 - **openSUSE**
+- [![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
 
-> **Note:** If you install manually, you must ensure all required dependencies are installed yourself. No automatic updates will be provided for manual installations.
+> **Note:** If you install manually, you must ensure all required dependencies are installed right. No automatic updates will be provided for manual installations.
 
 ## Prerequisites
 
@@ -79,6 +80,7 @@ makepkg -si
 systemctl start coolercontrold
 
 # STEP 4: Enable autostart and start CoolerDash
+systemctl daemon-reload
 systemctl enable --now coolerdash.service
 
 # STEP 5: (optional) Check CoolerDash service status
@@ -100,6 +102,7 @@ systemctl start coolercontrold
 sudo make install
 
 # STEP 4: Enable autostart
+systemctl daemon-reload
 systemctl enable --now coolerdash.service
 
 # STEP 5: (optional) Check CoolerDash service status
@@ -265,7 +268,6 @@ If you find CoolerDash useful and want to support its development:
 
 ---
 
-**👨‍💻 Developed by DAMACHINE**
-**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com)
-**🌐 Repository:** [GitHub](https://github.com/damachine/coolerdash)
-**💝 Donate:** BTC: `13WjpWQMGG5sg3vTJJnCX3cXzwf2vZddKo`
+**👨‍💻 Developed by DAMACHINE** 
+**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com) 
+**🌐 Repository:** [GitHub](https://github.com/damachine/coolerdash) 
