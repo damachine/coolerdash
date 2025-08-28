@@ -40,7 +40,8 @@ Special thanks to @codifryed, the developer of CoolerControl!
 **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
 **Supported Distributions and Dependencies:**
-- **Arch Linux / Manjaro (Recommended)** - [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)
+- **Arch Linux / Manjaro (Recommended)** - [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml) 
+[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 - **Ubuntu / Debian**
 - **Fedora**
 - **RHEL / CentOS**
