@@ -29,10 +29,14 @@
 #   'ttf-roboto' is required for proper font rendering on the LCD
 #   All dependencies are documented in 'README.md'.
 # -----------------------------------------------------------------------------
+
+.PHONY: clean install uninstall debug logs help detect-distro install-deps check-deps
+
+
 VERSION := $(shell cat VERSION)
 
 SUDO ?= sudo
-SERVICEMGMT ?= yes
+REALOS ?= yes
 
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo)
@@ -75,11 +79,11 @@ ICON_INFO = ℹ️
 ICON_CLEAN = 🧹
 ICON_UNINSTALL = 🗑️
 
-# Standard Build Target - Standard C project structure
+# Standard Build Target - Standard C99 project structure
 $(TARGET): $(OBJDIR) $(BINDIR) $(OBJECTS) $(MAIN_SOURCE)
 	@printf "\n$(PURPLE)Manual Installation Check:$(RESET)\n"
 	@printf "If you see errors about 'conflicting files' or manual installation, run 'make uninstall' and remove leftover files in /opt/coolerdash, /usr/bin/coolerdash, /etc/systemd/system/coolerdash.service.\n\n"
-	@printf "$(ICON_BUILD) $(CYAN)Compiling $(TARGET) (Standard C structure)...$(RESET)\n"
+	@printf "$(ICON_BUILD) $(CYAN)Compiling $(TARGET) (Standard C99 structure)...$(RESET)\n"
 	@printf "$(BLUE)Structure:$(RESET) src/ include/ build/ bin/\n"
 	@printf "$(BLUE)CFLAGS:$(RESET) $(CFLAGS)\n"
 	@printf "$(BLUE)LIBS:$(RESET) $(LIBS)\n"
@@ -95,9 +99,11 @@ $(BINDIR):
 	@mkdir -p $(BINDIR)
 
 # Compile object files from src/
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(INCDIR)/%.h $(INCDIR)/config.h | $(OBJDIR)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 	@printf "$(ICON_BUILD) $(YELLOW)Compiling module: $<$(RESET)\n"
-	$(CC) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+-include $(OBJECTS:.o=.d)
 
 # Dependencies for header changes
 $(OBJECTS): $(HEADERS)
@@ -207,41 +213,24 @@ install-deps:
 	esac
 
 # Check Dependencies for Installation (internal function called by install)
-check-deps-for-install:
+check-deps:
 	@MISSING=""; \
-	if ! pkg-config --exists cairo >/dev/null 2>&1; then \
-		MISSING="$$MISSING cairo"; \
-	fi; \
-	if ! pkg-config --exists libcurl >/dev/null 2>&1; then \
-		MISSING="$$MISSING libcurl"; \
-	fi; \
-	if ! pkg-config --exists inih >/dev/null 2>&1; then \
-		MISSING="$$MISSING libinih"; \
-	fi; \
-	if ! command -v gcc >/dev/null 2>&1; then \
-		MISSING="$$MISSING gcc"; \
-	fi; \
-	if ! command -v make >/dev/null 2>&1; then \
-		MISSING="$$MISSING make"; \
-	fi; \
+	for dep in cairo libcurl inih jansson; do \
+		if ! pkg-config --exists $$dep >/dev/null 2>&1; then \
+			MISSING="$$MISSING $$dep"; \
+		fi; \
+	done; \
 	if [ -n "$$MISSING" ]; then \
-		printf "$(ICON_WARNING) $(YELLOW)Missing dependencies detected:$$MISSING$(RESET)\n"; \
-		printf "$(ICON_INSTALL) $(CYAN)Auto-installing dependencies...$(RESET)\n"; \
-		$(MAKE) install-deps || { \
-			printf "$(ICON_WARNING) $(RED)Auto-installation failed!$(RESET)\n"; \
-			printf "$(YELLOW)Please install dependencies manually before running 'make install'$(RESET)\n"; \
-			exit 1; \
-		}; \
+		printf "$(ICON_WARNING) $(YELLOW)Missing dependencies:$$MISSING$(RESET)\n"; \
+		$(MAKE) install-deps; \
 	fi
 
 # Install Target - Installs to /opt/coolerdash/ (with automatic dependency check and service management)
-install: check-deps-for-install $(TARGET)
+install: check-deps $(TARGET)
 	@printf "\n"
 	@printf "$(ICON_INSTALL) $(WHITE)═══ COOLERDASH INSTALLATION ═══$(RESET)\n"
 	@printf "\n"
-	@if [ "$(SERVICEMGMT)" = "no" ]; then \
-		printf "$(ICON_INFO) $(YELLOW)Service/user management skipped (SERVICEMGMT=no). Run manually if desired:$(RESET)\n"; \
-	else \
+	@if [ "$(REALOS)" = "yes" ]; then \
 		if ! id -u coolerdash &>/dev/null; then \
 			$(SUDO) useradd --system --no-create-home coolerdash; \
 			printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"; \
@@ -269,46 +258,59 @@ install: check-deps-for-install $(TARGET)
 		else \
 			printf "  $(BLUE)→$(RESET) No manual coolerdash processes found\n"; \
 		fi; \
+	else \
+		printf "$(ICON_INFO) $(YELLOW)Service/user management skipped (CI environment).$(RESET)\n"; \
 	fi
+	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Creating directories...$(RESET)\n"
-	install -d "$(DESTDIR)/opt/coolerdash/bin"
-	install -d "$(DESTDIR)/opt/coolerdash/images"
+	install -dm755 "$(DESTDIR)/opt/coolerdash"
+	install -dm755 "$(DESTDIR)/opt/coolerdash/bin"
+	install -dm755 "$(DESTDIR)/opt/coolerdash/images"
 	@printf "$(ICON_SUCCESS) $(GREEN)Directories created$(RESET)\n"
 	@printf "\n"
-	@printf "$(ICON_INFO) $(CYAN)Copying files...$(RESET)\n"
-	install -m755 $(BINDIR)/$(TARGET) "$(DESTDIR)/opt/coolerdash/bin/"
-	install -Dm644 images/shutdown.png "$(DESTDIR)/opt/coolerdash/images/shutdown.png"
+	@printf "$(ICON_INFO) $(CYAN)Installing files...$(RESET)\n"
+	install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/opt/coolerdash/bin/coolerdash"
+	install -Dm644 AUR-README.md "$(DESTDIR)/opt/coolerdash/AUR-README.md"
 	install -Dm644 $(README) "$(DESTDIR)/opt/coolerdash/README.md"
 	install -Dm644 LICENSE "$(DESTDIR)/opt/coolerdash/LICENSE"
 	install -Dm644 CHANGELOG.md "$(DESTDIR)/opt/coolerdash/CHANGELOG.md"
 	install -Dm644 VERSION "$(DESTDIR)/opt/coolerdash/VERSION"
-	@printf "$(ICON_INFO) $(CYAN)Installing default config...$(RESET)\n"
-	install -d "$(DESTDIR)/etc/coolerdash"
-	install -m644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolerdash/config.ini"
-	@printf "  $(GREEN)→$(RESET) Default config installed: $(DESTDIR)/etc/coolerdash/config.ini\n"
+	install -Dm644 images/shutdown.png "$(DESTDIR)/opt/coolerdash/images/shutdown.png"
+	@printf "$(YELLOW)Available version:$(RESET)\n"
+	@printf "  $(GREEN)Program:$(RESET) /opt/coolerdash/bin/coolerdash [mode]\n"
+	@printf "  $(GREEN)Documentation:$(RESET) $(DESTDIR)/opt/coolerdash/\n"
+	@printf "  $(GREEN)  - README.md$(RESET)\n"
+	@printf "  $(GREEN)  - AUR-README.md$(RESET)\n"
+	@printf "  $(GREEN)  - LICENSE$(RESET)\n"
+	@printf "  $(GREEN)  - CHANGELOG.md$(RESET)\n"
+	@printf "  $(GREEN)Resources:$(RESET) $(DESTDIR)/opt/coolerdash/images/shutdown.png\n"
+	@printf "$(ICON_INFO) $(CYAN)Files installed$(RESET)\n"
 	@printf "\n"
-	@printf "  $(GREEN)→$(RESET) Program: $(DESTDIR)/opt/coolerdash/bin/$(TARGET)\n"
-	@printf "  $(GREEN)→$(RESET) Symlink: (not created in CI)\n"
-	@printf "  $(GREEN)→$(RESET) Shutdown image: $(DESTDIR)/opt/coolerdash/images/shutdown.png\n"
-	@printf "  $(GREEN)→$(RESET) README: $(DESTDIR)/opt/coolerdash/README.md\n"
-	@printf "  $(GREEN)→$(RESET) LICENSE: $(DESTDIR)/opt/coolerdash/LICENSE\n"
-	@printf "  $(GREEN)→$(RESET) CHANGELOG: $(DESTDIR)/opt/coolerdash/CHANGELOG.md\n"
+	@printf "$(ICON_INFO) $(CYAN)Installing configuration...$(RESET)\n"
+	install -Dm644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolerdash/config.ini"
+	@printf "  $(GREEN)Config:$(RESET) $(DESTDIR)/etc/coolerdash/config.ini\n"
+	@printf "\n"
+	@if [ "$(REALOS)" = "yes" ]; then \
+		printf "$(ICON_INFO) $(CYAN)Creating system symlink...$(RESET)\n"; \
+		install -dm755 "$(DESTDIR)/usr/bin"; \
+		ln -sf /opt/coolerdash/bin/coolerdash "$(DESTDIR)/usr/bin/coolerdash"; \
+		printf "  $(GREEN)Symlink:$(RESET) /usr/bin/coolerdash -> /opt/coolerdash/bin/coolerdash\n"; \
+	else \
+		printf "$(ICON_INFO) $(YELLOW)Symlink skipped (CI environment)$(RESET)\n"; \
+	fi
 	@printf "\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing service & documentation...$(RESET)\n"
-	install -d "$(DESTDIR)/etc/systemd/system"
 	install -Dm644 $(SERVICE) "$(DESTDIR)/etc/systemd/system/coolerdash.service"
-	install -d "$(DESTDIR)/usr/share/man/man1"
-	install -m644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
-	@printf "  $(GREEN)→$(RESET) Service: $(DESTDIR)/etc/systemd/system/coolerdash.service\n"
-	@printf "  $(GREEN)→$(RESET) Manual: $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
+	install -Dm644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
+	@printf "  $(GREEN)Service:$(RESET) $(DESTDIR)/etc/systemd/system/coolerdash.service\n"
+	@printf "  $(GREEN)Manual:$(RESET) $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
 	@printf "\n"
-	@printf "$(ICON_SUCCESS) $(WHITE)═══ INSTALLATION SUCCESSFUL ═══$(RESET)\n"
+	@printf "$(ICON_SUCCESS) $(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
-	@printf "$(YELLOW)📋 Next steps:$(RESET)\n"
-	@printf "  $(PURPLE)Show manual:$(RESET)         man coolerdash\n"
-	@printf "\n"
-	@printf "$(YELLOW)🔄 Available version:$(RESET)\n"
-	@printf "  $(GREEN)Program:$(RESET) /opt/coolerdash/bin/coolerdash [mode]\n"
+	@printf "$(YELLOW)Next steps:$(RESET)\n"
+	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
+	@printf "  $(PURPLE)Start service:$(RESET)  systemctl enable --now coolerdash.service\n"
+	@printf "  $(PURPLE)Show manual:$(RESET)    man coolerdash\n"
 	@printf "\n"
 
 # Uninstall Target
@@ -403,5 +405,3 @@ help:
 	@printf "$(YELLOW)🔄 Version Usage:$(RESET)\n"
 	@printf "  $(GREEN)Program:$(RESET) /opt/coolerdash/bin/coolerdash [mode]\n"
 	@printf "\n"
-
-.PHONY: clean install uninstall debug logs help detect-distro install-deps check-deps-for-install
