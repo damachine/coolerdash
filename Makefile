@@ -31,6 +31,9 @@
 # -----------------------------------------------------------------------------
 VERSION := $(shell cat VERSION)
 
+SUDO ?= sudo
+SERVICEMGMT ?= yes
+
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo)
 LIBS = $(shell pkg-config --libs cairo) -lcurl -lm -linih -ljansson
@@ -140,45 +143,45 @@ install-deps:
 	@DISTRO=$$($(MAKE) detect-distro); \
 	case $$DISTRO in \
 		arch) \
-			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Arch Linux/Manjaro...$(RESET)\n"; \
-			sudo pacman -S --needed cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson || { \
-				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo pacman -S cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson\n"; \
-				exit 1; \
-			}; \
-			;; \
-		debian) \
-			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Ubuntu/Debian...$(RESET)\n"; \
-			sudo apt update && sudo apt install -y libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev || { \
-				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo apt install libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
-				exit 1; \
-			}; \
-			;; \
-		fedora) \
-			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Fedora...$(RESET)\n"; \
-			sudo dnf install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
-				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo dnf install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
-				exit 1; \
-			}; \
-			;; \
-		rhel) \
-			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for RHEL/CentOS...$(RESET)\n"; \
-			sudo yum install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
-				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo yum install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
-				exit 1; \
-			}; \
-			;; \
-		opensuse) \
-			printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for openSUSE...$(RESET)\n"; \
-			sudo zypper install -y cairo-devel libcurl-devel libinih-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
-				printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) sudo zypper install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
-				exit 1; \
-			}; \
-			;; \
+            printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Arch Linux/Manjaro...$(RESET)\n"; \
+            $(SUDO) pacman -S --needed cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson || { \
+                printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo libcurl-gnutls libinih gcc make pkg-config ttf-roboto jansson\n"; \
+                exit 1; \
+            }; \
+            ;; \
+        debian) \
+            printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Ubuntu/Debian...$(RESET)\n"; \
+            $(SUDO) apt update && $(SUDO) apt install -y libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev || { \
+                printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) apt install libcairo2-dev libcurl4-openssl-dev libinih-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
+                exit 1; \
+            }; \
+            ;; \
+        fedora) \
+            printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for Fedora...$(RESET)\n"; \
+            $(SUDO) dnf install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
+                printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) dnf install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
+                exit 1; \
+            }; \
+            ;; \
+        rhel) \
+            printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for RHEL/CentOS...$(RESET)\n"; \
+            $(SUDO) yum install -y cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
+                printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) yum install cairo-devel libcurl-devel inih-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
+                exit 1; \
+            }; \
+            ;; \
+        opensuse) \
+            printf "$(ICON_INSTALL) $(GREEN)Installing dependencies for openSUSE...$(RESET)\n"; \
+            $(SUDO) zypper install -y cairo-devel libcurl-devel libinih-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
+                printf "$(ICON_WARNING) $(RED)Error installing dependencies!$(RESET)\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) zypper install cairo-devel libcurl-devel libinih-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
+                exit 1; \
+            }; \
+            ;; \
 		*) \
 			printf "$(ICON_WARNING) $(RED)Unknown distribution detected!$(RESET)\n"; \
 			printf "\n"; \
@@ -236,13 +239,38 @@ install: check-deps-for-install $(TARGET)
 	@printf "\n"
 	@printf "$(ICON_INSTALL) $(WHITE)═══ COOLERDASH INSTALLATION ═══$(RESET)\n"
 	@printf "\n"
-	@if ! id -u coolerdash &>/dev/null; then \
-		echo "Info: System user 'coolerdash' will not be created in Test/CI."; \
+	@if [ "$(SERVICEMGMT)" = "no" ]; then \
+		printf "$(ICON_INFO) $(YELLOW)Service/user management skipped (SERVICEMGMT=no). Run manually if desired:$(RESET)\n"; \
+	else \
+		if ! id -u coolerdash &>/dev/null; then \
+			$(SUDO) useradd --system --no-create-home coolerdash; \
+			printf "$(ICON_SUCCESS) $(GREEN)Runtime directory and user ready$(RESET)\n"; \
+			printf "\n"; \
+		fi; \
+		printf "$(ICON_SERVICE) $(CYAN)Checking running service and processes...$(RESET)\n"; \
+		if $(SUDO) systemctl is-active --quiet coolerdash.service; then \
+			printf "  $(YELLOW)→$(RESET) Service running, stopping for update...\n"; \
+			$(SUDO) systemctl stop coolerdash.service 2>/dev/null || true; \
+			printf "  $(GREEN)→$(RESET) Service stopped\n"; \
+		else \
+			printf "  $(BLUE)→$(RESET) Service not running\n"; \
+		fi; \
+		# Check for manual coolerdash processes and terminate them
+		COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
+		if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
+			printf "  $(YELLOW)→$(RESET) Found $$COOLERDASH_COUNT manual coolerdash process(es), terminating...\n"; \
+			$(SUDO) killall -TERM coolerdash 2>/dev/null || true; \
+			sleep 2; \
+			REMAINING_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
+			if [ "$$REMAINING_COUNT" -gt 0 ]; then \
+				printf "  $(RED)→$(RESET) Force killing $$REMAINING_COUNT remaining process(es)...\n"; \
+				$(SUDO) killall -KILL coolerdash 2>/dev/null || true; \
+			fi; \
+			printf "  $(GREEN)→$(RESET) Manual processes terminated\n"; \
+		else \
+			printf "  $(BLUE)→$(RESET) No manual coolerdash processes found\n"; \
+		fi; \
 	fi
-	@printf "$(ICON_SERVICE) $(CYAN)Checking running service and processes...$(RESET)\n"
-	@printf "  $(BLUE)→$(RESET) Service not relevant in DESTDIR test\n"
-	@printf "  $(BLUE)→$(RESET) No processes will be stopped\n"
-	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Creating directories...$(RESET)\n"
 	install -d "$(DESTDIR)/opt/coolerdash/bin"
 	install -d "$(DESTDIR)/opt/coolerdash/images"
@@ -290,26 +318,26 @@ uninstall:
 	@printf "$(ICON_UNINSTALL) $(WHITE)═══ COOLERDASH UNINSTALLATION ═══$(RESET)\n"
 	@printf "\n"
 	@printf "$(ICON_WARNING) $(YELLOW)Stopping and disabling service...$(RESET)\n"
-	sudo systemctl stop coolerdash.service 2>/dev/null || true
-	sudo systemctl disable coolerdash.service 2>/dev/null || true
+	$(SUDO) systemctl stop coolerdash.service 2>/dev/null || true
+	$(SUDO) systemctl disable coolerdash.service 2>/dev/null || true
 	@printf "$(ICON_SUCCESS) $(GREEN)Service stopped$(RESET)\n"
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Removing all files...$(RESET)\n"
-	sudo rm -f /etc/systemd/system/coolerdash.service 2>/dev/null || true
-	sudo rm -f /usr/share/man/man1/coolerdash.1 2>/dev/null || true
-	sudo rm -f /opt/coolerdash/README.md 2>/dev/null || true
-	sudo rm -f /opt/coolerdash/LICENSE 2>/dev/null || true
-	sudo rm -f /opt/coolerdash/CHANGELOG.md 2>/dev/null || true
-	sudo rm -f /opt/coolerdash/VERSION 2>/dev/null || true
-	sudo rm -f /opt/coolerdash/bin/$(TARGET) 2>/dev/null || true
-	sudo rm -rf /opt/coolerdash/bin/ 2>/dev/null || true
-	sudo rm -rf /opt/coolerdash/images/ 2>/dev/null || true
-	sudo rm -rf /opt/coolerdash/ 2>/dev/null || true
-	sudo rm -f /usr/bin/coolerdash 2>/dev/null || true
+	$(SUDO) rm -f /etc/systemd/system/coolerdash.service 2>/dev/null || true
+	$(SUDO) rm -f /usr/share/man/man1/coolerdash.1 2>/dev/null || true
+	$(SUDO) rm -f /opt/coolerdash/README.md 2>/dev/null || true
+	$(SUDO) rm -f /opt/coolerdash/LICENSE 2>/dev/null || true
+	$(SUDO) rm -f /opt/coolerdash/CHANGELOG.md 2>/dev/null || true
+	$(SUDO) rm -f /opt/coolerdash/VERSION 2>/dev/null || true
+	$(SUDO) rm -f /opt/coolerdash/bin/$(TARGET) 2>/dev/null || true
+	$(SUDO) rm -rf /opt/coolerdash/bin/ 2>/dev/null || true
+	$(SUDO) rm -rf /opt/coolerdash/images/ 2>/dev/null || true
+	$(SUDO) rm -rf /opt/coolerdash/ 2>/dev/null || true
+	$(SUDO) rm -f /usr/bin/coolerdash 2>/dev/null || true
 	# Remove config directory only if empty (preserves modified configs)
-	sudo rmdir /etc/coolerdash 2>/dev/null || true
+	$(SUDO) rmdir /etc/coolerdash 2>/dev/null || true
 	# Remove any remaining files in /opt/coolerdash (catch-all, safe if dir already gone)
-	sudo rm -f /opt/coolerdash/* 2>/dev/null || true
+	$(SUDO) rm -f /opt/coolerdash/* 2>/dev/null || true
 	@printf "  $(RED)✗$(RESET) Service: /etc/systemd/system/coolerdash.service\n"
 	@printf "  $(RED)✗$(RESET) Manual: /usr/share/man/man1/coolerdash.1\n"
 	@printf "  $(RED)✗$(RESET) Program: /opt/coolerdash/bin/$(TARGET)\n"
@@ -320,10 +348,10 @@ uninstall:
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Updating system...$(RESET)\n"
 	@if id -u coolerdash &>/dev/null; then \
-        sudo userdel -rf coolerdash || true; \
+        $(SUDO) userdel -rf coolerdash || true; \
     fi
-	sudo mandb -q 2>/dev/null || true
-	sudo systemctl daemon-reload 2>/dev/null || true
+	$(SUDO) mandb -q 2>/dev/null || true
+	$(SUDO) systemctl daemon-reload 2>/dev/null || true
 	@printf "\n"
 	@printf "$(ICON_SUCCESS) $(WHITE)═══ COMPLETE REMOVAL SUCCESSFUL ═══$(RESET)\n"
 	@printf "\n"
