@@ -1,7 +1,5 @@
 > **⚠️ Warning:** Updates and installation from the AUR may occasionally be difficult or delayed due to server availability or upstream issues.  
-> The AUR has unfortunately become a target for bad actors recently. This project is open source, and all code can be reviewed. Please always be careful with AUR packages and check the PKGBUILD first before installing.
->
-> **Note:** It is recommended to use the AUR for installation and updates whenever possible. Manual installation from the official GitHub repository is necessary if you specifically want it or encounter persistent problems with the AUR. No automatic updates will be provided for manual installations.
+> The AUR has unfortunately become a target for bad actors recently. Please always be careful with AUR packages and check the PKGBUILD first before installing. This project is open source, and all code can be reviewed!
 
 # CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD-Dashboard
 
@@ -40,13 +38,13 @@ Special thanks to @codifryed, the developer of CoolerControl!
 **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
 **Supported Distributions and Dependencies:**
-- **Arch Linux / Manjaro (Recommended)** - [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml) 
-[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+- [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml) - [![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
+
+- **Arch Linux / Manjaro (Recommended [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git))** 
 - **Ubuntu / Debian**
 - **Fedora**
 - **RHEL / CentOS**
 - **openSUSE**
-- [![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
 
 > **Note:** If you install manually, you must ensure all required dependencies are installed right. No automatic updates will be provided for manual installations.
 
@@ -254,6 +252,7 @@ I do not guarantee that it will work as intended on your system.
 ## 📄 License
 
 MIT License - See LICENSE file for details.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 💝 Support the Project
 
