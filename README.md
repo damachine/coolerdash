@@ -35,12 +35,12 @@ Special thanks to @codifryed, the developer of CoolerControl!
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
 - **LCD**: LCD displays supported by CoolerControl (NZXT, etc.)
 
-**For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
+> **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
 **Supported Distributions and Dependencies:**
-- [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml) - [![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
 
-- **Arch Linux / Manjaro (Recommended [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git))** 
+[![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml) - [![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
+- **Arch Linux / Manjaro (Recommended)** [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 - **Ubuntu / Debian**
 - **Fedora**
 - **RHEL / CentOS**
