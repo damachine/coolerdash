@@ -1,11 +1,11 @@
-# .github/workflows/install.yml
-name: Multi-Distribution Installation Test
+name: Multi-Distribution Installation
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+    paths:
+      - 'VERSION'
+    branches:
+      - main
   workflow_dispatch:  # Allows manual execution
 
 jobs:
