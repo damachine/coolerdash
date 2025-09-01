@@ -1,5 +1,3 @@
-> **⚠️ Warning:** Updates and installation from the AUR may occasionally be difficult or delayed due to server availability or upstream issues.  
-> The AUR has unfortunately become a target for bad actors recently. Please always be careful with AUR packages and check the PKGBUILD first before installing. This project is open source, and all code can be reviewed!
 
 # CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD-Dashboard
 
