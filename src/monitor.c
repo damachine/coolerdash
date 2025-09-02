@@ -17,15 +17,10 @@
 // Include necessary headers
 // cppcheck-suppress missingIncludeSystem
 #include <curl/curl.h>
-// cppcheck-suppress missingIncludeSystem
 #include <jansson.h>
-// cppcheck-suppress missingIncludeSystem
 #include <stdio.h>
-// cppcheck-suppress missingIncludeSystem
 #include <stdlib.h>
-// cppcheck-suppress missingIncludeSystem
 #include <stdarg.h>
-// cppcheck-suppress missingIncludeSystem
 #include <string.h>
 
 // Include project headers
