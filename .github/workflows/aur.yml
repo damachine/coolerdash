@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -145,7 +145,8 @@ jobs:
           echo "Successfully created and pushed signed tag: $TAG"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        # Pinned softprops/action-gh-release v1 to specific commit for supply-chain security
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844  # v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.release_msg }}
