@@ -30,28 +30,32 @@
 #include "../include/coolercontrol.h"
 
 /**
- * @brief Globale Logging-Implementierung für alle Module außer main.c
- * @details Einheitliche Log-Ausgabe für Info, Status, Warnung und Fehler.
+ * @brief Global logging implementation for all modules except main.c
+ * @details Provides unified log output for info, status, warning and error messages.
  */
 void log_message(log_level_t level, const char *format, ...) {
     if (level == LOG_INFO && !verbose_logging) {
-        return;
+     return;
     }
     const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
     FILE *output = (level == LOG_ERROR) ? stderr : stdout;
     fprintf(output, "[CoolerDash %s] ", prefix[level]);
+
+    enum { LOG_MSG_CAP = 1024 };
+    char msg_buf[LOG_MSG_CAP];
+    msg_buf[0] = '\0';
     va_list args;
     va_start(args, format);
-    vfprintf(output, format, args);
+    vsnprintf(msg_buf, sizeof(msg_buf), (format ? format : "(null)"), args);
     va_end(args);
-    fprintf(output, "\n");
+    fputs(msg_buf, output);
+    fputc('\n', output);
     fflush(output);
 }
 
-// Helper function for safe string copying
+// Helper macro for safe string copying using project helper (guarantees termination & bounds)
 #define SAFE_STRCPY(dest, src) do { \
-    strncpy(dest, src, sizeof(dest) - 1); \
-    dest[sizeof(dest) - 1] = '\0'; \
+    cc_safe_strcpy((dest), sizeof(dest), (src)); \
 } while(0)
 
 // Forward declarations for static handler functions
@@ -302,7 +306,7 @@ static int get_color_config(Config *config, const char *section, const char *nam
 void get_config_defaults(Config *config) {
     if (!config) return;
     
-    // Daemon
+    // Daemon settings
     if (config->daemon_address[0] == '\0') SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
     if (config->daemon_password[0] == '\0') SAFE_STRCPY(config->daemon_password, "coolAdmin");
     

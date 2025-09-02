@@ -18,8 +18,7 @@
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
-// Include necessary headers
-#include <signal.h>
+// <signal.h> removed (not required for declarations here). Re-add conditionally in source if needed.
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -53,19 +52,22 @@ typedef struct http_response {
  * @brief Secure string copy with bounds checking.
  * @details Performs safe string copying with buffer overflow protection and null termination guarantee.
  */
-static inline int cc_safe_strcpy(char *dest, size_t dest_size, const char *src) {
+static inline int cc_safe_strcpy(char * restrict dest, size_t dest_size, const char * restrict src) {
     if (!dest || !src || dest_size == 0) {
         return 0;
     }
-    
-    size_t src_len = strlen(src);
-    if (src_len >= dest_size) {
-        return 0;
+
+    size_t i = 0;
+    while (i < dest_size - 1) {
+        char c = src[i];
+        dest[i] = c;
+        if (c == '\0') {
+            return 1;
+        }
+        i++;
     }
-    
-    memcpy(dest, src, src_len);
-    dest[src_len] = '\0';
-    return 1;
+    dest[i] = '\0';
+    return 0;
 }
 
 /**
