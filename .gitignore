@@ -47,6 +47,6 @@ PKGBUILD-test
 test-*
 debug-*
 
-
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+.github/instructions/copilot-instructions.md
