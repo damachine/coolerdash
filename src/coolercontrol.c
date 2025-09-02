@@ -17,24 +17,16 @@
 // Define POSIX constants
 #define _POSIX_C_SOURCE 200112L
 
-// cppcheck-suppress missingInclude
 // Include necessary headers
+// cppcheck-suppress missingInclude
 #include <curl/curl.h>
-// cppcheck-suppress missingInclude
 #include <jansson.h>
-// cppcheck-suppress missingInclude
 #include <stdio.h>
-// cppcheck-suppress missingInclude
 #include <stdarg.h>
-// cppcheck-suppress missingInclude
 #include <stdlib.h>
-// cppcheck-suppress missingInclude
 #include <string.h>
-// cppcheck-suppress missingInclude
 #include <sys/stat.h>
-// cppcheck-suppress missingInclude
 #include <time.h>
-// cppcheck-suppress missingInclude
 #include <unistd.h>
 
 // Include project headers

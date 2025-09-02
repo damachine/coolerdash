@@ -19,6 +19,7 @@
 #define CONFIG_H
 
 // Include necessary headers
+// cppcheck-suppress missingInclude
 #include <stdint.h>
 #include <ini.h>
 

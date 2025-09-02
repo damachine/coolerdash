@@ -19,6 +19,7 @@
 #define MONITOR_H
 
 // Include necessary headers
+// cppcheck-suppress missingInclude
 #include <stddef.h>
 
 // Forward declaration

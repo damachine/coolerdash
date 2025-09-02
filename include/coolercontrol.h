@@ -21,11 +21,8 @@
 // <signal.h> removed (not required for declarations here). Re-add conditionally in source if needed.
 // cppcheck-suppress missingInclude
 #include <stddef.h>
-// cppcheck-suppress missingInclude
 #include <stdint.h>
-// cppcheck-suppress missingInclude
 #include <stdlib.h>
-// cppcheck-suppress missingInclude
 #include <string.h>
 
 // Include project headers

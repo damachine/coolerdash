@@ -21,27 +21,16 @@
 // Include necessary headers
 // cppcheck-suppress missingIncludeSystem
 #include <errno.h>
-// cppcheck-suppress missingIncludeSystem
 #include <limits.h>
-// cppcheck-suppress missingIncludeSystem
 #include <signal.h>
-// cppcheck-suppress missingIncludeSystem
 #include <stdarg.h>
-// cppcheck-suppress missingIncludeSystem
 #include <stdio.h>
-// cppcheck-suppress missingIncludeSystem
 #include <stdlib.h>
-// cppcheck-suppress missingIncludeSystem
 #include <string.h>
-// cppcheck-suppress missingIncludeSystem
 #include <sys/stat.h>
-// cppcheck-suppress missingIncludeSystem
 #include <sys/types.h>
-// cppcheck-suppress missingIncludeSystem
 #include <sys/wait.h>
-// cppcheck-suppress missingIncludeSystem
 #include <time.h>
-// cppcheck-suppress missingIncludeSystem
 #include <unistd.h>
 
 // Include project headers

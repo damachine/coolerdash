@@ -18,19 +18,12 @@
 // Include necessary headers
 // cppcheck-suppress missingInclude
 #include <errno.h>
-// cppcheck-suppress missingInclude
 #include <ini.h>
-// cppcheck-suppress missingInclude
 #include <limits.h>
-// cppcheck-suppress missingInclude
 #include <stdarg.h>
-// cppcheck-suppress missingInclude
 #include <stdio.h>
-// cppcheck-suppress missingInclude
 #include <stdlib.h>
-// cppcheck-suppress missingInclude
 #include <string.h>
-// cppcheck-suppress missingInclude
 #include <unistd.h>
 
 // Include project headers
