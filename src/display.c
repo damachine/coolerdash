@@ -27,7 +27,7 @@
 #include <time.h>
 #include <unistd.h>
 
-// Project headers
+// Include project headers
 #include "../include/config.h"
 #include "../include/display.h"
 #include "../include/coolercontrol.h"
