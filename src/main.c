@@ -19,97 +19,30 @@
 #define _XOPEN_SOURCE 600
 
 // Include necessary headers
-// Portable inclusion of standard headers to satisfy static analyzers
-#if defined(__has_include)
-#  if __has_include(<errno.h>)
-#    include <errno.h>
-#  endif
-#else
-#  include <errno.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<limits.h>)
-#    include <limits.h>
-#  endif
-#else
-#  include <limits.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<signal.h>)
-#    include <signal.h>
-#  endif
-#else
-#  include <signal.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<stdarg.h>)
-#    include <stdarg.h>
-#  endif
-#else
-#  include <stdarg.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<stdio.h>)
-#    include <stdio.h>
-#  endif
-#else
-#  include <stdio.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<stdlib.h>)
-#    include <stdlib.h>
-#  endif
-#else
-#  include <stdlib.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<string.h>)
-#    include <string.h>
-#  endif
-#else
-#  include <string.h>
-#endif
-#if defined(__has_include)
-#  if __has_include(<sys/stat.h>)
-#    include <sys/stat.h>
-#  endif
-#else
-#  include <sys/stat.h>
-#endif
-// Portable inclusion of POSIX/compat headers to satisfy static analyzers
-#if defined(__has_include)
-#  if __has_include(<sys/types.h>)
-#    include <sys/types.h>
-#  endif
-#else
-#  include <sys/types.h>
-#endif
-// Portable inclusion of POSIX/compat headers to satisfy static analyzers
-#if defined(__has_include)
-#  if __has_include(<sys/wait.h>)
-#    include <sys/wait.h>
-#  endif
-#else
-#  include <sys/wait.h>
-#endif
-// cppcheck-suppress missingInclude
+// cppcheck-suppress missingIncludeSystem
+#include <errno.h>
+// cppcheck-suppress missingIncludeSystem
+#include <limits.h>
+// cppcheck-suppress missingIncludeSystem
+#include <signal.h>
+// cppcheck-suppress missingIncludeSystem
+#include <stdarg.h>
+// cppcheck-suppress missingIncludeSystem
+#include <stdio.h>
+// cppcheck-suppress missingIncludeSystem
+#include <stdlib.h>
+// cppcheck-suppress missingIncludeSystem
+#include <string.h>
+// cppcheck-suppress missingIncludeSystem
+#include <sys/stat.h>
+// cppcheck-suppress missingIncludeSystem
+#include <sys/types.h>
+// cppcheck-suppress missingIncludeSystem
+#include <sys/wait.h>
+// cppcheck-suppress missingIncludeSystem
 #include <time.h>
-// Portable inclusion of POSIX/compat headers to satisfy static analyzers lacking <unistd.h>
-#if defined(__has_include)
-#  if __has_include(<unistd.h>)
-#    include <unistd.h>
-#  elif defined(_WIN32)
-#    include <io.h>
-#    include <process.h>
-#  endif
-#else
-#  if defined(_WIN32)
-#    include <io.h>
-#    include <process.h>
-#  else
-#    include <unistd.h>
-#  endif
-#endif
+// cppcheck-suppress missingIncludeSystem
+#include <unistd.h>
 
 // Include project headers
 #include "../include/config.h"

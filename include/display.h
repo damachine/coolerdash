@@ -19,8 +19,12 @@
 #define DISPLAY_H
 
 // Include necessary headers
+// cppcheck-suppress missingInclude
 #include <stddef.h>
+// cppcheck-suppress missingInclude
 #include <stdint.h>
+
+// Include project headers
 #include "monitor.h"
 
 // Forward declarations

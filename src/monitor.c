@@ -15,100 +15,18 @@
  */
 
 // Include necessary headers
-#ifdef __has_include
-#if __has_include(<curl/curl.h>)
+// cppcheck-suppress missingIncludeSystem
 #include <curl/curl.h>
-#elif __has_include(<curl.h>)
-#include <curl.h>
-#else
-#error "libcurl development headers not found. Install libcurl (e.g. sudo apt install libcurl4-openssl-dev)"
-#endif
-#else
-#include <curl/curl.h>
-#endif
+// cppcheck-suppress missingIncludeSystem
 #include <jansson.h>
-
-#ifdef __has_include
-#if __has_include(<stdio.h>)
+// cppcheck-suppress missingIncludeSystem
 #include <stdio.h>
-#else
-#include <stddef.h>
-// Fallback minimal stdio declarations for static analysis environments without system headers
-typedef struct _FILE FILE;
-int fprintf(FILE *stream, const char *format, ...);
-int snprintf(char *str, size_t size, const char *format, ...);
-#endif
-#else
-#include <stdio.h>
-#endif
-
-// Standard library headers
-#ifdef __has_include
-#if __has_include(<stdlib.h>)
+// cppcheck-suppress missingIncludeSystem
 #include <stdlib.h>
-#else
-// Fallback minimal stdlib declarations for static analysis environments
-#include <stddef.h>
-void *malloc(size_t size);
-void *calloc(size_t nmemb, size_t size);
-void *realloc(void *ptr, size_t size);
-void free(void *ptr);
-#endif
-#else
-#include <stdlib.h>
-#endif
-
-#ifdef __has_include
-#if __has_include(<stdarg.h>)
+// cppcheck-suppress missingIncludeSystem
 #include <stdarg.h>
-#else
-// Fallback: minimal stdarg declarations for static analysis environments
-typedef __builtin_va_list va_list;
-#define va_start(v,l)   __builtin_va_start(v,l)
-#define va_end(v)       __builtin_va_end(v)
-#define va_arg(v,l)     __builtin_va_arg(v,l)
-#endif
-#else
-#include <stdarg.h>
-#endif
-
-// For Cppcheck static analysis which doesn't need standard headers
-#ifdef CPPCHECK
-// Cppcheck doesn't require standard headers
-#ifndef malloc
-void *malloc(size_t size);
-#endif
-#ifndef calloc
-void *calloc(size_t nmemb, size_t size);
-#endif
-#ifndef realloc
-void *realloc(void *ptr, size_t size);
-#endif
-#ifndef free
-void free(void *ptr);
-#endif
-#endif
-#ifdef CPPCHECK
-// Fallback for Cppcheck: minimal string function prototypes
-#include <stddef.h>
-int strcmp(const char *s1, const char *s2);
-int strncmp(const char *s1, const char *s2, size_t n);
-char *strstr(const char *haystack, const char *needle);
-#else
-#ifdef __has_include
-#if __has_include(<string.h>)
+// cppcheck-suppress missingIncludeSystem
 #include <string.h>
-#else
-// Fallback: minimal prototypes if <string.h> is unavailable (e.g. static analysis environment)
-#include <stddef.h>
-int strcmp(const char *s1, const char *s2);
-int strncmp(const char *s1, const char *s2, size_t n);
-char *strstr(const char *haystack, const char *needle);
-#endif
-#else
-#include <string.h>
-#endif
-#endif
 
 // Include project headers
 #include "../include/config.h"
