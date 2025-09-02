@@ -19,14 +19,63 @@
 #define _XOPEN_SOURCE 600
 
 // Include necessary headers
-#include <errno.h>
-#include <limits.h>
-#include <signal.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
+// Portable inclusion of standard headers to satisfy static analyzers
+#if defined(__has_include)
+#  if __has_include(<errno.h>)
+#    include <errno.h>
+#  endif
+#else
+#  include <errno.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<limits.h>)
+#    include <limits.h>
+#  endif
+#else
+#  include <limits.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<signal.h>)
+#    include <signal.h>
+#  endif
+#else
+#  include <signal.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<stdarg.h>)
+#    include <stdarg.h>
+#  endif
+#else
+#  include <stdarg.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<stdio.h>)
+#    include <stdio.h>
+#  endif
+#else
+#  include <stdio.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<stdlib.h>)
+#    include <stdlib.h>
+#  endif
+#else
+#  include <stdlib.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<string.h>)
+#    include <string.h>
+#  endif
+#else
+#  include <string.h>
+#endif
+#if defined(__has_include)
+#  if __has_include(<sys/stat.h>)
+#    include <sys/stat.h>
+#  endif
+#else
+#  include <sys/stat.h>
+#endif
 // Portable inclusion of POSIX/compat headers to satisfy static analyzers
 #if defined(__has_include)
 #  if __has_include(<sys/types.h>)
