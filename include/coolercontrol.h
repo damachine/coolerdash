@@ -28,7 +28,7 @@
 // cppcheck-suppress missingInclude
 #include <string.h>
 
-// Project headers
+// Include project headers
 #include "config.h"
 
 // Basic constants
