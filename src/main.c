@@ -99,8 +99,12 @@ static const char* read_version_from_file(void) {
         // Remove trailing whitespace and newlines
         version_buffer[strcspn(version_buffer, "\n\r \t")] = '\0';
 
-        // Validate version string (basic sanity check)
-        if (version_buffer[0] == '\0' || strlen(version_buffer) > 20) {
+    // Validate version string (manual bounded length calculation to avoid strnlen portability issues)
+    size_t ver_len = 0;
+    while (ver_len < 21 && version_buffer[ver_len] != '\0') {
+        ver_len++;
+    }
+    if (version_buffer[0] == '\0' || ver_len > 20) {
             log_message(LOG_WARNING, "Invalid version format, using default version");
             cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
         }

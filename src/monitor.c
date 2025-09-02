@@ -159,8 +159,8 @@ int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu)
     *temp_cpu = 0.0f;
     *temp_gpu = 0.0f;
     
-    // Validate daemon address
-    if (strlen(config->daemon_address) == 0) {
+    // Validate daemon address (array member cannot be NULL, just check first char)
+    if (config->daemon_address[0] == '\0') {
         log_message(LOG_ERROR, "No daemon address configured");
         return 0;
     }
