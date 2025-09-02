@@ -28,6 +28,7 @@ Thumbs.db
 *.swo
 .vscode/
 .qodo/
+.codacy/
 
 # Compressed archives
 *.tar.xz
@@ -45,3 +46,7 @@ coolerdash-*.pkg.*
 PKGBUILD-test
 test-*
 debug-*
+
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md

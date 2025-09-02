@@ -62,7 +62,7 @@ static struct {
     char device_name[CC_NAME_SIZE];
     int screen_width;
     int screen_height;
-} device_cache = {0};
+} device_cache = {0}; // Strings always written via snprintf/cc_safe_strcpy (bounded)
 
 /**
  * @brief Initialize device cache by fetching device information once.
@@ -106,10 +106,12 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
         response->capacity = new_capacity;
     }
 
-    // Copy data
-    memcpy(response->data + response->size, contents, realsize);
-    response->size += realsize;
-    response->data[response->size] = '\0';
+    // Copy data with bounds safety (capacity ausreichend geprüft)
+    if (realsize > 0) {
+        memmove(response->data + response->size, contents, realsize);
+        response->size += realsize;
+        response->data[response->size] = '\0';
+    }
 
     // Return size
     return realsize;
@@ -438,16 +440,10 @@ int get_liquidctl_data(const Config *config, char *device_uid, size_t uid_size, 
 
     // Copy values from cache to output buffers with safe string handling
     if (device_uid && uid_size > 0) {
-        const size_t uid_len = strlen(device_cache.device_uid);
-        const size_t uid_copy_len = (uid_len < uid_size - 1) ? uid_len : uid_size - 1;
-        memcpy(device_uid, device_cache.device_uid, uid_copy_len);
-        device_uid[uid_copy_len] = '\0';
+        cc_safe_strcpy(device_uid, uid_size, device_cache.device_uid);
     }
     if (device_name && name_size > 0) {
-        const size_t name_len = strlen(device_cache.device_name);
-        const size_t name_copy_len = (name_len < name_size - 1) ? name_len : name_size - 1;
-        memcpy(device_name, device_cache.device_name, name_copy_len);
-        device_name[name_copy_len] = '\0';
+        cc_safe_strcpy(device_name, name_size, device_cache.device_name);
     }
     if (screen_width) *screen_width = device_cache.screen_width;
     if (screen_height) *screen_height = device_cache.screen_height;

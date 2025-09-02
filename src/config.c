@@ -48,10 +48,9 @@ void log_message(log_level_t level, const char *format, ...) {
     fflush(output);
 }
 
-// Helper function for safe string copying
+// Helper macro for safe string copying using project helper (guarantees termination & bounds)
 #define SAFE_STRCPY(dest, src) do { \
-    strncpy(dest, src, sizeof(dest) - 1); \
-    dest[sizeof(dest) - 1] = '\0'; \
+    cc_safe_strcpy((dest), sizeof(dest), (src)); \
 } while(0)
 
 // Forward declarations for static handler functions

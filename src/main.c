@@ -86,29 +86,26 @@ static const char* read_version_from_file(void) {
     
     if (!fp) {
         log_message(LOG_WARNING, "Could not open VERSION file, using default version");
-        strncpy(version_buffer, DEFAULT_VERSION, sizeof(version_buffer) - 1);
-        version_buffer[sizeof(version_buffer) - 1] = '\0';
+        cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
         version_loaded = 1;
         return version_buffer;
     }
-    
+
     // Secure reading with fixed buffer size
     if (!fgets(version_buffer, sizeof(version_buffer), fp)) {
         log_message(LOG_WARNING, "Could not read VERSION file, using default version");
-        strncpy(version_buffer, DEFAULT_VERSION, sizeof(version_buffer) - 1);
-        version_buffer[sizeof(version_buffer) - 1] = '\0';
+        cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
     } else {
         // Remove trailing whitespace and newlines
         version_buffer[strcspn(version_buffer, "\n\r \t")] = '\0';
-        
+
         // Validate version string (basic sanity check)
         if (version_buffer[0] == '\0' || strlen(version_buffer) > 20) {
             log_message(LOG_WARNING, "Invalid version format, using default version");
-            strncpy(version_buffer, DEFAULT_VERSION, sizeof(version_buffer) - 1);
-            version_buffer[sizeof(version_buffer) - 1] = '\0';
+            cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
         }
     }
-    
+
     fclose(fp);
     version_loaded = 1;
     return version_buffer;

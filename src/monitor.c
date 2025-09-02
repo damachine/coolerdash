@@ -33,9 +33,14 @@
  * @details Parses the JSON response from CoolerControl API to extract CPU and GPU temperature values from device status history.
  */
 static int parse_temperature_data(const char *json, float *temp_cpu, float *temp_gpu) {
-    // Validate input
-    if (!json || strlen(json) == 0) {
-        log_message(LOG_ERROR, "Empty or null JSON input");
+    // Validate input (avoid potential over-read if json not guaranteed NUL within large space)
+    if (!json) {
+        log_message(LOG_ERROR, "Null JSON input");
+        return 0;
+    }
+    // Quick emptiness check: first char only
+    if (json[0] == '\0') {
+        log_message(LOG_ERROR, "Empty JSON input");
         return 0;
     }
     
