@@ -158,7 +158,7 @@ jobs:
 
             This release contains the updated package files for the Arch User Repository (AUR).
                         
-            [![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)
+            [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
             
             ### Changes
             - Version updated to ${{ steps.version.outputs.version }}
@@ -194,7 +194,7 @@ jobs:
         run: |
           echo "## 🚀 CoolerDash AUR Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "[![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)" >> $GITHUB_STEP_SUMMARY
+          echo "[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Release Details:" >> $GITHUB_STEP_SUMMARY
           echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
