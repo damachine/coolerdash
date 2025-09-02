@@ -27,10 +27,40 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+// Portable inclusion of POSIX/compat headers to satisfy static analyzers
+#if defined(__has_include)
+#  if __has_include(<sys/types.h>)
+#    include <sys/types.h>
+#  endif
+#else
+#  include <sys/types.h>
+#endif
+// Portable inclusion of POSIX/compat headers to satisfy static analyzers
+#if defined(__has_include)
+#  if __has_include(<sys/wait.h>)
+#    include <sys/wait.h>
+#  endif
+#else
+#  include <sys/wait.h>
+#endif
+// cppcheck-suppress missingInclude
 #include <time.h>
-#include <unistd.h>
+// Portable inclusion of POSIX/compat headers to satisfy static analyzers lacking <unistd.h>
+#if defined(__has_include)
+#  if __has_include(<unistd.h>)
+#    include <unistd.h>
+#  elif defined(_WIN32)
+#    include <io.h>
+#    include <process.h>
+#  endif
+#else
+#  if defined(_WIN32)
+#    include <io.h>
+#    include <process.h>
+#  else
+#    include <unistd.h>
+#  endif
+#endif
 
 // Include project headers
 #include "../include/config.h"
