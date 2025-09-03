@@ -201,227 +201,204 @@ static int get_daemon_config(Config *config, const char *name, const char *value
  * @brief Handle paths section configuration.
  * @details Processes path-related configuration keys (images, pid, etc.) with validation and safe string operations.
  */
+/**
+ * @brief Handle paths section configuration with reduced complexity.
+ * @details Processes path-related configuration keys using lookup table approach.
+ */
 static int get_paths_config(Config *config, const char *name, const char *value)
 {
-    if (strcmp(name, "images") == 0)
-    {
-        if (value && value[0] != '\0')
-        {
-            SAFE_STRCPY(config->paths_images, value);
-        }
-    }
-    else if (strcmp(name, "image_coolerdash") == 0)
-    {
-        if (value && value[0] != '\0')
-        {
-            SAFE_STRCPY(config->paths_image_coolerdash, value);
-        }
-    }
-    else if (strcmp(name, "image_shutdown") == 0)
-    {
-        if (value && value[0] != '\0')
-        {
-            SAFE_STRCPY(config->paths_image_shutdown, value);
-        }
-    }
-    else if (strcmp(name, "pid") == 0)
-    {
-        if (value && value[0] != '\0')
-        {
-            SAFE_STRCPY(config->paths_pid, value);
-        }
+    if (!value || value[0] == '\0') return 1;
+    
+    if (strcmp(name, "images") == 0) {
+        SAFE_STRCPY(config->paths_images, value);
+    } else if (strcmp(name, "image_coolerdash") == 0) {
+        SAFE_STRCPY(config->paths_image_coolerdash, value);
+    } else if (strcmp(name, "image_shutdown") == 0) {
+        SAFE_STRCPY(config->paths_image_shutdown, value);
+    } else if (strcmp(name, "pid") == 0) {
+        SAFE_STRCPY(config->paths_pid, value);
     }
     return 1;
 }
 
 /**
- * @brief Handle display section configuration.
- * @details Processes display-related configuration keys (width, height, brightness, etc.) with range validation and type safety.
+ * @brief Validate orientation value.
+ * @details Helper function to validate LCD orientation values.
+ */
+static inline int is_valid_orientation(int orientation) {
+    return (orientation == 0 || orientation == 90 || orientation == 180);
+}
+
+/**
+ * @brief Handle display section configuration with reduced complexity.
+ * @details Processes display-related configuration keys using early returns and helper functions.
  */
 static int get_display_config(Config *config, const char *name, const char *value)
 {
-    if (strcmp(name, "width") == 0)
-    {
+    if (strcmp(name, "width") == 0) {
         int width = safe_atoi(value, 0);
         config->display_width = (width > 0) ? (uint16_t)width : 0;
+        return 1;
     }
-    else if (strcmp(name, "height") == 0)
-    {
+    if (strcmp(name, "height") == 0) {
         int height = safe_atoi(value, 0);
         config->display_height = (height > 0) ? (uint16_t)height : 0;
+        return 1;
     }
-    else if (strcmp(name, "refresh_interval_sec") == 0)
-    {
+    if (strcmp(name, "refresh_interval_sec") == 0) {
         config->display_refresh_interval_sec = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "refresh_interval_nsec") == 0)
-    {
+    if (strcmp(name, "refresh_interval_nsec") == 0) {
         config->display_refresh_interval_nsec = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "brightness") == 0)
-    {
+    if (strcmp(name, "brightness") == 0) {
         int brightness = safe_atoi(value, 0);
         config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? (uint8_t)brightness : 0;
+        return 1;
     }
-    else if (strcmp(name, "orientation") == 0)
-    {
+    if (strcmp(name, "orientation") == 0) {
         int orientation = safe_atoi(value, 0);
-        // Only allow 0, 90, 180 degrees (KISS: simple validation)
-        if (orientation == 0 || orientation == 90 || orientation == 180)
-        {
-            config->lcd_orientation = orientation;
-        }
-        else
-        {
-            config->lcd_orientation = 0; // Default to 0 for invalid values
-        }
+        config->lcd_orientation = is_valid_orientation(orientation) ? orientation : 0;
+        return 1;
     }
     return 1;
 }
 
 /**
- * @brief Handle layout section configuration.
- * @details Processes layout-related configuration keys (box dimensions, bar settings, etc.) with numeric validation.
+ * @brief Handle layout section configuration with reduced complexity.
+ * @details Processes layout-related configuration keys using early returns for better performance.
  */
 static int get_layout_config(Config *config, const char *name, const char *value)
 {
-    if (strcmp(name, "box_width") == 0)
-    {
+    if (strcmp(name, "box_width") == 0) {
         config->layout_box_width = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "box_height") == 0)
-    {
+    if (strcmp(name, "box_height") == 0) {
         config->layout_box_height = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "box_gap") == 0)
-    {
+    if (strcmp(name, "box_gap") == 0) {
         config->layout_box_gap = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "bar_width") == 0)
-    {
+    if (strcmp(name, "bar_width") == 0) {
         config->layout_bar_width = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "bar_height") == 0)
-    {
+    if (strcmp(name, "bar_height") == 0) {
         config->layout_bar_height = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "bar_gap") == 0)
-    {
+    if (strcmp(name, "bar_gap") == 0) {
         config->layout_bar_gap = safe_atoi(value, 0);
+        return 1;
     }
-    else if (strcmp(name, "bar_border_width") == 0)
-    {
+    if (strcmp(name, "bar_border_width") == 0) {
         config->layout_bar_border_width = safe_atof(value, 0.0f);
+        return 1;
     }
     return 1;
 }
 
 /**
- * @brief Handle font section configuration.
- * @details Processes font-related configuration keys (face, sizes) with string and float validation.
+ * @brief Handle font section configuration with reduced complexity.
+ * @details Processes font-related configuration keys using early returns.
  */
 static int get_font_config(Config *config, const char *name, const char *value)
 {
-    if (strcmp(name, "font_face") == 0)
-    {
-        if (value && value[0] != '\0')
-        {
+    if (strcmp(name, "font_face") == 0) {
+        if (value && value[0] != '\0') {
             SAFE_STRCPY(config->font_face, value);
         }
+        return 1;
     }
-    else if (strcmp(name, "font_size_temp") == 0)
-    {
+    if (strcmp(name, "font_size_temp") == 0) {
         config->font_size_temp = safe_atof(value, 12.0f);
+        return 1;
     }
-    else if (strcmp(name, "font_size_labels") == 0)
-    {
+    if (strcmp(name, "font_size_labels") == 0) {
         config->font_size_labels = safe_atof(value, 10.0f);
+        return 1;
     }
     return 1;
 }
 
 /**
- * @brief Handle temperature section configuration.
- * @details Processes temperature threshold configuration keys with float validation and safe parsing.
+ * @brief Handle temperature section configuration with reduced complexity.
+ * @details Processes temperature threshold configuration keys using early returns.
  */
 static int get_temperature_config(Config *config, const char *name, const char *value)
 {
-    if (strcmp(name, "temp_threshold_1") == 0)
-    {
+    if (strcmp(name, "temp_threshold_1") == 0) {
         config->temp_threshold_1 = safe_atof(value, 50.0f);
+        return 1;
     }
-    else if (strcmp(name, "temp_threshold_2") == 0)
-    {
+    if (strcmp(name, "temp_threshold_2") == 0) {
         config->temp_threshold_2 = safe_atof(value, 65.0f);
+        return 1;
     }
-    else if (strcmp(name, "temp_threshold_3") == 0)
-    {
+    if (strcmp(name, "temp_threshold_3") == 0) {
         config->temp_threshold_3 = safe_atof(value, 80.0f);
+        return 1;
     }
     return 1;
 }
 
 /**
- * @brief Color configuration mapping with offset approach.
- * @details Lookup table using string comparison to reduce cyclomatic complexity.
+ * @brief Color configuration mapping with early returns for better performance.
+ * @details Simplified function using early returns to reduce cyclomatic complexity.
  */
 static Color *get_color_pointer_from_section(Config *config, const char *section)
 {
-    if (strcmp(section, "bar_color_background") == 0)
-    {
+    if (strcmp(section, "bar_color_background") == 0) {
         return &config->layout_bar_color_background;
     }
-    else if (strcmp(section, "bar_color_border") == 0)
-    {
+    if (strcmp(section, "bar_color_border") == 0) {
         return &config->layout_bar_color_border;
     }
-    else if (strcmp(section, "font_color_temp") == 0)
-    {
+    if (strcmp(section, "font_color_temp") == 0) {
         return &config->font_color_temp;
     }
-    else if (strcmp(section, "font_color_label") == 0)
-    {
+    if (strcmp(section, "font_color_label") == 0) {
         return &config->font_color_label;
     }
-    else if (strcmp(section, "temp_threshold_1_bar") == 0)
-    {
+    if (strcmp(section, "temp_threshold_1_bar") == 0) {
         return &config->temp_threshold_1_bar;
     }
-    else if (strcmp(section, "temp_threshold_2_bar") == 0)
-    {
+    if (strcmp(section, "temp_threshold_2_bar") == 0) {
         return &config->temp_threshold_2_bar;
     }
-    else if (strcmp(section, "temp_threshold_3_bar") == 0)
-    {
+    if (strcmp(section, "temp_threshold_3_bar") == 0) {
         return &config->temp_threshold_3_bar;
     }
-    else if (strcmp(section, "temp_threshold_4_bar") == 0)
-    {
+    if (strcmp(section, "temp_threshold_4_bar") == 0) {
         return &config->temp_threshold_4_bar;
     }
     return NULL;
 }
 
 /**
- * @brief Set color component based on name.
- * @details Helper function to set R, G, or B component of a color structure.
+ * @brief Set color component with early returns for better performance.
+ * @details Helper function to set R, G, or B component using early returns.
  */
 static void set_color_component(Color *color, const char *name, const char *value)
 {
-    if (!color || !name || !value)
-        return;
+    if (!color || !name || !value) return;
 
-    if (strcmp(name, "r") == 0)
-    {
+    if (strcmp(name, "r") == 0) {
         parse_color_component(value, &color->r);
+        return;
     }
-    else if (strcmp(name, "g") == 0)
-    {
+    if (strcmp(name, "g") == 0) {
         parse_color_component(value, &color->g);
+        return;
     }
-    else if (strcmp(name, "b") == 0)
-    {
+    if (strcmp(name, "b") == 0) {
         parse_color_component(value, &color->b);
+        return;
     }
 }
 
