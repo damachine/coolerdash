@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <ini.h>
 
+// Basic constants
 #define CONFIG_MAX_STRING_LEN 256
 #define CONFIG_MAX_PASSWORD_LEN 128
 #define CONFIG_MAX_PATH_LEN 512

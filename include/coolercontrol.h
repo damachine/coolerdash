@@ -18,7 +18,7 @@
 #ifndef COOLERCONTROL_H
 #define COOLERCONTROL_H
 
-// <signal.h> removed (not required for declarations here). Re-add conditionally in source if needed.
+// Include necessary headers
 // cppcheck-suppress missingInclude
 #include <stddef.h>
 #include <stdint.h>

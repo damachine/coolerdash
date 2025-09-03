@@ -27,11 +27,9 @@ jobs:
           sudo apt-get install -y gnupg2 pinentry-curses jq
           export GNUPGHOME=$(mktemp -d)
           chmod 700 "$GNUPGHOME"
-          # Configure agent to allow loopback pinentry in isolated homedir
           echo "allow-loopback-pinentry" > "$GNUPGHOME/gpg-agent.conf"
           echo "use-agent" > "$GNUPGHOME/gpg.conf"
           echo "pinentry-program /usr/bin/pinentry-curses" >> "$GNUPGHOME/gpg-agent.conf"
-          # ensure gpg uses the new homedir when started later
           echo "GNUPGHOME=$GNUPGHOME" >> $GITHUB_ENV
 
       - name: Import GPG key into isolated GNUPGHOME
@@ -39,55 +37,39 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          # kill any agent that might interfere
           gpgconf --kill gpg-agent || true
-          # import key into isolated homedir
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          # Trust the imported key
           echo -e "5\ny\n" | gpg --batch --command-fd 0 --expert --edit-key $(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}') trust quit || true
 
       - name: Read version and find next available tag
         id: version
         run: |
           base_ver=$(cat VERSION | tr -d '\n\r' | xargs)
-          
-          # Fetch all tags from remote
           git fetch --tags origin || true
-          
-          # Finde die nächste verfügbare Versionsnummer
           counter=0
           while true; do
             if [ $counter -eq 0 ]; then
-              # Erste Variante: Basis-Version (z.B. v1.28)
               test_version="$base_ver"
               test_tag="v$test_version"
             else
-              # Weitere Varianten: Basis-Version mit Suffix (z.B. v1.28.1, v1.28.2)
               test_version="$base_ver.$counter"
               test_tag="v$test_version"
             fi
-            
-            # Prüfen ob dieser Tag bereits existiert
+
             if ! git tag -l "$test_tag" | grep -q "$test_tag" && ! git ls-remote --tags origin | grep -q "refs/tags/$test_tag"; then
-              # Tag existiert nicht, verwenden wir ihn
               final_version="$test_version"
               final_tag="$test_tag"
               break
             fi
-            
             counter=$((counter + 1))
-            
-            # Sicherheit: Maximal 100 Versuche
             if [ $counter -gt 100 ]; then
               echo "ERROR: Could not find available version after 100 attempts"
               exit 1
             fi
           done
-          
           echo "Base version from file: $base_ver"
           echo "Final version to use: $final_version"
           echo "Final tag to create: $final_tag"
-          
           echo "version=$final_version" >> $GITHUB_OUTPUT
           echo "tag=$final_tag" >> $GITHUB_OUTPUT
           echo "release_msg=AUR Release $final_tag" >> $GITHUB_OUTPUT
@@ -120,33 +102,20 @@ jobs:
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           set -euo pipefail
-          
-          # Sicherstellen, dass wir den aktuellen Stand haben
           git fetch origin
-          
           echo "Creating signed tag: $TAG"
-          
-          # GPG Agent starten falls nötig
           gpg-agent --daemon --allow-preset-passphrase --max-cache-ttl 3600 || true
-          
-          # Tag erstellen mit GPG-Signatur
           echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
             --sign --armor --detach-sign --local-user "${{ steps.gpg.outputs.keyid }}" \
             --output /tmp/dummy.sig <(echo "test") || true
-          
-          # Eigentlichen Tag erstellen
           echo "$GPG_PASSPHRASE" | git -c "gpg.program=gpg" \
             -c "user.signingkey=${{ steps.gpg.outputs.keyid }}" \
             tag -s "$TAG" -m "$MSG" HEAD
-          
-          # Tag zur Remote-Repository pushen
           git push origin "$TAG"
-          
           echo "Successfully created and pushed signed tag: $TAG"
 
       - name: Create GitHub Release
-        # Pinned softprops/action-gh-release v1 to specific commit for supply-chain security
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844  # v1
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: ${{ steps.version.outputs.release_msg }}
@@ -156,7 +125,7 @@ jobs:
           body: |
             ## AUR Package Release ${{ steps.version.outputs.version }}
             
-            This release contains the updated package files for the Arch User Repository (AUR).
+            This release contains the package files for the Arch User Repository (AUR).
             
             ### Changes
             - Version updated to ${{ steps.version.outputs.version }}
@@ -175,12 +144,10 @@ jobs:
         run: |
           echo "Verifying tag signature..."
           git tag -v "${{ steps.version.outputs.tag }}" || echo "Tag verification completed"
-          
           echo "Release completed successfully!"
           echo "Signed tag created: ${{ steps.version.outputs.tag }}"
           echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
 
-          # Summary report
   aur-release-summary:
     name: AUR Release Summary
     runs-on: ubuntu-latest
