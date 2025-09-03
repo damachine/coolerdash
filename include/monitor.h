@@ -19,7 +19,9 @@
 #define MONITOR_H
 
 // Include necessary headers
+// cppcheck-suppress-begin missingIncludeSystem
 #include <stddef.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Forward declaration
 struct Config;

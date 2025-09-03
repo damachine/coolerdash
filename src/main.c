@@ -19,7 +19,7 @@
 #define _XOPEN_SOURCE 600
 
 // Include necessary headers
-// cppcheck-suppress missingIncludeSystem
+// cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
 #include <limits.h>
 #include <signal.h>
@@ -32,6 +32,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "../include/config.h"
