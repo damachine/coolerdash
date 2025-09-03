@@ -15,13 +15,14 @@
  */
 
 // Include necessary headers
-// cppcheck-suppress missingIncludeSystem
+// cppcheck-suppress-begin missingIncludeSystem
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "../include/config.h"
