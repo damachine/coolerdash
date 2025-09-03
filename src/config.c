@@ -75,8 +75,6 @@ static int get_font_config(Config *config, const char *name, const char *value);
 static int get_temperature_config(Config *config, const char *name, const char *value);
 static int get_color_config(Config *config, const char *section, const char *name, const char *value);
 
-// Logging erfolgt zentral über log_message aus config.h
-
 /**
  * @brief Helper functions for string parsing with validation.
  * @details Replaces atoi with secure parsing that validates input and handles overflow conditions.
@@ -197,10 +195,6 @@ static int get_daemon_config(Config *config, const char *name, const char *value
     return 1;
 }
 
-/**
- * @brief Handle paths section configuration.
- * @details Processes path-related configuration keys (images, pid, etc.) with validation and safe string operations.
- */
 /**
  * @brief Handle paths section configuration with reduced complexity.
  * @details Processes path-related configuration keys using lookup table approach.
@@ -588,60 +582,42 @@ static inline int is_color_unset(const Color *color)
  * @brief Set color default values using structured approach.
  * @details Helper function to set default color values for all UI elements.
  */
+/**
+ * @brief Color default configuration entry.
+ * @details Structure for color default values lookup table.
+ */
+typedef struct
+{
+    Color *color_ptr;
+    uint8_t r, g, b;
+} ColorDefault;
+
+/**
+ * @brief Set color default values using lookup table approach.
+ * @details Helper function to set default color values using data-driven approach to reduce complexity.
+ */
 static void set_color_defaults(Config *config)
 {
-    // Layout colors
-    if (is_color_unset(&config->layout_bar_color_background))
-    {
-        config->layout_bar_color_background.r = 52;
-        config->layout_bar_color_background.g = 52;
-        config->layout_bar_color_background.b = 52;
-    }
-    if (is_color_unset(&config->layout_bar_color_border))
-    {
-        config->layout_bar_color_border.r = 192;
-        config->layout_bar_color_border.g = 192;
-        config->layout_bar_color_border.b = 192;
-    }
+    // Define all color defaults in a lookup table
+    ColorDefault color_defaults[] = {
+        {&config->layout_bar_color_background, 52, 52, 52},
+        {&config->layout_bar_color_border, 192, 192, 192},
+        {&config->font_color_temp, 255, 255, 255},
+        {&config->font_color_label, 200, 200, 200},
+        {&config->temp_threshold_1_bar, 0, 255, 0},
+        {&config->temp_threshold_2_bar, 255, 140, 0},
+        {&config->temp_threshold_3_bar, 255, 70, 0},
+        {&config->temp_threshold_4_bar, 255, 0, 0}};
 
-    // Font colors
-    if (is_color_unset(&config->font_color_temp))
+    const size_t color_count = sizeof(color_defaults) / sizeof(color_defaults[0]);
+    for (size_t i = 0; i < color_count; i++)
     {
-        config->font_color_temp.r = 255;
-        config->font_color_temp.g = 255;
-        config->font_color_temp.b = 255;
-    }
-    if (is_color_unset(&config->font_color_label))
-    {
-        config->font_color_label.r = 200;
-        config->font_color_label.g = 200;
-        config->font_color_label.b = 200;
-    }
-
-    // Temperature bar colors
-    if (is_color_unset(&config->temp_threshold_1_bar))
-    {
-        config->temp_threshold_1_bar.r = 0;
-        config->temp_threshold_1_bar.g = 255;
-        config->temp_threshold_1_bar.b = 0;
-    }
-    if (is_color_unset(&config->temp_threshold_2_bar))
-    {
-        config->temp_threshold_2_bar.r = 255;
-        config->temp_threshold_2_bar.g = 140;
-        config->temp_threshold_2_bar.b = 0;
-    }
-    if (is_color_unset(&config->temp_threshold_3_bar))
-    {
-        config->temp_threshold_3_bar.r = 255;
-        config->temp_threshold_3_bar.g = 70;
-        config->temp_threshold_3_bar.b = 0;
-    }
-    if (is_color_unset(&config->temp_threshold_4_bar))
-    {
-        config->temp_threshold_4_bar.r = 255;
-        config->temp_threshold_4_bar.g = 0;
-        config->temp_threshold_4_bar.b = 0;
+        if (is_color_unset(color_defaults[i].color_ptr))
+        {
+            color_defaults[i].color_ptr->r = color_defaults[i].r;
+            color_defaults[i].color_ptr->g = color_defaults[i].g;
+            color_defaults[i].color_ptr->b = color_defaults[i].b;
+        }
     }
 }
 
