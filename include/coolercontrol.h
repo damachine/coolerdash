@@ -24,6 +24,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <jansson.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
@@ -175,5 +176,11 @@ int init_device_cache(const struct Config *config);
  * @details Uploads an image to the LCD display using a multipart HTTP PUT request with brightness and orientation settings.
  */
 int send_image_to_lcd(const struct Config *config, const char* image_path, const char* device_uid);
+
+/**
+ * @brief Extract device type from JSON device object.
+ * @details Common helper function to extract device type string from JSON device object.
+ */
+const char* extract_device_type_from_json(json_t *dev);
 
 #endif // COOLERCONTROL_H
