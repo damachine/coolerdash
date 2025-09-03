@@ -53,6 +53,20 @@ static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data
 static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, float temp_value, int bar_x, int bar_y);
 static void draw_labels(cairo_t *cr, const struct Config *config);
 static Color get_temperature_bar_color(const struct Config *config, float val);
+static void draw_rounded_rectangle_path(cairo_t *cr, const struct Config *config, int bar_x, int bar_y);
+
+/**
+ * @brief Draw rounded rectangle path for temperature bars.
+ * @details Helper function to create a rounded rectangle path with consistent corner radius.
+ */
+static void draw_rounded_rectangle_path(cairo_t *cr, const struct Config *config, int bar_x, int bar_y) {
+    cairo_new_sub_path(cr);
+    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + 8.0, 8.0, -DISPLAY_M_PI_2, 0);
+    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, 0, DISPLAY_M_PI_2);
+    cairo_arc(cr, bar_x + 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, DISPLAY_M_PI_2, DISPLAY_M_PI);
+    cairo_arc(cr, bar_x + 8.0, bar_y + 8.0, 8.0, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
+    cairo_close_path(cr);
+}
 
 /**
  * @brief Calculate color gradient for temperature bars (green → orange → hot orange → red).
@@ -149,12 +163,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
                          cairo_color_convert(config->layout_bar_color_background.b));
     
     // Draw rounded rectangle for background
-    cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + 8.0, 8.0, -DISPLAY_M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, 0, DISPLAY_M_PI_2);
-    cairo_arc(cr, bar_x + 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, DISPLAY_M_PI_2, DISPLAY_M_PI);
-    cairo_arc(cr, bar_x + 8.0, bar_y + 8.0, 8.0, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
-    cairo_close_path(cr);
+    draw_rounded_rectangle_path(cr, config, bar_x, bar_y);
     cairo_fill(cr);
     
     // Draw bar fill with temperature color
@@ -192,14 +201,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
                          cairo_color_convert(config->layout_bar_color_border.b));
     
     // Optimized border drawing
-    cairo_new_sub_path(cr);
-    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + 8.0, 8.0, -DISPLAY_M_PI_2, 0);
-    cairo_arc(cr, bar_x + config->layout_bar_width - 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, 0, DISPLAY_M_PI_2);
-    cairo_arc(cr, bar_x + 8.0, bar_y + config->layout_bar_height - 8.0, 8.0, DISPLAY_M_PI_2, DISPLAY_M_PI);
-    cairo_arc(cr, bar_x + 8.0, bar_y + 8.0, 8.0, DISPLAY_M_PI, 1.5 * DISPLAY_M_PI);
-
-    // Close path and stroke
-    cairo_close_path(cr);
+    draw_rounded_rectangle_path(cr, config, bar_x, bar_y);
     cairo_stroke(cr);
 }
 
