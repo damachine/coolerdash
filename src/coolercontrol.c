@@ -78,6 +78,21 @@ static int initialize_device_cache(const Config *config);
 static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size);
 
 /**
+ * @brief Extract device type from JSON device object.
+ * @details Common helper function to extract device type string from JSON device object. Returns NULL if extraction fails.
+ */
+const char* extract_device_type_from_json(json_t *dev) {
+    if (!dev) return NULL;
+    
+    // Get device type
+    json_t *type_val = json_object_get(dev, "type");
+    if (!type_val || !json_is_string(type_val)) return NULL;
+    
+    // Extract device type string
+    return json_string_value(type_val);
+}
+
+/**
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
  */
@@ -157,12 +172,9 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         json_t *dev = json_array_get(devices, i);
         if (!dev) continue;
 
-        // Get device type
-        json_t *type_val = json_object_get(dev, "type");
-        if (!type_val || !json_is_string(type_val)) continue;
-
-        // Extract device type string
-        const char *type_str = json_string_value(type_val);
+        // Extract device type string using common helper
+        const char *type_str = extract_device_type_from_json(dev);
+        if (!type_str) continue;
 
         // Check device type
         const char *liquid_types[] = {"Liquidctl"};

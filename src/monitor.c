@@ -73,12 +73,9 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
         json_t *dev = json_array_get(devices, i);
         if (!dev) continue;
 
-        // Get device type
-        json_t *type_val = json_object_get(dev, "type");
-        if (!type_val || !json_is_string(type_val)) continue;
-
-        // Extract device type string
-        const char *type_str = json_string_value(type_val);
+        // Extract device type string using common helper
+        const char *type_str = extract_device_type_from_json(dev);
+        if (!type_str) continue;
 
         // Check device type
         if ((type_str[0] != 'C' && type_str[0] != 'G') ||
