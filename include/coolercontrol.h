@@ -19,11 +19,12 @@
 #define COOLERCONTROL_H
 
 // Include necessary headers
-// cppcheck-suppress missingInclude
+// cppcheck-suppress-begin missingIncludeSystem
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "config.h"

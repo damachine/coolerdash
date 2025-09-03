@@ -18,7 +18,7 @@
 #define _POSIX_C_SOURCE 200112L
 
 // Include necessary headers
-// cppcheck-suppress missingInclude
+// cppcheck-suppress-begin missingIncludeSystem
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "../include/config.h"

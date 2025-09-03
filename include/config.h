@@ -19,9 +19,10 @@
 #define CONFIG_H
 
 // Include necessary headers
-// cppcheck-suppress missingInclude
+// cppcheck-suppress-begin missingIncludeSystem
 #include <stdint.h>
 #include <ini.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Basic constants
 #define CONFIG_MAX_STRING_LEN 256

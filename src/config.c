@@ -16,7 +16,7 @@
 
 
 // Include necessary headers
-// cppcheck-suppress missingInclude
+// cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
 #include <ini.h>
 #include <limits.h>
@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "../include/config.h"

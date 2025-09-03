@@ -15,7 +15,7 @@
  */
 
 // Include necessary headers
-// cppcheck-suppress missingInclude
+// cppcheck-suppress-begin missingIncludeSystem
 #include <cairo/cairo.h>
 #include <errno.h>
 #include <math.h>
@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "../include/config.h"
