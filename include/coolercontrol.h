@@ -40,6 +40,9 @@
 struct Config;
 struct curl_slist;
 
+// Maximum safe allocation size to prevent overflow
+#define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
+
 /**
  * @brief Response buffer for libcurl HTTP operations.
  * @details Structure to hold HTTP response data with dynamic memory management for efficient data collection.
@@ -77,7 +80,7 @@ static inline int cc_safe_strcpy(char * restrict dest, size_t dest_size, const c
  * @details Allocates memory using calloc to ensure zero-initialization and prevent uninitialized data access.
  */
 static inline void* cc_secure_malloc(size_t size) {
-    if (size == 0) {
+    if (size == 0 || size > CC_MAX_SAFE_ALLOC_SIZE) {
         return NULL;
     }
     
@@ -89,7 +92,7 @@ static inline void* cc_secure_malloc(size_t size) {
  * @details Allocates memory for HTTP response data with proper initialization.
  */
 static inline int cc_init_response_buffer(struct http_response *response, size_t initial_capacity) {
-    if (!response || initial_capacity == 0) {
+    if (!response || initial_capacity == 0 || initial_capacity > CC_MAX_SAFE_ALLOC_SIZE) {
         return 0;
     }
     
@@ -141,7 +144,7 @@ size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_res
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
  * @details Must be called before any other CoolerControl API function. Sets up CURL session and performs authentication.
  */
-int init_coolercontrol_session(const Config *config);
+int init_coolercontrol_session(const struct Config *config);
 
 /**
  * @brief Returns whether the session is initialized.
@@ -159,18 +162,18 @@ void cleanup_coolercontrol_session(void);
  * @brief Get complete Liquidctl device information (UID, name, screen dimensions) from cache.
  * @details Reads all LCD device information from cache (no API call).
  */
-int get_liquidctl_data(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
+int get_liquidctl_data(const struct Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
 
 /**
  * @brief Initialize device information cache.
  * @details Fetches and caches device information once at startup for better performance.
  */
-int init_device_cache(const Config *config);
+int init_device_cache(const struct Config *config);
 
 /**
  * @brief Sends an image directly to the LCD of the CoolerControl device.
  * @details Uploads an image to the LCD display using a multipart HTTP PUT request with brightness and orientation settings.
  */
-int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid);
+int send_image_to_lcd(const struct Config *config, const char* image_path, const char* device_uid);
 
 #endif // COOLERCONTROL_H

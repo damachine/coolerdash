@@ -14,7 +14,6 @@
  * @details Parses the configuration file and sets values in the Config struct.
  */
 
-
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>

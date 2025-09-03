@@ -54,7 +54,6 @@ jobs:
               test_version="$base_ver.$counter"
               test_tag="v$test_version"
             fi
-
             if ! git tag -l "$test_tag" | grep -q "$test_tag" && ! git ls-remote --tags origin | grep -q "refs/tags/$test_tag"; then
               final_version="$test_version"
               final_tag="$test_tag"
@@ -121,11 +120,11 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          body: |
-            ## AUR Package Release ${{ steps.version.outputs.version }}
+          body: |            
+            ## This release contains the package files for the Arch User Repository (AUR).
             
-            This release contains the package files for the Arch User Repository (AUR).
-            
+            [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+
             ### Changes
             - Version updated to ${{ steps.version.outputs.version }}
             
