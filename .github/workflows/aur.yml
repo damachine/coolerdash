@@ -146,9 +146,6 @@ jobs:
           echo "Signed tag created: ${{ steps.version.outputs.tag }}"
           echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
 
-          - name: Cleanup GPG environment
-        if: always()  # läuft auch wenn vorher ein Step fehlschlägt
-
       - name: Cleanup GPG environment
         if: always()
         run: |
