@@ -146,6 +146,31 @@ jobs:
           echo "Signed tag created: ${{ steps.version.outputs.tag }}"
           echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }}"
 
+          - name: Cleanup GPG environment
+        if: always()  # läuft auch wenn vorher ein Step fehlschlägt
+
+      - name: Cleanup GPG environment
+        if: always()
+        run: |
+          echo "Cleaning up GPG environment..."
+          if [ -n "$GNUPGHOME" ] && [ -d "$GNUPGHOME" ]; then
+            gpgconf --kill gpg-agent || true
+            rm -rf "$GNUPGHOME"
+            echo "Removed GNUPGHOME: $GNUPGHOME"
+          fi
+
+          # Secret Keys löschen
+          for key in $(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^sec/ {print $5}'); do
+            gpg --batch --yes --delete-secret-keys "$key" || true
+          done
+
+          # Public Keys löschen
+          for key in $(gpg --list-keys --with-colons 2>/dev/null | awk -F: '/^pub/ {print $5}'); do
+            gpg --batch --yes --delete-keys "$key" || true
+          done
+
+          echo "✅ GPG cleanup completed."
+
   aur-release-summary:
     name: AUR Release Summary
     runs-on: ubuntu-latest
