@@ -1,6 +1,6 @@
 pkgbase = coolerdash
 	pkgdesc = Extends CoolerControl with a polished LCD dashboard
-	pkgver = 1.43
+	pkgver = 1.44
 	pkgrel = 1
 	url = https://github.com/damachine/coolerdash
 	install = coolerdash.install
