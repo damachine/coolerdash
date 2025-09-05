@@ -34,6 +34,99 @@
 #include "../include/coolercontrol.h"
 
 /**
+ * @brief Secure string copy with bounds checking.
+ * @details Performs safe string copying with buffer overflow protection and null termination guarantee.
+ */
+int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict src)
+{
+    if (!dest || !src || dest_size == 0)
+    {
+        return 0;
+    }
+
+    for (size_t i = 0; i < dest_size - 1; i++)
+    {
+        dest[i] = src[i];
+        if (src[i] == '\0')
+        {
+            return 1;
+        }
+    }
+    dest[dest_size - 1] = '\0';
+    return 0;
+}
+
+/**
+ * @brief Secure memory allocation with initialization.
+ * @details Allocates memory using calloc to ensure zero-initialization and prevent uninitialized data access.
+ */
+void *cc_secure_malloc(size_t size)
+{
+    if (size == 0 || size > CC_MAX_SAFE_ALLOC_SIZE)
+    {
+        return NULL;
+    }
+
+    return calloc(1, size);
+}
+
+/**
+ * @brief Initialize HTTP response buffer with specified capacity.
+ * @details Allocates memory for HTTP response data with proper initialization.
+ */
+int cc_init_response_buffer(struct http_response *response, size_t initial_capacity)
+{
+    if (!response || initial_capacity == 0 || initial_capacity > CC_MAX_SAFE_ALLOC_SIZE)
+    {
+        return 0;
+    }
+
+    response->data = malloc(initial_capacity);
+    if (!response->data)
+    {
+        response->size = 0;
+        response->capacity = 0;
+        return 0;
+    }
+
+    response->size = 0;
+    response->capacity = initial_capacity;
+    response->data[0] = '\0';
+    return 1;
+}
+
+/**
+ * @brief Validate HTTP response buffer integrity.
+ * @details Checks if response buffer is in valid state for operations.
+ */
+int cc_validate_response_buffer(const struct http_response *response)
+{
+    return (response &&
+            response->data &&
+            response->size <= response->capacity);
+}
+
+/**
+ * @brief Cleanup HTTP response buffer and free memory.
+ * @details Properly frees allocated memory and resets buffer state.
+ */
+void cc_cleanup_response_buffer(struct http_response *response)
+{
+    if (!response)
+    {
+        return;
+    }
+
+    if (response->data)
+    {
+        free(response->data);
+        response->data = NULL;
+    }
+    response->size = 0;
+    response->capacity = 0;
+}
+
+/**
  * @brief Structure to hold CoolerControl session state.
  * @details Contains the CURL handle, cookie jar path, and session initialization status.
  */
