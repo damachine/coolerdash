@@ -174,6 +174,7 @@ static int parse_config_data(void *user, const char *section, const char *name, 
 
 /**
  * @brief String configuration entry for lookup table.
+ * @details Structure for string configuration keys.
  */
 typedef struct {
     const char *key;
@@ -241,11 +242,13 @@ static inline int is_valid_orientation(int orientation)
 
 /**
  * @brief Display configuration handler function type.
+ * @details Function pointer type for individual display configuration handlers.
  */
 typedef void (*DisplayConfigHandler)(Config *config, const char *value);
 
 /**
  * @brief Display configuration handlers.
+ * @details Individual handlers for each display configuration key.
  */
 static void handle_display_width(Config *config, const char *value) {
     int width = safe_atoi(value, 0);
@@ -389,6 +392,7 @@ static int get_font_config(Config *config, const char *name, const char *value)
 
 /**
  * @brief Temperature configuration entry for lookup table.
+ * @details Structure for temperature threshold configuration keys.
  */
 typedef struct {
     const char *key;
@@ -420,6 +424,7 @@ static int get_temperature_config(Config *config, const char *name, const char *
 
 /**
  * @brief Color section mapping entry for lookup table.
+ * @details Structure for color section mapping.
  */
 typedef struct {
     const char *section_name;
@@ -606,10 +611,6 @@ static inline int is_color_unset(const Color *color)
     return (color->r == 0 && color->g == 0 && color->b == 0);
 }
 
-/**
- * @brief Set color default values using structured approach.
- * @details Helper function to set default color values for all UI elements.
- */
 /**
  * @brief Color default configuration entry.
  * @details Structure for color default values lookup table.
