@@ -326,20 +326,22 @@ static int handle_mixed_config(Config *config, const char *name, const char *val
 {
     for (size_t i = 0; i < entry_count; i++) {
         if (strcmp(name, entries[i].key) == 0) {
+            void *field_ptr = (void*)((char*)config + entries[i].offset);
+            
             switch (entries[i].type) {
                 case TYPE_UINT16: {
-                    uint16_t *dest = (uint16_t*)((char*)config + entries[i].offset);
-                    *dest = safe_atoi(value, 0);
+                    uint16_t *dest = (uint16_t*)field_ptr;
+                    *dest = (uint16_t)safe_atoi(value, 0);
                     break;
                 }
                 case TYPE_FLOAT: {
-                    float *dest = (float*)((char*)config + entries[i].offset);
+                    float *dest = (float*)field_ptr;
                     *dest = safe_atof(value, 12.0f);
                     break;
                 }
                 case TYPE_STRING: {
                     if (value && value[0] != '\0') {
-                        char *dest = (char*)config + entries[i].offset;
+                        char *dest = (char*)field_ptr;
                         cc_safe_strcpy(dest, entries[i].string_size, value);
                     }
                     break;
@@ -407,7 +409,8 @@ static int get_temperature_config(Config *config, const char *name, const char *
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
         if (strcmp(name, entries[i].key) == 0) {
-            float *dest = (float*)((char*)config + entries[i].offset);
+            void *field_ptr = (void*)((char*)config + entries[i].offset);
+            float *dest = (float*)field_ptr;
             *dest = safe_atof(value, 50.0f + i * 15.0f); // 50, 65, 80
             return 1;
         }
