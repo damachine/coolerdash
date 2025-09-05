@@ -173,28 +173,24 @@ static int parse_config_data(void *user, const char *section, const char *name, 
 }
 
 /**
- * @brief Daemon configuration entry for lookup table.
+ * @brief String configuration entry for lookup table.
  */
 typedef struct {
     const char *key;
     size_t offset;
     size_t size;
-} DaemonConfigEntry;
+} StringConfigEntry;
 
 /**
- * @brief Handle daemon section configuration.
- * @details Processes daemon-related configuration keys using lookup table approach.
+ * @brief Generic helper for string-based configuration sections.
+ * @details Processes string configuration keys using lookup table approach.
  */
-static int get_daemon_config(Config *config, const char *name, const char *value)
+static int handle_string_config(Config *config, const char *name, const char *value, 
+                               const StringConfigEntry *entries, size_t entry_count)
 {
     if (!value || value[0] == '\0') return 1;
     
-    static const DaemonConfigEntry entries[] = {
-        {"address", offsetof(Config, daemon_address), sizeof(config->daemon_address)},
-        {"password", offsetof(Config, daemon_password), sizeof(config->daemon_password)}
-    };
-    
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
+    for (size_t i = 0; i < entry_count; i++) {
         if (strcmp(name, entries[i].key) == 0) {
             char *dest = (char*)config + entries[i].offset;
             cc_safe_strcpy(dest, entries[i].size, value);
@@ -205,13 +201,18 @@ static int get_daemon_config(Config *config, const char *name, const char *value
 }
 
 /**
- * @brief Paths configuration entry for lookup table.
+ * @brief Handle daemon section configuration.
+ * @details Processes daemon-related configuration keys using lookup table approach.
  */
-typedef struct {
-    const char *key;
-    size_t offset;
-    size_t size;
-} PathsConfigEntry;
+static int get_daemon_config(Config *config, const char *name, const char *value)
+{
+    static const StringConfigEntry entries[] = {
+        {"address", offsetof(Config, daemon_address), sizeof(config->daemon_address)},
+        {"password", offsetof(Config, daemon_password), sizeof(config->daemon_password)}
+    };
+    
+    return handle_string_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+}
 
 /**
  * @brief Handle paths section configuration with reduced complexity.
@@ -219,23 +220,14 @@ typedef struct {
  */
 static int get_paths_config(Config *config, const char *name, const char *value)
 {
-    if (!value || value[0] == '\0') return 1;
-
-    static const PathsConfigEntry entries[] = {
+    static const StringConfigEntry entries[] = {
         {"images", offsetof(Config, paths_images), sizeof(config->paths_images)},
         {"image_coolerdash", offsetof(Config, paths_image_coolerdash), sizeof(config->paths_image_coolerdash)},
         {"image_shutdown", offsetof(Config, paths_image_shutdown), sizeof(config->paths_image_shutdown)},
         {"pid", offsetof(Config, paths_pid), sizeof(config->paths_pid)}
     };
 
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
-        if (strcmp(name, entries[i].key) == 0) {
-            char *dest = (char*)config + entries[i].offset;
-            cc_safe_strcpy(dest, entries[i].size, value);
-            return 1;
-        }
-    }
-    return 1;
+    return handle_string_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
 
 /**
@@ -316,38 +308,42 @@ static int get_display_config(Config *config, const char *name, const char *valu
 }
 
 /**
- * @brief Layout configuration entry for lookup table.
+ * @brief Mixed-type configuration entry for lookup table.
  */
 typedef struct {
     const char *key;
     size_t offset;
-    int is_float;
-} LayoutConfigEntry;
+    enum { TYPE_UINT16, TYPE_FLOAT, TYPE_STRING } type;
+    size_t string_size;
+} MixedConfigEntry;
 
 /**
- * @brief Handle layout section configuration with reduced complexity.
- * @details Processes layout-related configuration keys using lookup table approach.
+ * @brief Generic helper for mixed-type configuration sections.
+ * @details Processes mixed-type configuration keys using lookup table approach.
  */
-static int get_layout_config(Config *config, const char *name, const char *value)
+static int handle_mixed_config(Config *config, const char *name, const char *value,
+                              const MixedConfigEntry *entries, size_t entry_count)
 {
-    static const LayoutConfigEntry entries[] = {
-        {"box_width", offsetof(Config, layout_box_width), 0},
-        {"box_height", offsetof(Config, layout_box_height), 0},
-        {"box_gap", offsetof(Config, layout_box_gap), 0},
-        {"bar_width", offsetof(Config, layout_bar_width), 0},
-        {"bar_height", offsetof(Config, layout_bar_height), 0},
-        {"bar_gap", offsetof(Config, layout_bar_gap), 0},
-        {"bar_border_width", offsetof(Config, layout_bar_border_width), 1}
-    };
-
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
+    for (size_t i = 0; i < entry_count; i++) {
         if (strcmp(name, entries[i].key) == 0) {
-            if (entries[i].is_float) {
-                float *dest = (float*)((char*)config + entries[i].offset);
-                *dest = safe_atof(value, 0.0f);
-            } else {
-                uint16_t *dest = (uint16_t*)((char*)config + entries[i].offset);
-                *dest = safe_atoi(value, 0);
+            switch (entries[i].type) {
+                case TYPE_UINT16: {
+                    uint16_t *dest = (uint16_t*)((char*)config + entries[i].offset);
+                    *dest = safe_atoi(value, 0);
+                    break;
+                }
+                case TYPE_FLOAT: {
+                    float *dest = (float*)((char*)config + entries[i].offset);
+                    *dest = safe_atof(value, 12.0f);
+                    break;
+                }
+                case TYPE_STRING: {
+                    if (value && value[0] != '\0') {
+                        char *dest = (char*)config + entries[i].offset;
+                        cc_safe_strcpy(dest, entries[i].string_size, value);
+                    }
+                    break;
+                }
             }
             return 1;
         }
@@ -356,13 +352,23 @@ static int get_layout_config(Config *config, const char *name, const char *value
 }
 
 /**
- * @brief Font configuration entry for lookup table.
+ * @brief Handle layout section configuration with reduced complexity.
+ * @details Processes layout-related configuration keys using lookup table approach.
  */
-typedef struct {
-    const char *key;
-    size_t offset;
-    int is_string;
-} FontConfigEntry;
+static int get_layout_config(Config *config, const char *name, const char *value)
+{
+    static const MixedConfigEntry entries[] = {
+        {"box_width", offsetof(Config, layout_box_width), TYPE_UINT16, 0},
+        {"box_height", offsetof(Config, layout_box_height), TYPE_UINT16, 0},
+        {"box_gap", offsetof(Config, layout_box_gap), TYPE_UINT16, 0},
+        {"bar_width", offsetof(Config, layout_bar_width), TYPE_UINT16, 0},
+        {"bar_height", offsetof(Config, layout_bar_height), TYPE_UINT16, 0},
+        {"bar_gap", offsetof(Config, layout_bar_gap), TYPE_UINT16, 0},
+        {"bar_border_width", offsetof(Config, layout_bar_border_width), TYPE_FLOAT, 0}
+    };
+
+    return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+}
 
 /**
  * @brief Handle font section configuration with reduced complexity.
@@ -370,27 +376,13 @@ typedef struct {
  */
 static int get_font_config(Config *config, const char *name, const char *value)
 {
-    static const FontConfigEntry entries[] = {
-        {"font_face", offsetof(Config, font_face), 1},
-        {"font_size_temp", offsetof(Config, font_size_temp), 0},
-        {"font_size_labels", offsetof(Config, font_size_labels), 0}
+    static const MixedConfigEntry entries[] = {
+        {"font_face", offsetof(Config, font_face), TYPE_STRING, CONFIG_MAX_FONT_NAME_LEN},
+        {"font_size_temp", offsetof(Config, font_size_temp), TYPE_FLOAT, 0},
+        {"font_size_labels", offsetof(Config, font_size_labels), TYPE_FLOAT, 0}
     };
 
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
-        if (strcmp(name, entries[i].key) == 0) {
-            if (entries[i].is_string) {
-                if (value && value[0] != '\0') {
-                    char *dest = (char*)config + entries[i].offset;
-                    cc_safe_strcpy(dest, CONFIG_MAX_FONT_NAME_LEN, value);
-                }
-            } else {
-                float *dest = (float*)((char*)config + entries[i].offset);
-                *dest = safe_atof(value, 12.0f);
-            }
-            return 1;
-        }
-    }
-    return 1;
+    return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
 
 /**
