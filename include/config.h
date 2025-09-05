@@ -127,12 +127,4 @@ void config_init_defaults(Config *config);
  */
 int load_config(const char *path, Config *config);
 
-/**
- * @brief Legacy function name for backward compatibility.
- * @details Provides backward compatibility by calling load_config with swapped parameter order.
- */
-static inline int load_config_ini(Config *config, const char *path) {
-    return load_config(path, config);
-}
-
 #endif // CONFIG_H
