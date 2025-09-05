@@ -186,6 +186,173 @@ const char* extract_device_type_from_json(json_t *dev) {
 }
 
 /**
+ * @brief Error handling macro for MIME operations.
+ * @details Simplifies error checking and cleanup for MIME operations.
+ */
+#define CHECK_MIME_RESULT(result, cleanup_code) \
+    if (result != CURLE_OK) { \
+        log_message(LOG_ERROR, "MIME operation failed: %s", curl_easy_strerror(result)); \
+        cleanup_code; \
+        return 0; \
+    }
+
+/**
+ * @brief Cleanup and return macro.
+ * @details Simplifies cleanup and return statements in functions.
+ */
+#define CLEANUP_AND_RETURN(cleanup_code, return_value) \
+    do { cleanup_code; return return_value; } while(0)
+
+/**
+ * @brief Add a text field to multipart form.
+ * @details Helper function to reduce complexity in form creation.
+ */
+static int add_mime_text_field(curl_mime *form, const char *name, const char *value) {
+    if (!form || !name || !value) return 0;
+    
+    curl_mimepart *field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create %s field", name);
+        return 0;
+    }
+    
+    CURLcode result = curl_mime_name(field, name);
+    CHECK_MIME_RESULT(result, return 0);
+    
+    result = curl_mime_data(field, value, CURL_ZERO_TERMINATED);
+    CHECK_MIME_RESULT(result, return 0);
+    
+    return 1;
+}
+
+/**
+ * @brief Add a file field to multipart form.
+ * @details Helper function to reduce complexity in form creation.
+ */
+static int add_mime_file_field(curl_mime *form, const char *name, const char *filepath, const char *mime_type) {
+    if (!form || !name || !filepath) return 0;
+    
+    curl_mimepart *field = curl_mime_addpart(form);
+    if (!field) {
+        log_message(LOG_ERROR, "Failed to create %s field", name);
+        return 0;
+    }
+    
+    CURLcode result = curl_mime_name(field, name);
+    CHECK_MIME_RESULT(result, return 0);
+    
+    result = curl_mime_filedata(field, filepath);
+    if (result != CURLE_OK) {
+        // Only log error if the file actually exists
+        struct stat file_stat;
+        if (stat(filepath, &file_stat) == 0) {
+            log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(result));
+        }
+        return 0;
+    }
+    
+    if (mime_type) {
+        result = curl_mime_type(field, mime_type);
+        CHECK_MIME_RESULT(result, return 0);
+    }
+    
+    return 1;
+}
+
+/**
+ * @brief Find first Liquidctl device in devices array.
+ * @details Extracts the first supported Liquidctl device from JSON array.
+ */
+static json_t* find_liquidctl_device(json_t *devices) {
+    if (!devices || !json_is_array(devices)) return NULL;
+    
+    const size_t device_count = json_array_size(devices);
+    const char *liquid_types[] = {"Liquidctl"};
+    const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
+    
+    for (size_t i = 0; i < device_count; i++) {
+        json_t *dev = json_array_get(devices, i);
+        if (!dev) continue;
+        
+        const char *type_str = extract_device_type_from_json(dev);
+        if (!type_str) continue;
+        
+        // Check if device type is supported
+        for (size_t j = 0; j < num_types; j++) {
+            if (strcmp(type_str, liquid_types[j]) == 0) {
+                return dev;
+            }
+        }
+    }
+    
+    return NULL;
+}
+
+/**
+ * @brief Extract basic device information from JSON device object.
+ * @details Extracts UID and name from device JSON object.
+ */
+static int extract_device_basic_info(json_t *device, char *uid, size_t uid_size, char *name, size_t name_size) {
+    if (!device) return 0;
+    
+    // Extract UID
+    if (uid && uid_size > 0) {
+        json_t *uid_val = json_object_get(device, "uid");
+        if (uid_val && json_is_string(uid_val)) {
+            const char *uid_str = json_string_value(uid_val);
+            snprintf(uid, uid_size, "%s", uid_str);
+        }
+    }
+    
+    // Extract device name
+    if (name && name_size > 0) {
+        json_t *name_val = json_object_get(device, "name");
+        if (name_val && json_is_string(name_val)) {
+            const char *name_str = json_string_value(name_val);
+            snprintf(name, name_size, "%s", name_str);
+        }
+    }
+    
+    return 1;
+}
+
+/**
+ * @brief Extract LCD dimensions from device JSON object.
+ * @details Navigates JSON structure to extract screen width and height.
+ */
+static int extract_lcd_dimensions(json_t *device, int *screen_width, int *screen_height) {
+    if (!device) return 0;
+    
+    json_t *info = json_object_get(device, "info");
+    if (!info) return 0;
+    
+    json_t *channels = json_object_get(info, "channels");
+    if (!channels) return 0;
+    
+    json_t *lcd_channel = json_object_get(channels, "lcd");
+    if (!lcd_channel) return 0;
+    
+    json_t *lcd_info = json_object_get(lcd_channel, "lcd_info");
+    if (!lcd_info) return 0;
+    
+    if (screen_width) {
+        json_t *width_val = json_object_get(lcd_info, "screen_width");
+        if (width_val && json_is_integer(width_val)) {
+            *screen_width = (int)json_integer_value(width_val);
+        }
+    }
+    
+    if (screen_height) {
+        json_t *height_val = json_object_get(lcd_info, "screen_height");
+        if (height_val && json_is_integer(height_val)) {
+            *screen_height = (int)json_integer_value(height_val);
+        }
+    }
+    
+    return 1;
+}
+
+/**
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
  */
@@ -256,84 +423,25 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         return 0;
     }
 
-    // Get device count
-    const size_t device_count = json_array_size(devices);
-
-    // Check each device
-    for (size_t i = 0; i < device_count; i++) {
-        // Get device entry
-        json_t *dev = json_array_get(devices, i);
-        if (!dev) continue;
-
-        // Extract device type string using common helper
-        const char *type_str = extract_device_type_from_json(dev);
-        if (!type_str) continue;
-
-        // Check device type
-        const char *liquid_types[] = {"Liquidctl"};
-        const size_t num_types = sizeof(liquid_types) / sizeof(liquid_types[0]);
-        
-        // Check if device type is supported
-        int is_supported_device = 0;
-        for (size_t j = 0; j < num_types; j++) {
-            if (strcmp(type_str, liquid_types[j]) == 0) {
-                is_supported_device = 1;
-                break;
-            }
-        }
-        
-        // Skip if not supported
-        if (!is_supported_device) continue;
-
-        // Found Liquidctl device
-        if (found_liquidctl) *found_liquidctl = 1;
-
-        // Extract UID
-        if (lcd_uid && uid_size > 0) {
-            json_t *uid_val = json_object_get(dev, "uid");
-            if (uid_val && json_is_string(uid_val)) {
-                const char *uid_str = json_string_value(uid_val);
-                snprintf(lcd_uid, uid_size, "%s", uid_str);
-            }
-        }
-
-        // Extract device name
-        if (device_name && name_size > 0) {
-            json_t *name_val = json_object_get(dev, "name");
-            if (name_val && json_is_string(name_val)) {
-                const char *name_str = json_string_value(name_val);
-                snprintf(device_name, name_size, "%s", name_str);
-            }
-        }
-
-        // Extract LCD dimensions
-        if (screen_width || screen_height) {
-            json_t *info = json_object_get(dev, "info");
-            json_t *channels = info ? json_object_get(info, "channels") : NULL;
-            json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
-            json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
-            if (lcd_info) {
-                if (screen_width) {
-                    json_t *width_val = json_object_get(lcd_info, "screen_width");
-                    if (width_val && json_is_integer(width_val)) {
-                        *screen_width = (int)json_integer_value(width_val);
-                    }
-                }
-                if (screen_height) {
-                    json_t *height_val = json_object_get(lcd_info, "screen_height");
-                    if (height_val && json_is_integer(height_val)) {
-                        *screen_height = (int)json_integer_value(height_val);
-                    }
-                }
-            }
-        }
-
-        // Found device, exit early
+    // Find first Liquidctl device using helper function
+    json_t *liquidctl_device = find_liquidctl_device(devices);
+    if (!liquidctl_device) {
         json_decref(root);
-        return 1;
+        return 1; // No device found, but not an error
     }
 
-    // No Liquidctl device found
+    // Mark as found
+    if (found_liquidctl) *found_liquidctl = 1;
+
+    // Extract basic device information
+    extract_device_basic_info(liquidctl_device, lcd_uid, uid_size, device_name, name_size);
+
+    // Extract LCD dimensions if requested
+    if (screen_width || screen_height) {
+        extract_lcd_dimensions(liquidctl_device, screen_width, screen_height);
+    }
+
+    // Cleanup and return success
     json_decref(root);
     return 1;
 }
@@ -566,155 +674,53 @@ int init_device_cache(const Config *config) {
 }
 
 /**
- * @brief Sends an image to the LCD display.
- * @details This function uploads an image to the LCD display using a multipart HTTP PUT request. It requires the session to be initialized and the device UID to be available.
+ * @brief Prepare multipart form for LCD upload.
+ * @details Creates and populates the multipart form with all required fields.
  */
-int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid) {
-    // Basic validation only
-    if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) {
-        log_message(LOG_ERROR, "Invalid parameters or session not initialized");
-        return 0;
-    }
-    
-    // Build upload URL
-    char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
-             config->daemon_address, device_uid);
-    
-    // Initialize multipart form
+static curl_mime* prepare_lcd_upload_form(const Config *config, const char *image_path) {
     curl_mime *form = curl_mime_init(cc_session.curl_handle);
     if (!form) {
         log_message(LOG_ERROR, "Failed to initialize multipart form");
-        return 0;
+        return NULL;
     }
     
-    // Initialize form fields
-    curl_mimepart *field;
-    CURLcode mime_result;
-    
-    // Add mode field with error checking
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create mode field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set mode field name
-    mime_result = curl_mime_name(field, "mode");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set mode field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set mode field data
-    mime_result = curl_mime_data(field, "image", CURL_ZERO_TERMINATED);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set mode field data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
+    // Add mode field
+    if (!add_mime_text_field(form, "mode", "image")) {
+        CLEANUP_AND_RETURN(curl_mime_free(form), NULL);
     }
     
     // Add brightness field
     char brightness_str[8];
     snprintf(brightness_str, sizeof(brightness_str), "%d", config->lcd_brightness);
-    
-    // Add brightness field
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create brightness field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set brightness field name
-    mime_result = curl_mime_name(field, "brightness");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set brightness field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set brightness field data
-    mime_result = curl_mime_data(field, brightness_str, CURL_ZERO_TERMINATED);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set brightness field data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
+    if (!add_mime_text_field(form, "brightness", brightness_str)) {
+        CLEANUP_AND_RETURN(curl_mime_free(form), NULL);
     }
     
     // Add orientation field
     char orientation_str[8];
     snprintf(orientation_str, sizeof(orientation_str), "%d", config->lcd_orientation);
-    
-    // Add orientation field
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create orientation field");
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set orientation field name
-    mime_result = curl_mime_name(field, "orientation");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set orientation field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set orientation field data
-    mime_result = curl_mime_data(field, orientation_str, CURL_ZERO_TERMINATED);
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set orientation field data: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
+    if (!add_mime_text_field(form, "orientation", orientation_str)) {
+        CLEANUP_AND_RETURN(curl_mime_free(form), NULL);
     }
     
     // Add image file
-    field = curl_mime_addpart(form);
-    if (!field) {
-        log_message(LOG_ERROR, "Failed to create image field");
-        curl_mime_free(form);
-        return 0;
+    if (!add_mime_file_field(form, "images[]", image_path, "image/png")) {
+        CLEANUP_AND_RETURN(curl_mime_free(form), NULL);
     }
     
-    // Set image field name
-    mime_result = curl_mime_name(field, "images[]");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set image field name: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set image file data
-    mime_result = curl_mime_filedata(field, image_path);
-    if (mime_result != CURLE_OK) {
-        // Only log error if the file actually exists
-        struct stat file_stat;
-        if (stat(image_path, &file_stat) == 0) {
-            log_message(LOG_ERROR, "Failed to set image file data: %s", curl_easy_strerror(mime_result));
-        }
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Set image MIME type
-    mime_result = curl_mime_type(field, "image/png");
-    if (mime_result != CURLE_OK) {
-        log_message(LOG_ERROR, "Failed to set image MIME type: %s", curl_easy_strerror(mime_result));
-        curl_mime_free(form);
-        return 0;
-    }
-    
-    // Initialize response buffer
-    struct http_response response = {0};
-    if (!cc_init_response_buffer(&response, 4096)) {
-        log_message(LOG_ERROR, "Failed to initialize response buffer");
-        curl_mime_free(form);
-        return 0;
-    }
+    return form;
+}
+
+/**
+ * @brief Configure CURL options for LCD upload request.
+ * @details Sets up all necessary CURL options for the upload request.
+ */
+static void configure_lcd_upload_request(const Config *config, const char *device_uid, 
+                                       curl_mime *form, struct http_response *response) {
+    // Build upload URL
+    char upload_url[CC_URL_SIZE];
+    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
+             config->daemon_address, device_uid);
     
     // Configure curl options
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
@@ -729,8 +735,14 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     
     // Set write callback
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
-    
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, response);
+}
+
+/**
+ * @brief Execute LCD upload request and handle response.
+ * @details Performs the HTTP request and processes the response.
+ */
+static int execute_lcd_upload_request(struct http_response *response) {
     // Add headers
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
@@ -750,22 +762,65 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
         success = 1;
     } else {
         log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res, http_response_code);
-        if (response.data && response.size > 0) {
-            response.data[response.size] = '\0';
-            log_message(LOG_ERROR, "Server response: %s", response.data);
+        if (response->data && response->size > 0) {
+            response->data[response->size] = '\0';
+            log_message(LOG_ERROR, "Server response: %s", response->data);
         }
     }
     
-    // Cleanup resources
-    cc_cleanup_response_buffer(&response);
+    // Cleanup headers
     if (headers) curl_slist_free_all(headers);
-    curl_mime_free(form);
+    
+    return success;
+}
+
+/**
+ * @brief Cleanup CURL options after LCD upload.
+ * @details Resets CURL options to clean state.
+ */
+static void cleanup_lcd_upload_options(void) {
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
+}
+
+/**
+ * @brief Sends an image to the LCD display.
+ * @details This function uploads an image to the LCD display using a multipart HTTP PUT request. It requires the session to be initialized and the device UID to be available.
+ */
+int send_image_to_lcd(const Config *config, const char* image_path, const char* device_uid) {
+    // Basic validation
+    if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized) {
+        log_message(LOG_ERROR, "Invalid parameters or session not initialized");
+        return 0;
+    }
     
-    // Return success
+    // Prepare multipart form
+    curl_mime *form = prepare_lcd_upload_form(config, image_path);
+    if (!form) {
+        return 0;
+    }
+    
+    // Initialize response buffer
+    struct http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096)) {
+        log_message(LOG_ERROR, "Failed to initialize response buffer");
+        curl_mime_free(form);
+        return 0;
+    }
+    
+    // Configure request
+    configure_lcd_upload_request(config, device_uid, form, &response);
+    
+    // Execute request
+    int success = execute_lcd_upload_request(&response);
+    
+    // Cleanup resources
+    cc_cleanup_response_buffer(&response);
+    curl_mime_free(form);
+    cleanup_lcd_upload_options();
+    
     return success;
 }
