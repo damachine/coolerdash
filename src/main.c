@@ -580,7 +580,7 @@ int main(int argc, char **argv) {
     Config config = {0};
     
     log_message(LOG_STATUS, "Loading configuration...");
-    if (load_config_ini(&config, config_path) != 0) {
+    if (load_config(config_path, &config) != 0) {
         log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
         fprintf(stderr, "Please check:\n");
