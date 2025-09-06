@@ -22,7 +22,7 @@
 #   Do not run as root. Use dedicated user for security.
 #   Ensure all required dependencies are installed.
 #   It uses color output and Unicode icons for better readability. All paths and dependencies are configurable.
-#   See 'README.md' and 'AUR-README.md' for further details.
+#   See 'README.md' for further details.
 #
 # Build:
 #   'makepkg -si'
@@ -71,7 +71,6 @@ build() {
 
     # Copy all required files for packaging to $srcdir
     cp -a README.md "$srcdir/README.md"
-    cp -a AUR-README.md "$srcdir/AUR-README.md"
     cp -a CHANGELOG.md "$srcdir/CHANGELOG.md"
     cp -a VERSION "$srcdir/VERSION"
     cp -a LICENSE "$srcdir/LICENSE"
@@ -99,7 +98,6 @@ check() {
 package() {
     # For local build: use current directory directly
     install -dm755 "$pkgdir/opt/coolerdash"
-    install -Dm644 "$srcdir/AUR-README.md" "$pkgdir/opt/coolerdash/AUR-README.md"
     install -Dm644 "$srcdir/README.md" "$pkgdir/opt/coolerdash/README.md"
     install -Dm644 "$srcdir/VERSION" "$pkgdir/opt/coolerdash/VERSION"
     install -Dm644 "$srcdir/LICENSE" "$pkgdir/opt/coolerdash/LICENSE"
