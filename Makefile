@@ -19,7 +19,7 @@
 #   Do not run as root. Use dedicated user for security.
 #   Ensure all required dependencies are installed.
 #   It uses color output and Unicode icons for better readability. All paths and dependencies are configurable.
-#   See 'README.md' and 'AUR-README.md' for further details.
+#   See 'README.md' for further details.
 #
 # Build:
 #   'make'
@@ -270,7 +270,6 @@ install: check-deps $(TARGET)
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing files...$(RESET)\n"
 	install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/opt/coolerdash/bin/coolerdash"
-	install -Dm644 AUR-README.md "$(DESTDIR)/opt/coolerdash/AUR-README.md"
 	install -Dm644 $(README) "$(DESTDIR)/opt/coolerdash/README.md"
 	install -Dm644 LICENSE "$(DESTDIR)/opt/coolerdash/LICENSE"
 	install -Dm644 CHANGELOG.md "$(DESTDIR)/opt/coolerdash/CHANGELOG.md"
@@ -280,7 +279,6 @@ install: check-deps $(TARGET)
 	@printf "  $(GREEN)Program:$(RESET) /opt/coolerdash/bin/coolerdash [mode]\n"
 	@printf "  $(GREEN)Documentation:$(RESET) $(DESTDIR)/opt/coolerdash/\n"
 	@printf "  $(GREEN)  - README.md$(RESET)\n"
-	@printf "  $(GREEN)  - AUR-README.md$(RESET)\n"
 	@printf "  $(GREEN)  - LICENSE$(RESET)\n"
 	@printf "  $(GREEN)  - CHANGELOG.md$(RESET)\n"
 	@printf "  $(GREEN)Resources:$(RESET) $(DESTDIR)/opt/coolerdash/images/shutdown.png\n"
