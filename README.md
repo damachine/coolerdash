@@ -62,6 +62,8 @@ Special thanks to @codifryed, the developer of CoolerControl!
 
 #### Arch Linux (Recommended)
 
+[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+
 - Using an AUR helper (recommended):
 ```bash
 yay -S coolerdash-git
