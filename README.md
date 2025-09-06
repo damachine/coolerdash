@@ -14,7 +14,7 @@
 
 ## 📖 Description
 
-**CoolerDash is a wrapper tool that extends CoolerControl. Turn your water cooling display into a smart, stylish information hub—beyond the default features of CoolerControl alone.**
+**CoolerDash is an add-on for CoolerControl that enhances your water cooling display with additional features and a polished LCD dashboard. It builds on CoolerControl's solid foundation to provide a more customizable and informative display experience.**
 
 Special thanks to @codifryed, the developer of CoolerControl!
 
@@ -39,21 +39,20 @@ Special thanks to @codifryed, the developer of CoolerControl!
 
 **Supported Distributions and Dependencies:**
 
-[![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml) - [![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
-- **Arch Linux / Manjaro (Recommended)** [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+- **Arch Linux / CachyOS / Manjaro (Recommended)**
 - **Ubuntu / Debian**
 - **Fedora**
 - **RHEL / CentOS**
 - **openSUSE**
 
-> **Note:** If you install manually, you must ensure all required dependencies are installed right. No automatic updates will be provided for manual installations.
 
 ## Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
-2. **Start CoolerControl daemon**: `systemctl start coolercontrold`
-3. **In CoolerControl config - Device and Sensor - select one sensor for CPU and GPU**
+2. **Start/Enable CoolerControl daemon**: `systemctl start coolercontrold`
+3. **In the CoolerControl settings, under "Device and Sensor", select one sensor for the CPU and one for the GPU.**
 
+> ℹ️ Skip this step if you have already configured your CoolerControl before.
 ---
 
 ## 📦 Installation
@@ -68,7 +67,7 @@ Special thanks to @codifryed, the developer of CoolerControl!
 ```bash
 yay -S coolerdash-git
 
-# Enable coolerdash
+# Enable CoolerDash (after install or update)
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
@@ -115,39 +114,23 @@ systemctl status coolerdash.service
 journalctl -u coolerdash.service
 ```
 
----
-
-#### Manual Usage 
-
-```bash
-# Run manually (with minimal status logging)
-coolerdash
-
-# Run with detailed debug logging
-coolerdash --log
-
-# Or use full path
-/opt/coolerdash/bin/coolerdash
-
-# From directory
-./coolerdash
-```
-> **Note:** The systemd service must be stopped before running manually to avoid conflicts:
-```bash
-systemctl stop coolerdash.service
-```
+> **Note:** For manual installations, please make sure all required dependencies are installed correctly. Only package manager installations receive automatic updates; manual installations must be updated manually.
 
 ---
 
 ## ⚙️ Configuration
 
-> **CoolerControl configuration**: In CoolerControl GUI, set CPU/GPU sensors to your desired values!
->                                  In CoolerControl GUI, set your LCD display to **"Image/gif"** mode and brightness to **"80%"**! 
+**ℹ️ CoolerControl configuration**
+In the CoolerControl settings, under **"Device"** and **"Sensor"**, select one sensor for the CPU and one for the GPU.
+In CoolerControl GUI, set your LCD display to **"Image/gif"**.
 
-> **Runtime Configuration:** All settings are managed in `/etc/coolerdash/config.ini`.
-> After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
+**ℹ️ Runtime Configuration:**
+All settings are managed in `/etc/coolerdash/config.ini`.
+After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
-> **Shutdown Image:** When CoolerDash stops (during system shutdown or reboot), it automatically displays the `shutdown.png` image since sensor data is no longer available. You can customize, disable, or replace this image by editing the `/etc/coolerdash/config.ini` configuration file.
+**ℹ️ NOTE:**
+When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
+ℹ️ You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
 
 ---
 
@@ -157,10 +140,11 @@ systemctl stop coolerdash.service
 
 ```bash
 # Service control
-systemctl start coolerdash.service     # Start
-systemctl stop coolerdash.service      # Stop (displays face.png automatically)
-systemctl restart coolerdash.service   # Restart
-systemctl status coolerdash.service    # Status + recent logs
+systemctl enable --now coolerdash.service     # Enable and Start!
+systemctl start coolerdash.service            # Start
+systemctl stop coolerdash.service             # Stop
+systemctl restart coolerdash.service          # Restart
+systemctl status coolerdash.service           # Status + recent logs
 
 # Journal log
 journalctl -u coolerdash.service
@@ -178,6 +162,20 @@ make install    # System installation with dependency auto-detection
 make uninstall  # Remove installation (service, binary, files)
 make debug      # Debug build with AddressSanitizer
 make help       # Show all options
+```
+
+#### Manual Usage 
+
+```bash
+# Run manually (with minimal status logging)
+coolerdash
+
+# Run with detailed debug logging
+coolerdash --log
+```
+> **Note:** The systemd service must be stopped before running manually to avoid conflicts:
+```bash
+systemctl stop coolerdash.service
 ```
 
 #### Debugging Steps
@@ -203,6 +201,8 @@ journalctl -u coolerdash.service -f
 journalctl -u coolerdash.service -n 50
 ```
 
+---
+
 ## 🔍 Troubleshooting
 
 #### Common Issues
@@ -219,8 +219,6 @@ systemctl start coolercontrold
 # Check available devices
 curl http://localhost:11987/devices | jq
 ```
-
-**Example CoolerControl API output:**
 ```json
 {
       "name": "NZXT Kraken 2023",
@@ -232,12 +230,13 @@ curl http://localhost:11987/devices | jq
         "firmware_version": "2.0.0",
         "unknown_asetek": false
       }
+}
 ```
 
 **Manual Installation Conflicts**
 If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
-**Solution:**
+***Solution:***
 - The PKGBUILD will attempt to clean up automatically.
 - If problems persist, run:
   ```
@@ -246,6 +245,7 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
 - Then retry the installation.
 
+**Other**
 If you need help, open an issue at https://github.com/damachine/coolerdash/issues
 
 ---
@@ -253,13 +253,17 @@ If you need help, open an issue at https://github.com/damachine/coolerdash/issue
 ## ⚠️ Disclaimer
 
 This software is provided "as is", without warranty of any kind, express or implied.  
-I do not guarantee that it will work as intended on your system.  
+I do not guarantee that it will work as intended on your system. 
+
+---
 
 ## 📄 License
 
 MIT License - See LICENSE file for details.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+---
 
 ## 💝 Support the Project
 
