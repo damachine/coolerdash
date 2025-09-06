@@ -43,7 +43,7 @@ struct Config;
 #endif
 
 // Display positioning constants for LCD layout
-#define DISPLAY_LABEL_Y_OFFSET_1 10
+#define DISPLAY_LABEL_Y_OFFSET_1 8
 #define DISPLAY_LABEL_Y_OFFSET_2 16
 #define DISPLAY_TEMP_DISPLAY_X_OFFSET 22
 #define DISPLAY_TEMP_DISPLAY_Y_OFFSET 22
