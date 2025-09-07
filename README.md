@@ -57,8 +57,6 @@ Special thanks to @codifryed, the developer of CoolerControl!
 
 ## 📦 Installation
 
-### Install CoolerDash
-
 #### Arch Linux (Recommended)
 
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
