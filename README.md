@@ -103,7 +103,7 @@ cd coolerdash
 systemctl start coolercontrold
 
 # STEP 3: Build and install (auto-detects Linux distribution and installs dependencies)
-sudo make install
+make install
 
 # STEP 4: Enable autostart
 systemctl daemon-reload
