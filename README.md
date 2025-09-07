@@ -37,10 +37,10 @@ Special thanks to @codifryed, the developer of CoolerControl!
 
 > **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
 
-**Supported Distributions and Dependencies:**
+**Supported Distributions:**
 
 - **Arch Linux / CachyOS / Manjaro (Recommended)**
-- **Ubuntu / Debian**
+- **Debian / Ubuntu**
 - **Fedora**
 - **RHEL / CentOS**
 - **openSUSE**
@@ -114,23 +114,23 @@ systemctl status coolerdash.service
 journalctl -u coolerdash.service
 ```
 
-> **Note:** For manual installations, please make sure all required dependencies are installed correctly. Only package manager installations receive automatic updates; manual installations must be updated manually.
+> **Note:** For manual installations, please make sure all required dependencies are installed correctly. Only package manager installations receive automatic updates; At this time, manual installations need to be updated manually.
 
 ---
 
 ## ⚙️ Configuration
 
 **ℹ️ CoolerControl configuration**
-In the CoolerControl settings, under **"Device"** and **"Sensor"**, select one sensor for the CPU and one for the GPU.
-In CoolerControl GUI, set your LCD display to **"Image/gif"**.
+- In the CoolerControl settings, under **"Device"** and **"Sensor"**, select one sensor for the CPU and one for the GPU.
+- In CoolerControl GUI, set your LCD display to **"Image/gif"**.
 
 **ℹ️ Runtime Configuration:**
-All settings are managed in `/etc/coolerdash/config.ini`.
-After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
+- All settings are managed in `/etc/coolerdash/config.ini`.
+- After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
 **ℹ️ NOTE:**
-When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
-ℹ️ You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
+- When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
+- ℹ️ You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
 
 ---
 
