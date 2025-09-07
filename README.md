@@ -130,7 +130,7 @@ journalctl -u coolerdash.service
 
 **ℹ️ NOTE:**
 - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
-- ℹ️ You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
+- You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
 
 ---
 
