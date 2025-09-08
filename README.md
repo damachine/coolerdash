@@ -63,9 +63,10 @@ Special thanks to @codifryed, the developer of CoolerControl!
 
 - Using an AUR helper (recommended):
 ```bash
+# STEP 1: Install
 yay -S coolerdash-git
 
-# Enable CoolerDash (after install or update)
+# STEP 2: Enable ans start CoolerDash (after install or update)
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
