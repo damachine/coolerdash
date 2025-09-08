@@ -1,8 +1,7 @@
 # Supported Devices (Compatibility List)
 
 This file contains a community-maintained list of devices confirmed to work with **Coolerdash**.  
-If Coolerdash works on your device, please submit a [Device Confirmation Issue](../../issues/new?template=device-confirmation.yml).
-
+If Coolerdash works on your device, please submit a [Device Confirmation Issue](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).
 ---
 
 ## Confirmed Devices
