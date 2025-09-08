@@ -1,5 +1,5 @@
 
-# CoolerDash - Extends [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with a polished LCD-Dashboard
+# CoolerDash - Make your LCD shine the way it was meant to.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
@@ -14,9 +14,9 @@
 
 ## 📖 Description
 
-**CoolerDash is an add-on for CoolerControl that enhances your water cooling display with additional features and a polished LCD dashboard. It builds on CoolerControl's solid foundation to provide a more customizable and informative display experience.**
+**CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)  that enhances your water-cooling display with extra features and a polished, customizable LCD dashboard.**
 
-Special thanks to @codifryed, the developer of CoolerControl!
+> ##### Special thanks to @codifryed, the founder of CoolerControl 
 
 ### 📸 Screenshot – Example LCD Output
 
@@ -66,7 +66,7 @@ Special thanks to @codifryed, the developer of CoolerControl!
 # STEP 1: Install
 yay -S coolerdash-git
 
-# STEP 2: Enable ans start CoolerDash (after install or update)
+# STEP 2: Enable and start CoolerDash (after install or update)
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
@@ -261,6 +261,10 @@ I do not guarantee that it will work as intended on your system.
 MIT License - See LICENSE file for details.
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+Individual Coolercontrol package have their own licenses:
+
+See respective repositories at [https://gitlab.com/coolercontrol/coolercontrol](https://gitlab.com/coolercontrol/coolercontrol)
 
 ---
 
