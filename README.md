@@ -35,8 +35,6 @@
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
 - **LCD**: LCD displays supported by CoolerControl (NZXT, etc.)
 
-> ##### For older CPUs: Use `CFLAGS=-march=x86-64 make` for compatibility
-
 **Supported Distributions:**
 
 - **Arch Linux / CachyOS / Manjaro (Recommended)**
@@ -46,13 +44,13 @@
 - **openSUSE**
 
 
-## Prerequisites
+## 🛠️ Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start/Enable CoolerControl daemon**: `systemctl start coolercontrold`
 3. **In the CoolerControl settings, under "Device and Sensor", select one sensor for the CPU and one for the GPU.**
 
-> ℹ️ Skip this step if you have already configured your CoolerControl before.
+> #####ℹ️ Skip this step if you have already configured your CoolerControl before.
 ---
 
 ## 📦 Installation
