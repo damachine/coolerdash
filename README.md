@@ -11,7 +11,6 @@
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 [![GitHub issues](https://img.shields.io/github/issues/damachine/coolerdash)](https://github.com/damachine/coolerdash/issues)
 [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
-[![Star History Chart](https://api.star-history.com/svg?repos=damachine/coolerdash&type=Date)](https://www.star-history.com/#damachine/coolerdash&Date)
 
 ## 📖 Description
 
