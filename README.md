@@ -276,7 +276,7 @@ If you find CoolerDash useful and want to support its development:
 - 📝 **Contribute** code or documentation
 - [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
 
-> *All donations help maintain and improve this project. Thank you for your support!*
+> *🙏 Your support keeps this project alive and improving — thank you!.*
 
 ---
 
