@@ -35,7 +35,7 @@
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
 - **LCD**: LCD displays supported by CoolerControl (NZXT, etc.)
 
-> **For older CPUs**: Use `CFLAGS=-march=x86-64 make` for compatibility
+> ##### For older CPUs: Use `CFLAGS=-march=x86-64 make` for compatibility
 
 **Supported Distributions:**
 
