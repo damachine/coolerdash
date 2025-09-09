@@ -33,9 +33,9 @@
 - **OS**: Linux
 - **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
-- **LCD**: LCD displays supported by CoolerControl (NZXT, etc.)  
+- **LCD**: LCD displays supported by CoolerControl **(Asus, MSI, NZXT, etc.)**  
 See the [Supported Devices (Compatibility List)](docs/devices.md) for a list of confirmed working hardware.  
-To confirm your device, [submit a Device Confirmation Issue](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) please.
+To confirm a device, [submit a Device Confirmation Issue](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).
 
 **Supported Distributions:**
 
