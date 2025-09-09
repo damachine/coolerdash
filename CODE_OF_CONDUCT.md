@@ -67,4 +67,4 @@ Reports will be handled respectfully and confidentially, and maintainers may tak
 
 ---
 
-*Inspired by the spirit of the Contributor Covenant, simplified for a small project.*
+*Inspired by the spirit of the Contributor Covenant.*
