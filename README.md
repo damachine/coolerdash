@@ -210,7 +210,8 @@ journalctl -u coolerdash.service -n 50
 - **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
 - **"Connection problem"**: No devices found or wrong device UID → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
 
-**Troubleshooting: Verify connection**, you can manually check if devices are detected correctly:
+***Solution:***
+- Manually check if devices are detected correctly:
 ```bash
 # Start CoolerControl (if not running)
 systemctl start coolercontrold
@@ -218,7 +219,9 @@ systemctl start coolercontrold
 # Check available devices
 curl http://localhost:11987/devices | jq
 ```
+#### Example:
 ```json
+...
 {
       "name": "NZXT Kraken 2023",
       "type": "Liquidctl",
@@ -230,10 +233,10 @@ curl http://localhost:11987/devices | jq
         "unknown_asetek": false
       }
 }
+...
 ```
 
-**Manual Installation Conflicts**
-If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
+- **Manual Installation Conflicts**: If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
 ***Solution:***
 - The PKGBUILD will attempt to clean up automatically.
