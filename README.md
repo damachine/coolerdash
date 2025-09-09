@@ -221,7 +221,6 @@ curl http://localhost:11987/devices | jq
 ```
 #### Example:
 ```json
-...
 {
       "name": "NZXT Kraken 2023",
       "type": "Liquidctl",
@@ -233,7 +232,6 @@ curl http://localhost:11987/devices | jq
         "unknown_asetek": false
       }
 }
-...
 ```
 
 - **Manual Installation Conflicts**: If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
