@@ -7,6 +7,8 @@ on:
     branches:
       - main
   workflow_dispatch:  # Allows manual execution
+permissions:
+  contents: read
 
 jobs:
   test-install:

@@ -21,6 +21,7 @@
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -242,9 +243,19 @@ static int write_pid_file(const char *pid_file) {
         return -1;
     }
     
-    FILE *f = fopen(temp_file, "w");
-    if (!f) {
+    // Open with specific permissions to avoid race condition
+    int fd = open(temp_file, O_WRONLY | O_CREAT | O_EXCL, 0644);
+    if (fd == -1) {
         log_message(LOG_ERROR, "Could not create temporary PID file '%s': %s", temp_file, strerror(errno));
+        return -1;
+    }
+    
+    // Convert to FILE* for easier writing
+    FILE *f = fdopen(fd, "w");
+    if (!f) {
+        log_message(LOG_ERROR, "Could not convert file descriptor to FILE*: %s", strerror(errno));
+        close(fd);
+        unlink(temp_file);
         return -1;
     }
     
@@ -252,7 +263,7 @@ static int write_pid_file(const char *pid_file) {
     pid_t current_pid = getpid();
     if (fprintf(f, "%d\n", current_pid) < 0) {
         log_message(LOG_ERROR, "Could not write PID to temporary file '%s': %s", temp_file, strerror(errno));
-        fclose(f);
+        fclose(f); // This also closes the fd
         unlink(temp_file);
         return -1;
     }
@@ -263,16 +274,11 @@ static int write_pid_file(const char *pid_file) {
         return -1;
     }
     
-    // Atomic rename
+    // Atomic rename - file already has correct permissions from open()
     if (rename(temp_file, pid_file) != 0) {
         log_message(LOG_ERROR, "Could not rename temporary PID file to '%s': %s", pid_file, strerror(errno));
         unlink(temp_file);
         return -1;
-    }
-    
-    // Set appropriate permissions
-    if (chmod(pid_file, 0644) != 0) {
-        log_message(LOG_WARNING, "Could not set permissions on PID file '%s': %s", pid_file, strerror(errno));
     }
     
     log_message(LOG_STATUS, "PID file: %s (PID: %d)", pid_file, current_pid);
