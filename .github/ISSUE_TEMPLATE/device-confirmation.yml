@@ -1,0 +1,51 @@
+name: "✅ Device Confirmation"
+description: Report that Coolerdash works (or doesn’t) on your device
+labels: ["device-confirmation"]
+title: "[Device] Confirmation: <Manufacturer Model>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the Coolerdash compatibility list!  
+        Please provide the details of your device below.
+
+  - type: input
+    id: manufacturer
+    attributes:
+      label: Manufacturer
+      placeholder: "e.g. ASUS, MSI, NZXT"
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Model / Device
+      placeholder: "e.g. ROG Strix Z490-E, Kraken X63"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      options:
+        - ✅ Working
+        - ⚠️ Partially working
+        - ❌ Not working
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating System / Distro
+      placeholder: "e.g. Ubuntu 24.04, Arch Linux"
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      placeholder: "Any extra details, quirks, or setup steps"
