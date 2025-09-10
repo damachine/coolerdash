@@ -54,6 +54,12 @@ build() {
     # For local build: use current directory directly
     cd "$startdir"
 
+    # Fetch latest tags if in git repo
+    if git rev-parse --git-dir >/dev/null 2>&1; then
+        echo "Fetching latest tags..."
+        git fetch --tags 2>/dev/null || true
+    fi
+
     # Remove all previous tarball builds
     rm -rf coolerdash-*.pkg.* || true
     rm -rf build bin || true
