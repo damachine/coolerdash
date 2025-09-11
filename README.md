@@ -1,18 +1,16 @@
 
 # CoolerDash - Display real-time sensor on AIO liquid LCD device.
 
-<p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" height="26">
-  <img src="https://img.shields.io/badge/Platform-Linux-green.svg" height="26">
-  <img src="https://img.shields.io/badge/C-99-blue.svg" height="26">
-  <img src="https://app.codacy.com/project/badge/Grade/056718c967524322acd4f4f76393fd7f" height="26">
-  <img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg" height="26">
-  <img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg" height="26">
-  <img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg" height="26">
-  <img src="https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR" height="26">
-  <img src="https://img.shields.io/github/issues/damachine/coolerdash" height="26">
-  <img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" height="26">
-</p>
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
+[![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/056718c967524322acd4f4f76393fd7f)](https://app.codacy.com/gh/damachine/coolerdash/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![CodeQL](https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql)
+[![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
+[![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)
+[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+[![GitHub issues](https://img.shields.io/github/issues/damachine/coolerdash)](https://github.com/damachine/coolerdash/issues)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
 
 ## 📖 Description
 
