@@ -2,16 +2,16 @@
 # CoolerDash - Display real-time sensor on AIO liquid LCD device.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-green.svg" height="22">
-  <img src="https://img.shields.io/badge/Platform-Linux-green.svg" height="22">
-  <img src="https://img.shields.io/badge/C-99-blue.svg" height="22">
-  <img src="https://app.codacy.com/project/badge/Grade/056718c967524322acd4f4f76393fd7f" height="22">
-  <img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg" height="22">
-  <img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg" height="22">
-  <img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg" height="22">
-  <img src="https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR" height="22">
-  <img src="https://img.shields.io/github/issues/damachine/coolerdash" height="22">
-  <img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" height="22">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" height="26">
+  <img src="https://img.shields.io/badge/Platform-Linux-green.svg" height="26">
+  <img src="https://img.shields.io/badge/C-99-blue.svg" height="26">
+  <img src="https://app.codacy.com/project/badge/Grade/056718c967524322acd4f4f76393fd7f" height="26">
+  <img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg" height="26">
+  <img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg" height="26">
+  <img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg" height="26">
+  <img src="https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR" height="26">
+  <img src="https://img.shields.io/github/issues/damachine/coolerdash" height="26">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" height="26">
 </p>
 
 ## 📖 Description
