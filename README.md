@@ -23,7 +23,6 @@
 ### 📸 Screenshot – Example LCD Output
 
 <div align="center">
-  <img src="images/animation.gif" alt="CoolerDash LCD Animation" width="240" height="240"/> 
   <img src="images/round.png" alt="CoolerDash LCD Demo" width="240" height="240"/> 
   <img src="images/quad.png" alt="CoolerDash LCD Demo" width="240" height="240"/> 
 </div>
