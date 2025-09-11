@@ -1,6 +1,7 @@
 
 # CoolerDash - Display real-time sensor on AIO liquid LCD device.
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3c738b41ea494997add95b65e0d36e57)](https://app.codacy.com/gh/damachine/coolerdash?utm_source=github.com&utm_medium=referral&utm_content=damachine/coolerdash&utm_campaign=Badge_Grade)
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
 [![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
