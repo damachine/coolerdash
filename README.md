@@ -1,5 +1,5 @@
 
-# CoolerDash - Real-time sensor monitoring for AIO liquid coolers with integrated LCD displays
+# CoolerDash – Real-time LCD dashboard for AIO liquid coolers
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg"></a>
@@ -19,7 +19,7 @@
   <img src="images/quad.png" alt="CoolerDash LCD Demo" width="280" height="280"/> 
 </div>
 
-**CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your water-cooling display with extra features and a polished, customizable LCD dashboard.**
+**CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your liquid-cooling display with extra features, support for additional sensor values, and a polished, customizable LCD dashboard.**
 
 > ##### Special thanks to @codifryed, the founder of CoolerControl 
 
