@@ -1,20 +1,22 @@
 
-# CoolerDash - Make your LCD shine the way it was meant to.
+# CoolerDash - Display real-time sensor on AIO liquid LCD device.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/Platform-Linux-green.svg)](https://kernel.org/)
-[![C99](https://img.shields.io/badge/C-99-blue.svg)](https://en.wikipedia.org/wiki/C99)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/056718c967524322acd4f4f76393fd7f)](https://app.codacy.com/gh/damachine/coolerdash/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
-[![CodeQL](https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql)
-[![Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
-[![AUR Build](https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/aur.yml)
-[![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
-[![GitHub issues](https://img.shields.io/github/issues/damachine/coolerdash)](https://github.com/damachine/coolerdash/issues)
-[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
+<p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-green.svg" height="22">
+  <img src="https://img.shields.io/badge/Platform-Linux-green.svg" height="22">
+  <img src="https://img.shields.io/badge/C-99-blue.svg" height="22">
+  <img src="https://app.codacy.com/project/badge/Grade/056718c967524322acd4f4f76393fd7f" height="22">
+  <img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg" height="22">
+  <img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg" height="22">
+  <img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg" height="22">
+  <img src="https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR" height="22">
+  <img src="https://img.shields.io/github/issues/damachine/coolerdash" height="22">
+  <img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" height="22">
+</p>
 
 ## 📖 Description
 
-**CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)  that enhances your water-cooling display with extra features and a polished, customizable LCD dashboard.**
+**CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your water-cooling display with extra features and a polished, customizable LCD dashboard.**
 
 > ##### Special thanks to @codifryed, the founder of CoolerControl 
 
@@ -22,8 +24,8 @@
 
 <div align="center">
   <img src="images/animation.gif" alt="CoolerDash LCD Animation" width="240" height="240"/> 
-  <img src="images/gpt2.png" alt="AI-generated LCD Demo" width="240" height="240"/> 
-  <img src="images/gpt3.png" alt="AI-generated LCD Demo" width="240" height="240"/> 
+  <img src="images/round.png" alt="CoolerDash LCD Demo" width="240" height="240"/> 
+  <img src="images/quad.png" alt="CoolerDash LCD Demo" width="240" height="240"/> 
 </div>
 
 ---
