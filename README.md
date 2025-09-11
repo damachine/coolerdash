@@ -14,22 +14,18 @@
   <a href="https://github.com/sponsors/damachine"><img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors"></a>
 </p>
 
-## 📖 Description
+<div align="center">
+  <img src="images/round.png" alt="CoolerDash LCD Demo" width="280" height="280"/> 
+  <img src="images/quad.png" alt="CoolerDash LCD Demo" width="280" height="280"/> 
+</div>
 
 **CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your water-cooling display with extra features and a polished, customizable LCD dashboard.**
 
 > ##### Special thanks to @codifryed, the founder of CoolerControl 
 
-### 📸 Screenshot – Example LCD Output
-
-<div align="center">
-  <img src="images/round.png" alt="CoolerDash LCD Demo" width="240" height="240"/> 
-  <img src="images/quad.png" alt="CoolerDash LCD Demo" width="240" height="240"/> 
-</div>
-
 ---
 
-## 🖥️ System Requirements
+## System Requirements
 
 - **OS**: Linux
 - **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running
@@ -47,7 +43,7 @@ To confirm a device, [submit a Device Confirmation Issue](https://github.com/dam
 - **openSUSE**
 
 
-## 🛠️ Prerequisites
+## Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start/Enable CoolerControl daemon**: `systemctl start coolercontrold`
@@ -56,7 +52,7 @@ To confirm a device, [submit a Device Confirmation Issue](https://github.com/dam
 > ℹ️ Skip this step if you have already configured your CoolerControl before.
 ---
 
-## 📦 Installation
+## Installation
 
 #### Arch Linux (Recommended)
 
@@ -118,13 +114,13 @@ journalctl -u coolerdash.service
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
-**ℹ️ CoolerControl configuration**
+**CoolerControl configuration:.**
 - In the CoolerControl settings, under **"Device"** and **"Sensor"**, select one sensor for the CPU and one for the GPU.
 - In CoolerControl GUI, set your LCD display to **"Image/gif"**.
 
-**ℹ️ Runtime Configuration:**
+**Runtime Configuration:**
 - All settings are managed in `/etc/coolerdash/config.ini`.
 - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
@@ -134,7 +130,7 @@ journalctl -u coolerdash.service
 
 ---
 
-## 🔧 Usage
+## Usage
 
 #### Service Management
 
@@ -203,7 +199,7 @@ journalctl -u coolerdash.service -n 50
 
 ---
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 #### Common Issues
 
@@ -246,7 +242,7 @@ curl http://localhost:11987/devices | jq
 - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
 - Then retry the installation.
 
-**Other**
+**Other:**
 If you need help, open an issue at https://github.com/damachine/coolerdash/issues
 
 ---
