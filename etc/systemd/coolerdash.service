@@ -31,8 +31,8 @@
 [Unit]
 Description=CoolerDash daemon
 Documentation=man:coolerdash(1)
-After=coolercontrol-liqctld.service coolercontrold.service
-Requires=coolercontrol-liqctld.service coolercontrold.service
+After=coolercontrold.service
+Requires=coolercontrold.service
 
 [Service]
 Type=simple
