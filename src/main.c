@@ -206,6 +206,93 @@ static int is_started_by_systemd(void)
 }
 
 /**
+ * @brief Validate PID file and return file descriptor if valid.
+ * @details Opens and validates PID file, returning fd or -1 on error.
+ */
+static int validate_and_open_pid_file(const char *pid_file)
+{
+    if (!pid_file || !pid_file[0])
+    {
+        log_message(LOG_ERROR, "Invalid PID file path provided");
+        return -1;
+    }
+
+    int fd = open(pid_file, O_RDONLY);
+    if (fd == -1)
+    {
+        return -1; // No PID file exists
+    }
+
+    struct stat pid_stat;
+    if (fstat(fd, &pid_stat) != 0 || !S_ISREG(pid_stat.st_mode))
+    {
+        close(fd);
+        if (S_ISREG(pid_stat.st_mode) == 0)
+        {
+            log_message(LOG_WARNING, "PID file '%s' is not a regular file", pid_file);
+            unlink(pid_file); // Remove invalid file
+        }
+        return -1;
+    }
+
+    return fd;
+}
+
+/**
+ * @brief Read PID from file descriptor and validate it.
+ * @details Reads and parses PID, returns validated PID or -1 on error.
+ */
+static pid_t read_and_validate_pid(int fd, const char *pid_file)
+{
+    FILE *fp = fdopen(fd, "r");
+    if (!fp)
+    {
+        close(fd);
+        return -1;
+    }
+
+    char pid_buffer[PID_READ_BUFFER_SIZE] = {0};
+    if (!fgets(pid_buffer, sizeof(pid_buffer), fp))
+    {
+        fclose(fp);
+        unlink(pid_file); // Remove corrupted PID file
+        return -1;
+    }
+
+    fclose(fp); // Also closes fd
+
+    // Remove trailing whitespace and validate
+    pid_buffer[strcspn(pid_buffer, "\n\r")] = '\0';
+    pid_t existing_pid = safe_parse_pid(pid_buffer);
+
+    if (existing_pid <= 0)
+    {
+        log_message(LOG_WARNING, "Invalid PID in file, removing stale PID file");
+        unlink(pid_file);
+        return -1;
+    }
+
+    return existing_pid;
+}
+
+/**
+ * @brief Check if process with given PID is running.
+ * @details Uses kill(pid, 0) to check process existence.
+ */
+static int is_process_running(pid_t pid)
+{
+    if (kill(pid, 0) == 0)
+    {
+        return 1; // Process exists
+    }
+    else if (errno == EPERM)
+    {
+        return 1; // Process exists but no permission to signal it
+    }
+    return 0; // Process doesn't exist
+}
+
+/**
  * @brief Check if another instance of CoolerDash is running with secure PID validation.
  * @details Uses secure file reading and PID validation.
  */
@@ -213,79 +300,28 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
 {
     (void)is_service_start; // Mark as intentionally unused
 
-    if (!pid_file || !pid_file[0])
-    {
-        log_message(LOG_ERROR, "Invalid PID file path provided");
-        return -1;
-    }
-
-    // Try to open the file first to minimize TOCTOU race conditions
-    int fd = open(pid_file, O_RDONLY);
+    int fd = validate_and_open_pid_file(pid_file);
     if (fd == -1)
     {
-        return 0; // No PID file exists, no running instance
+        return 0; // No valid PID file, no running instance
     }
 
-    // Verify it's a regular file using the open file descriptor
-    struct stat pid_stat;
-    if (fstat(fd, &pid_stat) != 0)
-    {
-        close(fd);
-        return 0;
-    }
-
-    if (!S_ISREG(pid_stat.st_mode))
-    {
-        close(fd);
-        log_message(LOG_WARNING, "PID file '%s' is not a regular file", pid_file);
-        // Accept small TOCTOU window here since we can't unlink via fd in POSIX
-        unlink(pid_file); // Remove invalid file
-        return 0;
-    }
-
-    // Convert the already opened file descriptor to FILE* for easier reading
-    FILE *fp = fdopen(fd, "r");
-    if (!fp)
-    {
-        close(fd);
-        return 0;
-    }
-
-    // Secure reading with fixed buffer size
-    char pid_buffer[PID_READ_BUFFER_SIZE] = {0};
-    if (!fgets(pid_buffer, sizeof(pid_buffer), fp))
-    {
-        fclose(fp); // This also closes the fd
-        // Use the original file descriptor to unlink safely - but we need a different approach
-        // Since we can't unlink via fd in standard POSIX, we accept this small TOCTOU window
-        // but minimize it by closing immediately before unlink
-        unlink(pid_file); // Remove corrupted PID file
-        return 0;
-    }
-
-    // Remove trailing newline and validate
-    pid_buffer[strcspn(pid_buffer, "\n\r")] = '\0';
-    pid_t existing_pid = safe_parse_pid(pid_buffer);
-
-    // Close file before any unlink operations to minimize TOCTOU window
-    fclose(fp); // This also closes the fd
-
+    pid_t existing_pid = read_and_validate_pid(fd, pid_file);
     if (existing_pid <= 0)
     {
-        log_message(LOG_WARNING, "Invalid PID in file, removing stale PID file");
-        unlink(pid_file);
-        return 0;
+        return 0; // Invalid or corrupted PID file handled
     }
 
-    // Check if process exists using kill(pid, 0)
-    if (kill(existing_pid, 0) == 0)
+    if (is_process_running(existing_pid))
     {
-        log_message(LOG_ERROR, "Another instance is already running (PID %d)", existing_pid);
-        return -1;
-    }
-    else if (errno == EPERM)
-    {
-        log_message(LOG_ERROR, "Another instance may be running (PID %d) - insufficient permissions to verify", existing_pid);
+        if (errno == EPERM)
+        {
+            log_message(LOG_ERROR, "Another instance may be running (PID %d) - insufficient permissions to verify", existing_pid);
+        }
+        else
+        {
+            log_message(LOG_ERROR, "Another instance is already running (PID %d)", existing_pid);
+        }
         return -1;
     }
 
@@ -296,18 +332,11 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
 }
 
 /**
- * @brief Write current PID to file with enhanced security and error checking.
- * @details Creates PID file with proper permissions and atomic write operation.
+ * @brief Create directory for PID file if needed.
+ * @details Ensures the parent directory exists for the PID file.
  */
-static int write_pid_file(const char *pid_file)
+static int ensure_pid_directory(const char *pid_file)
 {
-    if (!pid_file || !pid_file[0])
-    {
-        log_message(LOG_ERROR, "Invalid PID file path provided");
-        return -1;
-    }
-
-    // Create directory if it doesn't exist
     char *dir_path = strdup(pid_file);
     if (!dir_path)
     {
@@ -324,18 +353,24 @@ static int write_pid_file(const char *pid_file)
             log_message(LOG_WARNING, "Could not create PID directory '%s': %s", dir_path, strerror(errno));
         }
     }
-    free(dir_path);
 
-    // Atomic write: write to temporary file first, then rename
-    char temp_file[PATH_MAX];
-    int ret = snprintf(temp_file, sizeof(temp_file), "%s.tmp", pid_file);
-    if (ret >= (int)sizeof(temp_file) || ret < 0)
+    free(dir_path);
+    return 0;
+}
+
+/**
+ * @brief Create temporary PID file with proper permissions.
+ * @details Creates temporary file for atomic PID file creation.
+ */
+static int create_temp_pid_file(const char *pid_file, char *temp_file, size_t temp_size)
+{
+    int ret = snprintf(temp_file, temp_size, "%s.tmp", pid_file);
+    if (ret >= (int)temp_size || ret < 0)
     {
         log_message(LOG_ERROR, "PID file path too long");
         return -1;
     }
 
-    // Open with specific permissions to avoid race condition
     int fd = open(temp_file, O_WRONLY | O_CREAT | O_EXCL, 0644);
     if (fd == -1)
     {
@@ -343,7 +378,15 @@ static int write_pid_file(const char *pid_file)
         return -1;
     }
 
-    // Convert to FILE* for easier writing
+    return fd;
+}
+
+/**
+ * @brief Write PID data to file descriptor.
+ * @details Writes current PID to file with proper validation and flushing.
+ */
+static int write_pid_data(int fd, const char *temp_file)
+{
     FILE *f = fdopen(fd, "w");
     if (!f)
     {
@@ -353,18 +396,15 @@ static int write_pid_file(const char *pid_file)
         return -1;
     }
 
-    // Write PID with validation
     pid_t current_pid = getpid();
     if (fprintf(f, "%d\n", current_pid) < 0)
     {
         log_message(LOG_ERROR, "Could not write PID to temporary file '%s': %s", temp_file, strerror(errno));
-        fclose(f); // This also closes the fd
-        // Store fd before closing for potential unlinkat() usage, but fallback to unlink()
+        fclose(f);
         unlink(temp_file);
         return -1;
     }
 
-    // Flush to ensure data is written
     if (fflush(f) != 0)
     {
         log_message(LOG_ERROR, "Could not flush PID to temporary file '%s': %s", temp_file, strerror(errno));
@@ -376,12 +416,19 @@ static int write_pid_file(const char *pid_file)
     if (fclose(f) != 0)
     {
         log_message(LOG_ERROR, "Could not close temporary PID file '%s': %s", temp_file, strerror(errno));
-        // File is closed but may be corrupted, remove it
         unlink(temp_file);
         return -1;
     }
 
-    // Atomic rename - file already has correct permissions from open()
+    return 0;
+}
+
+/**
+ * @brief Atomically move temporary PID file to final location.
+ * @details Performs atomic rename operation for PID file creation.
+ */
+static int finalize_pid_file(const char *temp_file, const char *pid_file)
+{
     if (rename(temp_file, pid_file) != 0)
     {
         log_message(LOG_ERROR, "Could not rename temporary PID file to '%s': %s", pid_file, strerror(errno));
@@ -389,8 +436,41 @@ static int write_pid_file(const char *pid_file)
         return -1;
     }
 
+    pid_t current_pid = getpid();
     log_message(LOG_STATUS, "PID file: %s (PID: %d)", pid_file, current_pid);
     return 0;
+}
+
+/**
+ * @brief Write current PID to file with enhanced security and error checking.
+ * @details Creates PID file with proper permissions and atomic write operation.
+ */
+static int write_pid_file(const char *pid_file)
+{
+    if (!pid_file || !pid_file[0])
+    {
+        log_message(LOG_ERROR, "Invalid PID file path provided");
+        return -1;
+    }
+
+    if (ensure_pid_directory(pid_file) != 0)
+    {
+        return -1;
+    }
+
+    char temp_file[PATH_MAX];
+    int fd = create_temp_pid_file(pid_file, temp_file, sizeof(temp_file));
+    if (fd == -1)
+    {
+        return -1;
+    }
+
+    if (write_pid_data(fd, temp_file) != 0)
+    {
+        return -1;
+    }
+
+    return finalize_pid_file(temp_file, pid_file);
 }
 
 /**
@@ -512,8 +592,49 @@ static void show_system_diagnostics(const Config *config, int api_width, int api
 }
 
 /**
+ * @brief Validate shutdown image file existence.
+ * @details Check if shutdown image exists and is a regular file.
+ */
+static int is_shutdown_image_valid(const char *image_path)
+{
+    if (!image_path || !image_path[0])
+    {
+        return 0;
+    }
+
+    struct stat file_stat;
+    return (stat(image_path, &file_stat) == 0 && S_ISREG(file_stat.st_mode));
+}
+
+/**
+ * @brief Send shutdown image to LCD device.
+ * @details Sends the shutdown image twice for better reliability.
+ */
+static void send_shutdown_image(const Config *config, const char *image_path, const char *device_uid)
+{
+    send_image_to_lcd(config, image_path, device_uid);
+    send_image_to_lcd(config, image_path, device_uid); // Send twice for better reliability
+}
+
+/**
+ * @brief Turn off LCD by sending fallback image with brightness 0.
+ * @details Creates temporary config with brightness 0 to turn off display.
+ */
+static void turn_off_lcd_display(const Config *config, const char *device_uid)
+{
+    Config temp_config = *config;
+    temp_config.lcd_brightness = 0;
+
+    const char *fallback_image = config->paths_image_coolerdash;
+    if (fallback_image && fallback_image[0])
+    {
+        send_shutdown_image(&temp_config, fallback_image, device_uid);
+    }
+}
+
+/**
  * @brief Send shutdown image if needed or turn off LCD if image is missing.
- * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met. If shutdown image is missing, sets LCD brightness to 0 to turn off the display.
+ * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met.
  */
 static void send_shutdown_image_if_needed(void)
 {
@@ -530,47 +651,26 @@ static void send_shutdown_image_if_needed(void)
         return;
     }
 
-    // Get shutdown image path
     const char *shutdown_image_path = g_config_ptr->paths_image_shutdown;
-    if (!shutdown_image_path || !shutdown_image_path[0])
-    {
-        return;
-    }
 
-    // Check if shutdown image file exists and is a regular file
-    struct stat file_stat;
-    if (stat(shutdown_image_path, &file_stat) == 0 && S_ISREG(file_stat.st_mode))
+    if (is_shutdown_image_valid(shutdown_image_path))
     {
-        // Image exists and is regular file, send it normally
-        send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
-        send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
+        send_shutdown_image(g_config_ptr, shutdown_image_path, device_uid);
     }
     else
     {
-        // Image doesn't exist, create temporary config with brightness 0 to turn off LCD
-        log_message(LOG_WARNING, "Shutdown image '%s' not found, turning off LCD display", shutdown_image_path);
-
-        // Create a temporary config copy with brightness set to 0
-        Config temp_config = *g_config_ptr;
-        temp_config.lcd_brightness = 0;
-
-        // Use the main coolerdash image as fallback (should exist) or create a minimal black image
-        const char *fallback_image = g_config_ptr->paths_image_coolerdash;
-        if (fallback_image && fallback_image[0])
-        {
-            send_image_to_lcd(&temp_config, fallback_image, device_uid);
-            send_image_to_lcd(&temp_config, fallback_image, device_uid); // Send twice for better reliability
-        }
+        log_message(LOG_WARNING, "Shutdown image '%s' not found, turning off LCD display",
+                    shutdown_image_path ? shutdown_image_path : "unspecified");
+        turn_off_lcd_display(g_config_ptr, device_uid);
     }
 }
 
 /**
- * @brief Enhanced signal handler with atomic operations and secure shutdown.
- * @details Signal-safe implementation using only async-signal-safe functions.
+ * @brief Write signal message to stderr safely.
+ * @details Uses async-signal-safe write for signal handler logging.
  */
-static void handle_shutdown_signal(int signum)
+static void write_signal_message(int signum)
 {
-    // Use only async-signal-safe functions in signal handlers
     static const char term_msg[] = "Received SIGTERM - initiating graceful shutdown\n";
     static const char int_msg[] = "Received SIGINT - initiating graceful shutdown\n";
     static const char unknown_msg[] = "Received signal - initiating shutdown\n";
@@ -578,7 +678,6 @@ static void handle_shutdown_signal(int signum)
     const char *msg;
     size_t msg_len;
 
-    // Determine appropriate message based on signal
     switch (signum)
     {
     case SIGTERM:
@@ -595,14 +694,16 @@ static void handle_shutdown_signal(int signum)
         break;
     }
 
-    // Write message using async-signal-safe function
     ssize_t written = write(STDERR_FILENO, msg, msg_len);
     (void)written; // Suppress unused variable warning
+}
 
-    // Send shutdown image immediately for clean LCD state
-    send_shutdown_image_if_needed();
-
-    // Clean up temporary files (PID and image) - signal-safe operations
+/**
+ * @brief Perform signal-safe cleanup operations.
+ * @details Cleans up PID and image files using signal-safe functions only.
+ */
+static void signal_safe_cleanup(void)
+{
     if (g_config_ptr)
     {
         // Remove PID file - array address is never NULL, just check if path is set
@@ -616,9 +717,18 @@ static void handle_shutdown_signal(int signum)
             unlink(g_config_ptr->paths_image_coolerdash);
         }
     }
+}
 
-    // Signal graceful shutdown atomically
-    running = 0;
+/**
+ * @brief Enhanced signal handler with atomic operations and secure shutdown.
+ * @details Signal-safe implementation using only async-signal-safe functions.
+ */
+static void handle_shutdown_signal(int signum)
+{
+    write_signal_message(signum);
+    send_shutdown_image_if_needed();
+    signal_safe_cleanup();
+    running = 0; // Signal graceful shutdown atomically
 }
 
 /**
@@ -659,6 +769,34 @@ static void setup_enhanced_signal_handlers(void)
 }
 
 /**
+ * @brief Calculate next execution time for daemon loop.
+ * @details Adds interval to current time with overflow protection.
+ */
+static void calculate_next_time(struct timespec *next_time, const struct timespec *interval)
+{
+    next_time->tv_sec += interval->tv_sec;
+    next_time->tv_nsec += interval->tv_nsec;
+    if (next_time->tv_nsec >= 1000000000L)
+    {
+        next_time->tv_sec++;
+        next_time->tv_nsec -= 1000000000L;
+    }
+}
+
+/**
+ * @brief Sleep until specified absolute time.
+ * @details Handles sleep interruptions and errors properly.
+ */
+static void sleep_until_time(const struct timespec *target_time)
+{
+    int sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, target_time, NULL);
+    if (sleep_result != 0 && sleep_result != EINTR)
+    {
+        log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
+    }
+}
+
+/**
  * @brief Enhanced main daemon loop with improved timing and error handling.
  * @details Runs the main loop with precise timing, optimized sleep, and graceful error recovery.
  */
@@ -683,24 +821,9 @@ static int run_daemon(const Config *config)
 
     while (running)
     {
-        // Calculate next execution time with overflow protection
-        next_time.tv_sec += interval.tv_sec;
-        next_time.tv_nsec += interval.tv_nsec;
-        if (next_time.tv_nsec >= 1000000000L)
-        {
-            next_time.tv_sec++;
-            next_time.tv_nsec -= 1000000000L;
-        }
-
-        // Execute main rendering task
+        calculate_next_time(&next_time, &interval);
         draw_combined_image(config);
-
-        // Sleep until absolute time with error handling
-        int sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
-        if (sleep_result != 0 && sleep_result != EINTR)
-        {
-            log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
-        }
+        sleep_until_time(&next_time);
     }
 
     return 0;
