@@ -196,28 +196,31 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
         return -1;
     }
 
-    // Check if PID file exists and is a regular file
-    struct stat pid_stat;
-    if (stat(pid_file, &pid_stat) != 0)
+    // Try to open the file first to minimize TOCTOU race conditions
+    int fd = open(pid_file, O_RDONLY);
+    if (fd == -1)
     {
         return 0; // No PID file exists, no running instance
     }
 
+    // Verify it's a regular file using the open file descriptor
+    struct stat pid_stat;
+    if (fstat(fd, &pid_stat) != 0)
+    {
+        close(fd);
+        return 0;
+    }
+
     if (!S_ISREG(pid_stat.st_mode))
     {
+        close(fd);
         log_message(LOG_WARNING, "PID file '%s' is not a regular file", pid_file);
+        // Accept small TOCTOU window here since we can't unlink via fd in POSIX
         unlink(pid_file); // Remove invalid file
         return 0;
     }
 
-    // Open with file descriptor to avoid TOCTOU race conditions
-    int fd = open(pid_file, O_RDONLY);
-    if (fd == -1)
-    {
-        return 0; // Cannot read PID file
-    }
-
-    // Convert to FILE* for easier reading
+    // Convert the already opened file descriptor to FILE* for easier reading
     FILE *fp = fdopen(fd, "r");
     if (!fp)
     {
@@ -230,7 +233,9 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
     if (!fgets(pid_buffer, sizeof(pid_buffer), fp))
     {
         fclose(fp); // This also closes the fd
-        // Use unlinkat() with the directory fd for additional security, but fallback to unlink()
+        // Use the original file descriptor to unlink safely - but we need a different approach
+        // Since we can't unlink via fd in standard POSIX, we accept this small TOCTOU window
+        // but minimize it by closing immediately before unlink
         unlink(pid_file); // Remove corrupted PID file
         return 0;
     }
@@ -239,7 +244,7 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
     pid_buffer[strcspn(pid_buffer, "\n\r")] = '\0';
     pid_t existing_pid = safe_parse_pid(pid_buffer);
 
-    // Close file before any unlink operations
+    // Close file before any unlink operations to minimize TOCTOU window
     fclose(fp); // This also closes the fd
 
     if (existing_pid <= 0)
@@ -331,6 +336,16 @@ static int write_pid_file(const char *pid_file)
     {
         log_message(LOG_ERROR, "Could not write PID to temporary file '%s': %s", temp_file, strerror(errno));
         fclose(f); // This also closes the fd
+        // Store fd before closing for potential unlinkat() usage, but fallback to unlink()
+        unlink(temp_file);
+        return -1;
+    }
+
+    // Flush to ensure data is written
+    if (fflush(f) != 0)
+    {
+        log_message(LOG_ERROR, "Could not flush PID to temporary file '%s': %s", temp_file, strerror(errno));
+        fclose(f);
         unlink(temp_file);
         return -1;
     }
@@ -338,6 +353,7 @@ static int write_pid_file(const char *pid_file)
     if (fclose(f) != 0)
     {
         log_message(LOG_ERROR, "Could not close temporary PID file '%s': %s", temp_file, strerror(errno));
+        // File is closed but may be corrupted, remove it
         unlink(temp_file);
         return -1;
     }
