@@ -1,0 +1,54 @@
+name: Sync to GitLab
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [ published ]
+  workflow_dispatch:  # Allows manual execution
+
+jobs:
+  sync:
+    name: Synchronize with GitLab
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      with:
+        fetch-depth: 0  # Fetch complete history for proper sync
+        
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+    - name: Add GitLab remote
+      run: |
+        git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/damachine/coolerdash.git
+        git remote -v
+        
+    - name: Push to GitLab
+      run: |
+        echo "🔄 Synchronizing branches to GitLab..."
+        git push gitlab --all --force
+        
+        echo "🏷️ Synchronizing tags to GitLab..."
+        git push gitlab --tags --force
+        
+        echo "✅ Synchronization completed successfully"
+        
+    - name: Create sync summary
+      run: |
+        echo "## 🔄 GitLab Synchronization Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Synchronized Content:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository**: coolerdash" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target**: GitLab (gitlab.com/damachine/coolerdash)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branches**: All branches synced" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tags**: All tags synced" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🎯 **GitLab repository is now up-to-date with GitHub**" >> $GITHUB_STEP_SUMMARY
