@@ -68,6 +68,35 @@ int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
 const Config *g_config_ptr = NULL;
 
 /**
+ * @brief Try to open and validate a VERSION file.
+ * @details Helper function to reduce code duplication in version file reading.
+ */
+static FILE *try_open_version_file(const char *path)
+{
+    int fd = open(path, O_RDONLY);
+    if (fd == -1)
+    {
+        return NULL;
+    }
+
+    struct stat version_stat;
+    if (fstat(fd, &version_stat) != 0 || !S_ISREG(version_stat.st_mode))
+    {
+        close(fd);
+        return NULL;
+    }
+
+    FILE *fp = fdopen(fd, "r");
+    if (!fp)
+    {
+        close(fd);
+        return NULL;
+    }
+
+    return fp;
+}
+
+/**
  * @brief Read version string from VERSION file with enhanced security.
  * @details Safely reads version from VERSION file with buffer overflow protection and proper validation. Returns fallback version on error.
  */
@@ -82,54 +111,11 @@ static const char *read_version_from_file(void)
         return version_buffer[0] ? version_buffer : DEFAULT_VERSION;
     }
 
-    // Check if VERSION file exists and is a regular file, then open securely
-    int fd = -1;
-    FILE *fp = NULL;
-    struct stat version_stat;
-
-    // Try local VERSION file first
-    fd = open("VERSION", O_RDONLY);
-    if (fd != -1)
+    // Try to open VERSION file from multiple locations
+    FILE *fp = try_open_version_file("VERSION");
+    if (!fp)
     {
-        if (fstat(fd, &version_stat) == 0 && S_ISREG(version_stat.st_mode))
-        {
-            // File is valid, convert to FILE*
-            fp = fdopen(fd, "r");
-            if (!fp)
-            {
-                close(fd);
-                fd = -1;
-            }
-        }
-        else
-        {
-            // Not a regular file, close and try next path
-            close(fd);
-            fd = -1;
-        }
-    }
-
-    // Try alternative path if local file failed
-    if (fd == -1)
-    {
-        fd = open("/opt/coolerdash/VERSION", O_RDONLY);
-        if (fd != -1)
-        {
-            if (fstat(fd, &version_stat) == 0 && S_ISREG(version_stat.st_mode))
-            {
-                fp = fdopen(fd, "r");
-                if (!fp)
-                {
-                    close(fd);
-                    fd = -1;
-                }
-            }
-            else
-            {
-                close(fd);
-                fd = -1;
-            }
-        }
+        fp = try_open_version_file("/opt/coolerdash/VERSION");
     }
 
     if (!fp)
@@ -721,59 +707,16 @@ static int run_daemon(const Config *config)
 }
 
 /**
- * @brief Enhanced main entry point for CoolerDash with comprehensive error handling.
- * @details Loads configuration, ensures single instance, initializes all modules, and starts the main daemon loop.
+ * @brief Manage instance handling and PID file creation.
+ * @details Checks for existing instances and creates PID file with validation.
  */
-int main(int argc, char **argv)
+static int setup_instance_management(const Config *config)
 {
-    // Parse arguments for logging and help
-    const char *config_path = "/etc/coolerdash/config.ini"; // Default config path
-
-    for (int i = 1; i < argc; i++)
-    {
-        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
-        {
-            show_help(argv[0], NULL);
-            return EXIT_SUCCESS;
-        }
-        else if (strcmp(argv[i], "--log") == 0)
-        {
-            verbose_logging = 1; // Enable detailed INFO logging
-        }
-        else if (argv[i][0] != '-')
-        {
-            // This is the config path (no dash prefix)
-            config_path = argv[i];
-        }
-        else
-        {
-            fprintf(stderr, "Error: Unknown option '%s'. Use --help for usage information.\n", argv[i]);
-            return EXIT_FAILURE;
-        }
-    }
-
-    log_message(LOG_STATUS, "CoolerDash v%s starting up...", read_version_from_file());
-
-    // Load configuration
-    Config config = {0};
-
-    log_message(LOG_STATUS, "Loading configuration...");
-    if (load_config(config_path, &config) != 0)
-    {
-        log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
-        fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
-        fprintf(stderr, "Please check:\n");
-        fprintf(stderr, "  - File exists and is readable\n");
-        fprintf(stderr, "  - File has correct INI format\n");
-        fprintf(stderr, "  - All required sections are present\n");
-        return EXIT_FAILURE;
-    }
-
     // Check for existing instances and create PID file with enhanced validation
     int is_service_start = is_started_by_systemd();
     log_message(LOG_INFO, "Running mode: %s", is_service_start ? "systemd service" : "manual");
 
-    if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0)
+    if (check_existing_instance_and_handle(config->paths_pid, is_service_start) < 0)
     {
         log_message(LOG_ERROR, "Instance management failed");
         fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
@@ -781,54 +724,81 @@ int main(int argc, char **argv)
         fprintf(stderr, "  sudo systemctl stop coolerdash     # Stop systemd service\n");
         fprintf(stderr, "  sudo pkill coolerdash              # Force kill if needed\n");
         fprintf(stderr, "  sudo systemctl status coolerdash   # Check service status\n");
-        return EXIT_FAILURE;
+        return -1;
     }
 
-    if (write_pid_file(config.paths_pid) != 0)
+    if (write_pid_file(config->paths_pid) != 0)
     {
-        log_message(LOG_ERROR, "Failed to create PID file: %s", config.paths_pid);
-        return EXIT_FAILURE;
+        log_message(LOG_ERROR, "Failed to create PID file: %s", config->paths_pid);
+        return -1;
     }
 
-    // Set global config pointer for signal handlers and cleanup
-    g_config_ptr = &config;
+    return 0;
+}
 
-    // Setup enhanced signal handlers with comprehensive error handling
-    setup_enhanced_signal_handlers();
+/**
+ * @brief Perform comprehensive cleanup on shutdown.
+ * @details Centralizes all cleanup operations to reduce duplication.
+ */
+static void perform_final_cleanup(const Config *config)
+{
+    log_message(LOG_INFO, "Daemon shutdown initiated");
+    send_shutdown_image_if_needed(); // Ensure shutdown image is sent
+    remove_pid_file(config->paths_pid);
+    remove_image_file(config->paths_image_coolerdash);
+    running = 0;
+    log_message(LOG_INFO, "CoolerDash shutdown complete");
+}
 
+/**
+ * @brief Print CoolerControl connection troubleshooting information.
+ * @details Helper function to reduce code duplication for error messages.
+ */
+static void print_coolercontrol_troubleshooting(const Config *config)
+{
+    fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
+                    "Please check:\n"
+                    "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
+                    "  - Is the daemon running on %s?\n"
+                    "  - Is the password correct in configuration?\n"
+                    "  - Are network connections allowed?\n",
+            config->daemon_address);
+    fflush(stderr);
+}
+
+/**
+ * @brief Initialize CoolerControl session and device cache.
+ * @details Initializes session, device cache, and validates device connectivity.
+ */
+static int initialize_coolercontrol_systems(Config *config)
+{
     // Initialize CoolerControl session
     log_message(LOG_STATUS, "Initializing CoolerControl session...");
-    if (!init_coolercontrol_session(&config))
+    if (!init_coolercontrol_session(config))
     {
         log_message(LOG_ERROR, "CoolerControl session initialization failed");
-        fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
-                        "Please check:\n"
-                        "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
-                        "  - Is the daemon running on %s?\n"
-                        "  - Is the password correct in configuration?\n"
-                        "  - Are network connections allowed?\n",
-                config.daemon_address);
-        fflush(stderr);
-        remove_pid_file(config.paths_pid);
-        return EXIT_FAILURE;
+        print_coolercontrol_troubleshooting(config);
+        return -1;
     }
 
     // Initialize device cache once at startup for optimal performance
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
-    if (!init_device_cache(&config))
+    if (!init_device_cache(config))
     {
         log_message(LOG_ERROR, "Failed to initialize device cache");
-        fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
-                        "Please check:\n"
-                        "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
-                        "  - Is the daemon running on %s?\n"
-                        "  - Is the password correct in configuration?\n"
-                        "  - Are network connections allowed?\n",
-                config.daemon_address);
-        remove_pid_file(config.paths_pid);
-        return EXIT_FAILURE;
+        print_coolercontrol_troubleshooting(config);
+        return -1;
     }
 
+    return 0;
+}
+
+/**
+ * @brief Validate device connectivity and log device information.
+ * @details Gets device information and tests sensor connectivity.
+ */
+static void validate_device_connectivity(const Config *config)
+{
     // Initialize device data structures
     char device_uid[128] = {0};
     monitor_sensor_data_t temp_data = {0};
@@ -836,21 +806,16 @@ int main(int argc, char **argv)
     int api_screen_width = 0, api_screen_height = 0;
 
     // Get complete device info from cache (no API call)
-    if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
+    if (get_liquidctl_data(config, device_uid, sizeof(device_uid),
                            device_name, sizeof(device_name), &api_screen_width, &api_screen_height))
     {
-
-        const char *uid_display = (device_uid[0] != '\0')
-                                      ? device_uid
-                                      : "Unknown device UID";
-        const char *name_display = (device_name[0] != '\0')
-                                       ? device_name
-                                       : "Unknown device";
+        const char *uid_display = (device_uid[0] != '\0') ? device_uid : "Unknown device UID";
+        const char *name_display = (device_name[0] != '\0') ? device_name : "Unknown device";
 
         log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
 
         // Get temperature data separately for validation and log sensor detection status
-        if (get_temperature_monitor_data(&config, &temp_data))
+        if (get_temperature_monitor_data(config, &temp_data))
         {
             if (temp_data.temp_cpu > 0.0f || temp_data.temp_gpu > 0.0f)
             {
@@ -867,13 +832,108 @@ int main(int argc, char **argv)
         }
 
         // Show diagnostic information in debug mode
-        show_system_diagnostics(&config, api_screen_width, api_screen_height);
+        show_system_diagnostics(config, api_screen_width, api_screen_height);
     }
     else
     {
         log_message(LOG_ERROR, "Could not retrieve device information");
         // Continue execution - some functionality may still work
     }
+}
+
+/**
+ * @brief Initialize configuration from file.
+ * @details Loads configuration from the specified path with comprehensive error handling.
+ */
+static int initialize_configuration(const char *config_path, Config *config)
+{
+    log_message(LOG_STATUS, "Loading configuration...");
+    if (load_config(config_path, config) != 0)
+    {
+        log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
+        fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
+        fprintf(stderr, "Please check:\n");
+        fprintf(stderr, "  - File exists and is readable\n");
+        fprintf(stderr, "  - File has correct INI format\n");
+        fprintf(stderr, "  - All required sections are present\n");
+        return -1;
+    }
+    return 0;
+}
+
+/**
+ * @brief Parse command line arguments.
+ * @details Processes command line arguments and returns the configuration path.
+ */
+static const char *parse_command_line_args(int argc, char **argv)
+{
+    const char *config_path = "/etc/coolerdash/config.ini"; // Default config path
+
+    for (int i = 1; i < argc; i++)
+    {
+        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
+        {
+            show_help(argv[0], NULL);
+            exit(EXIT_SUCCESS);
+        }
+        else if (strcmp(argv[i], "--log") == 0)
+        {
+            verbose_logging = 1; // Enable detailed INFO logging
+        }
+        else if (argv[i][0] != '-')
+        {
+            // This is the config path (no dash prefix)
+            config_path = argv[i];
+        }
+        else
+        {
+            fprintf(stderr, "Error: Unknown option '%s'. Use --help for usage information.\n", argv[i]);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return config_path;
+}
+
+/**
+ * @brief Enhanced main entry point for CoolerDash with comprehensive error handling.
+ * @details Loads configuration, ensures single instance, initializes all modules, and starts the main daemon loop.
+ */
+int main(int argc, char **argv)
+{
+    // Parse command line arguments
+    const char *config_path = parse_command_line_args(argc, argv);
+
+    log_message(LOG_STATUS, "CoolerDash v%s starting up...", read_version_from_file());
+
+    // Load configuration
+    Config config = {0};
+    if (initialize_configuration(config_path, &config) != 0)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Setup instance management and PID file
+    if (setup_instance_management(&config) != 0)
+    {
+        return EXIT_FAILURE;
+    }
+
+    // Set global config pointer for signal handlers and cleanup
+    g_config_ptr = &config;
+
+    // Setup enhanced signal handlers with comprehensive error handling
+    setup_enhanced_signal_handlers();
+
+    // Initialize CoolerControl session and device systems
+    if (initialize_coolercontrol_systems(&config) != 0)
+    {
+        remove_pid_file(config.paths_pid);
+        return EXIT_FAILURE;
+    }
+
+    // Validate device connectivity and log device information
+    validate_device_connectivity(&config);
 
     log_message(LOG_STATUS, "Starting daemon");
 
@@ -881,12 +941,6 @@ int main(int argc, char **argv)
     int result = run_daemon(&config);
 
     // Ensure proper cleanup on exit
-    log_message(LOG_INFO, "Daemon shutdown initiated");
-    send_shutdown_image_if_needed(); // Ensure shutdown image is sent on normal exit
-    remove_pid_file(config.paths_pid);
-    remove_image_file(config.paths_image_coolerdash);
-    running = 0;
-
-    log_message(LOG_INFO, "CoolerDash shutdown complete");
+    perform_final_cleanup(&config);
     return result;
 }
