@@ -1,0 +1,7 @@
+---
+engines:
+  lizard:
+    enabled: true
+    settings:
+      max_func_length: 200
+      max_complexity: 20
