@@ -82,17 +82,54 @@ static const char *read_version_from_file(void)
         return version_buffer[0] ? version_buffer : DEFAULT_VERSION;
     }
 
-    // Check if VERSION file exists and is a regular file
-    struct stat version_stat;
+    // Check if VERSION file exists and is a regular file, then open securely
+    int fd = -1;
     FILE *fp = NULL;
+    struct stat version_stat;
 
-    if (stat("VERSION", &version_stat) == 0 && S_ISREG(version_stat.st_mode))
+    // Try local VERSION file first
+    fd = open("VERSION", O_RDONLY);
+    if (fd != -1)
     {
-        fp = fopen("VERSION", "r");
+        if (fstat(fd, &version_stat) == 0 && S_ISREG(version_stat.st_mode))
+        {
+            // File is valid, convert to FILE*
+            fp = fdopen(fd, "r");
+            if (!fp)
+            {
+                close(fd);
+                fd = -1;
+            }
+        }
+        else
+        {
+            // Not a regular file, close and try next path
+            close(fd);
+            fd = -1;
+        }
     }
-    else if (stat("/opt/coolerdash/VERSION", &version_stat) == 0 && S_ISREG(version_stat.st_mode))
+
+    // Try alternative path if local file failed
+    if (fd == -1)
     {
-        fp = fopen("/opt/coolerdash/VERSION", "r");
+        fd = open("/opt/coolerdash/VERSION", O_RDONLY);
+        if (fd != -1)
+        {
+            if (fstat(fd, &version_stat) == 0 && S_ISREG(version_stat.st_mode))
+            {
+                fp = fdopen(fd, "r");
+                if (!fp)
+                {
+                    close(fd);
+                    fd = -1;
+                }
+            }
+            else
+            {
+                close(fd);
+                fd = -1;
+            }
+        }
     }
 
     if (!fp)
