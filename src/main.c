@@ -80,10 +80,13 @@ static const char* read_version_from_file(void) {
         return version_buffer[0] ? version_buffer : DEFAULT_VERSION;
     }
     
-    // Try to read from VERSION file
-    FILE *fp = fopen("VERSION", "r");
-    if (!fp) {
-        // Try alternative path for installed version
+    // Check if VERSION file exists and is a regular file
+    struct stat version_stat;
+    FILE *fp = NULL;
+    
+    if (stat("VERSION", &version_stat) == 0 && S_ISREG(version_stat.st_mode)) {
+        fp = fopen("VERSION", "r");
+    } else if (stat("/opt/coolerdash/VERSION", &version_stat) == 0 && S_ISREG(version_stat.st_mode)) {
         fp = fopen("/opt/coolerdash/VERSION", "r");
     }
     
@@ -172,8 +175,20 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
         return -1;
     }
     
+    // Check if PID file exists and is a regular file
+    struct stat pid_stat;
+    if (stat(pid_file, &pid_stat) != 0) {
+        return 0; // No PID file exists, no running instance
+    }
+    
+    if (!S_ISREG(pid_stat.st_mode)) {
+        log_message(LOG_WARNING, "PID file '%s' is not a regular file", pid_file);
+        unlink(pid_file); // Remove invalid file
+        return 0;
+    }
+    
     FILE *fp = fopen(pid_file, "r");
-    if (!fp) return 0; // No PID file exists, no running instance
+    if (!fp) return 0; // Cannot read PID file
     
     // Secure reading with fixed buffer size
     char pid_buffer[PID_READ_BUFFER_SIZE] = {0};
@@ -405,11 +420,10 @@ static void send_shutdown_image_if_needed(void) {
         return;
     }
 
-    // Check if shutdown image file exists
-    FILE *image_file = fopen(shutdown_image_path, "r");
-    if (image_file) {
-        // Image exists, send it normally
-        fclose(image_file);
+    // Check if shutdown image file exists and is a regular file
+    struct stat file_stat;
+    if (stat(shutdown_image_path, &file_stat) == 0 && S_ISREG(file_stat.st_mode)) {
+        // Image exists and is regular file, send it normally
         send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
         send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
     } else {
