@@ -23,7 +23,7 @@
 # Example:
 #   To enable and start the service, use:
 #   'sudo systemctl enable coolerdash.service'
-#   's'udo systemctl start coolerdash.service'
+#   'sudo systemctl start coolerdash.service'
 #   To check the status of the service, use:
 #   'systemctl status coolerdash.service'
 # -----------------------------------------------------------------------------
