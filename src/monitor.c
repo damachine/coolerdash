@@ -30,31 +30,89 @@
 #include "../include/coolercontrol.h"
 
 /**
+ * @brief Validate temperature sensor name for device type
+ * @details Helper function to check if sensor name matches device type
+ */
+static int is_valid_sensor_for_device(const char *sensor_name, const char *device_type)
+{
+    if (strcmp(device_type, "CPU") == 0 && strcmp(sensor_name, "temp1") == 0)
+    {
+        return 1;
+    }
+    
+    if (strcmp(device_type, "GPU") == 0 &&
+        (strstr(sensor_name, "GPU") || strstr(sensor_name, "gpu")))
+    {
+        return 1;
+    }
+    
+    return 0;
+}
+
+/**
+ * @brief Validate temperature value is within acceptable range
+ * @details Helper function to check temperature bounds
+ */
+static int is_temperature_valid(float temperature)
+{
+    return temperature >= -50.0f && temperature <= 150.0f;
+}
+
+/**
+ * @brief Extract temperature from single sensor entry
+ * @details Helper function to process one temperature sensor entry
+ */
+static float extract_temperature_from_sensor(json_t *temp_entry, const char *device_type)
+{
+    json_t *name_val = json_object_get(temp_entry, "name");
+    json_t *temp_val = json_object_get(temp_entry, "temp");
+
+    if (!name_val || !json_is_string(name_val) || !temp_val || !json_is_number(temp_val))
+        return 0.0f;
+
+    const char *sensor_name = json_string_value(name_val);
+    float temperature = (float)json_number_value(temp_val);
+
+    if (!is_temperature_valid(temperature))
+        return 0.0f;
+
+    if (is_valid_sensor_for_device(sensor_name, device_type))
+        return temperature;
+
+    return 0.0f;
+}
+
+/**
+ * @brief Get latest status from device history
+ * @details Helper function to extract the most recent status entry
+ */
+static json_t *get_latest_device_status(json_t *device)
+{
+    json_t *status_history = json_object_get(device, "status_history");
+    if (!status_history || !json_is_array(status_history))
+        return NULL;
+
+    size_t history_count = json_array_size(status_history);
+    if (history_count == 0)
+        return NULL;
+
+    return json_array_get(status_history, history_count - 1);
+}
+
+/**
  * @brief Extract temperature from device status history
  * @details Helper function to get temperature from the latest status entry
  */
 static float extract_device_temperature(json_t *device, const char *device_type)
 {
-    // Get status history
-    json_t *status_history = json_object_get(device, "status_history");
-    if (!status_history || !json_is_array(status_history))
-        return 0.0f;
-
-    size_t history_count = json_array_size(status_history);
-    if (history_count == 0)
-        return 0.0f;
-
-    // Get latest status
-    json_t *last_status = json_array_get(status_history, history_count - 1);
+    json_t *last_status = get_latest_device_status(device);
     if (!last_status)
         return 0.0f;
 
-    // Get temperatures array
     json_t *temps = json_object_get(last_status, "temps");
     if (!temps || !json_is_array(temps))
         return 0.0f;
 
-    // Search for appropriate temperature sensor
     size_t temp_count = json_array_size(temps);
     for (size_t i = 0; i < temp_count; i++)
     {
@@ -62,32 +120,69 @@ static float extract_device_temperature(json_t *device, const char *device_type)
         if (!temp_entry)
             continue;
 
-        json_t *name_val = json_object_get(temp_entry, "name");
-        json_t *temp_val = json_object_get(temp_entry, "temp");
-
-        if (!name_val || !json_is_string(name_val) || !temp_val || !json_is_number(temp_val))
-            continue;
-
-        const char *sensor_name = json_string_value(name_val);
-        float temperature = (float)json_number_value(temp_val);
-
-        // Validate temperature range
-        if (temperature < -50.0f || temperature > 150.0f)
-            continue;
-
-        // Check sensor name based on device type
-        if (strcmp(device_type, "CPU") == 0 && strcmp(sensor_name, "temp1") == 0)
-        {
+        float temperature = extract_temperature_from_sensor(temp_entry, device_type);
+        if (temperature > 0.0f)
             return temperature;
-        }
-        else if (strcmp(device_type, "GPU") == 0 &&
-                 (strstr(sensor_name, "GPU") || strstr(sensor_name, "gpu")))
-        {
-            return temperature;
-        }
     }
 
     return 0.0f;
+}
+
+/**
+ * @brief Initialize temperature output values
+ * @details Helper function to set initial temperature values
+ */
+static void initialize_temperature_outputs(float *temp_cpu, float *temp_gpu)
+{
+    if (temp_cpu)
+        *temp_cpu = 0.0f;
+    if (temp_gpu)
+        *temp_gpu = 0.0f;
+}
+
+/**
+ * @brief Parse JSON root and get devices array
+ * @details Helper function to parse JSON and extract devices array
+ */
+static json_t *parse_json_and_get_devices(const char *json)
+{
+    json_error_t json_error;
+    json_t *root = json_loads(json, 0, &json_error);
+    if (!root)
+    {
+        log_message(LOG_ERROR, "JSON parse error: %s", json_error.text);
+        return NULL;
+    }
+
+    json_t *devices = json_object_get(root, "devices");
+    if (!devices || !json_is_array(devices))
+    {
+        json_decref(root);
+        return NULL;
+    }
+
+    return root;
+}
+
+/**
+ * @brief Process device and extract temperature if matching type
+ * @details Helper function to check device type and extract temperature
+ */
+static void process_device_temperature(json_t *device, const char *target_type, 
+                                     float *temperature, int *found_flag)
+{
+    const char *device_type = extract_device_type_from_json(device);
+    if (!device_type || *found_flag)
+        return;
+
+    if (strcmp(device_type, target_type) == 0)
+    {
+        if (temperature)
+        {
+            *temperature = extract_device_temperature(device, target_type);
+            *found_flag = 1;
+        }
+    }
 }
 
 /**
@@ -102,30 +197,13 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
         return 0;
     }
 
-    // Initialize outputs
-    if (temp_cpu)
-        *temp_cpu = 0.0f;
-    if (temp_gpu)
-        *temp_gpu = 0.0f;
+    initialize_temperature_outputs(temp_cpu, temp_gpu);
 
-    // Parse JSON
-    json_error_t json_error;
-    json_t *root = json_loads(json, 0, &json_error);
+    json_t *root = parse_json_and_get_devices(json);
     if (!root)
-    {
-        log_message(LOG_ERROR, "JSON parse error: %s", json_error.text);
         return 0;
-    }
 
-    // Get devices array
     json_t *devices = json_object_get(root, "devices");
-    if (!devices || !json_is_array(devices))
-    {
-        json_decref(root);
-        return 0;
-    }
-
-    // Search for CPU and GPU devices
     size_t device_count = json_array_size(devices);
     int cpu_found = 0, gpu_found = 0;
 
@@ -135,26 +213,8 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
         if (!device)
             continue;
 
-        const char *device_type = extract_device_type_from_json(device);
-        if (!device_type)
-            continue;
-
-        if (!cpu_found && strcmp(device_type, "CPU") == 0)
-        {
-            if (temp_cpu)
-            {
-                *temp_cpu = extract_device_temperature(device, "CPU");
-                cpu_found = 1;
-            }
-        }
-        else if (!gpu_found && strcmp(device_type, "GPU") == 0)
-        {
-            if (temp_gpu)
-            {
-                *temp_gpu = extract_device_temperature(device, "GPU");
-                gpu_found = 1;
-            }
-        }
+        process_device_temperature(device, "CPU", temp_cpu, &cpu_found);
+        process_device_temperature(device, "GPU", temp_gpu, &gpu_found);
     }
 
     json_decref(root);
