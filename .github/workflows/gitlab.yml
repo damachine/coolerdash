@@ -26,13 +26,20 @@ jobs:
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
         
-    - name: Add GitLab remote
+    - name: Add GitLab remote and push
+      env:
+        GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
       run: |
-        git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/damachine/coolerdash.git
+        if [ -z "$GITLAB_TOKEN" ]; then
+          echo "❌ GITLAB_TOKEN is not set in repository secrets"
+          echo "Please add your GitLab Personal Access Token to GitHub Secrets as 'GITLAB_TOKEN'"
+          exit 1
+        fi
+        
+        # Add GitLab remote with token authentication
+        git remote add gitlab https://oauth2:${GITLAB_TOKEN}@gitlab.com/damachine/coolerdash.git
         git remote -v
         
-    - name: Push to GitLab
-      run: |
         echo "🔄 Synchronizing branches to GitLab..."
         git push gitlab --all --force
         
@@ -42,6 +49,7 @@ jobs:
         echo "✅ Synchronization completed successfully"
         
     - name: Create sync summary
+      if: success()
       run: |
         echo "## 🔄 GitLab Synchronization Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -52,3 +60,13 @@ jobs:
         echo "- **Tags**: All tags synced" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "🎯 **GitLab repository is now up-to-date with GitHub**" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Error summary
+      if: failure()
+      run: |
+        echo "## ❌ GitLab Synchronization Failed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Troubleshooting Steps:" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Check GitLab Token**: Ensure GITLAB_TOKEN secret is set" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Token Permissions**: Token needs 'write_repository' scope" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Repository Access**: Verify you have push access to GitLab repo" >> $GITHUB_STEP_SUMMARY
