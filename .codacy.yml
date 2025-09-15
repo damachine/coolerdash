@@ -1,0 +1,24 @@
+---
+engines:
+  # Disable Lizard completely as it causes issues
+  lizard:
+    enabled: true
+
+  # Enable only cppcheck for C code analysis
+  cppcheck:
+    enabled: true
+
+  # Enable Semgrep for security analysis
+  semgrep:
+    enabled: true
+
+# Exclude build and temporary directories
+exclude_paths:
+  - "build/**"
+  - "bin/**"
+  - ".cache/**"
+  - "pkg/**"
+  - "src/**"
+  - "temp/**"
+  - "*.pkg.*"
+  - "coolerdash-*.pkg.*"
