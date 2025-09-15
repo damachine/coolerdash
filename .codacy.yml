@@ -18,7 +18,7 @@ exclude_paths:
   - "bin/**"
   - ".cache/**"
   - "pkg/**"
-  - "src/**" # Exclude AUR src directory, not our source code
+  - "src/**"
   - "temp/**"
   - "*.pkg.*"
   - "coolerdash-*.pkg.*"
