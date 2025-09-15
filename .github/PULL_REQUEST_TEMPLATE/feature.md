@@ -42,9 +42,7 @@
 - [ ] Edge cases tested
 
 **Test Scenarios:**
-1. 
-2. 
-3. 
+- 
 
 ## 📋 Feature Checklist
 
