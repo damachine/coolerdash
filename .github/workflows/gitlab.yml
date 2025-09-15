@@ -1,0 +1,137 @@
+name: Sync to GitLab
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ main ]
+  release:
+    types: [ published ]
+  workflow_dispatch:  # Allows manual execution
+
+jobs:
+  sync:
+    name: Synchronize with GitLab
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+      with:
+        fetch-depth: 0  # Fetch complete history for proper sync
+        
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+    - name: Add GitLab remote and selective sync
+      env:
+        GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+      run: |
+        if [ -z "$GITLAB_TOKEN" ]; then
+          echo "❌ GITLAB_TOKEN is not set in repository secrets"
+          echo "Please add your GitLab Personal Access Token to GitHub Secrets as 'GITLAB_TOKEN'"
+          exit 1
+        fi
+        
+        # Add GitLab remote with token authentication
+        git remote add gitlab https://oauth2:${GITLAB_TOKEN}@gitlab.com/damachine/coolerdash.git
+        
+        echo "🔄 Creating selective sync (with GitLab-specific README)..."
+        
+        # Create temporary branch for selective sync
+        git checkout -b gitlab-sync
+        
+        # Create GitLab-specific README.md
+        cat > README.md << 'EOF'
+        # CoolerDash - GitLab Mirror
+
+        **⚠️ This is a synchronized mirror repository from GitHub**
+
+        ## 📍 Main Repository
+
+        **Primary development happens on GitHub:**  
+        🔗 **[https://github.com/damachine/coolerdash](https://github.com/damachine/coolerdash)**
+
+        ## 🔄 Synchronization Info
+
+        - This GitLab repository is **automatically synchronized** from GitHub
+        - **All issues, pull requests, and contributions** should be made on GitHub
+        - This mirror is updated automatically when changes are pushed to the main GitHub repository
+        - **Documentation, releases, and latest updates** are available on GitHub
+
+        ## 📖 Full Documentation
+
+        For complete documentation, installation instructions, and project information, please visit:
+
+        **[GitHub Repository - damachine/coolerdash](https://github.com/damachine/coolerdash)**
+
+        ## 🚀 Quick Info
+
+        **CoolerDash** is a real-time sensor monitoring tool for AIO liquid coolers with integrated LCD displays.
+
+        - Enhances your liquid-cooling display with extra features
+        - Support for additional sensor values  
+        - Polished, customizable LCD dashboard
+        - Add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)
+
+        ## 📞 Support & Contributing
+
+        - **Issues**: [GitHub Issues](https://github.com/damachine/coolerdash/issues)
+        - **Discussions**: [GitHub Discussions](https://github.com/damachine/coolerdash/discussions)
+        - **Contributing**: [GitHub Contributing Guide](https://github.com/damachine/coolerdash/blob/main/CONTRIBUTING.md)
+
+        ---
+
+        **🔗 Visit the main repository for the latest updates and full documentation:**  
+        **[github.com/damachine/coolerdash](https://github.com/damachine/coolerdash)**
+        EOF
+
+        # Stage and commit the new README
+        git add README.md
+        git commit -m "INFO: this is a GitLab mirror - see GitHub for main repo: https://github.com/damachine/coolerdash"
+        
+        echo "🔄 Synchronizing to GitLab (with GitLab README)..."
+        # Try normal push first, fallback to sync branch if main is protected
+        if ! git push gitlab gitlab-sync:main --force; then
+          echo "⚠️ Main branch is protected, creating github-sync branch instead..."
+          git push gitlab gitlab-sync:github-sync --force
+          echo "📝 Created 'github-sync' branch on GitLab"
+        fi
+        
+        # Clean up temporary branch
+        git checkout main
+        git branch -D gitlab-sync
+        
+        echo "🏷️ Synchronizing tags to GitLab..."
+        git push gitlab --tags --force
+        
+        echo "✅ Synchronization completed (GitLab README created)"
+        
+    - name: Create sync summary
+      if: success()
+      run: |
+        echo "## 🔄 GitLab Synchronization Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Synchronized Content:" >> $GITHUB_STEP_SUMMARY
+        echo "- **Repository**: coolerdash" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target**: GitLab (gitlab.com/damachine/coolerdash)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branches**: Synced (main may be in 'github-sync' if protected)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Tags**: All tags synced" >> $GITHUB_STEP_SUMMARY
+        echo "- **README**: GitLab-specific version created with GitHub sync info" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📝 **Note**: GitLab README explains this is a mirror and directs users to GitHub" >> $GITHUB_STEP_SUMMARY
+        echo "🎯 **GitLab repository is now synchronized with GitHub (selective sync)**" >> $GITHUB_STEP_SUMMARY
+        
+    - name: Error summary
+      if: failure()
+      run: |
+        echo "## ❌ GitLab Synchronization Failed" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Troubleshooting Steps:" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Check GitLab Token**: Ensure GITLAB_TOKEN secret is set" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Token Permissions**: Token needs 'write_repository' scope" >> $GITHUB_STEP_SUMMARY
+        echo "3. **Repository Access**: Verify you have push access to GitLab repo" >> $GITHUB_STEP_SUMMARY
+        echo "4. **Protected Branches**: Check GitLab repository branch protection settings" >> $GITHUB_STEP_SUMMARY
