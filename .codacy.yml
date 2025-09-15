@@ -1,6 +1,6 @@
 ---
 engines:
-  # Disable Lizard completely as it causes issues
+  # Enable Lizard code analysis
   lizard:
     enabled: true
 
