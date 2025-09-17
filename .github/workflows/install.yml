@@ -3,10 +3,10 @@ name: Multi-Distribution Installation
 on:
   push:
     paths:
-      - 'VERSION'
+      - "VERSION"
     branches:
       - main
-  workflow_dispatch:  # Allows manual execution
+  workflow_dispatch: # Allows manual execution
 permissions:
   contents: read
 
@@ -14,127 +14,107 @@ jobs:
   test-install:
     name: Test 'make install' on ${{ matrix.name }}
     runs-on: ubuntu-latest
-    
+
     strategy:
-      fail-fast: false  # Test all distros even if one fails
+      fail-fast: false # Test all distros even if one fails
       matrix:
         include:
           # Ubuntu/Debian family
-          - distro: "ubuntu:22.04"
-            name: "Ubuntu 22.04 LTS"
-            pre_install: "apt-get update"
-            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libinih-dev build-essential pkg-config libjansson-dev fonts-roboto file"
-            
-          - distro: "ubuntu:24.04"  
+          - distro: "ubuntu:24.04"
             name: "Ubuntu 24.04 LTS"
             pre_install: "apt-get update"
             install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libinih-dev build-essential pkg-config libjansson-dev fonts-roboto file"
-            
-          - distro: "debian:12"
-            name: "Debian 12 (Bookworm)"
+
+          - distro: "debian:13"
+            name: "Debian 13 (Trixie)"
             pre_install: "apt-get update"
             install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libinih-dev build-essential pkg-config libjansson-dev fonts-roboto file"
-            
+
           # Fedora family (independent from RHEL)
-          - distro: "fedora:39"
-            name: "Fedora 39"
+          - distro: "fedora:42"
+            name: "Fedora 42"
             pre_install: "dnf update -y"
             install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel inih-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
-            
-          - distro: "fedora:40"
-            name: "Fedora 40" 
-            pre_install: "dnf update -y"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel inih-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
-            
+
           # RHEL/CentOS family (RHEL-compatible)
-          - distro: "almalinux:9"
-            name: "AlmaLinux 9 (RHEL 9 compatible)"
-            pre_install: "dnf update -y && dnf install -y epel-release && dnf config-manager --set-enabled crb && dnf makecache"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel inih-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
-            
-          - distro: "rockylinux:9"
-            name: "Rocky Linux 9 (RHEL 9 compatible)"  
-            pre_install: "dnf update -y && dnf install -y epel-release && dnf config-manager --set-enabled crb && dnf makecache"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel inih-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
-            
           - distro: "quay.io/centos/centos:stream9"
             name: "CentOS Stream 9 (RHEL 9 compatible)"
             pre_install: "dnf update -y && dnf install -y epel-release && dnf config-manager --set-enabled crb && dnf makecache"
             install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel inih-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
-            
+
           # openSUSE family
           - distro: "opensuse/tumbleweed"
             name: "openSUSE Tumbleweed"
             pre_install: "zypper refresh"
             install_deps: "zypper install -y tar sudo systemd cairo-devel libcurl-devel libinih-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
-            
+
           - distro: "opensuse/leap:16.0"
             name: "openSUSE Leap 16.0"
-            pre_install: "zypper refresh" 
+            pre_install: "zypper refresh"
             install_deps: "zypper install -y sudo systemd cairo-devel libcurl-devel libinih-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
 
     container:
       image: ${{ matrix.distro }}
-      options: --privileged  # For systemctl and make install
-      
+      options: --privileged # For systemctl and make install
+
     steps:
-    - name: Checkout CoolerDash code
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
-      
-    - name: Update package manager
-      run: ${{ matrix.pre_install }}
-      
-    - name: Install build dependencies
-      run: ${{ matrix.install_deps }}
-      
-    - name: Test make install
-      run: |
-        echo "🚀 Testing 'make install' on ${{ matrix.name }}"
-        
-        # Create a safe install simulation 
-        # (since we're in a container, we can't test all systemd services)
-        export DESTDIR=/tmp/install-test
-        mkdir -p /tmp/install-test
-        
-        echo "Running make install with DESTDIR=/tmp/install-test"
-        REALOS=no make install || {
-          echo "❌ make install failed"
-          echo "Exit code: $?"
-          echo "Checking if binary exists:"
-          ls -la coolerdash || echo "No binary found"
-          exit 1
-        }
-        
-        # Check if all expected files were installed
-        echo "📁 Checking installed files:"
-        find /tmp/install-test -type f -name "*coolerdash*" | head -10
-        
-        # Check binary
-        if [ -f "/tmp/install-test/opt/coolerdash/bin/coolerdash" ]; then
-          echo "✅ Binary installed correctly"
-          file /tmp/install-test/opt/coolerdash/bin/coolerdash
-        else
-          echo "❌ Binary not found at expected location"
-          find /tmp/install-test -name "coolerdash" -type f
-          exit 1
-        fi
-        
-        # Check config files
-        if [ -f "/tmp/install-test/etc/coolerdash/config.ini" ]; then
-          echo "✅ Config file installed"
-        else
-          echo "⚠️  Config file not found (might be expected)"
-        fi
-        
-        # Check systemd service
-        if [ -f "/tmp/install-test/etc/systemd/system/coolerdash.service" ] || [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash.service" ]; then
-          echo "✅ Systemd service file installed"
-        else
-          echo "⚠️  Systemd service file not found"
-          find /tmp/install-test -name "*.service" -type f
-        fi
-        
-        echo "✅ Installation test completed on ${{ matrix.name }}"
+      - name: Checkout CoolerDash code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Update package manager
+        run: ${{ matrix.pre_install }}
+
+      - name: Install build dependencies
+        run: ${{ matrix.install_deps }}
+
+      - name: Test make install
+        run: |
+          echo "🚀 Testing 'make install' on ${{ matrix.name }}"
+
+          # Create a safe install simulation 
+          # (since we're in a container, we can't test all systemd services)
+          export DESTDIR=/tmp/install-test
+          mkdir -p /tmp/install-test
+
+          echo "Running make install with DESTDIR=/tmp/install-test"
+          REALOS=no make install || {
+            echo "❌ make install failed"
+            echo "Exit code: $?"
+            echo "Checking if binary exists:"
+            ls -la coolerdash || echo "No binary found"
+            exit 1
+          }
+
+          # Check if all expected files were installed
+          echo "📁 Checking installed files:"
+          find /tmp/install-test -type f -name "*coolerdash*" | head -10
+
+          # Check binary
+          if [ -f "/tmp/install-test/opt/coolerdash/bin/coolerdash" ]; then
+            echo "✅ Binary installed correctly"
+            file /tmp/install-test/opt/coolerdash/bin/coolerdash
+          else
+            echo "❌ Binary not found at expected location"
+            find /tmp/install-test -name "coolerdash" -type f
+            exit 1
+          fi
+
+          # Check config files
+          if [ -f "/tmp/install-test/etc/coolerdash/config.ini" ]; then
+            echo "✅ Config file installed"
+          else
+            echo "⚠️  Config file not found (might be expected)"
+          fi
+
+          # Check systemd service
+          if [ -f "/tmp/install-test/etc/systemd/system/coolerdash.service" ] || [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash.service" ]; then
+            echo "✅ Systemd service file installed"
+          else
+            echo "⚠️  Systemd service file not found"
+            find /tmp/install-test -name "*.service" -type f
+          fi
+
+          echo "✅ Installation test completed on ${{ matrix.name }}"
 
   # Additional test for Arch Linux (your development system)
   arch-test:
@@ -143,48 +123,48 @@ jobs:
     container:
       image: archlinux:latest
       options: --privileged
-      
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
-      
-    - name: Setup Arch Linux
-      run: |
-        pacman -Syu --noconfirm
-        pacman -S --noconfirm cairo libcurl-gnutls libinih gcc make pkg-config jansson ttf-roboto sudo systemd
-        
-    - name: Test make install on Arch
-      run: |
-        echo "🚀 Testing 'make install' on Arch Linux (reference system)"
-        
-        export DESTDIR=/tmp/install-test  
-        mkdir -p /tmp/install-test
-        REALOS=no make install
-        
-        echo "✅ Arch Linux installation test completed (reference)"
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Setup Arch Linux
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm cairo libcurl-gnutls libinih gcc make pkg-config jansson ttf-roboto sudo systemd
+
+      - name: Test make install on Arch
+        run: |
+          echo "🚀 Testing 'make install' on Arch Linux (reference system)"
+
+          export DESTDIR=/tmp/install-test  
+          mkdir -p /tmp/install-test
+          REALOS=no make install
+
+          echo "✅ Arch Linux installation test completed (reference)"
 
   # Summary report
   installation-summary:
     name: Installation Test Summary
     runs-on: ubuntu-latest
     needs: [test-install, arch-test]
-    if: always()  # Runs even if tests fail
-    
+    if: always() # Runs even if tests fail
+
     steps:
-    - name: Create summary report
-      run: |
-        echo "## 🚀 CoolerDash Multi-Distribution Installation Test Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Tested Distributions:" >> $GITHUB_STEP_SUMMARY
-        echo "- **Ubuntu**: 22.04 LTS, 24.04 LTS" >> $GITHUB_STEP_SUMMARY
-        echo "- **Debian**: 12 (Bookworm)" >> $GITHUB_STEP_SUMMARY
-        echo "- **Fedora**: 39, 40" >> $GITHUB_STEP_SUMMARY
-        echo "- **RHEL-compatible**: AlmaLinux 9, Rocky Linux 9, CentOS Stream 9" >> $GITHUB_STEP_SUMMARY
-        echo "- **openSUSE**: Tumbleweed, Leap 15.5" >> $GITHUB_STEP_SUMMARY
-        echo "- **Arch Linux**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Test Coverage:" >> $GITHUB_STEP_SUMMARY
-        echo "✅ Installation process (make install)" >> $GITHUB_STEP_SUMMARY
-        echo "✅ File placement verification" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "🔗 **View detailed logs above for distribution-specific results**" >> $GITHUB_STEP_SUMMARY
+      - name: Create summary report
+        run: |
+          echo "## 🚀 CoolerDash Multi-Distribution Installation Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tested Distributions:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ubuntu**: 24.04 LTS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Debian**: 13 (Trixie)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Fedora**: 42" >> $GITHUB_STEP_SUMMARY
+          echo "- **RHEL-compatible**: CentOS Stream 9" >> $GITHUB_STEP_SUMMARY
+          echo "- **openSUSE**: Tumbleweed, Leap 16.0" >> $GITHUB_STEP_SUMMARY
+          echo "- **Arch Linux**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Coverage:" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Installation process (make install)" >> $GITHUB_STEP_SUMMARY
+          echo "✅ File placement verification" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 **View detailed logs above for distribution-specific results**" >> $GITHUB_STEP_SUMMARY
