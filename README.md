@@ -62,6 +62,7 @@ To confirm a device, [submit a Device Confirmation Issue](https://github.com/dam
 ```bash
 # STEP 1: Install
 yay -S coolerdash-git
+#OR any other AUR helper
 
 # STEP 2: Enable and start CoolerDash (after install or update)
 systemctl daemon-reload
@@ -73,7 +74,6 @@ systemctl enable --now coolerdash.service
 # STEP 1: Clone repository
 git clone https://aur.archlinux.org/coolerdash-git.git
 cd coolerdash-git
-makepkg --printsrcinfo > .SRCINFO
 makepkg -si
 
 # STEP 2: Start CoolerControl daemon if not already running
