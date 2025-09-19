@@ -11,6 +11,7 @@
   <a href="https://github.com/damachine/coolerdash/actions/workflows/aur.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg"></a>
   <a href="https://aur.archlinux.org/packages/coolerdash-git"><img src="https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR"></a>
   <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash"></a>
+  <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
   <a href="https://github.com/sponsors/damachine"><img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors"></a>
 </p>
 
@@ -21,6 +22,8 @@
 
 **CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your liquid-cooling display with extra features, support for additional sensor values, and a polished, customizable LCD dashboard.**
 
+<a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
+
 > ##### Special thanks to @codifryed, the founder of CoolerControl 
 
 ---
@@ -30,9 +33,11 @@
 - **OS**: Linux
 - **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
-- **LCD**: LCD displays supported by CoolerControl **(Asus, MSI, NZXT, etc.)**  
+- **LCD**: LCD displays supported by CoolerControl **(Asus, Corsair, NZXT, etc.)**  
 See the [Supported Devices (Compatibility List)](docs/devices.md) for a list of confirmed working hardware.  
 To confirm a device, [submit a Device Confirmation Issue](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).
+
+> ##### **Note:** In principle, all devices supported by [liquidctl](https://github.com/liquidctl/liquidctl) should work with CoolerDash.
 
 **Supported Distributions:**
 
