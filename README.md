@@ -20,7 +20,7 @@
 
 #### CoolerDash enables real-time sensor monitoring of an AIO liquid cooler with integrated LCD displays. It extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features, support for additional sensor values, and a sophisticated, customizable user interface.
 
-> ##### Special thanks to @codifryed, the founder of CoolerControl 
+> ##### Special thanks to <a href="https://github.com/codifryed">@codifryed</a>, the founder of CoolerControl 
 
 <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
 
