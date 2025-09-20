@@ -60,7 +60,7 @@ To confirm a device, [submit a Device Confirmation Issue](https://github.com/dam
 
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
-- Using an AUR helper (Recommended):
+- Using an AUR helper:
 
 ```bash
 # STEP 1: Install
