@@ -18,11 +18,11 @@
 
 ## Description
 
-#### CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your liquid-cooling display with extra features, support for additional sensor values, and a polished, customizable LCD dashboard.
+#### CoolerDash enables real-time sensor monitoring of an AIO liquid cooler with integrated LCD displays. It extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features, support for additional sensor values, and a sophisticated, customizable user interface.
 
 > ##### Special thanks to @codifryed, the founder of CoolerControl 
 
-<a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
+> <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
   <img src="images/round.png" alt="CoolerDash LCD round" width="320" height="320"/> 
