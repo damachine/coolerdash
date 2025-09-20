@@ -40,15 +40,6 @@ To confirm a device, [submit a Device Confirmation Issue](https://github.com/dam
 > [!NOTE]
 > In principle, all devices supported by [liquidctl](https://github.com/liquidctl/liquidctl) should work with CoolerDash.
 
-#### Supported Distributions:
-
-- **Arch Linux / CachyOS / Manjaro (Recommended)**
-- **Debian / Ubuntu**
-- **Fedora**
-- **RHEL / CentOS**
-- **openSUSE**
-
-
 ## Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
@@ -57,6 +48,7 @@ To confirm a device, [submit a Device Confirmation Issue](https://github.com/dam
 
 > [!NOTE]
 > Skip this step if you have already configured your CoolerControl before.
+
 ---
 
 ## Installation
