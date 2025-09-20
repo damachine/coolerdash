@@ -74,25 +74,6 @@ systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
 
-- Manual AUR install (no AUR helper):
-```bash
-# STEP 1: Clone repository
-git clone https://aur.archlinux.org/coolerdash-git.git
-cd coolerdash-git
-makepkg -si
-
-# STEP 2: Start CoolerControl daemon if not already running
-systemctl start coolercontrold
-
-# STEP 4: Enable autostart and start CoolerDash
-systemctl daemon-reload
-systemctl enable --now coolerdash.service
-
-# STEP 5: (optional) Check CoolerDash service status
-systemctl status coolerdash.service
-journalctl -u coolerdash.service
-```
-
 #### All Distributions (Manual Installation)
 
 ```bash
