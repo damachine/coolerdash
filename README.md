@@ -116,7 +116,7 @@ journalctl -u coolerdash.service
 - All settings are managed in `/etc/coolerdash/config.ini`.
 - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
-> [!NOTE]
+> [!TIP]
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
 > - You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
 > - **For detailed configuration options and examples, see: [Configuration Guide](docs/config.md) 📖**
