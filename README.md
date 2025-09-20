@@ -20,7 +20,7 @@
   <img src="images/quad.png" alt="CoolerDash LCD Demo 2" width="280" height="280"/> 
 </div>
 
-#### CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your liquid-cooling display with extra features, support for additional sensor values, and a polished, customizable LCD dashboard.
+### CoolerDash is an add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) that enhances your liquid-cooling display with extra features, support for additional sensor values, and a polished, customizable LCD dashboard.
 
 <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
 
