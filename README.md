@@ -22,7 +22,7 @@
 
 > ##### Special thanks to @codifryed, the founder of CoolerControl 
 
-> <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
+<a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
   <img src="images/round.png" alt="CoolerDash LCD round" width="320" height="320"/> 
