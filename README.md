@@ -107,12 +107,12 @@ journalctl -u coolerdash.service
 
 ## Configuration
 
-#### CoolerControl configuration:
+#### CoolerControl:
 
 - In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
 - In CoolerControl GUI, set your LCD display to **`Image/gif`**.
 
-#### Runtime Configuration:
+#### CoolerDash Runtime:
 
 - All settings are managed in `/etc/coolerdash/config.ini`.
 - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
