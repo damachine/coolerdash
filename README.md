@@ -72,7 +72,7 @@ systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
 
-#### All Distributions (Manual Installation)
+#### All Distributions
 
 - Manual installation:
 
