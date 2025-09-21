@@ -98,7 +98,6 @@ journalctl -u coolerdash.service
 
 > [!NOTE]
 > For manual installations, please make sure all required dependencies are installed correctly.  
-> Only package manager installations receive automatic updates.  
 > **At this time, manual installations need to be updated manually**.
 
 ---
