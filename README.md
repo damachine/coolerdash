@@ -15,6 +15,8 @@
   <a href="https://github.com/sponsors/damachine"><img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors"></a>
 </p>
 
+---
+
 #### Enable real-time sensor monitoring of an AIO liquid cooler with integrated LCD displays. It extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features, support for additional sensor values, and a sophisticated, customizable user interface.
 
 > ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
