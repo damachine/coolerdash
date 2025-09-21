@@ -107,15 +107,15 @@ journalctl -u coolerdash.service
 
 ## Configuration
 
-#### CoolerControl:
+> [!NOTE]
+> #### CoolerControl:  
+> - In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
+> - In CoolerControl GUI, set your LCD display to **`Image/gif`**.
 
-- In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
-- In CoolerControl GUI, set your LCD display to **`Image/gif`**.
-
-#### CoolerDash Runtime:
-
-- All settings are managed in `/etc/coolerdash/config.ini`.
-- After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
+> [!NOTE]
+> #### CoolerDash Runtime:  
+> - All settings are managed in `/etc/coolerdash/config.ini`.
+> - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
 > [!TIP]
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
@@ -130,17 +130,17 @@ journalctl -u coolerdash.service
 
 ```bash
 # Service control
-systemctl enable --now coolerdash.service     # Enable and Start!
-systemctl start coolerdash.service            # Start
-systemctl stop coolerdash.service             # Stop
-systemctl restart coolerdash.service          # Restart
-systemctl status coolerdash.service           # Status + recent logs
+systemctl enable --now coolerdash.service   # Enable and Start!
+systemctl start coolerdash.service          # Start
+systemctl stop coolerdash.service           # Stop
+systemctl restart coolerdash.service        # Restart
+systemctl status coolerdash.service         # Status + recent logs
 
 # Journal log
 journalctl -u coolerdash.service
 
 # Live logs
-journalctl -u coolerdash.service -f
+journalctl -xeu coolerdash.service -f
 ```
 
 #### Build Commands
@@ -163,10 +163,6 @@ coolerdash
 # Run with detailed debug logging
 coolerdash --log
 ```
-> **Note:** The systemd service must be stopped before running manually to avoid conflicts:
-```bash
-systemctl stop coolerdash.service
-```
 
 #### Debugging Steps
 
@@ -185,10 +181,17 @@ coolerdash --log
 make debug && coolerdash --log
 
 # 5. Check service logs (STATUS messages always visible)
-journalctl -u coolerdash.service -f
+journalctl -xeu coolerdash.service -f
 
 # 6. View recent logs with context
 journalctl -u coolerdash.service -n 50
+```
+
+> [!NOTE]  
+> The systemd service must be stopped before running manually to avoid conflicts:
+
+```bash
+systemctl stop coolerdash.service
 ```
 
 ---
@@ -197,9 +200,9 @@ journalctl -u coolerdash.service -n 50
 
 #### Common Issues
 
-- **"Device not found"**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
-- **"Connection refused"**: CoolerControl daemon not running → `systemctl start coolercontrold`
-- **"Connection problem"**: No devices found or wrong device UID → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
+- **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
+- **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`
+- **Connection problem**: No devices found or wrong device UID  → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
 
 #### Solution:
 
