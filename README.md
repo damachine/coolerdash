@@ -259,7 +259,7 @@ I do not guarantee that it will work as intended on your system.
 
 MIT License - See LICENSE file for details.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT).
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 Individual Coolercontrol package have their own licenses:
 
@@ -275,7 +275,7 @@ If you find CoolerDash useful and want to support its development:
 - 🐛 **Report bugs** and suggest improvements.
 - 🔄 **Share** the project with others.
 - 📝 **Contribute** code or documentation.
-- [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine).
+- [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
 
 > *🙏 Your support keeps this project alive and improving — thank you!.*
 
