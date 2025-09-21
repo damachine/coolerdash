@@ -124,7 +124,7 @@ journalctl -u coolerdash.service
 
 ---
 
-## 🚀 Usage
+## 🚀 Advanced Usage
 
 #### Service Management
 
