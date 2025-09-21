@@ -195,8 +195,19 @@ systemctl stop coolerdash.service
 
 ## 🆘 Troubleshooting
 
+#### Common Issues
+
 > [!WARNING]
-> #### Common Issues
+> - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
+
+> [!TIP]
+> #### Solution:
+> - The PKGBUILD will attempt to clean up automatically.
+> - If problems persist, run `sudo make uninstall`.
+> - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
+> - Then retry the installation.
+
+> [!WARNING]
 > - **CoolerDash**: Systemd daemon not running → `systemctl status coolerdash` and enable `systemctl enable --now coolercontrold`.
 > - **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif`.
 > - **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`.
@@ -231,16 +242,6 @@ curl http://localhost:11987/devices | jq
       }
 }
 ```
-
-> [!WARNING]
-> - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
-
-> [!TIP]
-> #### Solution:
-> - The PKGBUILD will attempt to clean up automatically.
-> - If problems persist, run `sudo make uninstall`.
-> - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
-> - Then retry the installation.
 
 > [!TIP]
 > If you need help, open an issue at [https://github.com/damachine/coolerdash/issues](https://github.com/damachine/coolerdash/issues).
