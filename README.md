@@ -18,13 +18,13 @@
 
 #### Enable real-time sensor monitoring of an AIO liquid cooler with integrated LCD displays. It extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features, support for additional sensor values, and a sophisticated, customizable user interface.
 
-> ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl 
+> ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
 
 <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
   <img src="images/round.png" alt="CoolerDash LCD round" width="320" height="320"/> 
-  <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/> 
+  <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/>
 </div>
 
 ---
@@ -39,14 +39,14 @@
 > [!NOTE]
 > See the [Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md), for a list of confirmed working hardware.  
 > To confirm a device: [Submit a Device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).  
-> In principle, all devices supported by [liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash.  
+> In principle, all devices supported by [liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash.
 
 ---
 
 ## 📝 Prerequisites
 
-1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
-2. **Start/Enable CoolerControl daemon**: `systemctl enable --now coolercontrold`
+1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md).
+2. **Start/Enable CoolerControl daemon**: `systemctl enable --now coolercontrold`.
 3. **In the CoolerControl settings, under `Device` and `Sensor`, select one sensor for the CPU and one for the GPU.**
 
 > [!NOTE]
@@ -97,8 +97,8 @@ journalctl -u coolerdash.service
 ```
 
 > [!NOTE]
-> For manual installations, please make sure all required dependencies are installed correctly.  
-> Only package manager installations receive automatic updates.  
+> For manual installations, please make sure all required dependencies are installed correctly.
+> Only package manager installations receive automatic updates.
 > **At this time, manual installations need to be updated manually**.
 
 ---
@@ -106,12 +106,12 @@ journalctl -u coolerdash.service
 ## ⚙️ Configuration
 
 > [!IMPORTANT]
-> #### CoolerControl:  
+> #### CoolerControl:
 > - In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
 > - In CoolerControl GUI, set your LCD display to **`Image/gif`**.
 
 > [!IMPORTANT]
-> #### CoolerDash Runtime:  
+> #### CoolerDash Runtime:
 > - All settings are managed in `/etc/coolerdash/config.ini`.
 > - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
@@ -122,7 +122,7 @@ journalctl -u coolerdash.service
 
 ---
 
-## 🚀 Usage
+## 🚀 Advanced Usage
 
 #### Service Management
 
@@ -198,15 +198,15 @@ systemctl stop coolerdash.service
 
 > [!WARNING]
 > #### Common Issues
-> - **CoolerDash**: Systemd daemon not running → `systemctl status coolerdash` and enable `systemctl enable --now coolercontrold`  
-> - **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
-> - **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`
-> - **Connection problem**: No devices found or wrong device UID  → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
+> - **CoolerDash**: Systemd daemon not running → `systemctl status coolerdash` and enable `systemctl enable --now coolercontrold`.
+> - **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif`.
+> - **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`.
+> - **Connection problem**: No devices found or wrong device UID  → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`.
 
 > [!TIP]
 > #### Solution:
-> - Check all related systemd services are running
-> - Manually check if devices are detected correctly
+> - Check all related systemd services are running.
+> - Manually check if devices are detected correctly.
 
 ```bash
 # Start CoolerControl (if not running)
@@ -234,17 +234,17 @@ curl http://localhost:11987/devices | jq
 ```
 
 > [!WARNING]
-> - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`)
+> - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
 > [!TIP]
 > #### Solution:
-> - The PKGBUILD will attempt to clean up automatically
-> - If problems persist, run `sudo make uninstall`
-> - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`
-> - Then retry the installation
+> - The PKGBUILD will attempt to clean up automatically.
+> - If problems persist, run `sudo make uninstall`.
+> - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
+> - Then retry the installation.
 
 > [!TIP]
-> If you need help, open an issue at [https://github.com/damachine/coolerdash/issues](https://github.com/damachine/coolerdash/issues)
+> If you need help, open an issue at [https://github.com/damachine/coolerdash/issues](https://github.com/damachine/coolerdash/issues).
 
 ---
 
@@ -259,7 +259,7 @@ I do not guarantee that it will work as intended on your system.
 
 MIT License - See LICENSE file for details.
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT).
 
 Individual Coolercontrol package have their own licenses:
 
@@ -271,11 +271,11 @@ Individual Coolercontrol package have their own licenses:
 
 If you find CoolerDash useful and want to support its development:
 
-- ⭐ **Star this repository** on GitHub
-- 🐛 **Report bugs** and suggest improvements
-- 🔄 **Share** the project with others
-- 📝 **Contribute** code or documentation
-- [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
+- ⭐ **Star this repository** on GitHub.
+- 🐛 **Report bugs** and suggest improvements.
+- 🔄 **Share** the project with others.
+- 📝 **Contribute** code or documentation.
+- [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine).
 
 > *🙏 Your support keeps this project alive and improving — thank you!.*
 
