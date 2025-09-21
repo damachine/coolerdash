@@ -31,7 +31,7 @@
 
 ---
 
-## System Requirements
+## 🖥️ System Requirements
 
 - **OS**: Linux
 - **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running
@@ -45,7 +45,7 @@
 
 ---
 
-## Prerequisites
+## 📝 Prerequisites
 
 1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 2. **Start/Enable CoolerControl daemon**: `systemctl enable --now coolercontrold`
@@ -56,7 +56,7 @@
 
 ---
 
-## Installation
+## 🛠️ Installation
 
 #### Arch Linux (Recommended)
 
@@ -98,21 +98,21 @@ systemctl status coolerdash.service
 journalctl -u coolerdash.service
 ```
 
-> [!CAUTION]
+> [!NOTE]
 > For manual installations, please make sure all required dependencies are installed correctly.  
 > Only package manager installations receive automatic updates.  
-> At this time, manual installations need to be updated manually.
+> **At this time, manual installations need to be updated manually**.
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-> [!NOTE]
+> [!IMPORTANT]
 > #### CoolerControl:  
 > - In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
 > - In CoolerControl GUI, set your LCD display to **`Image/gif`**.
 
-> [!NOTE]
+> [!IMPORTANT]
 > #### CoolerDash Runtime:  
 > - All settings are managed in `/etc/coolerdash/config.ini`.
 > - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
@@ -124,7 +124,7 @@ journalctl -u coolerdash.service
 
 ---
 
-## Usage
+## 🚀 Usage
 
 #### Service Management
 
@@ -187,7 +187,7 @@ journalctl -xeu coolerdash.service -f
 journalctl -u coolerdash.service -n 50
 ```
 
-> [!NOTE]  
+> [!IMPORTANT]  
 > The systemd service must be stopped before running manually to avoid conflicts:
 
 ```bash
@@ -196,25 +196,31 @@ systemctl stop coolerdash.service
 
 ---
 
-## Troubleshooting
+## 🆘 Troubleshooting
 
-#### Common Issues
+> [!WARNING]
+> #### Common Issues
+> - **CoolerDash**: Systemd daemon not running → `systemctl status coolerdash` and enable `systemctl enable --now coolercontrold`  
+> - **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
+> - **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`
+> - **Connection problem**: No devices found or wrong device UID  → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
 
-- **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif` 
-- **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`
-- **Connection problem**: No devices found or wrong device UID  → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`
+> [!TIP]
+> #### Solution:
+> - Check all related systemd services are running
+> - Manually check if devices are detected correctly
 
-#### Solution:
-
-- Manually check if devices are detected correctly:
 ```bash
 # Start CoolerControl (if not running)
-systemctl start coolercontrold
+systemctl enable --now coolercontrold
+
+# Start CoolerDash (if not running)
+systemctl enable --now coolerdash
 
 # Check available devices
 curl http://localhost:11987/devices | jq
 ```
-#### Example:
+###### Example output
 ```json
 {
       "name": "NZXT Kraken 2023",
@@ -229,19 +235,17 @@ curl http://localhost:11987/devices | jq
 }
 ```
 
-- **Manual Installation Conflicts**: If you see errors like "conflicting files" or "manual installation detected" during `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
+> [!WARNING]
+> - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`)
 
-Solution:
+> [!TIP]
+> #### Solution:
+> - The PKGBUILD will attempt to clean up automatically
+> - If problems persist, run `sudo make uninstall`
+> - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`
+> - Then retry the installation
 
-- The PKGBUILD will attempt to clean up automatically.
-- If problems persist, run:
-  ```
-  sudo make uninstall
-  ```
-- Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
-- Then retry the installation.
-
-> [!NOTE]
+> [!TIP]
 > If you need help, open an issue at [https://github.com/damachine/coolerdash/issues](https://github.com/damachine/coolerdash/issues)
 
 ---
