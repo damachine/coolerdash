@@ -27,7 +27,7 @@
 <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
-  <img src="images/round.png" alt="CoolerDash LCD round" width="320" height="320"/> 
+  <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/> 
   <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/>
 </div>
 
