@@ -18,7 +18,7 @@
 ---
 
 ## ⭐ Features
-- **Enable real-time sensor monitoring of an AIO liquid cooler with integrated LCD displays.**
+- **Displays real-time sensor on an AIO liquid cooler with integrated LCD displays.**
 - **Extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features.**
 - **Support for additional sensor values, and a sophisticated, customizable user interface.**
 
