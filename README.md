@@ -248,7 +248,8 @@ curl http://localhost:11987/devices | jq
 ```
 
 > [!TIP]
-> If you need help, open an issue at [https://github.com/damachine/coolerdash/issues](https://github.com/damachine/coolerdash/issues).
+> Contribute and suggest improvements. Welcome ⭐ at [https://github.com/damachine/coolerdash/discussions](https://github.com/damachine/coolerdash/discussions)  
+> If you need help, open an issue at [https://github.com/damachine/coolerdash/issues](https://github.com/damachine/coolerdash/issues)
 
 ---
 
