@@ -215,7 +215,7 @@ systemctl stop coolerdash.service
   > ```bash
   >    systemctl status coolerdash
   > ```
-  >  - Enable/Start CoolerDash
+  >  - Enable/Start CoolerDash:
   > ```bash
   >    systemctl enable --now coolerdash
   > ```
@@ -230,7 +230,7 @@ systemctl stop coolerdash.service
   > ```bash
   >    systemctl status coolercontrold
   > ```
-  >  - Enable/Start CoolerControl
+  >  - Enable/Start CoolerControl:
   > ```bash
   >    systemctl enable --now coolercontrold
   > ```
