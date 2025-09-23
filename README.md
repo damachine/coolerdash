@@ -30,25 +30,14 @@
 ## 🖥️ System Requirements
 
 - **OS**: Linux
-- **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running
-- **CPU**: x86-64-v3 compatible (Intel Haswell+ 2013+ / AMD Excavator+ 2015+)
-- **LCD**: LCD displays supported by CoolerControl **(Asus, Corsair, NZXT, etc.)**
+- **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
+- **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
+- **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
 > [!NOTE]
 > See the [Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md), for a list of confirmed working hardware.  
 > To confirm a device: [Submit a Device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).  
-> In principle, all devices supported by [liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash.
-
----
-
-## 📝 Prerequisites
-
-1. **Install CoolerControl**: [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md).
-2. **Start/Enable CoolerControl daemon**: `systemctl enable --now coolercontrold`.
-3. **In the CoolerControl settings, under `Device` and `Sensor`, select one sensor for the CPU and one for the GPU.**
-
-> [!NOTE]
-> Skip if you have already configured your CoolerControl before.
+> In principle, all devices supported by CoolerControl/-[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash.
 
 ---
 
@@ -90,7 +79,6 @@ systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
 
-> [!WARNING]
 > For manual installations, please make sure all required dependencies are installed correctly.  
 > **At this time, manual installations need to be updated manually**.
 
@@ -178,7 +166,6 @@ journalctl -xeu coolerdash.service -f
 journalctl -u coolerdash.service -n 50
 ```
 
-> [!IMPORTANT]  
 > The systemd service must be stopped before running manually to avoid conflicts:
 
 ```bash
@@ -192,64 +179,29 @@ systemctl stop coolerdash.service
 #### Common Issues
 
 > [!WARNING]
-> - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
+> - **Installation:** If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
   > [!TIP]
   > - If problems persist, run:
   > ```bash
+  >   sudo systemctl stop coolerdash
   >   sudo make uninstall
   > ```
   > - Remove any leftover files:
   > ```bash
-  >    sudo rm -rf /opt/coolerdash/ /usr/bin/coolerdash /etc/systemd/system/coolerdash.service
+  >    sudo rm -rf /opt/coolerdash/ \
+  >                /usr/bin/coolerdash \
+  >                /etc/systemd/system/coolerdash.service
   > ```
   > - Then retry the installation.
 
 #   
 
-> [!WARNING]
-> - **CoolerDash**: Systemd daemon not running.
-
-  > [!TIP]
-  > - Check if CoolerDash running:
-  > ```bash
-  >    systemctl status coolerdash
-  > ```
-  >  - Enable/Start CoolerDash:
-  > ```bash
-  >    systemctl enable --now coolerdash
-  > ```
-
-#   
-
-> [!WARNING]
-> - **CoolerControl**: Systemd daemon not running.
-
-  > [!TIP]
-  > - Check if CoolerControl running:
-  > ```bash
-  >    systemctl status coolercontrold
-  > ```
-  >  - Enable/Start CoolerControl:
-  > ```bash
-  >    systemctl enable --now coolercontrold
-  > ```
-
-#   
-
-> [!WARNING]
-> - **Device not found**: LCD not configured in CoolerControl.
-
-  > [!TIP]
-  > - Use CoolerControl GUI → set LCD mode to `Image/gif`.
-
-#   
-
 >   [!WARNING]
-> - **Connection problem**: No devices found or wrong device UID.
+> - **Device/-Connection failed:** No devices found or wrong device UID.
 
   > [!TIP]
-  > - Check CoolerControl configuration and LCD connection → Verify with:
+  > - Check CoolerControl configuration and LCD connection → Verify device with:
   > ```bash
   >    curl http://localhost:11987/devices | jq
   > ```
