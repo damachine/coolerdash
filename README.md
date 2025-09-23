@@ -194,48 +194,80 @@ systemctl stop coolerdash.service
 > [!WARNING]
 > - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
-> [!TIP]
-> #### Solution:
-> - The PKGBUILD will attempt to clean up automatically.
-> - If problems persist, run `sudo make uninstall`.
-> - Remove any leftover files in `/opt/coolerdash/`, `/usr/bin/coolerdash`, and `/etc/systemd/system/coolerdash.service`.
-> - Then retry the installation.
+  > [!TIP]
+  > #### Solution:
+  > - If problems persist, run:
+  > ```bash
+  >   sudo make uninstall
+  > ```
+  > - Remove any leftover files:
+  > ```bash
+  >    sudo rm rf /opt/coolerdash/ /usr/bin/coolerdash /etc/systemd/system/coolerdash.service
+  > ```
+  > - Then retry the installation.
+
+#   
 
 > [!WARNING]
-> - **CoolerDash**: Systemd daemon not running → `systemctl status coolerdash` and enable `systemctl enable --now coolercontrold`.
-> - **Device not found**: LCD not configured in CoolerControl → Use CoolerControl GUI → set LCD mode to `Image/gif`.
-> - **Connection refused**: CoolerControl daemon not running → `systemctl status coolercontrold`.
-> - **Connection problem**: No devices found or wrong device UID  → Check CoolerControl configuration and LCD connection → Verify with `curl http://localhost:11987/devices | jq`.
+> - **CoolerDash**: Systemd daemon not running.
 
-> [!TIP]
-> #### Solution:
-> - Check all related systemd services are running.
-> - Manually check if devices are detected correctly.
+  > [!TIP]
+  > - Check if CoolerDash running:
+  > ```bash
+  >    systemctl status coolerdash
+  > ```
+  >  - Enable/Start CoolerDash
+  > ```bash
+  >    systemctl enable --now coolerdash
+  > ```
 
-```bash
-# Start CoolerControl (if not running)
-systemctl enable --now coolercontrold
+#   
 
-# Start CoolerDash (if not running)
-systemctl enable --now coolerdash
+> [!WARNING]
+> - **CoolerControl**: Systemd daemon not running.
 
-# Check available devices
-curl http://localhost:11987/devices | jq
-```
-###### Example output
-```json
-{
-      "name": "NZXT Kraken 2023",
-      "type": "Liquidctl",
-      "type_index": 1,
-      "uid": "8d4becb03bca2a8e8d4213ac376a1094f39d2786f688549ad3b6a591c3affdf9",
-      "lc_info": {
-        "driver_type": "KrakenZ3",
-        "firmware_version": "2.0.0",
-        "unknown_asetek": false
-      }
-}
-```
+  > [!TIP]
+  > - Check if CoolerControl running:
+  > ```bash
+  >    systemctl status coolercontrold
+  > ```
+  >  - Enable/Start CoolerControl
+  > ```bash
+  >    systemctl enable --now coolercontrold
+  > ```
+
+#   
+
+> [!WARNING]
+> - **Device not found**: LCD not configured in CoolerControl.
+
+  > [!TIP]
+  > - Use CoolerControl GUI → set LCD mode to `Image/gif`.
+
+#   
+
+>   [!WARNING]
+> - **Connection problem**: No devices found or wrong device UID.
+
+  > [!TIP]
+  > - Check CoolerControl configuration and LCD connection → Verify with:
+  > ```bash
+  >    curl http://localhost:11987/devices | jq
+  > ```
+  > ###### Example output:
+  > ```json
+  > {
+  >       "name": "NZXT Kraken 2023",
+  >       "type": "Liquidctl",
+  >       "type_index": 1,
+  >       "uid": "8d4becb03bca2a8e8d4213ac376a1094f39d2786f688549ad3b6a591c3affdf9",
+  >       "lc_info": {
+  >         "driver_type": "KrakenZ3",
+  >         "firmware_version": "2.0.0",
+  >         "unknown_asetek": false
+  >       }
+  > }
+  > ```
 
 ---
 
