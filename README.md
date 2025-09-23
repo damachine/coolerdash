@@ -202,7 +202,7 @@ systemctl stop coolerdash.service
   > ```
   > - Remove any leftover files:
   > ```bash
-  >    sudo rm rf /opt/coolerdash/ /usr/bin/coolerdash /etc/systemd/system/coolerdash.service
+  >    sudo rm -rf /opt/coolerdash/ /usr/bin/coolerdash /etc/systemd/system/coolerdash.service
   > ```
   > - Then retry the installation.
 
