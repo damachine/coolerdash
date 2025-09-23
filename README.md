@@ -86,7 +86,7 @@ git clone https://github.com/damachine/coolerdash.git
 cd coolerdash
 
 # STEP 2: Start CoolerControl daemon if not already running
-systemctl start coolercontrold
+systemctl enable --now coolercontrold
 
 # STEP 3: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
@@ -94,10 +94,6 @@ make install
 # STEP 4: Enable autostart
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
-
-# STEP 5: (optional) Check CoolerDash service status
-systemctl status coolerdash.service
-journalctl -u coolerdash.service
 ```
 
 > [!NOTE]
