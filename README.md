@@ -195,7 +195,6 @@ systemctl stop coolerdash.service
 > - **File conflicts**: If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
 
   > [!TIP]
-  > #### Solution:
   > - If problems persist, run:
   > ```bash
   >   sudo make uninstall
