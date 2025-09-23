@@ -90,7 +90,7 @@ systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
 
-> [!NOTE]
+> [!WARNING]
 > For manual installations, please make sure all required dependencies are installed correctly.  
 > **At this time, manual installations need to be updated manually**.
 
@@ -99,7 +99,7 @@ systemctl enable --now coolerdash.service
 ## ⚙️ Configuration
 
 > [!IMPORTANT]
-> #### CoolerControl:
+> #### CoolerControl GUI:
 > - In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
 > - In CoolerControl GUI, set your LCD display to **`Image/gif`**.
 
