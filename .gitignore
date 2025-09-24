@@ -9,7 +9,6 @@ bin/
 .cache/
 .makepkg/
 pkg/
-src/
 temp/
 *~
 *.tmp
@@ -48,7 +47,7 @@ PKGBUILD-test
 test-*
 debug-*
 
-#Ignore vscode AI rules
+# Ignore vscode AI rules
 .github/instructions/best_practices.md
 .github/instructions/codacy.instructions.md
 .github/instructions/copilot.instructions.md
