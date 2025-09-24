@@ -1,6 +1,6 @@
 ---
 engines:
-  # Disable Lizard completely as it causes issues
+  # Enable Lizard code analysis
   lizard:
     enabled: true
 
@@ -17,8 +17,8 @@ exclude_paths:
   - "build/**"
   - "bin/**"
   - ".cache/**"
+  - ".makepkg/**"
   - "pkg/**"
-  - "src/**"
   - "temp/**"
   - "*.pkg.*"
   - "coolerdash-*.pkg.*"
