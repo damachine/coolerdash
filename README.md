@@ -259,6 +259,9 @@ If you find CoolerDash useful and want to support its development:
 
 > *🙏 Your support keeps this project alive and improving — thank you!.*
 
+#### ⭐ Stargazers over time
+[![Stargazers over time](https://starchart.cc/damachine/coolerdash.svg?variant=adaptive)](https://starchart.cc/damachine/coolerdash)
+
 ---
 
 **👨‍💻 Developed by DAMACHINE** 
