@@ -55,7 +55,7 @@
 yay -S coolerdash-git
 #OR any other AUR helper
 
-# STEP 2: Enable and start CoolerDash (after install or update)
+# STEP 2: Enable/Start CoolerDash (after install or update)
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
