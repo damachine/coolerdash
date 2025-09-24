@@ -74,7 +74,7 @@ cd coolerdash
 # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
 
-# STEP 3: Enable autostart
+# STEP 3: Enable/Start CoolerDash (after install or update)
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
