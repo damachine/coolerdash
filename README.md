@@ -184,7 +184,7 @@ systemctl stop coolerdash.service
   > [!TIP]
   > - If problems persist, run:
   > ```bash
-  >   sudo systemctl stop coolerdash
+  >   sudo systemctl stop coolerdash.service
   >   sudo make uninstall
   > ```
   > - Remove any leftover files:
