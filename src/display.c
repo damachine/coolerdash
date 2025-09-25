@@ -159,7 +159,7 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
         return;
 
     // temp_cpu display (CPU temperature) with validation
-    draw_temp(cr, config, data->temp_cpu, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    draw_temp(cr, config, data->temp_cpu, - DISPLAY_TEMP_DISPLAY_Y_OFFSET);
 
     // temp_gpu display (GPU temperature) with validation
     draw_temp(cr, config, data->temp_gpu, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
