@@ -30,10 +30,10 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../include/config.h"
-#include "../include/display.h"
-#include "../include/coolercontrol.h"
-#include "../include/monitor.h"
+#include "config.h"
+#include "display.h"
+#include "coolercontrol.h"
+#include "monitor.h"
 
 /**
  * @brief Convert color component to cairo format.

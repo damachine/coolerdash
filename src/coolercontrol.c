@@ -30,8 +30,8 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../include/config.h"
-#include "../include/coolercontrol.h"
+#include "config.h"
+#include "coolercontrol.h"
 
 /**
  * @brief Secure string copy with bounds checking.
