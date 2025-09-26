@@ -109,11 +109,11 @@ systemctl enable --now coolerdash.service
 
 ```bash
 # Service control
-systemctl enable --now coolerdash.service   # Enable and Start!
-systemctl start coolerdash.service          # Start
-systemctl stop coolerdash.service           # Stop
-systemctl restart coolerdash.service        # Restart
-systemctl status coolerdash.service         # Status + recent logs
+systemctl enable --now coolerdash.service  # Enable and Start!
+systemctl start coolerdash.service         # Start
+systemctl stop coolerdash.service          # Stop
+systemctl restart coolerdash.service       # Restart
+systemctl status coolerdash.service        # Status + recent logs
 
 # Journal log
 journalctl -u coolerdash.service
