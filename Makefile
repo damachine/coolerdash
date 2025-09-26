@@ -32,7 +32,6 @@
 
 .PHONY: clean install uninstall debug logs help detect-distro install-deps check-deps
 
-
 VERSION := $(shell cat VERSION)
 
 SUDO ?= sudo
