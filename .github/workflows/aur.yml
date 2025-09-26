@@ -159,8 +159,8 @@ jobs:
             systemctl enable --now coolerdash.service
             ```
 
-             ### Full Changelog:
-            Full Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
+             ### Changelog:
+            - ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
 
             ${{ steps.changelog.outputs.changelog }}
         env:
