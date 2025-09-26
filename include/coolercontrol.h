@@ -89,7 +89,8 @@ void cc_cleanup_response_buffer(struct http_response *response);
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer. It reallocates the buffer as needed and appends the new data chunk. If memory allocation fails, it frees the buffer and returns 0 to signal an error to libcurl.
  */
-size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response);
+/* libcurl write callback: matches prototype expected by curl (char *ptr, size_t size, size_t nmemb, void *userdata) */
+size_t write_callback(char *contents, size_t size, size_t nmemb, void *response);
 
 /**
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
