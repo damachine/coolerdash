@@ -162,7 +162,6 @@ jobs:
              ### Full Changelog:
             Full Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
 
-            ### Commits:
             ${{ steps.changelog.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
