@@ -112,28 +112,6 @@ jobs:
           git push origin "$TAG"
           echo "Successfully created and pushed signed tag: $TAG"
 
-      - name: Generate changelog from commits
-        id: changelog
-        run: |
-          set -euo pipefail
-          git fetch --tags origin || true
-          # Find previous tag (exclude the tag we just created)
-          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -n1 || true)
-          if [ -n "$PREV_TAG" ]; then
-            CHANGES=$(git log --pretty=format:'- %h %s (%an)' "${PREV_TAG}..HEAD")
-          else
-            # No previous tag found: take last 15 commits as fallback
-            CHANGES=$(git log --pretty=format:'- %h %s (%an)' -n 15 HEAD)
-          fi
-          if [ -z "$CHANGES" ]; then
-            CHANGES="No commits found between tags."
-          fi
-          # Expose previous tag and multiline changelog
-          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
@@ -141,12 +119,14 @@ jobs:
           name: ${{ steps.version.outputs.release_msg }}
           draft: false
           prerelease: false
-          generate_release_notes: false
+          generate_release_notes: true
           body: |            
             ## This release contains the package files for the Arch User Repository (AUR).
             
             [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
-            ### Version updated to ${{ steps.version.outputs.version }}
+
+            ### Changes:
+            - Version updated to ${{ steps.version.outputs.version }}
             
             ### Installation:
             ```bash
@@ -154,14 +134,10 @@ jobs:
             yay -S coolerdash-git
             #OR any other AUR helper
             
-            # STEP 2: Enable/Start CoolerDash (after install or update)
+            # STEP 2: Enable/Start CoolerDash sytemd service
             systemctl daemon-reload
             systemctl enable --now coolerdash.service
             ```
-
-             ### Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
-
-            ${{ steps.changelog.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
