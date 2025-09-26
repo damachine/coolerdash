@@ -122,8 +122,8 @@ jobs:
           if [ -n "$PREV_TAG" ]; then
             CHANGES=$(git log --pretty=format:'- %h %s (%an)' "${PREV_TAG}..HEAD")
           else
-            # No previous tag found: take last 10 commits as fallback
-            CHANGES=$(git log --pretty=format:'- %h %s (%an)' -n 10 HEAD)
+            # No previous tag found: take last 15 commits as fallback
+            CHANGES=$(git log --pretty=format:'- %h %s (%an)' -n 15 HEAD)
           fi
           if [ -z "$CHANGES" ]; then
             CHANGES="No commits found between tags."
@@ -159,8 +159,7 @@ jobs:
             systemctl enable --now coolerdash.service
             ```
 
-             ### Changelog:
-            - ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
+             ### Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
 
             ${{ steps.changelog.outputs.changelog }}
         env:
