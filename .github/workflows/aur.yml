@@ -122,13 +122,14 @@ jobs:
           if [ -n "$PREV_TAG" ]; then
             CHANGES=$(git log --pretty=format:'- %h %s (%an)' "${PREV_TAG}..HEAD")
           else
-            # No previous tag found: take last 50 commits as fallback
-            CHANGES=$(git log --pretty=format:'- %h %s (%an)' -n 50 HEAD)
+            # No previous tag found: take last 10 commits as fallback
+            CHANGES=$(git log --pretty=format:'- %h %s (%an)' -n 10 HEAD)
           fi
           if [ -z "$CHANGES" ]; then
             CHANGES="No commits found between tags."
           fi
-          # Set multiline output for later steps
+          # Expose previous tag and multiline changelog
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -145,15 +146,7 @@ jobs:
             ## This release contains the package files for the Arch User Repository (AUR).
             
             [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
-
-            ### Changes:
-            - Version updated to ${{ steps.version.outputs.version }}
-
-             ### Full Changelog:
-            Full Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
-
-            ### Commits:
-            ${{ steps.changelog.outputs.changelog }}
+            ### Version updated to ${{ steps.version.outputs.version }}
             
             ### Installation:
             ```bash
@@ -165,6 +158,12 @@ jobs:
             systemctl daemon-reload
             systemctl enable --now coolerdash.service
             ```
+
+             ### Full Changelog:
+            Full Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
+
+            ### Commits:
+            ${{ steps.changelog.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
