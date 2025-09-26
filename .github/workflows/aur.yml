@@ -112,6 +112,27 @@ jobs:
           git push origin "$TAG"
           echo "Successfully created and pushed signed tag: $TAG"
 
+      - name: Generate changelog from commits
+        id: changelog
+        run: |
+          set -euo pipefail
+          git fetch --tags origin || true
+          # Find previous tag (exclude the tag we just created)
+          PREV_TAG=$(git tag --sort=-creatordate | grep -v "^${TAG}$" | head -n1 || true)
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log --pretty=format:'- %h %s (%an)' "${PREV_TAG}..HEAD")
+          else
+            # No previous tag found: take last 50 commits as fallback
+            CHANGES=$(git log --pretty=format:'- %h %s (%an)' -n 50 HEAD)
+          fi
+          if [ -z "$CHANGES" ]; then
+            CHANGES="No commits found between tags."
+          fi
+          # Set multiline output for later steps
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
@@ -119,7 +140,7 @@ jobs:
           name: ${{ steps.version.outputs.release_msg }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generate_release_notes: false
           body: |            
             ## This release contains the package files for the Arch User Repository (AUR).
             
@@ -127,6 +148,12 @@ jobs:
 
             ### Changes:
             - Version updated to ${{ steps.version.outputs.version }}
+
+             ### Full Changelog:
+            Full Changelog: ${{ steps.changelog.outputs.prev_tag }}...${{ steps.version.outputs.tag }}
+
+            ### Commits:
+            ${{ steps.changelog.outputs.changelog }}
             
             ### Installation:
             ```bash
