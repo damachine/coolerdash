@@ -964,11 +964,9 @@ static int prepare_lcd_upload(const Config *config, const char *image_path, cons
  * @brief Perform upload using CURL and process response.
  * @details Executes the CURL request, checks HTTP code, logs server response on failure and resets CURL options.
  */
-static int perform_lcd_upload_and_finalize(curl_mime *form, struct http_response *response, struct curl_slist *headers)
+static int perform_lcd_upload_and_finalize(struct http_response *response)
 {
-    /* suppress unused parameter warnings - parameters are kept for symmetry and potential future use */
-    (void)form;
-    (void)headers;
+    /* Response buffer passed in to allow logging on failure */
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long http_response_code = -1;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
@@ -1012,7 +1010,7 @@ static int perform_send_image_to_lcd(const Config *config, const char *image_pat
         return 0;
     }
 
-    int success = perform_lcd_upload_and_finalize(form, &response, headers);
+    int success = perform_lcd_upload_and_finalize(&response);
 
     /* Cleanup resources */
     cc_cleanup_response_buffer(&response);
