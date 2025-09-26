@@ -55,7 +55,7 @@
 yay -S coolerdash-git
 #OR any other AUR helper
 
-# STEP 2: Enable/Start CoolerDash (after install or update)
+# STEP 2: Enable/Start CoolerDash sytemd service
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
@@ -74,7 +74,7 @@ cd coolerdash
 # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
 
-# STEP 3: Enable/Start CoolerDash (after install or update)
+# STEP 3: Enable/Start CoolerDash sytemd service
 systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
