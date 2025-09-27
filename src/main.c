@@ -36,10 +36,10 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../include/config.h"
-#include "../include/coolercontrol.h"
-#include "../include/display.h"
-#include "../include/monitor.h"
+#include "config.h"
+#include "coolercontrol.h"
+#include "display.h"
+#include "monitor.h"
 
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
