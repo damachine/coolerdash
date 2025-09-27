@@ -93,7 +93,9 @@ systemctl enable --now coolerdash.service
 
 > [!IMPORTANT]
 > #### CoolerDash Runtime:
-> - All settings are managed in `/etc/coolerdash/config.ini`.
+> - Don't forget to enable/start the service `systemctl enable --now coolerdash.service`.
+> - The application starts with preset default settings-
+> - If needed. All settings are managed in `/etc/coolerdash/config.ini`.
 > - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
 > [!TIP]
