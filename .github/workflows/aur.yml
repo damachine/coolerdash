@@ -125,15 +125,18 @@ jobs:
             
             [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
-            ### Changes
+            ### Changes:
             - Version updated to ${{ steps.version.outputs.version }}
             
-            ### Installation
+            ### Installation:
             ```bash
-            # Install from AUR
+            # STEP 1: Using an AUR helper and install
             yay -S coolerdash-git
-            # or
-            paru -S coolerdash-git
+            #OR any other AUR helper
+            
+            # STEP 2: Enable/Start CoolerDash sytemd service
+            systemctl daemon-reload
+            systemctl enable --now coolerdash.service
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
