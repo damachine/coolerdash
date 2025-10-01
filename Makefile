@@ -32,7 +32,6 @@
 
 .PHONY: clean install uninstall debug logs help detect-distro install-deps check-deps
 
-
 VERSION := $(shell cat VERSION)
 
 SUDO ?= sudo
@@ -45,14 +44,13 @@ TARGET = coolerdash
 
 # Directories
 SRCDIR = src
-INCDIR = include
 OBJDIR = build
 BINDIR = bin
 
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
 SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/coolercontrol.c $(SRCDIR)/display.c $(SRCDIR)/monitor.c
-HEADERS = $(INCDIR)/config.h $(INCDIR)/coolercontrol.h $(INCDIR)/display.h $(INCDIR)/monitor.h
+HEADERS = $(SRCDIR)/config.h $(SRCDIR)/coolercontrol.h $(SRCDIR)/display.h $(SRCDIR)/monitor.h
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 SERVICE = etc/systemd/coolerdash.service
