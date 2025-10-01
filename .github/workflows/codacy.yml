@@ -1,3 +1,4 @@
+
 # This workflow uses actions that are not certified by GitHub.
 # They are provided by a third-party and are governed by
 # separate terms of service, privacy policy, and support
@@ -20,7 +21,7 @@ on:
     # The branches below must be a subset of the branches above
     branches: [ "main" ]
   schedule:
-    - cron: '25 17 * * 5'
+    - cron: '40 13 * * 5'
 
 permissions:
   contents: read
@@ -40,7 +41,7 @@ jobs:
 
       # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
       - name: Run Codacy Analysis CLI
-        uses: codacy/codacy-analysis-cli-action@v4.3.0
+        uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
         with:
           # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
           # You can also omit the token and run the tools that support default configurations
@@ -52,8 +53,7 @@ jobs:
           gh-code-scanning-compat: true
           # Force 0 exit code to allow SARIF file generation
           # This will handover control about PR rejection to the GitHub side
-          # Set a reasonable threshold to avoid masking important security findings
-          max-allowed-issues: 100
+          max-allowed-issues: 2147483647
 
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
