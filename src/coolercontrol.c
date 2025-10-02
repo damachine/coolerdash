@@ -578,7 +578,7 @@ int send_image_to_lcd(const Config *config, const char* image_path, const char* 
     
     // Build upload URL
     char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images", 
+    snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images?log=false", 
              config->daemon_address, device_uid);
     
     // Initialize multipart form
