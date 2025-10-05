@@ -256,7 +256,7 @@ If you find CoolerDash useful and want to support its development:
 - ⭐ **Star this repository** on GitHub.
 - 🐛 **Report bugs** and suggest improvements.
 - 🔄 **Share** the project with others.
-- 📝 **Contribute** code or documentation.
+- 📝 **Contribute** Add device support, code or documentation.
 - [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
 
 > *🙏 Your support keeps this project alive and improving — thank you!.*
