@@ -88,8 +88,7 @@ systemctl enable --now coolerdash.service
 
 > [!IMPORTANT]
 > #### CoolerControl GUI:
-> - In the CoolerControl settings, under **`Device`** and **`Sensor`**, select one sensor for the CPU and one for the GPU.
-> - In CoolerControl GUI, set your LCD display to **`Image/gif`**.
+> - In the CoolerControl settings, under **`Device and Sensor`**, select one sensor for the **`CPU`** and one for the **`GPU`**. Set your **`LCD`** display to **`Image/gif`**.
 
 > [!IMPORTANT]
 > #### CoolerDash Runtime:
