@@ -224,10 +224,11 @@ systemctl stop coolerdash.service
 ---
 
 > [!TIP]
-> Contribute and suggest improvements. Welcome ⭐ at **[Discussions](https://github.com/damachine/coolerdash/discussions)**  
-> If you need help, open an **[Issues](https://github.com/damachine/coolerdash/issues)**
-> 
-> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash"></a>
+> ### Have a question or an idea?
+> - **Suggest improvements** or discuss new features in our **[Discussions](https://github.com/damachine/coolerdash/discussions)**.
+> - **Report a bug** or request help by opening an **[Issue](https://github.com/damachine/coolerdash/issues)**.
+>
+> <a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
 
 ---
 
