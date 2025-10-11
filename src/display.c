@@ -35,6 +35,17 @@
 #include "coolercontrol.h"
 #include "monitor.h"
 
+// Define mathematical constants if not defined
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+#ifndef DISPLAY_M_PI
+#define DISPLAY_M_PI M_PI
+#endif
+#ifndef DISPLAY_M_PI_2
+#define DISPLAY_M_PI_2 (M_PI / 2.0)
+#endif
+
 /**
  * @brief Convert color component to cairo format.
  * @details Converts 8-bit color component (0-255) to cairo's double format (0.0-1.0) for rendering operations.
@@ -159,7 +170,7 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
         return;
 
     // temp_cpu display (CPU temperature) with validation
-    draw_temp(cr, config, data->temp_cpu, - DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    draw_temp(cr, config, data->temp_cpu, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
 
     // temp_gpu display (GPU temperature) with validation
     draw_temp(cr, config, data->temp_gpu, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
