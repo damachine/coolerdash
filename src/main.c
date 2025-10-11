@@ -504,21 +504,21 @@ static void send_shutdown_image_if_needed(void)
         return;
     }
 
-    // Sicheres Öffnen der Shutdown-Image-Datei
+    // Check if shutdown image file exists and is a regular file
     int img_fd = open(shutdown_image_path, O_RDONLY | O_NOFOLLOW);
     if (img_fd != -1)
     {
         struct stat img_st;
         if (fstat(img_fd, &img_st) == 0 && S_ISREG(img_st.st_mode))
         {
-            // Datei ist regulär, kann verwendet werden
+            // Send shutdown image to LCD
             close(img_fd);
             send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
             send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
         }
         else
         {
-            // Nicht reguläre Datei oder Fehler
+            // Not a regular file
             close(img_fd);
             log_message(LOG_WARNING, "Shutdown image '%s' ist kein reguläres File oder nicht lesbar", shutdown_image_path);
             goto shutdown_image_missing;
@@ -526,9 +526,9 @@ static void send_shutdown_image_if_needed(void)
     }
     else
     {
-        // Datei existiert nicht oder konnte nicht sicher geöffnet werden
+        // File doesn't exist or can't be opened
         log_message(LOG_WARNING, "Shutdown image '%s' nicht gefunden oder nicht lesbar, turning off LCD display", shutdown_image_path);
-    // Fallback für fehlende Datei
+    // Fallback to turning off the display
     shutdown_image_missing:
         Config temp_config = *g_config_ptr;
         temp_config.lcd_brightness = 0;
