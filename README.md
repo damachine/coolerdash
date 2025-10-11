@@ -200,9 +200,19 @@ systemctl stop coolerdash.service
 
 >   [!WARNING]
 > - **Device/-Connection failed:** No devices found or wrong device UID.
+> - ***Please post this outputs when you report any issue.***
 
   > [!TIP]
   > - Check CoolerControl configuration and LCD connection → Verify device with:
+  > ```bash
+  >    liquidctl --version
+  > ```
+  > ###### Example output:
+  > ```bash
+  >    liquidctl v1.15.0 (Linux-6.17.1-273-linux-tkg-x86_64-with-glibc2.42)
+  > ```
+
+  > [!TIP]
   > ```bash
   >    curl http://localhost:11987/devices | jq
   > ```
