@@ -1,4 +1,4 @@
-name: Arch/AUR Release
+name: Sync to Arch/AUR
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  tag_and_release:
+  aur-update:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -166,10 +166,10 @@ jobs:
           done
           echo "✅ GPG cleanup completed."
 
-  aur-release-summary:
-    name: AUR Release Summary
+  aur-summary:
+    name: Arch/AUR Release Summary
     runs-on: ubuntu-latest
-    needs: [tag_and_release]
+    needs: [aur-update]
     if: always()  # Runs even if previous jobs fail
     
     steps:
