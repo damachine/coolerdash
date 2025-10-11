@@ -587,9 +587,7 @@ static void set_display_defaults(Config *config)
         config->display_refresh_interval_nsec = 500000000;
     if (config->lcd_brightness == 0)
         config->lcd_brightness = 80;
-    if (config->lcd_orientation == 0)
-        config->lcd_orientation = 0; // Default to 0 degrees
-    else if (!is_valid_orientation(config->lcd_orientation))
+    if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0; // Fallback to 0 if invalid
 }
 
