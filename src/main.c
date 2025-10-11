@@ -87,14 +87,38 @@ static const char *read_version_from_file(void)
         return version_buffer[0] ? version_buffer : DEFAULT_VERSION;
     }
 
-    // Try to read from VERSION file
-    FILE *fp = fopen("VERSION", "r");
+    // Try to read from VERSION file sicher
+    int vfd = open("VERSION", O_RDONLY | O_NOFOLLOW);
+    FILE *fp = NULL;
+    if (vfd != -1)
+    {
+        struct stat vst;
+        if (fstat(vfd, &vst) == 0 && S_ISREG(vst.st_mode))
+        {
+            fp = fdopen(vfd, "r");
+        }
+        else
+        {
+            close(vfd);
+        }
+    }
     if (!fp)
     {
         // Try alternative path for installed version
-        fp = fopen("/opt/coolerdash/VERSION", "r");
+        vfd = open("/opt/coolerdash/VERSION", O_RDONLY | O_NOFOLLOW);
+        if (vfd != -1)
+        {
+            struct stat vst2;
+            if (fstat(vfd, &vst2) == 0 && S_ISREG(vst2.st_mode))
+            {
+                fp = fdopen(vfd, "r");
+            }
+            else
+            {
+                close(vfd);
+            }
+        }
     }
-
     if (!fp)
     {
         log_message(LOG_WARNING, "Could not open VERSION file, using default version");

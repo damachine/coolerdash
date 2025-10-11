@@ -24,11 +24,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "config.h"
 #include "coolercontrol.h"
+
+// Define O_NOFOLLOW if not defined (for portability)
+#ifndef O_NOFOLLOW
+#define O_NOFOLLOW 0
+#endif
+
+// Ensure fdopen is declared if not available in the environment
+#ifndef HAVE_DECL_FDOPEN
+FILE *fdopen(int fd, const char *mode);
+#endif
 
 /**
  * @brief Global logging implementation for all modules except main.c
@@ -735,12 +747,25 @@ int load_config(const char *path, Config *config)
     // Initialize config struct with zeros to ensure fallbacks work
     memset(config, 0, sizeof(Config));
 
-    // Check if file exists and is readable
-    FILE *file = fopen(path, "r");
+    // Sicheres Öffnen der Konfigurationsdatei
+    int cfd = open(path, O_RDONLY | O_NOFOLLOW);
+    FILE *file = NULL;
+    if (cfd != -1)
+    {
+        struct stat cst;
+        if (fstat(cfd, &cst) == 0 && S_ISREG(cst.st_mode))
+        {
+            file = fdopen(cfd, "r");
+        }
+        else
+        {
+            close(cfd);
+        }
+    }
     if (!file)
     {
         // File doesn't exist - use fallbacks only
-        log_message(LOG_INFO, "Config file '%s' not found, using fallback values", path);
+        log_message(LOG_INFO, "Config file '%s' not found oder nicht regulär, using fallback values", path);
         get_config_defaults(config);
         return 0; // Return success, fallbacks are valid
     }
