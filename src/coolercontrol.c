@@ -32,7 +32,6 @@
 // Include project headers
 #include "config.h"
 #include "coolercontrol.h"
-#include <string.h>
 
 /**
  * @brief Secure string copy with bounds checking.
