@@ -390,8 +390,8 @@ void draw_combined_image(const struct Config *config)
         const char *name = (device_name[0] != '\0') ? device_name : "Unknown Device";
         log_message(LOG_INFO, "Sending image to LCD: %s [%s]", name, device_uid);
 
-        // Send image (twice for reliability)
-        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
+        // Send image (twice for reliability and artifacts)
+        //send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
         send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
 
         log_message(LOG_INFO, "LCD image uploaded successfully");

@@ -33,10 +33,10 @@
  * @brief Extract temperature from device status history
  * @details Helper function to get temperature from the latest status entry
  */
-static float extract_device_temperature(json_t *device, const char *device_type)
+static float extract_device_temperature(const json_t *device, const char *device_type)
 {
     // Get status history
-    json_t *status_history = json_object_get(device, "status_history");
+    const json_t *status_history = json_object_get(device, "status_history");
     if (!status_history || !json_is_array(status_history))
         return 0.0f;
 
@@ -45,12 +45,12 @@ static float extract_device_temperature(json_t *device, const char *device_type)
         return 0.0f;
 
     // Get latest status
-    json_t *last_status = json_array_get(status_history, history_count - 1);
+    const json_t *last_status = json_array_get(status_history, history_count - 1);
     if (!last_status)
         return 0.0f;
 
     // Get temperatures array
-    json_t *temps = json_object_get(last_status, "temps");
+    const json_t *temps = json_object_get(last_status, "temps");
     if (!temps || !json_is_array(temps))
         return 0.0f;
 
@@ -58,12 +58,12 @@ static float extract_device_temperature(json_t *device, const char *device_type)
     size_t temp_count = json_array_size(temps);
     for (size_t i = 0; i < temp_count; i++)
     {
-        json_t *temp_entry = json_array_get(temps, i);
+        const json_t *temp_entry = json_array_get(temps, i);
         if (!temp_entry)
             continue;
 
-        json_t *name_val = json_object_get(temp_entry, "name");
-        json_t *temp_val = json_object_get(temp_entry, "temp");
+        const json_t *name_val = json_object_get(temp_entry, "name");
+        const json_t *temp_val = json_object_get(temp_entry, "temp");
 
         if (!name_val || !json_is_string(name_val) || !temp_val || !json_is_number(temp_val))
             continue;
@@ -118,7 +118,7 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
     }
 
     // Get devices array
-    json_t *devices = json_object_get(root, "devices");
+    const json_t *devices = json_object_get(root, "devices");
     if (!devices || !json_is_array(devices))
     {
         json_decref(root);
@@ -131,7 +131,7 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
 
     for (size_t i = 0; i < device_count && (!cpu_found || !gpu_found); i++)
     {
-        json_t *device = json_array_get(devices, i);
+        const json_t *device = json_array_get(devices, i);
         if (!device)
             continue;
 
@@ -183,7 +183,7 @@ static void configure_status_request(CURL *curl, const char *url, struct http_re
  * @brief Get CPU and GPU temperature data from CoolerControl API.
  * @details Simplified HTTP request to get temperature data from status endpoint.
  */
-int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu)
+static int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu)
 {
     if (!config || !temp_cpu || !temp_gpu)
         return 0;

@@ -25,6 +25,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
@@ -74,7 +75,7 @@ void *cc_secure_malloc(size_t size)
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
-int cc_init_response_buffer(struct http_response *response, size_t initial_capacity)
+int cc_init_response_buffer(http_response *response, size_t initial_capacity)
 {
     if (!response || initial_capacity == 0 || initial_capacity > CC_MAX_SAFE_ALLOC_SIZE)
     {
@@ -99,7 +100,7 @@ int cc_init_response_buffer(struct http_response *response, size_t initial_capac
  * @brief Validate HTTP response buffer integrity.
  * @details Checks if response buffer is in valid state for operations.
  */
-int cc_validate_response_buffer(const struct http_response *response)
+int cc_validate_response_buffer(const http_response *response)
 {
     return (response &&
             response->data &&
@@ -110,7 +111,7 @@ int cc_validate_response_buffer(const struct http_response *response)
  * @brief Cleanup HTTP response buffer and free memory.
  * @details Properly frees allocated memory and resets buffer state.
  */
-void cc_cleanup_response_buffer(struct http_response *response)
+void cc_cleanup_response_buffer(http_response *response)
 {
     if (!response)
     {
@@ -175,13 +176,13 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
  * @brief Extract device type from JSON device object.
  * @details Common helper function to extract device type string from JSON device object. Returns NULL if extraction fails.
  */
-const char *extract_device_type_from_json(json_t *dev)
+const char *extract_device_type_from_json(const json_t *dev)
 {
     if (!dev)
         return NULL;
 
     // Get device type
-    json_t *type_val = json_object_get(dev, "type");
+    const json_t *type_val = json_object_get(dev, "type");
     if (!type_val || !json_is_string(type_val))
         return NULL;
 
@@ -193,7 +194,7 @@ const char *extract_device_type_from_json(json_t *dev)
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
  */
-size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response)
+size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response)
 {
     // Validate input
     const size_t realsize = size * nmemb;
@@ -266,7 +267,7 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
     }
 
     // Get devices array
-    json_t *devices = json_object_get(root, "devices");
+    const json_t *devices = json_object_get(root, "devices");
     if (!devices || !json_is_array(devices))
     {
         json_decref(root);
@@ -280,7 +281,7 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
     for (size_t i = 0; i < device_count; i++)
     {
         // Get device entry
-        json_t *dev = json_array_get(devices, i);
+        const json_t *dev = json_array_get(devices, i);
         if (!dev)
             continue;
 
@@ -315,7 +316,7 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         // Extract UID
         if (lcd_uid && uid_size > 0)
         {
-            json_t *uid_val = json_object_get(dev, "uid");
+            const json_t *uid_val = json_object_get(dev, "uid");
             if (uid_val && json_is_string(uid_val))
             {
                 const char *uid_str = json_string_value(uid_val);
@@ -326,7 +327,7 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         // Extract device name
         if (device_name && name_size > 0)
         {
-            json_t *name_val = json_object_get(dev, "name");
+            const json_t *name_val = json_object_get(dev, "name");
             if (name_val && json_is_string(name_val))
             {
                 const char *name_str = json_string_value(name_val);
@@ -337,15 +338,15 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         // Extract LCD dimensions
         if (screen_width || screen_height)
         {
-            json_t *info = json_object_get(dev, "info");
-            json_t *channels = info ? json_object_get(info, "channels") : NULL;
-            json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
-            json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
+            const json_t *info = json_object_get(dev, "info");
+            const json_t *channels = info ? json_object_get(info, "channels") : NULL;
+            const json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
+            const json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
             if (lcd_info)
             {
                 if (screen_width)
                 {
-                    json_t *width_val = json_object_get(lcd_info, "screen_width");
+                    const json_t *width_val = json_object_get(lcd_info, "screen_width");
                     if (width_val && json_is_integer(width_val))
                     {
                         *screen_width = (int)json_integer_value(width_val);
@@ -353,7 +354,7 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
                 }
                 if (screen_height)
                 {
-                    json_t *height_val = json_object_get(lcd_info, "screen_height");
+                    const json_t *height_val = json_object_get(lcd_info, "screen_height");
                     if (height_val && json_is_integer(height_val))
                     {
                         *screen_height = (int)json_integer_value(height_val);
@@ -402,7 +403,7 @@ static int initialize_device_cache(const Config *config)
     }
 
     // Initialize response buffer with optimized capacity
-    struct http_response chunk = {0};
+    http_response chunk = {0};
     const size_t initial_capacity = 4096; // Start with 4KB (typical JSON response size)
     chunk.data = malloc(initial_capacity);
     if (!chunk.data)
@@ -415,7 +416,7 @@ static int initialize_device_cache(const Config *config)
 
     // Configure curl options
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &chunk);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
 
@@ -499,7 +500,7 @@ int init_coolercontrol_session(const Config *config)
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERPWD, userpwd);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POST, 1L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, "");
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, 0L);
 
     // Set HTTP headers for login request
     struct curl_slist *headers = NULL;
@@ -788,7 +789,7 @@ int send_image_to_lcd(const Config *config, const char *image_path, const char *
     }
 
     // Initialize response buffer
-    struct http_response response = {0};
+    http_response response = {0};
     if (!cc_init_response_buffer(&response, 4096))
     {
         log_message(LOG_ERROR, "Failed to initialize response buffer");
@@ -809,7 +810,7 @@ int send_image_to_lcd(const Config *config, const char *image_path, const char *
     }
 
     // Set write callback
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
 
     // Add headers
@@ -846,11 +847,11 @@ int send_image_to_lcd(const Config *config, const char *image_path, const char *
     if (headers)
         curl_slist_free_all(headers);
     curl_mime_free(form);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, 0L);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, 0L);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, 0L);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, 0L);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, 0L);
 
     // Return success
     return success;

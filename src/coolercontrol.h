@@ -22,8 +22,6 @@
 // cppcheck-suppress-begin missingIncludeSystem
 #include <stddef.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 #include <jansson.h>
 // cppcheck-suppress-end missingIncludeSystem
 
@@ -37,16 +35,16 @@
 #define CC_URL_SIZE 512
 #define CC_USERPWD_SIZE 128
 
+// Maximum safe allocation size to prevent overflow
+#define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
+
 // Forward declarations to reduce compilation dependencies
 struct Config;
 struct curl_slist;
 
-// Maximum safe allocation size to prevent overflow
-#define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
-
 /**
  * @brief Response buffer for libcurl HTTP operations.
- * @details Structure to hold HTTP response data with dynamic memory management for efficient data collection.
+ * @details Structure to hold HTTP response data with dynamic memory management for effiziente Datensammlung.
  */
 typedef struct http_response
 {
@@ -71,25 +69,25 @@ void *cc_secure_malloc(size_t size);
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
-int cc_init_response_buffer(struct http_response *response, size_t initial_capacity);
+int cc_init_response_buffer(http_response *response, size_t initial_capacity);
 
 /**
  * @brief Validate HTTP response buffer integrity.
  * @details Checks if response buffer is in valid state for operations.
  */
-int cc_validate_response_buffer(const struct http_response *response);
+int cc_validate_response_buffer(const http_response *response);
 
 /**
  * @brief Cleanup HTTP response buffer and free memory.
  * @details Properly frees allocated memory and resets buffer state.
  */
-void cc_cleanup_response_buffer(struct http_response *response);
+void cc_cleanup_response_buffer(http_response *response);
 
 /**
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer. It reallocates the buffer as needed and appends the new data chunk. If memory allocation fails, it frees the buffer and returns 0 to signal an error to libcurl.
  */
-size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response);
+// size_t write_callback(void *contents, size_t size, size_t nmemb, http_response *response); (bereits oben deklariert)
 
 /**
  * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
@@ -131,6 +129,7 @@ int send_image_to_lcd(const struct Config *config, const char *image_path, const
  * @brief Extract device type from JSON device object.
  * @details Common helper function to extract device type string from JSON device object.
  */
-const char *extract_device_type_from_json(json_t *dev);
+const char *extract_device_type_from_json(const json_t *dev);
+size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response);
 
 #endif // COOLERCONTROL_H
