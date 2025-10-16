@@ -487,7 +487,7 @@ static void send_shutdown_image_if_needed(void)
         // Image exists, send it normally
         fclose(image_file);
         send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
-        send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
+        //send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
     }
     else
     {
@@ -503,7 +503,7 @@ static void send_shutdown_image_if_needed(void)
         if (fallback_image && fallback_image[0])
         {
             send_image_to_lcd(&temp_config, fallback_image, device_uid);
-            send_image_to_lcd(&temp_config, fallback_image, device_uid); // Send twice for better reliability
+            //send_image_to_lcd(&temp_config, fallback_image, device_uid); // Send twice for better reliability
         }
     }
 }
