@@ -32,6 +32,7 @@
 // Include project headers
 #include "config.h"
 #include "coolercontrol.h"
+#include <string.h>
 
 /**
  * @brief Secure string copy with bounds checking.
@@ -74,7 +75,7 @@ void *cc_secure_malloc(size_t size)
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
-int cc_init_response_buffer(struct http_response *response, size_t initial_capacity)
+int cc_init_response_buffer(http_response *response, size_t initial_capacity)
 {
     if (!response || initial_capacity == 0 || initial_capacity > CC_MAX_SAFE_ALLOC_SIZE)
     {
@@ -99,7 +100,7 @@ int cc_init_response_buffer(struct http_response *response, size_t initial_capac
  * @brief Validate HTTP response buffer integrity.
  * @details Checks if response buffer is in valid state for operations.
  */
-int cc_validate_response_buffer(const struct http_response *response)
+int cc_validate_response_buffer(const http_response *response)
 {
     return (response &&
             response->data &&
@@ -110,7 +111,7 @@ int cc_validate_response_buffer(const struct http_response *response)
  * @brief Cleanup HTTP response buffer and free memory.
  * @details Properly frees allocated memory and resets buffer state.
  */
-void cc_cleanup_response_buffer(struct http_response *response)
+void cc_cleanup_response_buffer(http_response *response)
 {
     if (!response)
     {
@@ -193,7 +194,7 @@ const char *extract_device_type_from_json(json_t *dev)
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
  */
-size_t write_callback(void *contents, size_t size, size_t nmemb, struct http_response *response)
+size_t write_callback(void *contents, size_t size, size_t nmemb, http_response *response)
 {
     // Validate input
     const size_t realsize = size * nmemb;
@@ -402,7 +403,7 @@ static int initialize_device_cache(const Config *config)
     }
 
     // Initialize response buffer with optimized capacity
-    struct http_response chunk = {0};
+    http_response chunk = {0};
     const size_t initial_capacity = 4096; // Start with 4KB (typical JSON response size)
     chunk.data = malloc(initial_capacity);
     if (!chunk.data)
@@ -788,7 +789,7 @@ int send_image_to_lcd(const Config *config, const char *image_path, const char *
     }
 
     // Initialize response buffer
-    struct http_response response = {0};
+    http_response response = {0};
     if (!cc_init_response_buffer(&response, 4096))
     {
         log_message(LOG_ERROR, "Failed to initialize response buffer");

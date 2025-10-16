@@ -33,7 +33,8 @@
  * @brief Simple color structure.
  * @details Represents RGB color values with 8-bit components and padding for memory alignment.
  */
-typedef struct {
+typedef struct
+{
     uint8_t r;
     uint8_t g;
     uint8_t b;
@@ -44,7 +45,8 @@ typedef struct {
  * @brief Common log levels for all modules.
  * @details Defines standardized logging levels used throughout the application for consistent message categorization.
  */
-typedef enum {
+typedef enum
+{
     LOG_INFO,
     LOG_STATUS,
     LOG_WARNING,
@@ -55,17 +57,18 @@ typedef enum {
  * @brief Configuration structure.
  * @details Contains all settings for the CoolerDash system, including paths, display settings, temperature thresholds, and visual styling options.
  */
-typedef struct Config {
+typedef struct Config
+{
     // Daemon configuration
     char daemon_address[CONFIG_MAX_STRING_LEN];
     char daemon_password[CONFIG_MAX_PASSWORD_LEN];
-    
+
     // Paths configuration
     char paths_pid[CONFIG_MAX_PATH_LEN];
-    char paths_images[CONFIG_MAX_PATH_LEN];  
+    char paths_images[CONFIG_MAX_PATH_LEN];
     char paths_image_coolerdash[CONFIG_MAX_PATH_LEN];
     char paths_image_shutdown[CONFIG_MAX_PATH_LEN];
-    
+
     // Display configuration
     uint16_t display_width;
     uint16_t display_height;
@@ -73,7 +76,7 @@ typedef struct Config {
     uint32_t display_refresh_interval_nsec;
     uint8_t lcd_brightness;
     uint8_t lcd_orientation;
-    
+
     // Layout configuration
     uint16_t layout_box_width;
     uint16_t layout_box_height;
@@ -84,14 +87,14 @@ typedef struct Config {
     float layout_bar_border_width;
     Color layout_bar_color_background;
     Color layout_bar_color_border;
-    
+
     // Font configuration
     char font_face[CONFIG_MAX_FONT_NAME_LEN];
     float font_size_temp;
     float font_size_labels;
     Color font_color_temp;
     Color font_color_label;
-    
+
     // Temperature configuration
     float temp_threshold_1;
     float temp_threshold_2;
@@ -101,7 +104,6 @@ typedef struct Config {
     Color temp_threshold_3_bar;
     Color temp_threshold_4_bar;
 } Config;
-
 
 /**
  * @brief Globale Logging-Funktion für alle Module außer main.c
@@ -119,7 +121,7 @@ extern int verbose_logging;
  * @brief Initialize config structure with safe defaults.
  * @details Clears memory and applies safe fallback values for all configuration fields.
  */
-void config_init_defaults(Config *config);
+void init_config_defaults(Config *config);
 
 /**
  * @brief Loads configuration from INI file.

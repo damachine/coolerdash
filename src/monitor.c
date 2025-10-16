@@ -28,6 +28,7 @@
 #include "config.h"
 #include "monitor.h"
 #include "coolercontrol.h"
+#include <string.h>
 
 /**
  * @brief Extract temperature from device status history

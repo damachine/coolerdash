@@ -33,6 +33,7 @@
 #include "config.h"
 #include "display.h"
 #include "coolercontrol.h"
+#include <string.h>
 #include "monitor.h"
 
 // Define mathematical constants if not defined
