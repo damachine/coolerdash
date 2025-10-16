@@ -25,6 +25,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
