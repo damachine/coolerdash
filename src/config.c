@@ -176,7 +176,8 @@ static int parse_config_data(void *user, const char *section, const char *name, 
  * @brief String configuration entry for lookup table.
  * @details Structure for string configuration keys.
  */
-typedef struct {
+typedef struct
+{
     const char *key;
     size_t offset;
     size_t size;
@@ -186,14 +187,17 @@ typedef struct {
  * @brief Generic helper for string-based configuration sections.
  * @details Processes string configuration keys using lookup table approach.
  */
-static int handle_string_config(Config *config, const char *name, const char *value, 
-                               const StringConfigEntry *entries, size_t entry_count)
+static int handle_string_config(Config *config, const char *name, const char *value,
+                                const StringConfigEntry *entries, size_t entry_count)
 {
-    if (!value || value[0] == '\0') return 1;
-    
-    for (size_t i = 0; i < entry_count; i++) {
-        if (strcmp(name, entries[i].key) == 0) {
-            char *dest = (char*)config + entries[i].offset;
+    if (!value || value[0] == '\0')
+        return 1;
+
+    for (size_t i = 0; i < entry_count; i++)
+    {
+        if (strcmp(name, entries[i].key) == 0)
+        {
+            char *dest = (char *)config + entries[i].offset;
             cc_safe_strcpy(dest, entries[i].size, value);
             return 1;
         }
@@ -209,9 +213,8 @@ static int get_daemon_config(Config *config, const char *name, const char *value
 {
     static const StringConfigEntry entries[] = {
         {"address", offsetof(Config, daemon_address), sizeof(config->daemon_address)},
-        {"password", offsetof(Config, daemon_password), sizeof(config->daemon_password)}
-    };
-    
+        {"password", offsetof(Config, daemon_password), sizeof(config->daemon_password)}};
+
     return handle_string_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
 
@@ -225,8 +228,7 @@ static int get_paths_config(Config *config, const char *name, const char *value)
         {"images", offsetof(Config, paths_images), sizeof(config->paths_images)},
         {"image_coolerdash", offsetof(Config, paths_image_coolerdash), sizeof(config->paths_image_coolerdash)},
         {"image_shutdown", offsetof(Config, paths_image_shutdown), sizeof(config->paths_image_shutdown)},
-        {"pid", offsetof(Config, paths_pid), sizeof(config->paths_pid)}
-    };
+        {"pid", offsetof(Config, paths_pid), sizeof(config->paths_pid)}};
 
     return handle_string_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
@@ -250,30 +252,36 @@ typedef void (*DisplayConfigHandler)(Config *config, const char *value);
  * @brief Display configuration handlers.
  * @details Individual handlers for each display configuration key.
  */
-static void handle_display_width(Config *config, const char *value) {
+static void handle_display_width(Config *config, const char *value)
+{
     int width = safe_atoi(value, 0);
     config->display_width = (width > 0) ? (uint16_t)width : 0;
 }
 
-static void handle_display_height(Config *config, const char *value) {
+static void handle_display_height(Config *config, const char *value)
+{
     int height = safe_atoi(value, 0);
     config->display_height = (height > 0) ? (uint16_t)height : 0;
 }
 
-static void handle_refresh_interval_sec(Config *config, const char *value) {
+static void handle_refresh_interval_sec(Config *config, const char *value)
+{
     config->display_refresh_interval_sec = safe_atoi(value, 0);
 }
 
-static void handle_refresh_interval_nsec(Config *config, const char *value) {
+static void handle_refresh_interval_nsec(Config *config, const char *value)
+{
     config->display_refresh_interval_nsec = safe_atoi(value, 0);
 }
 
-static void handle_brightness(Config *config, const char *value) {
+static void handle_brightness(Config *config, const char *value)
+{
     int brightness = safe_atoi(value, 0);
     config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? (uint8_t)brightness : 0;
 }
 
-static void handle_orientation(Config *config, const char *value) {
+static void handle_orientation(Config *config, const char *value)
+{
     int orientation = safe_atoi(value, 0);
     config->lcd_orientation = is_valid_orientation(orientation) ? orientation : 0;
 }
@@ -281,7 +289,8 @@ static void handle_orientation(Config *config, const char *value) {
 /**
  * @brief Display configuration entry for lookup table.
  */
-typedef struct {
+typedef struct
+{
     const char *key;
     DisplayConfigHandler handler;
 } DisplayConfigEntry;
@@ -298,11 +307,12 @@ static int get_display_config(Config *config, const char *name, const char *valu
         {"refresh_interval_sec", handle_refresh_interval_sec},
         {"refresh_interval_nsec", handle_refresh_interval_nsec},
         {"brightness", handle_brightness},
-        {"orientation", handle_orientation}
-    };
+        {"orientation", handle_orientation}};
 
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
-        if (strcmp(name, entries[i].key) == 0) {
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+    {
+        if (strcmp(name, entries[i].key) == 0)
+        {
             entries[i].handler(config, value);
             return 1;
         }
@@ -313,10 +323,16 @@ static int get_display_config(Config *config, const char *name, const char *valu
 /**
  * @brief Mixed-type configuration entry for lookup table.
  */
-typedef struct {
+typedef struct
+{
     const char *key;
     size_t offset;
-    enum { TYPE_UINT16, TYPE_FLOAT, TYPE_STRING } type;
+    enum
+    {
+        TYPE_UINT16,
+        TYPE_FLOAT,
+        TYPE_STRING
+    } type;
     size_t string_size;
 } MixedConfigEntry;
 
@@ -325,30 +341,37 @@ typedef struct {
  * @details Processes mixed-type configuration keys using lookup table approach.
  */
 static int handle_mixed_config(Config *config, const char *name, const char *value,
-                              const MixedConfigEntry *entries, size_t entry_count)
+                               const MixedConfigEntry *entries, size_t entry_count)
 {
-    for (size_t i = 0; i < entry_count; i++) {
-        if (strcmp(name, entries[i].key) == 0) {
-            void *field_ptr = (void*)((char*)config + entries[i].offset);
-            
-            switch (entries[i].type) {
-                case TYPE_UINT16: {
-                    uint16_t *dest = (uint16_t*)field_ptr;
-                    *dest = (uint16_t)safe_atoi(value, 0);
-                    break;
+    for (size_t i = 0; i < entry_count; i++)
+    {
+        if (strcmp(name, entries[i].key) == 0)
+        {
+            void *field_ptr = (void *)((char *)config + entries[i].offset);
+
+            switch (entries[i].type)
+            {
+            case TYPE_UINT16:
+            {
+                uint16_t *dest = (uint16_t *)field_ptr;
+                *dest = (uint16_t)safe_atoi(value, 0);
+                break;
+            }
+            case TYPE_FLOAT:
+            {
+                float *dest = (float *)field_ptr;
+                *dest = safe_atof(value, 12.0f);
+                break;
+            }
+            case TYPE_STRING:
+            {
+                if (value && value[0] != '\0')
+                {
+                    char *dest = (char *)field_ptr;
+                    cc_safe_strcpy(dest, entries[i].string_size, value);
                 }
-                case TYPE_FLOAT: {
-                    float *dest = (float*)field_ptr;
-                    *dest = safe_atof(value, 12.0f);
-                    break;
-                }
-                case TYPE_STRING: {
-                    if (value && value[0] != '\0') {
-                        char *dest = (char*)field_ptr;
-                        cc_safe_strcpy(dest, entries[i].string_size, value);
-                    }
-                    break;
-                }
+                break;
+            }
             }
             return 1;
         }
@@ -369,8 +392,7 @@ static int get_layout_config(Config *config, const char *name, const char *value
         {"bar_width", offsetof(Config, layout_bar_width), TYPE_UINT16, 0},
         {"bar_height", offsetof(Config, layout_bar_height), TYPE_UINT16, 0},
         {"bar_gap", offsetof(Config, layout_bar_gap), TYPE_UINT16, 0},
-        {"bar_border_width", offsetof(Config, layout_bar_border_width), TYPE_FLOAT, 0}
-    };
+        {"bar_border_width", offsetof(Config, layout_bar_border_width), TYPE_FLOAT, 0}};
 
     return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
@@ -384,8 +406,7 @@ static int get_font_config(Config *config, const char *name, const char *value)
     static const MixedConfigEntry entries[] = {
         {"font_face", offsetof(Config, font_face), TYPE_STRING, CONFIG_MAX_FONT_NAME_LEN},
         {"font_size_temp", offsetof(Config, font_size_temp), TYPE_FLOAT, 0},
-        {"font_size_labels", offsetof(Config, font_size_labels), TYPE_FLOAT, 0}
-    };
+        {"font_size_labels", offsetof(Config, font_size_labels), TYPE_FLOAT, 0}};
 
     return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
@@ -394,7 +415,8 @@ static int get_font_config(Config *config, const char *name, const char *value)
  * @brief Temperature configuration entry for lookup table.
  * @details Structure for temperature threshold configuration keys.
  */
-typedef struct {
+typedef struct
+{
     const char *key;
     size_t offset;
 } TemperatureConfigEntry;
@@ -408,13 +430,14 @@ static int get_temperature_config(Config *config, const char *name, const char *
     static const TemperatureConfigEntry entries[] = {
         {"temp_threshold_1", offsetof(Config, temp_threshold_1)},
         {"temp_threshold_2", offsetof(Config, temp_threshold_2)},
-        {"temp_threshold_3", offsetof(Config, temp_threshold_3)}
-    };
+        {"temp_threshold_3", offsetof(Config, temp_threshold_3)}};
 
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
-        if (strcmp(name, entries[i].key) == 0) {
-            void *field_ptr = (void*)((char*)config + entries[i].offset);
-            float *dest = (float*)field_ptr;
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+    {
+        if (strcmp(name, entries[i].key) == 0)
+        {
+            void *field_ptr = (void *)((char *)config + entries[i].offset);
+            float *dest = (float *)field_ptr;
             *dest = safe_atof(value, 50.0f + i * 15.0f); // 50, 65, 80
             return 1;
         }
@@ -426,7 +449,8 @@ static int get_temperature_config(Config *config, const char *name, const char *
  * @brief Color section mapping entry for lookup table.
  * @details Structure for color section mapping.
  */
-typedef struct {
+typedef struct
+{
     const char *section_name;
     size_t color_offset;
 } ColorSectionEntry;
@@ -445,12 +469,13 @@ static Color *get_color_pointer_from_section(Config *config, const char *section
         {"temp_threshold_1_bar", offsetof(Config, temp_threshold_1_bar)},
         {"temp_threshold_2_bar", offsetof(Config, temp_threshold_2_bar)},
         {"temp_threshold_3_bar", offsetof(Config, temp_threshold_3_bar)},
-        {"temp_threshold_4_bar", offsetof(Config, temp_threshold_4_bar)}
-    };
+        {"temp_threshold_4_bar", offsetof(Config, temp_threshold_4_bar)}};
 
-    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++) {
-        if (strcmp(section, entries[i].section_name) == 0) {
-            return (Color*)((char*)config + entries[i].color_offset);
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+    {
+        if (strcmp(section, entries[i].section_name) == 0)
+        {
+            return (Color *)((char *)config + entries[i].color_offset);
         }
     }
     return NULL;
@@ -462,12 +487,23 @@ static Color *get_color_pointer_from_section(Config *config, const char *section
  */
 static void set_color_component(Color *color, const char *name, const char *value)
 {
-    if (!color || !name || !value) return;
+    if (!color || !name || !value)
+        return;
 
-    switch (name[0]) {
-        case 'r': if (strcmp(name, "r") == 0) parse_color_component(value, &color->r); break;
-        case 'g': if (strcmp(name, "g") == 0) parse_color_component(value, &color->g); break;
-        case 'b': if (strcmp(name, "b") == 0) parse_color_component(value, &color->b); break;
+    switch (name[0])
+    {
+    case 'r':
+        if (strcmp(name, "r") == 0)
+            parse_color_component(value, &color->r);
+        break;
+    case 'g':
+        if (strcmp(name, "g") == 0)
+            parse_color_component(value, &color->g);
+        break;
+    case 'b':
+        if (strcmp(name, "b") == 0)
+            parse_color_component(value, &color->b);
+        break;
     }
 }
 
@@ -478,7 +514,8 @@ static void set_color_component(Color *color, const char *name, const char *valu
 static int get_color_config(Config *config, const char *section, const char *name, const char *value)
 {
     Color *color = get_color_pointer_from_section(config, section);
-    if (color) {
+    if (color)
+    {
         set_color_component(color, name, value);
     }
     return 1;
@@ -550,8 +587,8 @@ static void set_display_defaults(Config *config)
         config->display_refresh_interval_nsec = 500000000;
     if (config->lcd_brightness == 0)
         config->lcd_brightness = 80;
-    if (config->lcd_orientation == 0)
-        config->lcd_orientation = 0;
+    if (!is_valid_orientation(config->lcd_orientation))
+        config->lcd_orientation = 0; // Fallback to 0 if invalid
 }
 
 /**
