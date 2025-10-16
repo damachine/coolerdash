@@ -35,6 +35,9 @@
 #define CC_URL_SIZE 512
 #define CC_USERPWD_SIZE 128
 
+// Maximum safe allocation size to prevent overflow
+#define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
+
 // Forward declarations to reduce compilation dependencies
 struct Config;
 struct curl_slist;
@@ -49,28 +52,6 @@ typedef struct http_response
     size_t size;
     size_t capacity;
 } http_response;
-
-// --- Session Management ---
-int init_coolercontrol_session(const struct Config *config);
-int is_session_initialized(void);
-void cleanup_coolercontrol_session(void);
-
-// --- Device Management ---
-int get_liquidctl_data(const struct Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height);
-int init_device_cache(const struct Config *config);
-int send_image_to_lcd(const struct Config *config, const char *image_path, const char *device_uid);
-const char *extract_device_type_from_json(json_t *dev);
-
-// --- Utility Functions ---
-int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict src);
-void *cc_secure_malloc(size_t size);
-int cc_init_response_buffer(http_response *response, size_t initial_capacity);
-int cc_validate_response_buffer(const http_response *response);
-void cc_cleanup_response_buffer(http_response *response);
-size_t write_callback(void *contents, size_t size, size_t nmemb, http_response *response);
-
-// Maximum safe allocation size to prevent overflow
-#define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
 
 /**
  * @brief Secure string copy with bounds checking.
@@ -88,19 +69,19 @@ void *cc_secure_malloc(size_t size);
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
-// int cc_init_response_buffer(http_response *response, size_t initial_capacity); (bereits oben deklariert)
+int cc_init_response_buffer(http_response *response, size_t initial_capacity);
 
 /**
  * @brief Validate HTTP response buffer integrity.
  * @details Checks if response buffer is in valid state for operations.
  */
-// int cc_validate_response_buffer(const http_response *response); (bereits oben deklariert)
+int cc_validate_response_buffer(const http_response *response);
 
 /**
  * @brief Cleanup HTTP response buffer and free memory.
  * @details Properly frees allocated memory and resets buffer state.
  */
-// void cc_cleanup_response_buffer(http_response *response); (bereits oben deklariert)
+void cc_cleanup_response_buffer(http_response *response);
 
 /**
  * @brief Callback for libcurl to write received data into a buffer.
@@ -148,6 +129,7 @@ int send_image_to_lcd(const struct Config *config, const char *image_path, const
  * @brief Extract device type from JSON device object.
  * @details Common helper function to extract device type string from JSON device object.
  */
-const char *extract_device_type_from_json(json_t *dev);
+const char *extract_device_type_from_json(const json_t *dev);
+size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response);
 
 #endif // COOLERCONTROL_H
