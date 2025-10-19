@@ -1,6 +1,4 @@
 
-# CoolerDash 🐧
-
 <p align="left">
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg"></a>
   <a href="https://en.wikipedia.org/wiki/C99"><img src="https://img.shields.io/badge/C-99-blue.svg"></a>
@@ -11,8 +9,14 @@
 
 ---
 
+# CoolerDash 🐧
+
+### Displays real-time sensor on an AIO liquid cooler with integrated LCD displays.
+
+
+---
+
 ## ⭐ Features
-- **Displays real-time sensor on an AIO liquid cooler with integrated LCD displays.**
 - **Extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features.**
 - **Support for additional sensor values, and a sophisticated, customizable user interface.**
 
