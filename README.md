@@ -13,10 +13,16 @@
 
 ### Displays real-time sensor on an AIO liquid cooler with integrated LCD displays.
 
-
 ---
 
-## ⭐ Features
+###### This tool is intended to simplify display real-time sensor on an AIO liquid cooler LCD displays.
+
+###### I made the tool because the LCD display of my NZXT Kraken 2023 under Linux does not correspond to the desired features like under Windows. :P
+
+###### I've been using this tool successfully for quite a while—maybe it will help you too!
+
+---
+## Features
 - **Extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features.**
 - **Support for additional sensor values, and a sophisticated, customizable user interface.**
 
@@ -31,7 +37,7 @@
 
 ---
 
-## 🖥️ System Requirements
+## System Requirements
 
 - **OS**: Linux
 - **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
@@ -45,7 +51,7 @@
 
 ---
 
-## 🛠️ Installation
+## Installation
 
 #### Arch Linux (Recommended)
 
@@ -88,7 +94,7 @@ systemctl enable --now coolerdash.service
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 > [!IMPORTANT]
 > #### CoolerControl GUI:
@@ -108,7 +114,7 @@ systemctl enable --now coolerdash.service
 
 ---
 
-## 🚀 Advanced Usage
+## Advanced Usage
 
 #### Service Management
 
@@ -179,7 +185,7 @@ systemctl stop coolerdash.service
 
 ---
 
-## 🆘 Troubleshooting
+## Troubleshooting
 
 #### Common Issues
 
