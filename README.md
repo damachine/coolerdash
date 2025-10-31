@@ -15,7 +15,7 @@
 
 ###### I made the tool because the LCD display of my NZXT Kraken 2023 under Linux does not correspond to the desired features like under Windows. :P
 
-###### I've been using this tool successfully for quite a while—maybe it will help you too!
+###### I've been using this tool successfully for quite a while—maybe it will help you too!❤️
 
 ---
 ## Features
