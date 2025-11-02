@@ -46,6 +46,15 @@
 #define DISPLAY_M_PI_2 (M_PI / 2.0)
 #endif
 
+// Internal display positioning constants (base values for 240x240 resolution)
+// These are scaled dynamically based on actual display_width and display_height
+#define DISPLAY_LABEL_Y_OFFSET_1 8
+#define DISPLAY_LABEL_Y_OFFSET_2 16
+#define DISPLAY_TEMP_DISPLAY_X_OFFSET 26
+#define DISPLAY_TEMP_DISPLAY_Y_OFFSET 26
+#define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_TOP 4
+#define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM -6
+
 /**
  * @brief Convert color component to cairo format.
  * @details Converts 8-bit color component (0-255) to cairo's double format (0.0-1.0) for rendering operations.
@@ -81,24 +90,67 @@ static inline int calculate_temp_fill_width(float temp_value, int max_width)
 }
 
 /**
+ * @brief Dynamic scaling parameters structure.
+ * @details Holds calculated scaling factors and offsets based on display dimensions.
+ */
+typedef struct
+{
+    double scale_x;                  // Horizontal scaling factor
+    double scale_y;                  // Vertical scaling factor
+    double label_y_offset_1;         // First label Y offset (scaled)
+    double label_y_offset_2;         // Second label Y offset (scaled)
+    double temp_display_x_offset;    // Temperature X offset (scaled)
+    double temp_display_y_offset;    // Temperature Y offset (scaled)
+    double temp_vertical_adj_top;    // Top temperature vertical adjustment (scaled)
+    double temp_vertical_adj_bottom; // Bottom temperature vertical adjustment (scaled)
+    double corner_radius;            // Rounded corner radius (scaled)
+} ScalingParams;
+
+/**
+ * @brief Calculate dynamic scaling parameters based on display dimensions.
+ * @details Computes scaling factors relative to base resolution (240x240).
+ */
+static void calculate_scaling_params(const struct Config *config, ScalingParams *params)
+{
+    // Base resolution for reference (original design)
+    const double base_width = 240.0;
+    const double base_height = 240.0;
+
+    // Calculate scaling factors
+    params->scale_x = config->display_width / base_width;
+    params->scale_y = config->display_height / base_height;
+
+    // Use average scaling for uniform elements
+    const double scale_avg = (params->scale_x + params->scale_y) / 2.0;
+
+    // Scale offsets proportionally
+    params->label_y_offset_1 = DISPLAY_LABEL_Y_OFFSET_1 * params->scale_y;
+    params->label_y_offset_2 = DISPLAY_LABEL_Y_OFFSET_2 * params->scale_y;
+    params->temp_display_x_offset = DISPLAY_TEMP_DISPLAY_X_OFFSET * params->scale_x;
+    params->temp_display_y_offset = DISPLAY_TEMP_DISPLAY_Y_OFFSET * params->scale_y;
+    params->temp_vertical_adj_top = DISPLAY_TEMP_VERTICAL_ADJUSTMENT_TOP * params->scale_y;
+    params->temp_vertical_adj_bottom = DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM * params->scale_y;
+    params->corner_radius = 8.0 * scale_avg;
+}
+
+/**
  * @brief Forward declarations for internal display rendering functions.
  * @details Function prototypes for internal display rendering helpers and utility functions used by the main rendering pipeline.
  */
-static inline void draw_temp(cairo_t *cr, const struct Config *config, double temp_value, double y_offset);
-static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config);
-static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config);
-static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, float temp_value, int bar_x, int bar_y);
-static void draw_labels(cairo_t *cr, const struct Config *config);
+static inline void draw_temp(cairo_t *cr, const struct Config *config, const ScalingParams *params, double temp_value, double y_offset);
+static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config, const ScalingParams *params);
+static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config, const ScalingParams *params);
+static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, const ScalingParams *params, float temp_value, int bar_x, int bar_y);
+static void draw_labels(cairo_t *cr, const struct Config *config, const ScalingParams *params);
 static Color get_temperature_bar_color(const struct Config *config, float val);
-static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width, int height);
+static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width, int height, double radius);
 
 /**
  * @brief Draw rounded rectangle path for temperature bars.
- * @details Helper function to create a rounded rectangle path with consistent corner radius.
+ * @details Helper function to create a rounded rectangle path with dynamic corner radius.
  */
-static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width, int height)
+static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width, int height, double radius)
 {
-    const double radius = 8.0;
     cairo_new_sub_path(cr);
     cairo_arc(cr, x + width - radius, y + radius, radius, -DISPLAY_M_PI_2, 0);
     cairo_arc(cr, x + width - radius, y + height - radius, radius, 0, DISPLAY_M_PI_2);
@@ -141,7 +193,7 @@ static Color get_temperature_bar_color(const struct Config *config, float val)
  * @brief Draw a single temperature value.
  * @details Helper function that renders a temperature value as text with proper positioning and formatting.
  */
-static inline void draw_temp(cairo_t *cr, const struct Config *config, double temp_value, double y_offset)
+static inline void draw_temp(cairo_t *cr, const struct Config *config, const ScalingParams *params, double temp_value, double y_offset)
 {
     // Input validation with early return
     char temp_str[16];
@@ -152,8 +204,8 @@ static inline void draw_temp(cairo_t *cr, const struct Config *config, double te
 
     // Calculate text extents and position
     cairo_text_extents(cr, temp_str, &ext);
-    const double x = (config->layout_box_width - ext.width) / 2 + DISPLAY_TEMP_DISPLAY_X_OFFSET;
-    const double vertical_adjustment = (y_offset < 0) ? DISPLAY_TEMP_VERTICAL_ADJUSTMENT_TOP : DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM;
+    const double x = (config->layout_box_width - ext.width) / 2 + params->temp_display_x_offset;
+    const double vertical_adjustment = (y_offset < 0) ? params->temp_vertical_adj_top : params->temp_vertical_adj_bottom;
     const double y = y_offset + (config->layout_box_height + ext.height) / 2 + vertical_adjustment;
     cairo_move_to(cr, x, y);
     cairo_show_text(cr, temp_str);
@@ -163,26 +215,26 @@ static inline void draw_temp(cairo_t *cr, const struct Config *config, double te
  * @brief Draw temperature displays with enhanced positioning and validation.
  * @details Draws the temperature values for CPU and GPU in their respective boxes with improved accuracy and safety checks.
  */
-static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config)
+static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config, const ScalingParams *params)
 {
     // Input validation with early return
-    if (!cr || !data || !config)
+    if (!cr || !data || !config || !params)
         return;
 
     // temp_cpu display (CPU temperature) with validation
-    draw_temp(cr, config, data->temp_cpu, -DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    draw_temp(cr, config, params, data->temp_cpu, -params->temp_display_y_offset);
 
     // temp_gpu display (GPU temperature) with validation
-    draw_temp(cr, config, data->temp_gpu, config->layout_box_height + DISPLAY_TEMP_DISPLAY_Y_OFFSET);
+    draw_temp(cr, config, params, data->temp_gpu, config->layout_box_height + params->temp_display_y_offset);
 }
 
 /**
  * @brief Draw a single temperature bar with enhanced safety and optimizations.
  * @details Helper function that draws background, fill, and border for a temperature bar with rounded corners.
  */
-static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, float temp_value, int bar_x, int bar_y)
+static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config, const ScalingParams *params, float temp_value, int bar_x, int bar_y)
 {
-    if (!cr || !config)
+    if (!cr || !config || !params)
         return;
 
     // Calculate fill width
@@ -190,7 +242,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
 
     // Draw background
     set_cairo_color(cr, &config->layout_bar_color_background);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, config->layout_bar_width, config->layout_bar_height);
+    draw_rounded_rectangle_path(cr, bar_x, bar_y, config->layout_bar_width, config->layout_bar_height, params->corner_radius);
     cairo_fill(cr);
 
     // Draw fill if needed
@@ -202,7 +254,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
         if (fill_width >= 16)
         {
             // Use rounded rectangle for wider fills
-            draw_rounded_rectangle_path(cr, bar_x, bar_y, fill_width, config->layout_bar_height);
+            draw_rounded_rectangle_path(cr, bar_x, bar_y, fill_width, config->layout_bar_height, params->corner_radius);
         }
         else
         {
@@ -215,7 +267,7 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
     // Draw border
     cairo_set_line_width(cr, config->layout_bar_border_width);
     set_cairo_color(cr, &config->layout_bar_color_border);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, config->layout_bar_width, config->layout_bar_height);
+    draw_rounded_rectangle_path(cr, bar_x, bar_y, config->layout_bar_width, config->layout_bar_height, params->corner_radius);
     cairo_stroke(cr);
 }
 
@@ -223,9 +275,9 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
  * @brief Draw temperature bars with simplified positioning.
  * @details Draws horizontal bars representing CPU and GPU temperatures with centered positioning.
  */
-static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config)
+static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data, const struct Config *config, const ScalingParams *params)
 {
-    if (!cr || !data || !config)
+    if (!cr || !data || !config || !params)
         return;
 
     // Calculate centered horizontal position
@@ -239,18 +291,18 @@ static void draw_temperature_bars(cairo_t *cr, const monitor_sensor_data_t *data
     const int gpu_bar_y = start_y + config->layout_bar_height + config->layout_bar_gap;
 
     // Draw bars
-    draw_single_temperature_bar(cr, config, data->temp_cpu, bar_x, cpu_bar_y);
-    draw_single_temperature_bar(cr, config, data->temp_gpu, bar_x, gpu_bar_y);
+    draw_single_temperature_bar(cr, config, params, data->temp_cpu, bar_x, cpu_bar_y);
+    draw_single_temperature_bar(cr, config, params, data->temp_gpu, bar_x, gpu_bar_y);
 }
 
 /**
  * @brief Draw CPU/GPU labels with enhanced positioning and validation.
  * @details Draws text labels for CPU and GPU with optimized positioning calculations and comprehensive input validation. Font and color are set by the main rendering pipeline.
  */
-static void draw_labels(cairo_t *cr, const struct Config *config)
+static void draw_labels(cairo_t *cr, const struct Config *config, const ScalingParams *params)
 {
     // Input validation with early return
-    if (!cr || !config)
+    if (!cr || !config || !params)
         return;
 
     // Positioning values
@@ -258,12 +310,12 @@ static void draw_labels(cairo_t *cr, const struct Config *config)
     const double font_half_height = config->font_size_labels / 2.0;
 
     // CPU label
-    const double cpu_label_y = box_center_y + font_half_height + DISPLAY_LABEL_Y_OFFSET_1;
+    const double cpu_label_y = box_center_y + font_half_height + params->label_y_offset_1;
     cairo_move_to(cr, 0, cpu_label_y);
     cairo_show_text(cr, "CPU");
 
     // GPU label
-    const double gpu_label_y = config->layout_box_height + box_center_y + font_half_height - DISPLAY_LABEL_Y_OFFSET_2;
+    const double gpu_label_y = config->layout_box_height + box_center_y + font_half_height - params->label_y_offset_2;
     cairo_move_to(cr, 0, gpu_label_y);
     cairo_show_text(cr, "GPU");
 }
@@ -279,6 +331,10 @@ int render_display(const struct Config *config, const monitor_sensor_data_t *dat
         log_message(LOG_ERROR, "Invalid parameters for render_display");
         return 0;
     }
+
+    // Calculate scaling parameters
+    ScalingParams scaling_params;
+    calculate_scaling_params(config, &scaling_params);
 
     // Create cairo surface and context
     cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
@@ -310,15 +366,15 @@ int render_display(const struct Config *config, const monitor_sensor_data_t *dat
     set_cairo_color(cr, &config->font_color_temp);
 
     // Render temperature displays and bars
-    draw_temperature_displays(cr, data, config);
-    draw_temperature_bars(cr, data, config);
+    draw_temperature_displays(cr, data, config, &scaling_params);
+    draw_temperature_bars(cr, data, config, &scaling_params);
 
     // Render labels only if temperatures are below 99°C
     if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0)
     {
         cairo_set_font_size(cr, config->font_size_labels);
         set_cairo_color(cr, &config->font_color_label);
-        draw_labels(cr, config);
+        draw_labels(cr, config, &scaling_params);
     }
 
     // Flush and check for errors
