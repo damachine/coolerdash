@@ -36,19 +36,11 @@ struct Config;
 #else
 #define DISPLAY_M_PI M_PI
 #endif
-#ifndef M_PI_2  
+#ifndef M_PI_2
 #define DISPLAY_M_PI_2 1.57079632679489661923
 #else
 #define DISPLAY_M_PI_2 M_PI_2
 #endif
-
-// Display positioning constants for LCD layout
-#define DISPLAY_LABEL_Y_OFFSET_1 8
-#define DISPLAY_LABEL_Y_OFFSET_2 16
-#define DISPLAY_TEMP_DISPLAY_X_OFFSET 26
-#define DISPLAY_TEMP_DISPLAY_Y_OFFSET 26
-#define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_TOP 4
-#define DISPLAY_TEMP_VERTICAL_ADJUSTMENT_BOTTOM -6
 
 /**
  * @brief Collects sensor data and renders display.

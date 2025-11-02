@@ -487,7 +487,6 @@ static void send_shutdown_image_if_needed(void)
         // Image exists, send it normally
         fclose(image_file);
         send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
-        //send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid); // Send twice for better reliability
     }
     else
     {
@@ -503,7 +502,6 @@ static void send_shutdown_image_if_needed(void)
         if (fallback_image && fallback_image[0])
         {
             send_image_to_lcd(&temp_config, fallback_image, device_uid);
-            //send_image_to_lcd(&temp_config, fallback_image, device_uid); // Send twice for better reliability
         }
     }
 }
@@ -769,6 +767,8 @@ int main(int argc, char **argv)
     if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
                            device_name, sizeof(device_name), &api_screen_width, &api_screen_height))
     {
+        // Update config with device screen dimensions (device values override config)
+        update_config_from_device(&config);
 
         const char *uid_display = (device_uid[0] != '\0')
                                       ? device_uid

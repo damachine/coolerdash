@@ -1,24 +1,41 @@
-# Build artifacts
-build/
+# Source files
 bin/
-*.a
-*.o
-*.so
-
-# Temporary files
+build/
 .cache/
 .makepkg/
-pkg/
-temp/
-*~
-*.tmp
-*.log
+*/src/
+src/*
+*/pkg/
+pkg/*
+*.tgz
+*.xz
+*.zip
+*.gz
+*.zst
+*.bz2
+*.7z
+*.rar
+*.pkg
+*.pkg.*
+*.tar.gz
+*.files
 *.bak
+*.run
 
 # OS files
+*~
 .directory
 .DS_Store
 Thumbs.db
+.Trash-*
+logs/*
+temp/
+gnupg/
+*.orig
+*.old
+*.tmp
+*.log
+*.bak
 
 # Editor files
 *.code-workspace
@@ -29,25 +46,20 @@ Thumbs.db
 .idea/
 .qodo/
 .codacy/
+.codacy.*
 
-# Compressed archives
-*.tar.xz
-*.tar.gz
-*.zip
-*.gz
-*.xz
-*.zst
-*.pkg.*
+############################
 
-# Release tarballs
-coolerdash-*.pkg.*
+# Internal files
+coolerdash/
 
-# Local test files
-PKGBUILD-test
-test-*
-debug-*
+# Git files
+!.github
+!.gitignore
 
 # Ignore vscode AI rules
+.github/instructions/BEST_PRACTICES.md
 .github/instructions/best_practices.md
 .github/instructions/codacy.instructions.md
-.github/instructions/copilot.instructions.md
+.github/instructions/copilot-instructions.md
+.zencoder/
