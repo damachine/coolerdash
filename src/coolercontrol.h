@@ -124,6 +124,17 @@ int send_image_to_lcd(const struct Config *config, const char *image_path, const
  * @details Common helper function to extract device type string from JSON device object.
  */
 const char *extract_device_type_from_json(const json_t *dev);
+
+/**
+ * @brief Check if a device has a circular display based on device name/type.
+ * @details Returns true if the device is known to have a circular/round LCD display.
+ *          Uses an internal database of known circular display devices.
+ *          For NZXT Kraken devices, resolution determines shape:
+ *          - 240x240 or smaller = rectangular
+ *          - Larger than 240x240 = circular
+ */
+int is_circular_display_device(const char *device_name, int screen_width, int screen_height);
+
 size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response);
 
 #endif // COOLERCONTROL_H

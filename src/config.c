@@ -382,14 +382,12 @@ static int handle_mixed_config(Config *config, const char *name, const char *val
 /**
  * @brief Handle layout section configuration with reduced complexity.
  * @details Processes layout-related configuration keys using lookup table approach.
+ *          Box parameters removed - all positioning now calculated from display dimensions.
  */
 static int get_layout_config(Config *config, const char *name, const char *value)
 {
     static const MixedConfigEntry entries[] = {
-        {"box_width", offsetof(Config, layout_box_width), TYPE_UINT16, 0},
-        {"box_height", offsetof(Config, layout_box_height), TYPE_UINT16, 0},
-        {"box_gap", offsetof(Config, layout_box_gap), TYPE_UINT16, 0},
-        {"bar_width", offsetof(Config, layout_bar_width), TYPE_UINT16, 0},
+        {"bar_width", offsetof(Config, layout_bar_width), TYPE_UINT16, 0}, // Legacy - not used
         {"bar_height", offsetof(Config, layout_bar_height), TYPE_UINT16, 0},
         {"bar_gap", offsetof(Config, layout_bar_gap), TYPE_UINT16, 0},
         {"bar_border_width", offsetof(Config, layout_bar_border_width), TYPE_FLOAT, 0}};
@@ -601,22 +599,20 @@ static void set_display_defaults(Config *config)
 
 /**
  * @brief Set layout default values.
- * @details Helper function to set default layout configuration values based on display dimensions.
+ * @details Helper function to set default layout configuration values.
+ *          All positioning and sizing is now calculated dynamically from display_width and display_height.
+ *          layout_bar_width is legacy and not used in dynamic scaling.
  */
 static void set_layout_defaults(Config *config)
 {
-    if (config->layout_box_width == 0)
-        config->layout_box_width = config->display_width;
-    if (config->layout_box_height == 0)
-        config->layout_box_height = config->display_height / 2;
     if (config->layout_bar_width == 0)
-        config->layout_bar_width = config->layout_box_width - 10;
+        config->layout_bar_width = 230; // Legacy - not used in dynamic scaling
     if (config->layout_bar_height == 0)
-        config->layout_bar_height = 22;
+        config->layout_bar_height = 24; // Slightly taller bars (was 22)
     if (config->layout_bar_gap == 0)
-        config->layout_bar_gap = 10;
+        config->layout_bar_gap = 12; // More gap between bars (was 10)
     if (config->layout_bar_border_width == 0.0f)
-        config->layout_bar_border_width = 1.5f;
+        config->layout_bar_border_width = 2.0f; // Thicker border (was 1.5)
 }
 
 /**

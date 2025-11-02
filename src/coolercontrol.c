@@ -166,6 +166,65 @@ const char *extract_device_type_from_json(const json_t *dev)
 }
 
 /**
+ * @brief Check if a device has a circular display based on device name/type.
+ * @details Returns 1 if the device is known to have a circular/round LCD display.
+ *          Uses an internal database of known circular display devices.
+ *
+ *          Display shape rules for NZXT Kraken devices:
+ *          - NZXT Kraken 2023 with 240x240 = RECTANGULAR (no inscribe factor)
+ *          - NZXT Kraken with >240x240 (e.g., 320x320) = CIRCULAR (with inscribe factor)
+ *
+ *          Known devices with CIRCULAR displays:
+ *          - NZXT Kraken Z (320x320 circular)
+ *          - NZXT Kraken Elite with >240x240 (circular)
+ *
+ *          Known devices with RECTANGULAR displays:
+ *          - NZXT Kraken 2023 (240x240 rectangular LCD)
+ *          - NZXT Kraken X (rectangular LCD)
+ *          - Corsair iCUE H100i/H115i/H150i Elite LCD (480x480 square)
+ *          - Corsair Commander Pro LCD (rectangular)
+ */
+int is_circular_display_device(const char *device_name, int screen_width, int screen_height)
+{
+    if (!device_name)
+        return 0;
+
+    // Check if device is NZXT Kraken series
+    const int is_kraken = (strstr(device_name, "Kraken") != NULL);
+
+    if (is_kraken)
+    {
+        // NZXT Kraken display shape depends on resolution:
+        // - 240x240 or smaller = RECTANGULAR
+        // - Larger than 240x240 = CIRCULAR
+        const int is_large_display = (screen_width > 240 || screen_height > 240);
+        return is_large_display ? 1 : 0;
+    }
+
+    // Database of non-Kraken devices with CIRCULAR displays
+    // Add new circular display devices here (non-Kraken only)
+    const char *circular_devices[] = {
+        // Add other brands with circular displays here
+        // Example: "Corsair LCD Circular Model"
+    };
+
+    const size_t num_circular = sizeof(circular_devices) / sizeof(circular_devices[0]);
+
+    // Check if device name contains any known circular display identifier
+    for (size_t i = 0; i < num_circular; i++)
+    {
+        if (strstr(device_name, circular_devices[i]) != NULL)
+        {
+            return 1; // Circular display detected
+        }
+    }
+
+    // Default: assume rectangular display if not in circular database
+    // This is safer as most displays are rectangular
+    return 0;
+}
+
+/**
  * @brief Check if device type is a supported Liquidctl device.
  * @details Compares device type string against list of supported types.
  */

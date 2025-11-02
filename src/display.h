@@ -52,6 +52,6 @@ void draw_combined_image(const struct Config *config);
  * @brief Render display based on sensor data and configuration.
  * @details Low-level function that creates PNG image using Cairo graphics library based on temperature sensor data and configuration settings, then uploads to LCD device.
  */
-int render_display(const struct Config *config, const monitor_sensor_data_t *data);
+int render_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name);
 
 #endif // DISPLAY_H
