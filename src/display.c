@@ -144,6 +144,8 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
 static void draw_labels(cairo_t *cr, const struct Config *config, const ScalingParams *params);
 static Color get_temperature_bar_color(const struct Config *config, float val);
 static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width, int height, double radius);
+static cairo_t *create_cairo_context(const struct Config *config, cairo_surface_t **surface);
+static void render_display_content(cairo_t *cr, const struct Config *config, const monitor_sensor_data_t *data, const ScalingParams *params);
 
 /**
  * @brief Draw rounded rectangle path for temperature bars.
@@ -321,6 +323,62 @@ static void draw_labels(cairo_t *cr, const struct Config *config, const ScalingP
 }
 
 /**
+ * @brief Create cairo context and surface.
+ * @details Initializes cairo surface and context for rendering operations.
+ */
+static cairo_t *create_cairo_context(const struct Config *config, cairo_surface_t **surface)
+{
+    *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
+                                          config->display_width,
+                                          config->display_height);
+    if (!*surface || cairo_surface_status(*surface) != CAIRO_STATUS_SUCCESS)
+    {
+        log_message(LOG_ERROR, "Failed to create cairo surface");
+        if (*surface)
+            cairo_surface_destroy(*surface);
+        return NULL;
+    }
+
+    cairo_t *cr = cairo_create(*surface);
+    if (!cr)
+    {
+        log_message(LOG_ERROR, "Failed to create cairo context");
+        cairo_surface_destroy(*surface);
+        *surface = NULL;
+    }
+
+    return cr;
+}
+
+/**
+ * @brief Render display content to cairo context.
+ * @details Draws background, temperature displays, bars, and labels.
+ */
+static void render_display_content(cairo_t *cr, const struct Config *config, const monitor_sensor_data_t *data, const ScalingParams *params)
+{
+    // Fill background
+    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    cairo_paint(cr);
+
+    // Configure font and color for temperature values
+    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, config->font_size_temp);
+    set_cairo_color(cr, &config->font_color_temp);
+
+    // Render temperature displays and bars
+    draw_temperature_displays(cr, data, config, params);
+    draw_temperature_bars(cr, data, config, params);
+
+    // Render labels only if temperatures are below 99°C
+    if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0)
+    {
+        cairo_set_font_size(cr, config->font_size_labels);
+        set_cairo_color(cr, &config->font_color_label);
+        draw_labels(cr, config, params);
+    }
+}
+
+/**
  * @brief Display rendering.
  * @details Creates cairo surface and context, renders temperature displays and bars, then saves the result as PNG image.
  */
@@ -337,45 +395,15 @@ int render_display(const struct Config *config, const monitor_sensor_data_t *dat
     calculate_scaling_params(config, &scaling_params);
 
     // Create cairo surface and context
-    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32,
-                                                          config->display_width,
-                                                          config->display_height);
-    if (!surface || cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
-    {
-        log_message(LOG_ERROR, "Failed to create cairo surface");
-        if (surface)
-            cairo_surface_destroy(surface);
-        return 0;
-    }
-
-    cairo_t *cr = cairo_create(surface);
+    cairo_surface_t *surface = NULL;
+    cairo_t *cr = create_cairo_context(config, &surface);
     if (!cr)
     {
-        log_message(LOG_ERROR, "Failed to create cairo context");
-        cairo_surface_destroy(surface);
         return 0;
     }
 
-    // Fill background
-    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-    cairo_paint(cr);
-
-    // Configure font and color for temperature values
-    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, config->font_size_temp);
-    set_cairo_color(cr, &config->font_color_temp);
-
-    // Render temperature displays and bars
-    draw_temperature_displays(cr, data, config, &scaling_params);
-    draw_temperature_bars(cr, data, config, &scaling_params);
-
-    // Render labels only if temperatures are below 99°C
-    if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0)
-    {
-        cairo_set_font_size(cr, config->font_size_labels);
-        set_cairo_color(cr, &config->font_color_label);
-        draw_labels(cr, config, &scaling_params);
-    }
+    // Render all display content
+    render_display_content(cr, config, data, &scaling_params);
 
     // Flush and check for errors
     cairo_surface_flush(surface);

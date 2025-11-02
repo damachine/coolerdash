@@ -73,6 +73,28 @@ int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
 const Config *g_config_ptr = NULL;
 
 /**
+ * @brief Validate and sanitize version string.
+ * @details Checks version string validity and sets default if invalid.
+ */
+static void validate_version_string(char *version_buffer, size_t buffer_size)
+{
+    // Remove trailing whitespace and newlines
+    version_buffer[strcspn(version_buffer, "\n\r \t")] = '\0';
+
+    // Validate version string (manual bounded length calculation to avoid strnlen portability issues)
+    size_t ver_len = 0;
+    while (ver_len < 21 && version_buffer[ver_len] != '\0')
+    {
+        ver_len++;
+    }
+    if (version_buffer[0] == '\0' || ver_len > 20)
+    {
+        log_message(LOG_WARNING, "Invalid version format, using default version");
+        cc_safe_strcpy(version_buffer, buffer_size, DEFAULT_VERSION);
+    }
+}
+
+/**
  * @brief Read version string from VERSION file with enhanced security.
  * @details Safely reads version from VERSION file with buffer overflow protection and proper validation. Returns fallback version on error.
  */
@@ -111,20 +133,7 @@ static const char *read_version_from_file(void)
     }
     else
     {
-        // Remove trailing whitespace and newlines
-        version_buffer[strcspn(version_buffer, "\n\r \t")] = '\0';
-
-        // Validate version string (manual bounded length calculation to avoid strnlen portability issues)
-        size_t ver_len = 0;
-        while (ver_len < 21 && version_buffer[ver_len] != '\0')
-        {
-            ver_len++;
-        }
-        if (version_buffer[0] == '\0' || ver_len > 20)
-        {
-            log_message(LOG_WARNING, "Invalid version format, using default version");
-            cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
-        }
+        validate_version_string(version_buffer, sizeof(version_buffer));
     }
 
     fclose(fp);
@@ -240,18 +249,11 @@ static int check_existing_instance_and_handle(const char *pid_file, int is_servi
 }
 
 /**
- * @brief Write current PID to file with enhanced security and error checking.
- * @details Creates PID file with proper permissions and atomic write operation.
+ * @brief Create parent directory for PID file.
+ * @details Ensures the directory exists with proper permissions.
  */
-static int write_pid_file(const char *pid_file)
+static int create_pid_directory(const char *pid_file)
 {
-    if (!pid_file || !pid_file[0])
-    {
-        log_message(LOG_ERROR, "Invalid PID file path provided");
-        return -1;
-    }
-
-    // Create directory if it doesn't exist
     char *dir_path = strdup(pid_file);
     if (!dir_path)
     {
@@ -269,24 +271,23 @@ static int write_pid_file(const char *pid_file)
         }
     }
     free(dir_path);
+    return 0;
+}
 
-    // Atomic write: write to temporary file first, then rename
-    char temp_file[PATH_MAX];
-    int ret = snprintf(temp_file, sizeof(temp_file), "%s.tmp", pid_file);
-    if (ret >= (int)sizeof(temp_file) || ret < 0)
-    {
-        log_message(LOG_ERROR, "PID file path too long");
-        return -1;
-    }
-
-    // Open with specific permissions to avoid race condition
+/**
+ * @brief Open temporary PID file with security checks.
+ * @details Creates temporary file with atomic operations and validates it's a regular file.
+ */
+static int open_temp_pid_file(const char *temp_file)
+{
     int fd = open(temp_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644);
-    struct stat st;
     if (fd == -1)
     {
         log_message(LOG_ERROR, "Could not create temporary PID file '%s': %s", temp_file, strerror(errno));
         return -1;
     }
+
+    struct stat st;
     if (fstat(fd, &st) == 0)
     {
         if (!S_ISREG(st.st_mode))
@@ -296,8 +297,15 @@ static int write_pid_file(const char *pid_file)
             return -1;
         }
     }
+    return fd;
+}
 
-    // Convert to FILE* for easier writing
+/**
+ * @brief Write PID to file descriptor.
+ * @details Converts fd to FILE* and writes PID with error checking.
+ */
+static int write_pid_to_file(int fd, const char *temp_file)
+{
     FILE *f = fdopen(fd, "w");
     if (!f)
     {
@@ -307,12 +315,11 @@ static int write_pid_file(const char *pid_file)
         return -1;
     }
 
-    // Write PID with validation
     pid_t current_pid = getpid();
     if (fprintf(f, "%d\n", current_pid) < 0)
     {
         log_message(LOG_ERROR, "Could not write PID to temporary file '%s': %s", temp_file, strerror(errno));
-        fclose(f); // This also closes the fd
+        fclose(f);
         unlink(temp_file);
         return -1;
     }
@@ -323,8 +330,58 @@ static int write_pid_file(const char *pid_file)
         unlink(temp_file);
         return -1;
     }
+    return 0;
+}
 
-    // Atomic rename - file already has correct permissions from open()
+/**
+ * @brief Create temporary file path for PID file.
+ * @details Generates a temporary file path with proper bounds checking.
+ */
+static int create_temp_pid_path(const char *pid_file, char *temp_file, size_t temp_file_size)
+{
+    int ret = snprintf(temp_file, temp_file_size, "%s.tmp", pid_file);
+    if (ret >= (int)temp_file_size || ret < 0)
+    {
+        log_message(LOG_ERROR, "PID file path too long");
+        return -1;
+    }
+    return 0;
+}
+
+/**
+ * @brief Write current PID to file with enhanced security and error checking.
+ * @details Creates PID file with proper permissions and atomic write operation.
+ */
+static int write_pid_file(const char *pid_file)
+{
+    if (!pid_file || !pid_file[0])
+    {
+        log_message(LOG_ERROR, "Invalid PID file path provided");
+        return -1;
+    }
+
+    if (create_pid_directory(pid_file) != 0)
+    {
+        return -1;
+    }
+
+    char temp_file[PATH_MAX];
+    if (create_temp_pid_path(pid_file, temp_file, sizeof(temp_file)) != 0)
+    {
+        return -1;
+    }
+
+    int fd = open_temp_pid_file(temp_file);
+    if (fd == -1)
+    {
+        return -1;
+    }
+
+    if (write_pid_to_file(fd, temp_file) != 0)
+    {
+        return -1;
+    }
+
     if (rename(temp_file, pid_file) != 0)
     {
         log_message(LOG_ERROR, "Could not rename temporary PID file to '%s': %s", pid_file, strerror(errno));
@@ -332,7 +389,7 @@ static int write_pid_file(const char *pid_file)
         return -1;
     }
 
-    log_message(LOG_STATUS, "PID file: %s (PID: %d)", pid_file, current_pid);
+    log_message(LOG_STATUS, "PID file: %s (PID: %d)", pid_file, getpid());
     return 0;
 }
 
@@ -455,54 +512,81 @@ static void show_system_diagnostics(const Config *config, int api_width, int api
 }
 
 /**
+ * @brief Validate session and configuration for shutdown image.
+ * @details Checks if session is initialized and configuration is valid.
+ */
+static int validate_shutdown_conditions(void)
+{
+    if (!is_session_initialized() || !g_config_ptr)
+    {
+        return 0;
+    }
+    return 1;
+}
+
+/**
+ * @brief Get device UID for shutdown operation.
+ * @details Retrieves device UID from liquidctl data.
+ */
+static int get_device_uid_for_shutdown(char *device_uid, size_t uid_size)
+{
+    if (!get_liquidctl_data(g_config_ptr, device_uid, uid_size, NULL, 0, NULL, NULL) || !device_uid[0])
+    {
+        return 0;
+    }
+    return 1;
+}
+
+/**
+ * @brief Handle missing shutdown image by turning off LCD.
+ * @details Creates temporary config with brightness 0 to turn off display.
+ */
+static void handle_missing_shutdown_image(const char *shutdown_image_path, const char *device_uid)
+{
+    log_message(LOG_WARNING, "Shutdown image '%s' not found, turning off LCD display", shutdown_image_path);
+
+    Config temp_config = *g_config_ptr;
+    temp_config.lcd_brightness = 0;
+
+    const char *fallback_image = g_config_ptr->paths_image_coolerdash;
+    if (fallback_image && fallback_image[0])
+    {
+        send_image_to_lcd(&temp_config, fallback_image, device_uid);
+    }
+}
+
+/**
  * @brief Send shutdown image if needed or turn off LCD if image is missing.
  * @details Checks if shutdown image should be sent to LCD device and performs the transmission if conditions are met. If shutdown image is missing, sets LCD brightness to 0 to turn off the display.
  */
 static void send_shutdown_image_if_needed(void)
 {
-    // Basic validation
-    if (!is_session_initialized() || !g_config_ptr)
+    if (!validate_shutdown_conditions())
     {
         return;
     }
 
-    // Get device UID
     char device_uid[128];
-    if (!get_liquidctl_data(g_config_ptr, device_uid, sizeof(device_uid), NULL, 0, NULL, NULL) || !device_uid[0])
+    if (!get_device_uid_for_shutdown(device_uid, sizeof(device_uid)))
     {
         return;
     }
 
-    // Get shutdown image path
     const char *shutdown_image_path = g_config_ptr->paths_image_shutdown;
     if (!shutdown_image_path || !shutdown_image_path[0])
     {
         return;
     }
 
-    // Check if shutdown image file exists
     FILE *image_file = fopen(shutdown_image_path, "r");
     if (image_file)
     {
-        // Image exists, send it normally
         fclose(image_file);
         send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
     }
     else
     {
-        // Image doesn't exist, create temporary config with brightness 0 to turn off LCD
-        log_message(LOG_WARNING, "Shutdown image '%s' not found, turning off LCD display", shutdown_image_path);
-
-        // Create a temporary config copy with brightness set to 0
-        Config temp_config = *g_config_ptr;
-        temp_config.lcd_brightness = 0;
-
-        // Use the main coolerdash image as fallback (should exist) or create a minimal black image
-        const char *fallback_image = g_config_ptr->paths_image_coolerdash;
-        if (fallback_image && fallback_image[0])
-        {
-            send_image_to_lcd(&temp_config, fallback_image, device_uid);
-        }
+        handle_missing_shutdown_image(shutdown_image_path, device_uid);
     }
 }
 
@@ -649,44 +733,45 @@ static int run_daemon(const Config *config)
 }
 
 /**
- * @brief Enhanced main entry point for CoolerDash with comprehensive error handling.
- * @details Loads configuration, ensures single instance, initializes all modules, and starts the main daemon loop.
+ * @brief Parse command line arguments.
+ * @details Processes command line options and returns config path.
  */
-int main(int argc, char **argv)
+static const char *parse_arguments(int argc, char **argv)
 {
-    // Parse arguments for logging and help
-    const char *config_path = "/etc/coolerdash/config.ini"; // Default config path
+    const char *config_path = "/etc/coolerdash/config.ini";
 
     for (int i = 1; i < argc; i++)
     {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
         {
             show_help(argv[0], NULL);
-            return EXIT_SUCCESS;
+            exit(EXIT_SUCCESS);
         }
         else if (strcmp(argv[i], "--log") == 0)
         {
-            verbose_logging = 1; // Enable detailed INFO logging
+            verbose_logging = 1;
         }
         else if (argv[i][0] != '-')
         {
-            // This is the config path (no dash prefix)
             config_path = argv[i];
         }
         else
         {
             fprintf(stderr, "Error: Unknown option '%s'. Use --help for usage information.\n", argv[i]);
-            return EXIT_FAILURE;
+            exit(EXIT_FAILURE);
         }
     }
 
-    log_message(LOG_STATUS, "CoolerDash v%s starting up...", read_version_from_file());
+    return config_path;
+}
 
-    // Load configuration
-    Config config = {0};
-
-    log_message(LOG_STATUS, "Loading configuration...");
-    if (load_config(config_path, &config) != 0)
+/**
+ * @brief Initialize configuration and instance management.
+ * @details Loads config and ensures single instance.
+ */
+static int initialize_config_and_instance(const char *config_path, Config *config)
+{
+    if (load_config(config_path, config) != 0)
     {
         log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
         fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
@@ -694,14 +779,13 @@ int main(int argc, char **argv)
         fprintf(stderr, "  - File exists and is readable\n");
         fprintf(stderr, "  - File has correct INI format\n");
         fprintf(stderr, "  - All required sections are present\n");
-        return EXIT_FAILURE;
+        return -1;
     }
 
-    // Check for existing instances and create PID file with enhanced validation
     int is_service_start = is_started_by_systemd();
     log_message(LOG_INFO, "Running mode: %s", is_service_start ? "systemd service" : "manual");
 
-    if (check_existing_instance_and_handle(config.paths_pid, is_service_start) < 0)
+    if (check_existing_instance_and_handle(config->paths_pid, is_service_start) < 0)
     {
         log_message(LOG_ERROR, "Instance management failed");
         fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
@@ -709,24 +793,25 @@ int main(int argc, char **argv)
         fprintf(stderr, "  sudo systemctl stop coolerdash     # Stop systemd service\n");
         fprintf(stderr, "  sudo pkill coolerdash              # Force kill if needed\n");
         fprintf(stderr, "  sudo systemctl status coolerdash   # Check service status\n");
-        return EXIT_FAILURE;
+        return -1;
     }
 
-    if (write_pid_file(config.paths_pid) != 0)
+    if (write_pid_file(config->paths_pid) != 0)
     {
-        log_message(LOG_ERROR, "Failed to create PID file: %s", config.paths_pid);
-        return EXIT_FAILURE;
+        log_message(LOG_ERROR, "Failed to create PID file: %s", config->paths_pid);
+        return -1;
     }
 
-    // Set global config pointer for signal handlers and cleanup
-    g_config_ptr = &config;
+    return 0;
+}
 
-    // Setup enhanced signal handlers with comprehensive error handling
-    setup_enhanced_signal_handlers();
-
-    // Initialize CoolerControl session
-    log_message(LOG_STATUS, "Initializing CoolerControl session...");
-    if (!init_coolercontrol_session(&config))
+/**
+ * @brief Initialize CoolerControl services.
+ * @details Initializes session and device cache.
+ */
+static int initialize_coolercontrol_services(Config *config)
+{
+    if (!init_coolercontrol_session(config))
     {
         log_message(LOG_ERROR, "CoolerControl session initialization failed");
         fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
@@ -735,15 +820,13 @@ int main(int argc, char **argv)
                         "  - Is the daemon running on %s?\n"
                         "  - Is the password correct in configuration?\n"
                         "  - Are network connections allowed?\n",
-                config.daemon_address);
+                config->daemon_address);
         fflush(stderr);
-        remove_pid_file(config.paths_pid);
-        return EXIT_FAILURE;
+        remove_pid_file(config->paths_pid);
+        return -1;
     }
 
-    // Initialize device cache once at startup for optimal performance
-    log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
-    if (!init_device_cache(&config))
+    if (!init_device_cache(config))
     {
         log_message(LOG_ERROR, "Failed to initialize device cache");
         fprintf(stderr, "Error: CoolerControl session could not be initialized\n"
@@ -752,71 +835,105 @@ int main(int argc, char **argv)
                         "  - Is the daemon running on %s?\n"
                         "  - Is the password correct in configuration?\n"
                         "  - Are network connections allowed?\n",
-                config.daemon_address);
-        remove_pid_file(config.paths_pid);
-        return EXIT_FAILURE;
+                config->daemon_address);
+        remove_pid_file(config->paths_pid);
+        return -1;
     }
 
-    // Initialize device data structures
+    return 0;
+}
+
+/**
+ * @brief Initialize and validate device information.
+ * @details Retrieves device info and validates sensors.
+ */
+static void initialize_device_info(Config *config)
+{
     char device_uid[128] = {0};
     monitor_sensor_data_t temp_data = {0};
     char device_name[CONFIG_MAX_STRING_LEN] = {0};
     int api_screen_width = 0, api_screen_height = 0;
 
-    // Get complete device info from cache (no API call)
-    if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
-                           device_name, sizeof(device_name), &api_screen_width, &api_screen_height))
+    if (!get_liquidctl_data(config, device_uid, sizeof(device_uid),
+                            device_name, sizeof(device_name), &api_screen_width, &api_screen_height))
     {
-        // Update config with device screen dimensions (device values override config)
-        update_config_from_device(&config);
+        log_message(LOG_ERROR, "Could not retrieve device information");
+        return;
+    }
 
-        const char *uid_display = (device_uid[0] != '\0')
-                                      ? device_uid
-                                      : "Unknown device UID";
-        const char *name_display = (device_name[0] != '\0')
-                                       ? device_name
-                                       : "Unknown device";
+    update_config_from_device(config);
 
-        log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
+    const char *uid_display = (device_uid[0] != '\0') ? device_uid : "Unknown device UID";
+    const char *name_display = (device_name[0] != '\0') ? device_name : "Unknown device";
 
-        // Get temperature data separately for validation and log sensor detection status
-        if (get_temperature_monitor_data(&config, &temp_data))
+    log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
+
+    if (get_temperature_monitor_data(config, &temp_data))
+    {
+        if (temp_data.temp_cpu > 0.0f || temp_data.temp_gpu > 0.0f)
         {
-            if (temp_data.temp_cpu > 0.0f || temp_data.temp_gpu > 0.0f)
-            {
-                log_message(LOG_STATUS, "Sensor values successfully detected");
-            }
-            else
-            {
-                log_message(LOG_WARNING, "Sensor detection issues - temperature values not available");
-            }
+            log_message(LOG_STATUS, "Sensor values successfully detected");
         }
         else
         {
-            log_message(LOG_WARNING, "Sensor detection issues - check CoolerControl connection");
+            log_message(LOG_WARNING, "Sensor detection issues - temperature values not available");
         }
-
-        // Show diagnostic information in debug mode
-        show_system_diagnostics(&config, api_screen_width, api_screen_height);
     }
     else
     {
-        log_message(LOG_ERROR, "Could not retrieve device information");
-        // Continue execution - some functionality may still work
+        log_message(LOG_WARNING, "Sensor detection issues - check CoolerControl connection");
     }
 
-    log_message(LOG_STATUS, "Starting daemon");
+    show_system_diagnostics(config, api_screen_width, api_screen_height);
+}
 
-    // Run daemon with proper error handling
+/**
+ * @brief Perform cleanup operations.
+ * @details Removes PID and image files, sends shutdown image.
+ */
+static void perform_cleanup(Config *config)
+{
+    log_message(LOG_INFO, "Daemon shutdown initiated");
+    send_shutdown_image_if_needed();
+    remove_pid_file(config->paths_pid);
+    remove_image_file(config->paths_image_coolerdash);
+    running = 0;
+    log_message(LOG_INFO, "CoolerDash shutdown complete");
+}
+
+/**
+ * @brief Enhanced main entry point for CoolerDash with comprehensive error handling.
+ * @details Loads configuration, ensures single instance, initializes all modules, and starts the main daemon loop.
+ */
+int main(int argc, char **argv)
+{
+    const char *config_path = parse_arguments(argc, argv);
+
+    log_message(LOG_STATUS, "CoolerDash v%s starting up...", read_version_from_file());
+
+    Config config = {0};
+    log_message(LOG_STATUS, "Loading configuration...");
+
+    if (initialize_config_and_instance(config_path, &config) != 0)
+    {
+        return EXIT_FAILURE;
+    }
+
+    g_config_ptr = &config;
+    setup_enhanced_signal_handlers();
+
+    log_message(LOG_STATUS, "Initializing CoolerControl session...");
+    if (initialize_coolercontrol_services(&config) != 0)
+    {
+        return EXIT_FAILURE;
+    }
+
+    log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
+    initialize_device_info(&config);
+
+    log_message(LOG_STATUS, "Starting daemon");
     int result = run_daemon(&config);
 
-    // Ensure proper cleanup on exit
-    log_message(LOG_INFO, "Daemon shutdown initiated");
-    send_shutdown_image_if_needed(); // Ensure shutdown image is sent on normal exit
-    remove_pid_file(config.paths_pid);
-    remove_image_file(config.paths_image_coolerdash);
-    running = 0;
-
-    log_message(LOG_INFO, "CoolerDash shutdown complete");
+    perform_cleanup(&config);
     return result;
 }
