@@ -382,14 +382,12 @@ static int handle_mixed_config(Config *config, const char *name, const char *val
 /**
  * @brief Handle layout section configuration with reduced complexity.
  * @details Processes layout-related configuration keys using lookup table approach.
+ *          Box parameters removed - all positioning now calculated from display dimensions.
  */
 static int get_layout_config(Config *config, const char *name, const char *value)
 {
     static const MixedConfigEntry entries[] = {
-        {"box_width", offsetof(Config, layout_box_width), TYPE_UINT16, 0},
-        {"box_height", offsetof(Config, layout_box_height), TYPE_UINT16, 0},
-        {"box_gap", offsetof(Config, layout_box_gap), TYPE_UINT16, 0},
-        {"bar_width", offsetof(Config, layout_bar_width), TYPE_UINT16, 0},
+        {"bar_width", offsetof(Config, layout_bar_width), TYPE_UINT16, 0}, // Legacy - not used
         {"bar_height", offsetof(Config, layout_bar_height), TYPE_UINT16, 0},
         {"bar_gap", offsetof(Config, layout_bar_gap), TYPE_UINT16, 0},
         {"bar_border_width", offsetof(Config, layout_bar_border_width), TYPE_FLOAT, 0}};
@@ -487,22 +485,19 @@ static Color *get_color_pointer_from_section(Config *config, const char *section
  */
 static void set_color_component(Color *color, const char *name, const char *value)
 {
-    if (!color || !name || !value)
+    if (!color || !name || !value || name[1] != '\0')
         return;
 
     switch (name[0])
     {
     case 'r':
-        if (strcmp(name, "r") == 0)
-            parse_color_component(value, &color->r);
+        parse_color_component(value, &color->r);
         break;
     case 'g':
-        if (strcmp(name, "g") == 0)
-            parse_color_component(value, &color->g);
+        parse_color_component(value, &color->g);
         break;
     case 'b':
-        if (strcmp(name, "b") == 0)
-            parse_color_component(value, &color->b);
+        parse_color_component(value, &color->b);
         break;
     }
 }
@@ -562,24 +557,35 @@ static void set_paths_defaults(Config *config)
 }
 
 /**
+ * @brief Try to set display dimensions from LCD device.
+ * @details Helper function to query LCD device for dimensions and set them if successful.
+ */
+static void try_set_lcd_dimensions(Config *config)
+{
+    if (config->display_width != 0 && config->display_height != 0)
+        return;
+
+    int lcd_width = 0, lcd_height = 0;
+    if (!get_liquidctl_data(config, NULL, 0, NULL, 0, &lcd_width, &lcd_height))
+        return;
+
+    if (lcd_width <= 0 || lcd_height <= 0)
+        return;
+
+    if (config->display_width == 0)
+        config->display_width = lcd_width;
+    if (config->display_height == 0)
+        config->display_height = lcd_height;
+}
+
+/**
  * @brief Set display default values with LCD device fallback.
  * @details Helper function to set default display configuration values, attempting to get LCD dimensions from device.
  */
 static void set_display_defaults(Config *config)
 {
     // Try to get dimensions from Liquidctl device first
-    if (config->display_width == 0 || config->display_height == 0)
-    {
-        int lcd_width = 0, lcd_height = 0;
-        if (get_liquidctl_data(config, NULL, 0, NULL, 0, &lcd_width, &lcd_height) &&
-            lcd_width > 0 && lcd_height > 0)
-        {
-            if (config->display_width == 0)
-                config->display_width = lcd_width;
-            if (config->display_height == 0)
-                config->display_height = lcd_height;
-        }
-    }
+    try_set_lcd_dimensions(config);
 
     if (config->display_refresh_interval_sec == 0)
         config->display_refresh_interval_sec = 2;
@@ -593,22 +599,20 @@ static void set_display_defaults(Config *config)
 
 /**
  * @brief Set layout default values.
- * @details Helper function to set default layout configuration values based on display dimensions.
+ * @details Helper function to set default layout configuration values.
+ *          All positioning and sizing is now calculated dynamically from display_width and display_height.
+ *          layout_bar_width is legacy and not used in dynamic scaling.
  */
 static void set_layout_defaults(Config *config)
 {
-    if (config->layout_box_width == 0)
-        config->layout_box_width = config->display_width;
-    if (config->layout_box_height == 0)
-        config->layout_box_height = config->display_height / 2;
     if (config->layout_bar_width == 0)
-        config->layout_bar_width = config->layout_box_width - 10;
+        config->layout_bar_width = 230; // Legacy - not used in dynamic scaling
     if (config->layout_bar_height == 0)
-        config->layout_bar_height = 22;
+        config->layout_bar_height = 24; // Slightly taller bars (was 22)
     if (config->layout_bar_gap == 0)
-        config->layout_bar_gap = 10;
+        config->layout_bar_gap = 12; // More gap between bars (was 10)
     if (config->layout_bar_border_width == 0.0f)
-        config->layout_bar_border_width = 1.5f;
+        config->layout_bar_border_width = 2.0f; // Thicker border (was 1.5)
 }
 
 /**

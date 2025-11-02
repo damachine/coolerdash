@@ -58,20 +58,6 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict s
 }
 
 /**
- * @brief Secure memory allocation with initialization.
- * @details Allocates memory using calloc to ensure zero-initialization and prevent uninitialized data access.
- */
-void *cc_secure_malloc(size_t size)
-{
-    if (size == 0 || size > CC_MAX_SAFE_ALLOC_SIZE)
-    {
-        return NULL;
-    }
-
-    return calloc(1, size);
-}
-
-/**
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
@@ -94,17 +80,6 @@ int cc_init_response_buffer(http_response *response, size_t initial_capacity)
     response->capacity = initial_capacity;
     response->data[0] = '\0';
     return 1;
-}
-
-/**
- * @brief Validate HTTP response buffer integrity.
- * @details Checks if response buffer is in valid state for operations.
- */
-int cc_validate_response_buffer(const http_response *response)
-{
-    return (response &&
-            response->data &&
-            response->size <= response->capacity);
 }
 
 /**
@@ -191,6 +166,65 @@ const char *extract_device_type_from_json(const json_t *dev)
 }
 
 /**
+ * @brief Check if a device has a circular display based on device name/type.
+ * @details Returns 1 if the device is known to have a circular/round LCD display.
+ *          Uses an internal database of known circular display devices.
+ *
+ *          Display shape rules for NZXT Kraken devices:
+ *          - NZXT Kraken 2023 with 240x240 = RECTANGULAR (no inscribe factor)
+ *          - NZXT Kraken with >240x240 (e.g., 320x320) = CIRCULAR (with inscribe factor)
+ *
+ *          Known devices with CIRCULAR displays:
+ *          - NZXT Kraken Z (320x320 circular)
+ *          - NZXT Kraken Elite with >240x240 (circular)
+ *
+ *          Known devices with RECTANGULAR displays:
+ *          - NZXT Kraken 2023 (240x240 rectangular LCD)
+ *          - NZXT Kraken X (rectangular LCD)
+ *          - Corsair iCUE H100i/H115i/H150i Elite LCD (480x480 square)
+ *          - Corsair Commander Pro LCD (rectangular)
+ */
+int is_circular_display_device(const char *device_name, int screen_width, int screen_height)
+{
+    if (!device_name)
+        return 0;
+
+    // Check if device is NZXT Kraken series
+    const int is_kraken = (strstr(device_name, "Kraken") != NULL);
+
+    if (is_kraken)
+    {
+        // NZXT Kraken display shape depends on resolution:
+        // - 240x240 or smaller = RECTANGULAR
+        // - Larger than 240x240 = CIRCULAR
+        const int is_large_display = (screen_width > 240 || screen_height > 240);
+        return is_large_display ? 1 : 0;
+    }
+
+    // Database of non-Kraken devices with CIRCULAR displays
+    // Add new circular display devices here (non-Kraken only)
+    const char *circular_devices[] = {
+        // Add other brands with circular displays here
+        // Example: "Corsair LCD Circular Model"
+    };
+
+    const size_t num_circular = sizeof(circular_devices) / sizeof(circular_devices[0]);
+
+    // Check if device name contains any known circular display identifier
+    for (size_t i = 0; i < num_circular; i++)
+    {
+        if (strstr(device_name, circular_devices[i]) != NULL)
+        {
+            return 1; // Circular display detected
+        }
+    }
+
+    // Default: assume rectangular display if not in circular database
+    // This is safer as most displays are rectangular
+    return 0;
+}
+
+/**
  * @brief Check if device type is a supported Liquidctl device.
  * @details Compares device type string against list of supported types.
  */
@@ -245,19 +279,36 @@ static void extract_device_name(const json_t *dev, char *name_buffer, size_t buf
 }
 
 /**
+ * @brief Navigate to lcd_info object in device JSON.
+ * @details Traverses the nested JSON structure to find lcd_info.
+ */
+static const json_t *get_lcd_info_from_device(const json_t *dev)
+{
+    if (!dev)
+        return NULL;
+
+    const json_t *info = json_object_get(dev, "info");
+    if (!info)
+        return NULL;
+
+    const json_t *channels = json_object_get(info, "channels");
+    if (!channels)
+        return NULL;
+
+    const json_t *lcd_channel = json_object_get(channels, "lcd");
+    if (!lcd_channel)
+        return NULL;
+
+    return json_object_get(lcd_channel, "lcd_info");
+}
+
+/**
  * @brief Extract LCD screen dimensions from JSON device object.
  * @details Extracts screen width and height from nested LCD info structure.
  */
 static void extract_lcd_dimensions(const json_t *dev, int *width, int *height)
 {
-    if (!dev)
-        return;
-
-    const json_t *info = json_object_get(dev, "info");
-    const json_t *channels = info ? json_object_get(info, "channels") : NULL;
-    const json_t *lcd_channel = channels ? json_object_get(channels, "lcd") : NULL;
-    const json_t *lcd_info = lcd_channel ? json_object_get(lcd_channel, "lcd_info") : NULL;
-
+    const json_t *lcd_info = get_lcd_info_from_device(dev);
     if (!lcd_info)
         return;
 
@@ -277,39 +328,46 @@ static void extract_lcd_dimensions(const json_t *dev, int *width, int *height)
 }
 
 /**
+ * @brief Reallocate response buffer if needed.
+ * @details Grows buffer capacity using exponential growth strategy.
+ */
+static int reallocate_response_buffer(http_response *response, size_t required_size)
+{
+    const size_t new_capacity = (required_size > response->capacity * 3 / 2)
+                                    ? required_size
+                                    : response->capacity * 3 / 2;
+
+    char *ptr = realloc(response->data, new_capacity);
+    if (!ptr)
+    {
+        log_message(LOG_ERROR, "Memory allocation failed for response data: %zu bytes", new_capacity);
+        free(response->data);
+        response->data = NULL;
+        response->size = 0;
+        response->capacity = 0;
+        return 0;
+    }
+
+    response->data = ptr;
+    response->capacity = new_capacity;
+    return 1;
+}
+
+/**
  * @brief Callback for libcurl to write received data into a buffer.
  * @details This function is called by libcurl to write the response data into a dynamically allocated buffer with automatic reallocation when needed.
  */
 size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response)
 {
-    // Validate input
     const size_t realsize = size * nmemb;
     const size_t new_size = response->size + realsize + 1;
 
-    // Reallocate if needed
     if (new_size > response->capacity)
     {
-        // Grow capacity
-        const size_t new_capacity = (new_size > response->capacity * 3 / 2) ? new_size : response->capacity * 3 / 2;
-
-        // Reallocate
-        char *ptr = realloc(response->data, new_capacity);
-        if (!ptr)
-        {
-            log_message(LOG_ERROR, "Memory allocation failed for response data: %zu bytes", new_capacity);
-            free(response->data);
-            response->data = NULL;
-            response->size = 0;
-            response->capacity = 0;
+        if (!reallocate_response_buffer(response, new_size))
             return 0;
-        }
-
-        // Clear new memory
-        response->data = ptr;
-        response->capacity = new_capacity;
     }
 
-    // Copy data with bounds safety (capacity ausreichend geprüft)
     if (realsize > 0)
     {
         memmove(response->data + response->size, contents, realsize);
@@ -317,21 +375,15 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb, http_resp
         response->data[response->size] = '\0';
     }
 
-    // Return size
     return realsize;
 }
 
 /**
- * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
- * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
+ * @brief Initialize output parameters to default values.
+ * @details Sets all output parameters to their default/empty state.
  */
-static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+static void initialize_liquidctl_output_params(char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
 {
-    // Validate input
-    if (!json)
-        return 0;
-
-    // Initialize output variables
     if (lcd_uid && uid_size > 0)
         lcd_uid[0] = '\0';
     if (found_liquidctl)
@@ -342,8 +394,57 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         *screen_height = 0;
     if (device_name && name_size > 0)
         device_name[0] = '\0';
+}
 
-    // Parse JSON
+/**
+ * @brief Extract all information from a Liquidctl device.
+ * @details Populates output parameters with device UID, name, and display dimensions.
+ */
+static void extract_liquidctl_device_info(const json_t *dev, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+{
+    if (found_liquidctl)
+        *found_liquidctl = 1;
+
+    extract_device_uid(dev, lcd_uid, uid_size);
+    extract_device_name(dev, device_name, name_size);
+    extract_lcd_dimensions(dev, screen_width, screen_height);
+}
+
+/**
+ * @brief Search for Liquidctl device in devices array.
+ * @details Iterates through devices array and extracts info when Liquidctl device is found.
+ */
+static int search_liquidctl_device(const json_t *devices, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+{
+    const size_t device_count = json_array_size(devices);
+    for (size_t i = 0; i < device_count; i++)
+    {
+        const json_t *dev = json_array_get(devices, i);
+        if (!dev)
+            continue;
+
+        const char *type_str = extract_device_type_from_json(dev);
+        if (!is_liquidctl_device(type_str))
+            continue;
+
+        extract_liquidctl_device_info(dev, lcd_uid, uid_size, found_liquidctl, screen_width, screen_height, device_name, name_size);
+        return 1;
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Parse devices JSON and extract LCD UID, display info and device name from Liquidctl devices.
+ * @details This function parses the JSON response from the CoolerControl API to find Liquidctl devices, extracting their UID, display dimensions, and device name.
+ */
+static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+{
+    if (!json)
+        return 0;
+
+    initialize_liquidctl_output_params(lcd_uid, uid_size, found_liquidctl, screen_width, screen_height, device_name, name_size);
+
     json_error_t error;
     json_t *root = json_loads(json, 0, &error);
     if (!root)
@@ -352,7 +453,6 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         return 0;
     }
 
-    // Get devices array
     const json_t *devices = json_object_get(root, "devices");
     if (!devices || !json_is_array(devices))
     {
@@ -360,35 +460,9 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         return 0;
     }
 
-    // Search for Liquidctl device
-    const size_t device_count = json_array_size(devices);
-    for (size_t i = 0; i < device_count; i++)
-    {
-        const json_t *dev = json_array_get(devices, i);
-        if (!dev)
-            continue;
-
-        // Check if this is a Liquidctl device
-        const char *type_str = extract_device_type_from_json(dev);
-        if (!is_liquidctl_device(type_str))
-            continue;
-
-        // Found Liquidctl device - extract all information
-        if (found_liquidctl)
-            *found_liquidctl = 1;
-
-        extract_device_uid(dev, lcd_uid, uid_size);
-        extract_device_name(dev, device_name, name_size);
-        extract_lcd_dimensions(dev, screen_width, screen_height);
-
-        // Found device, exit early
-        json_decref(root);
-        return 1;
-    }
-
-    // No Liquidctl device found
+    int result = search_liquidctl_device(devices, lcd_uid, uid_size, found_liquidctl, screen_width, screen_height, device_name, name_size);
     json_decref(root);
-    return 1;
+    return result;
 }
 
 /**
@@ -491,24 +565,32 @@ static int initialize_device_cache(const Config *config)
 }
 
 /**
+ * @brief Validate snprintf result for buffer overflow.
+ * @details Checks if snprintf truncated output.
+ */
+static int validate_snprintf(int written, size_t buffer_size, char *buffer)
+{
+    if (written < 0 || (size_t)written >= buffer_size)
+    {
+        buffer[buffer_size - 1] = '\0';
+        return 0;
+    }
+    return 1;
+}
+
+/**
  * @brief Build login URL and credentials for CoolerControl session.
  * @details Constructs the login URL and username:password string from config.
  */
 static int build_login_credentials(const Config *config, char *login_url, size_t url_size, char *userpwd, size_t pwd_size)
 {
     int written_url = snprintf(login_url, url_size, "%s/login", config->daemon_address);
-    if (written_url < 0 || (size_t)written_url >= url_size)
-    {
-        login_url[url_size - 1] = '\0';
+    if (!validate_snprintf(written_url, url_size, login_url))
         return 0;
-    }
 
     int written_pwd = snprintf(userpwd, pwd_size, "CCAdmin:%s", config->daemon_password);
-    if (written_pwd < 0 || (size_t)written_pwd >= pwd_size)
-    {
-        userpwd[pwd_size - 1] = '\0';
+    if (!validate_snprintf(written_pwd, pwd_size, userpwd))
         return 0;
-    }
 
     return 1;
 }
@@ -544,18 +626,25 @@ static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
 }
 
 /**
+ * @brief Check login response status.
+ * @details Validates CURL result and HTTP response code.
+ */
+static int is_login_successful(CURLcode res, long response_code)
+{
+    return (res == CURLE_OK && (response_code == 200 || response_code == 204));
+}
+
+/**
  * @brief Initializes the CoolerControl session (CURL setup and login).
  * @details This function initializes the CURL library, sets up the session cookie jar, constructs the login URL and credentials, and performs a login to the CoolerControl API. No handshake or session authentication is performed beyond basic login.
  */
 int init_coolercontrol_session(const Config *config)
 {
-    // Initialize cURL and create handle
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
     if (!cc_session.curl_handle)
         return 0;
 
-    // Create unique cookie jar path using PID
     int written_cookie = snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar),
                                   "/tmp/coolerdash_cookie_%d.txt", getpid());
     if (written_cookie < 0 || (size_t)written_cookie >= sizeof(cc_session.cookie_jar))
@@ -563,43 +652,32 @@ int init_coolercontrol_session(const Config *config)
         cc_session.cookie_jar[sizeof(cc_session.cookie_jar) - 1] = '\0';
     }
 
-    // Configure cookie handling
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEJAR, cc_session.cookie_jar);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEFILE, cc_session.cookie_jar);
 
-    // Build login credentials
     char login_url[CC_URL_SIZE];
     char userpwd[CC_USERPWD_SIZE];
     if (!build_login_credentials(config, login_url, sizeof(login_url), userpwd, sizeof(userpwd)))
         return 0;
 
-    // Configure CURL and perform login
     struct curl_slist *headers = configure_login_curl(cc_session.curl_handle, config, login_url, userpwd);
 
-    // Perform login request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long response_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
 
-    // Clear sensitive data
     memset(userpwd, 0, sizeof(userpwd));
 
-    // Cleanup headers
     if (headers)
         curl_slist_free_all(headers);
 
-    // Check if login was successful
-    if (res == CURLE_OK && (response_code == 200 || response_code == 204))
+    if (is_login_successful(res, response_code))
     {
         cc_session.session_initialized = 1;
         return 1;
     }
-    else
-    {
-        log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, response_code);
-    }
 
-    // Login failed
+    log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, response_code);
     return 0;
 }
 
@@ -689,62 +767,63 @@ int init_device_cache(const Config *config)
 }
 
 /**
- * @brief Update config with device screen dimensions (device values override config).
- * @details Reads screen dimensions from device cache and updates config if device values are available. Device values take priority over config.ini values.
+ * @brief Validate device cache dimensions.
+ * @details Checks if device has valid screen dimensions.
  */
-int update_config_from_device(Config *config)
+static int validate_device_dimensions(void)
 {
-    // Validate input
-    if (!config)
-    {
-        log_message(LOG_ERROR, "Invalid config pointer for device update");
-        return 0;
-    }
-
-    // Check if device cache is initialized
-    if (!device_cache.initialized)
-    {
-        log_message(LOG_WARNING, "Device cache not initialized, using config values as fallback");
-        return 0;
-    }
-
-    // Check if device has valid screen dimensions
     if (device_cache.screen_width <= 0 || device_cache.screen_height <= 0)
     {
         log_message(LOG_WARNING, "Device has invalid screen dimensions (%dx%d), using config values",
                     device_cache.screen_width, device_cache.screen_height);
         return 0;
     }
+    return 1;
+}
+
+/**
+ * @brief Update config display dimension if not set.
+ * @details Sets dimension from device if config value is 0 (commented out).
+ */
+static int update_dimension(uint16_t *config_dim, int device_dim, const char *dim_name)
+{
+    if (*config_dim == 0)
+    {
+        *config_dim = (uint16_t)device_dim;
+        log_message(LOG_INFO, "Display %s set from device: %d (config.ini was commented out)",
+                    dim_name, *config_dim);
+        return 1;
+    }
+
+    log_message(LOG_INFO, "Display %s from config.ini: %d (overrides device value %d)",
+                dim_name, *config_dim, device_dim);
+    return 0;
+}
+
+/**
+ * @brief Update config with device screen dimensions (device values override config).
+ * @details Reads screen dimensions from device cache and updates config if device values are available. Device values take priority over config.ini values.
+ */
+int update_config_from_device(Config *config)
+{
+    if (!config)
+    {
+        log_message(LOG_ERROR, "Invalid config pointer for device update");
+        return 0;
+    }
+
+    if (!device_cache.initialized)
+    {
+        log_message(LOG_WARNING, "Device cache not initialized, using config values as fallback");
+        return 0;
+    }
+
+    if (!validate_device_dimensions())
+        return 0;
 
     int updated = 0;
-
-    // Update display_width ONLY if not set in config.ini (value is 0 = commented out)
-    if (config->display_width == 0)
-    {
-        config->display_width = (uint16_t)device_cache.screen_width;
-        log_message(LOG_INFO, "Display width set from device: %d (config.ini was commented out)",
-                    config->display_width);
-        updated = 1;
-    }
-    else
-    {
-        log_message(LOG_INFO, "Display width from config.ini: %d (overrides device value %d)",
-                    config->display_width, device_cache.screen_width);
-    }
-
-    // Update display_height ONLY if not set in config.ini (value is 0 = commented out)
-    if (config->display_height == 0)
-    {
-        config->display_height = (uint16_t)device_cache.screen_height;
-        log_message(LOG_INFO, "Display height set from device: %d (config.ini was commented out)",
-                    config->display_height);
-        updated = 1;
-    }
-    else
-    {
-        log_message(LOG_INFO, "Display height from config.ini: %d (overrides device value %d)",
-                    config->display_height, device_cache.screen_height);
-    }
+    updated |= update_dimension(&config->display_width, device_cache.screen_width, "width");
+    updated |= update_dimension(&config->display_height, device_cache.screen_height, "height");
 
     return updated;
 }
@@ -912,29 +991,54 @@ static void cleanup_lcd_upload_curl(void)
 }
 
 /**
- * @brief Sends an image to the LCD display.
- * @details This function uploads an image to the LCD display using a multipart HTTP PUT request. It requires the session to be initialized and the device UID to be available.
+ * @brief Validate upload request parameters.
+ * @details Checks all required parameters for LCD upload.
  */
-int send_image_to_lcd(const Config *config, const char *image_path, const char *device_uid)
+static int validate_upload_params(const char *image_path, const char *device_uid)
 {
-    // Basic validation only
     if (!cc_session.curl_handle || !image_path || !device_uid || !cc_session.session_initialized)
     {
         log_message(LOG_ERROR, "Invalid parameters or session not initialized");
         return 0;
     }
+    return 1;
+}
 
-    // Build upload URL
+/**
+ * @brief Check LCD upload response.
+ * @details Validates CURL result and HTTP response code for LCD upload.
+ */
+static int check_upload_response(CURLcode res, long http_response_code, const http_response *response)
+{
+    if (res == CURLE_OK && http_response_code == 200)
+        return 1;
+
+    log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res, http_response_code);
+    if (response->data && response->size > 0)
+    {
+        response->data[response->size] = '\0';
+        log_message(LOG_ERROR, "Server response: %s", response->data);
+    }
+    return 0;
+}
+
+/**
+ * @brief Sends an image to the LCD display.
+ * @details This function uploads an image to the LCD display using a multipart HTTP PUT request. It requires the session to be initialized and the device UID to be available.
+ */
+int send_image_to_lcd(const Config *config, const char *image_path, const char *device_uid)
+{
+    if (!validate_upload_params(image_path, device_uid))
+        return 0;
+
     char upload_url[CC_URL_SIZE];
     snprintf(upload_url, sizeof(upload_url), "%s/devices/%s/settings/lcd/lcd/images?log=false",
              config->daemon_address, device_uid);
 
-    // Build multipart form
     curl_mime *form = build_lcd_upload_form(config, image_path);
     if (!form)
         return 0;
 
-    // Initialize response buffer
     http_response response = {0};
     if (!cc_init_response_buffer(&response, 4096))
     {
@@ -943,39 +1047,19 @@ int send_image_to_lcd(const Config *config, const char *image_path, const char *
         return 0;
     }
 
-    // Configure CURL and perform request
     struct curl_slist *headers = configure_lcd_upload_curl(config, upload_url, form, &response);
 
-    // Perform request
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
-
-    // Get response info
     long http_response_code = -1;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_response_code);
 
-    // Check response
-    int success = 0;
-    if (res == CURLE_OK && http_response_code == 200)
-    {
-        success = 1;
-    }
-    else
-    {
-        log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res, http_response_code);
-        if (response.data && response.size > 0)
-        {
-            response.data[response.size] = '\0';
-            log_message(LOG_ERROR, "Server response: %s", response.data);
-        }
-    }
+    int success = check_upload_response(res, http_response_code, &response);
 
-    // Cleanup resources
     cc_cleanup_response_buffer(&response);
     if (headers)
         curl_slist_free_all(headers);
     curl_mime_free(form);
     cleanup_lcd_upload_curl();
 
-    // Return success
     return success;
 }
