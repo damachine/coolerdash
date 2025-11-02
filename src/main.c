@@ -767,6 +767,8 @@ int main(int argc, char **argv)
     if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
                            device_name, sizeof(device_name), &api_screen_width, &api_screen_height))
     {
+        // Update config with device screen dimensions (device values override config)
+        update_config_from_device(&config);
 
         const char *uid_display = (device_uid[0] != '\0')
                                       ? device_uid

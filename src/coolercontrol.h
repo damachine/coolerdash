@@ -120,6 +120,12 @@ int get_liquidctl_data(const struct Config *config, char *device_uid, size_t uid
 int init_device_cache(const struct Config *config);
 
 /**
+ * @brief Update config with device screen dimensions (only if not set in config.ini).
+ * @details Reads screen dimensions from device cache and updates config ONLY if config.ini values are commented out (= 0). Config.ini values always have priority over device values.
+ */
+int update_config_from_device(struct Config *config);
+
+/**
  * @brief Sends an image directly to the LCD of the CoolerControl device.
  * @details Uploads an image to the LCD display using a multipart HTTP PUT request with brightness and orientation settings.
  */
