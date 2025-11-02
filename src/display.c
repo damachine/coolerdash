@@ -212,8 +212,8 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
     // For small displays (≤240×240), shift right
     if (config->display_width <= 240 && config->display_height <= 240)
     {
-        cpu_temp_x += 20;
-        gpu_temp_x += 20;
+        cpu_temp_x += 18;
+        gpu_temp_x += 18;
     }
 
     const double edge_margin = config->display_height * TEMP_EDGE_MARGIN_FACTOR;
