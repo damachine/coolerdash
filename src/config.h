@@ -77,11 +77,8 @@ typedef struct Config
     uint8_t lcd_brightness;
     uint8_t lcd_orientation;
 
-    // Layout configuration
-    uint16_t layout_box_width;
-    uint16_t layout_box_height;
-    uint16_t layout_box_gap;
-    uint16_t layout_bar_width;
+    // Layout configuration - all positioning is now calculated dynamically from display dimensions
+    uint16_t layout_bar_width; // Legacy - not used in dynamic scaling
     uint16_t layout_bar_height;
     uint16_t layout_bar_gap;
     float layout_bar_border_width;

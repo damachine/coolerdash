@@ -11,7 +11,7 @@
 | NZXT             | Kraken 2023              | ✅ Working    | @damachine              | 2025-06-08 |
 | NZXT             | Kraken 2023              | ✅ Working    | @Kimloc (discord)       | 2025-08-27 |
 | NZXT             | Kraken 2023              | ✅ Working    | @olivetti80             | 2025-09-12 |
-| NZXT             | Kraken 2023 Elite        | ⚠️ Partially  | @Mondkeks               | 2025-10-09 |
+| ?                | ?                        | ?             | ?                       | ?          |
 | ?                | ?                        | ?             | ?                       | ?          |
 | ?                | ?                        | ?             | ?                       | ?          |
 | ?                | ?                        | ?             | ?                       | ?          |

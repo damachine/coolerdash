@@ -60,22 +60,10 @@ typedef struct http_response
 int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict src);
 
 /**
- * @brief Secure memory allocation with initialization.
- * @details Allocates memory using calloc to ensure zero-initialization and prevent uninitialized data access.
- */
-void *cc_secure_malloc(size_t size);
-
-/**
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
 int cc_init_response_buffer(http_response *response, size_t initial_capacity);
-
-/**
- * @brief Validate HTTP response buffer integrity.
- * @details Checks if response buffer is in valid state for operations.
- */
-int cc_validate_response_buffer(const http_response *response);
 
 /**
  * @brief Cleanup HTTP response buffer and free memory.
@@ -136,6 +124,17 @@ int send_image_to_lcd(const struct Config *config, const char *image_path, const
  * @details Common helper function to extract device type string from JSON device object.
  */
 const char *extract_device_type_from_json(const json_t *dev);
+
+/**
+ * @brief Check if a device has a circular display based on device name/type.
+ * @details Returns true if the device is known to have a circular/round LCD display.
+ *          Uses an internal database of known circular display devices.
+ *          For NZXT Kraken devices, resolution determines shape:
+ *          - 240x240 or smaller = rectangular
+ *          - Larger than 240x240 = circular
+ */
+int is_circular_display_device(const char *device_name, int screen_width, int screen_height);
+
 size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response);
 
 #endif // COOLERCONTROL_H
