@@ -60,22 +60,10 @@ typedef struct http_response
 int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict src);
 
 /**
- * @brief Secure memory allocation with initialization.
- * @details Allocates memory using calloc to ensure zero-initialization and prevent uninitialized data access.
- */
-void *cc_secure_malloc(size_t size);
-
-/**
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
 int cc_init_response_buffer(http_response *response, size_t initial_capacity);
-
-/**
- * @brief Validate HTTP response buffer integrity.
- * @details Checks if response buffer is in valid state for operations.
- */
-int cc_validate_response_buffer(const http_response *response);
 
 /**
  * @brief Cleanup HTTP response buffer and free memory.

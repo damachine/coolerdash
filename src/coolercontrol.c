@@ -58,20 +58,6 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict s
 }
 
 /**
- * @brief Secure memory allocation with initialization.
- * @details Allocates memory using calloc to ensure zero-initialization and prevent uninitialized data access.
- */
-void *cc_secure_malloc(size_t size)
-{
-    if (size == 0 || size > CC_MAX_SAFE_ALLOC_SIZE)
-    {
-        return NULL;
-    }
-
-    return calloc(1, size);
-}
-
-/**
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
@@ -94,17 +80,6 @@ int cc_init_response_buffer(http_response *response, size_t initial_capacity)
     response->capacity = initial_capacity;
     response->data[0] = '\0';
     return 1;
-}
-
-/**
- * @brief Validate HTTP response buffer integrity.
- * @details Checks if response buffer is in valid state for operations.
- */
-int cc_validate_response_buffer(const http_response *response)
-{
-    return (response &&
-            response->data &&
-            response->size <= response->capacity);
 }
 
 /**
@@ -299,9 +274,9 @@ static void extract_lcd_dimensions(const json_t *dev, int *width, int *height)
  */
 static int reallocate_response_buffer(http_response *response, size_t required_size)
 {
-    const size_t new_capacity = (required_size > response->capacity * 3 / 2) 
-                                ? required_size 
-                                : response->capacity * 3 / 2;
+    const size_t new_capacity = (required_size > response->capacity * 3 / 2)
+                                    ? required_size
+                                    : response->capacity * 3 / 2;
 
     char *ptr = realloc(response->data, new_capacity);
     if (!ptr)

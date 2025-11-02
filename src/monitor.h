@@ -37,17 +37,6 @@ typedef struct
 } monitor_sensor_data_t;
 
 /**
- * @brief Initialize the monitor subsystem.
- * @details Performs any necessary initialization for the monitoring functionality, preparing it for temperature data retrieval. Must be called before using other monitor functions.
- */
-int init_monitr(const struct Config *config);
-
-/**
- * @brief Get CPU and GPU temperature data from CoolerControl API.
- * @details Low-level function that retrieves temperature values via HTTP request to CoolerControl daemon and stores them in the provided float pointers.
- */
-
-/**
  * @brief Get temperature data into structure.
  * @details High-level convenience function that retrieves temperature data and populates a monitor_sensor_data_t structure with the values.
  */

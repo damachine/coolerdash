@@ -284,13 +284,3 @@ int get_temperature_monitor_data(const Config *config, monitor_sensor_data_t *da
     // Get temperature data from monitor module
     return get_temperature_data(config, &data->temp_cpu, &data->temp_gpu);
 }
-
-/**
- * @brief Initialize the monitor component with the given configuration.
- * @details Currently does nothing but returns success. Future implementations may include initialization logic.
- */
-int init_monitr(const Config *config)
-{
-    (void)config;
-    return 1;
-}

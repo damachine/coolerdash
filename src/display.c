@@ -35,17 +35,6 @@
 #include "coolercontrol.h"
 #include "monitor.h"
 
-// Define mathematical constants if not defined
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-#ifndef DISPLAY_M_PI
-#define DISPLAY_M_PI M_PI
-#endif
-#ifndef DISPLAY_M_PI_2
-#define DISPLAY_M_PI_2 (M_PI / 2.0)
-#endif
-
 // Internal display positioning constants (base values for 240x240 resolution)
 // These are scaled dynamically based on actual display_width and display_height
 #define DISPLAY_LABEL_Y_OFFSET_1 8
