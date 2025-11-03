@@ -92,6 +92,14 @@ typedef struct Config
     Color font_color_temp;
     Color font_color_label;
 
+    // Display positioning overrides (optional - set to -9999 for auto)
+    int display_temp_offset_x;   // Horizontal offset for temperature numbers
+    int display_temp_offset_y;   // Vertical offset for temperature numbers
+    int display_degree_offset_x; // Horizontal offset for degree symbols
+    int display_degree_offset_y; // Vertical offset for degree symbols
+    int display_label_offset_x;  // Horizontal offset for CPU/GPU labels
+    int display_label_offset_y;  // Vertical offset for CPU/GPU labels
+
     // Temperature configuration
     float temp_threshold_1;
     float temp_threshold_2;

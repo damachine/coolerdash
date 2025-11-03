@@ -42,10 +42,7 @@
 
 // Dynamic positioning factors
 #define LABEL_MARGIN_FACTOR 0.02
-#define TEMP_SPACING_FACTOR 0.04
-#define LABEL_Y_FINE_TUNE_FACTOR 0.02
 #define CONTENT_SCALE_FACTOR 0.98
-#define TEMP_EDGE_MARGIN_FACTOR 0.02
 
 /**
  * @brief Convert color component to cairo format (0-255 to 0.0-1.0)
@@ -85,12 +82,6 @@ typedef struct
 {
     double scale_x;
     double scale_y;
-    double label_y_offset_1;
-    double label_y_offset_2;
-    double temp_display_x_offset;
-    double temp_display_y_offset;
-    double temp_vertical_adj_top;
-    double temp_vertical_adj_bottom;
     double corner_radius;
     double inscribe_factor;     // 1.0 for rectangular, M_SQRT1_2 for circular
     int safe_bar_width;         // Safe bar width for circular displays
@@ -123,12 +114,6 @@ static void calculate_scaling_params(const struct Config *config, ScalingParams 
     params->safe_bar_width = (int)(safe_area_width * CONTENT_SCALE_FACTOR);
     params->safe_content_margin = (config->display_width - params->safe_bar_width) / 2.0;
 
-    params->label_y_offset_1 = config->display_height * LABEL_Y_FINE_TUNE_FACTOR;
-    params->label_y_offset_2 = config->display_height * LABEL_Y_FINE_TUNE_FACTOR;
-    params->temp_display_x_offset = 0;
-    params->temp_display_y_offset = config->display_height * TEMP_SPACING_FACTOR;
-    params->temp_vertical_adj_top = 0;
-    params->temp_vertical_adj_bottom = 0;
     params->corner_radius = 8.0 * scale_avg;
 }
 
@@ -192,6 +177,12 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
     const int effective_bar_width = params->safe_bar_width;
     const int bar_x = (config->display_width - effective_bar_width) / 2;
 
+    // Calculate bar positions (same as in draw_temperature_bars)
+    const int total_height = 2 * config->layout_bar_height + config->layout_bar_gap;
+    const int start_y = (config->display_height - total_height) / 2;
+    const int cpu_bar_y = start_y;
+    const int gpu_bar_y = start_y + config->layout_bar_height + config->layout_bar_gap;
+
     char cpu_num_str[16], gpu_num_str[16];
     snprintf(cpu_num_str, sizeof(cpu_num_str), "%d", (int)data->temp_cpu);
     snprintf(gpu_num_str, sizeof(gpu_num_str), "%d", (int)data->temp_gpu);
@@ -200,42 +191,78 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
     cairo_text_extents(cr, cpu_num_str, &cpu_num_ext);
     cairo_text_extents(cr, gpu_num_str, &gpu_num_ext);
 
-    cairo_set_font_size(cr, config->font_size_temp / 2.0);
-    cairo_text_extents_t space_ext, degree_ext;
-    cairo_text_extents(cr, " ", &space_ext);
-    cairo_text_extents(cr, "°", &degree_ext);
-    cairo_set_font_size(cr, config->font_size_temp);
+    cairo_font_extents_t font_ext;
+    cairo_font_extents(cr, &font_ext);
 
-    double cpu_temp_x = bar_x + (effective_bar_width - cpu_num_ext.width) / 2.0;
-    double gpu_temp_x = bar_x + (effective_bar_width - gpu_num_ext.width) / 2.0;
+    // Calculate maximum width for 2-digit numbers to keep position stable
+    cairo_text_extents_t max_num_ext;
+    cairo_text_extents(cr, "88", &max_num_ext); // Widest 2-digit number
 
-    // For small displays (≤240×240), shift right
+    // Left-align numbers at center position (fixed X to prevent jumping)
+    double cpu_temp_x = bar_x + (effective_bar_width - max_num_ext.width) / 2.0;
+    double gpu_temp_x = bar_x + (effective_bar_width - max_num_ext.width) / 2.0;
+
+    // For small displays (≤240×240), shift temperatures 12px to the right
     if (config->display_width <= 240 && config->display_height <= 240)
     {
         cpu_temp_x += 18;
         gpu_temp_x += 18;
     }
 
-    const double edge_margin = config->display_height * TEMP_EDGE_MARGIN_FACTOR;
-    const double cpu_temp_y = edge_margin + cpu_num_ext.height;
-    const double gpu_temp_y = config->display_height - edge_margin;
+    // Apply user-defined X offsets if set (not -9999)
+    if (config->display_temp_offset_x != -9999)
+    {
+        cpu_temp_x += config->display_temp_offset_x;
+        gpu_temp_x += config->display_temp_offset_x;
+    }
 
-    // Draw CPU temperature
+    // Position temperatures 1px outside bars (same calculation as labels)
+    // CPU temperature - above bar (same as CPU label)
+    double cpu_temp_y = cpu_bar_y + 8 - font_ext.descent;
+
+    // GPU temperature - below bar (same as GPU label)
+    double gpu_temp_y = gpu_bar_y + config->layout_bar_height - 4 + font_ext.ascent;
+
+    // Apply user-defined Y offsets if set
+    if (config->display_temp_offset_y != -9999)
+    {
+        cpu_temp_y += config->display_temp_offset_y;
+        gpu_temp_y += config->display_temp_offset_y;
+    }
+
+    // Draw CPU temperature number
     cairo_move_to(cr, cpu_temp_x, cpu_temp_y);
     cairo_show_text(cr, cpu_num_str);
 
-    cairo_set_font_size(cr, config->font_size_temp / 2.0);
-    cairo_move_to(cr, cpu_temp_x + cpu_num_ext.width + 6, cpu_temp_y - cpu_num_ext.height * 0.5);
-    cairo_show_text(cr, "°");
-    cairo_set_font_size(cr, config->font_size_temp);
-
-    // Draw GPU temperature
+    // Draw GPU temperature number
     cairo_move_to(cr, gpu_temp_x, gpu_temp_y);
     cairo_show_text(cr, gpu_num_str);
 
-    cairo_set_font_size(cr, config->font_size_temp / 2.0);
-    cairo_move_to(cr, gpu_temp_x + gpu_num_ext.width + 6, gpu_temp_y - gpu_num_ext.height * 0.5);
+    // Draw degree symbols at fixed offset
+    cairo_set_font_size(cr, config->font_size_temp / 1.66);
+
+    // Position degree symbols 18px to the right of temperature numbers
+    double degree_symbol_x = cpu_temp_x + max_num_ext.width + 16;
+    double degree_cpu_y = cpu_temp_y - cpu_num_ext.height * 0.40;
+    double degree_gpu_y = gpu_temp_y - gpu_num_ext.height * 0.40;
+
+    // Apply user-defined degree offsets if set
+    if (config->display_degree_offset_x != -9999)
+    {
+        degree_symbol_x += config->display_degree_offset_x;
+    }
+    if (config->display_degree_offset_y != -9999)
+    {
+        degree_cpu_y += config->display_degree_offset_y;
+        degree_gpu_y += config->display_degree_offset_y;
+    }
+
+    cairo_move_to(cr, degree_symbol_x, degree_cpu_y);
     cairo_show_text(cr, "°");
+
+    cairo_move_to(cr, degree_symbol_x, degree_gpu_y);
+    cairo_show_text(cr, "°");
+
     cairo_set_font_size(cr, config->font_size_temp);
 }
 
@@ -315,18 +342,37 @@ static void draw_labels(cairo_t *cr, const struct Config *config, const ScalingP
     const int gpu_bar_y = start_y + config->layout_bar_height + config->layout_bar_gap;
 
     double label_x = params->safe_content_margin + (config->display_width * LABEL_MARGIN_FACTOR);
-    label_x -= 6;
+
+    // Apply user-defined X offset if set
+    if (config->display_label_offset_x != -9999)
+    {
+        label_x += config->display_label_offset_x;
+    }
+    else
+    {
+        // Default small display adjustment only if no user override
+        label_x -= 6;
+    }
 
     cairo_font_extents_t font_ext;
     cairo_font_extents(cr, &font_ext);
 
     // CPU label - above bar
-    const double cpu_label_y = cpu_bar_y - 4 - font_ext.descent;
+    double cpu_label_y = cpu_bar_y - 1 - font_ext.descent;
+
+    // GPU label - below bar
+    double gpu_label_y = gpu_bar_y + config->layout_bar_height + 1 + font_ext.ascent;
+
+    // Apply user-defined Y offset if set
+    if (config->display_label_offset_y != -9999)
+    {
+        cpu_label_y += config->display_label_offset_y;
+        gpu_label_y += config->display_label_offset_y;
+    }
+
     cairo_move_to(cr, label_x, cpu_label_y);
     cairo_show_text(cr, "CPU");
 
-    // GPU label - below bar
-    const double gpu_label_y = gpu_bar_y + config->layout_bar_height + 4 + font_ext.ascent;
     cairo_move_to(cr, label_x, gpu_label_y);
     cairo_show_text(cr, "GPU");
 }
