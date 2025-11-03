@@ -120,6 +120,9 @@ static void parse_color_component(const char *value, uint8_t *component)
                                              : (uint8_t)val;
 }
 
+// Forward declarations
+static int get_display_positioning_config(Config *config, const char *name, const char *value);
+
 /**
  * @brief Check if section matches color pattern.
  * @details Helper function to identify color-related sections.
@@ -157,6 +160,10 @@ static int parse_config_data(void *user, const char *section, const char *name, 
     if (strcmp(section, "font") == 0)
     {
         return get_font_config(config, name, value);
+    }
+    if (strcmp(section, "display_positioning") == 0)
+    {
+        return get_display_positioning_config(config, name, value);
     }
     if (strcmp(section, "temperature") == 0)
     {
@@ -396,7 +403,7 @@ static int get_layout_config(Config *config, const char *name, const char *value
 }
 
 /**
- * @brief Handle font section configuration with reduced complexity.
+ * @brief Get font configuration value.
  * @details Processes font-related configuration keys using lookup table approach.
  */
 static int get_font_config(Config *config, const char *name, const char *value)
@@ -407,6 +414,47 @@ static int get_font_config(Config *config, const char *name, const char *value)
         {"font_size_labels", offsetof(Config, font_size_labels), TYPE_FLOAT, 0}};
 
     return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+}
+
+/**
+ * @brief Display positioning configuration entry for lookup table.
+ * @details Structure for display positioning configuration keys.
+ */
+typedef struct
+{
+    const char *key;
+    size_t offset;
+} PositioningConfigEntry;
+
+/**
+ * @brief Get display positioning override configuration values.
+ * @details Processes display positioning override keys for fine-tuning element positions using lookup table approach.
+ */
+static int get_display_positioning_config(Config *config, const char *name, const char *value)
+{
+    if (!value || value[0] == '\0')
+        return 1;
+
+    static const PositioningConfigEntry entries[] = {
+        {"display_temp_offset_x", offsetof(Config, display_temp_offset_x)},
+        {"display_temp_offset_y", offsetof(Config, display_temp_offset_y)},
+        {"display_degree_offset_x", offsetof(Config, display_degree_offset_x)},
+        {"display_degree_offset_y", offsetof(Config, display_degree_offset_y)},
+        {"display_label_offset_x", offsetof(Config, display_label_offset_x)},
+        {"display_label_offset_y", offsetof(Config, display_label_offset_y)}};
+
+    for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
+    {
+        if (strcmp(name, entries[i].key) == 0)
+        {
+            void *field_ptr = (void *)((char *)config + entries[i].offset);
+            int *dest = (int *)field_ptr;
+            *dest = safe_atoi(value, -9999);
+            return 1;
+        }
+    }
+
+    return 1;
 }
 
 /**
@@ -606,13 +654,34 @@ static void set_display_defaults(Config *config)
 static void set_layout_defaults(Config *config)
 {
     if (config->layout_bar_width == 0)
-        config->layout_bar_width = 230; // Legacy - not used in dynamic scaling
+        config->layout_bar_width = 100; // Legacy - not used in dynamic scaling
     if (config->layout_bar_height == 0)
-        config->layout_bar_height = 24; // Slightly taller bars (was 22)
+        config->layout_bar_height = 20; // Slightly taller bars
     if (config->layout_bar_gap == 0)
-        config->layout_bar_gap = 12; // More gap between bars (was 10)
+        config->layout_bar_gap = 10.0f; // Gap between bars
     if (config->layout_bar_border_width == 0.0f)
-        config->layout_bar_border_width = 2.0f; // Thicker border (was 1.5)
+        config->layout_bar_border_width = 1.0f; // Thicker border
+}
+
+/**
+ * @brief Set display positioning default values.
+ * @details Helper function to set default display positioning override values.
+ */
+static void set_display_positioning_defaults(Config *config)
+{
+    // Display positioning overrides (-9999 = auto/default)
+    if (config->display_temp_offset_x == 0)
+        config->display_temp_offset_x = -9999;
+    if (config->display_temp_offset_y == 0)
+        config->display_temp_offset_y = -9999;
+    if (config->display_degree_offset_x == 0)
+        config->display_degree_offset_x = -9999;
+    if (config->display_degree_offset_y == 0)
+        config->display_degree_offset_y = -9999;
+    if (config->display_label_offset_x == 0)
+        config->display_label_offset_x = -9999;
+    if (config->display_label_offset_y == 0)
+        config->display_label_offset_y = -9999;
 }
 
 /**
@@ -627,6 +696,8 @@ static void set_font_defaults(Config *config)
         config->font_size_temp = 100.0f;
     if (config->font_size_labels == 0.0f)
         config->font_size_labels = 30.0f;
+
+    set_display_positioning_defaults(config);
 }
 
 /**
