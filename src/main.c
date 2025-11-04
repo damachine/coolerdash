@@ -65,6 +65,8 @@ static volatile sig_atomic_t running = 1; // flag whether daemon is running
  * @details Controls whether detailed INFO logs are shown (enabled with --log parameter).
  */
 int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
+// Developer/testing flag: when set (via --develop), force displays to be treated as circular
+int force_display_circular = 0;
 
 /**
  * @brief Global pointer to configuration.
@@ -453,12 +455,14 @@ static void show_help(const char *program_name, const Config *config)
     printf("USAGE:\n");
     printf("  %s [OPTIONS] [CONFIG_PATH]\n\n", program_name);
     printf("OPTIONS:\n");
-    printf("  -h, --help     Show this help message and exit\n");
-    printf("  --log          Enable detailed INFO logging for debugging\n\n");
+    printf("  -h, --help        Show this help message and exit\n");
+    printf("  -v, --verbose     Enable verbose logging (shows detailed INFO messages)\n\n");
+    printf("      --develop      Developer: force display to be treated as circular for testing\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl start coolerdash           # Start as system service (recommended)\n");
     printf("  %s                                # Manual start with default config\n", program_name);
-    printf("  %s --log                          # Start with detailed logging enabled\n", program_name);
+    printf("  %s --verbose                      # Start with detailed logging enabled\n", program_name);
+    printf("  %s -v                             # Short form: enable verbose logging\n", program_name);
     printf("  %s /custom/config.ini             # Start with custom configuration\n\n", program_name);
     printf("FILES:\n");
     printf("  /usr/bin/coolerdash                       # Main program executable\n");
@@ -747,9 +751,14 @@ static const char *parse_arguments(int argc, char **argv)
             show_help(argv[0], NULL);
             exit(EXIT_SUCCESS);
         }
-        else if (strcmp(argv[i], "--log") == 0)
+        else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
         {
             verbose_logging = 1;
+        }
+        else if (strcmp(argv[i], "--develop") == 0)
+        {
+            force_display_circular = 1;
+            verbose_logging = 1; // Developer mode implies verbose logging
         }
         else if (argv[i][0] != '-')
         {
@@ -780,6 +789,13 @@ static int initialize_config_and_instance(const char *config_path, Config *confi
         fprintf(stderr, "  - File has correct INI format\n");
         fprintf(stderr, "  - All required sections are present\n");
         return -1;
+    }
+
+    /* Apply CLI overrides (developer/testing) */
+    if (force_display_circular)
+    {
+        config->force_display_circular = 1;
+        log_message(LOG_INFO, "Developer override: forcing circular display detection (via --develop)");
     }
 
     int is_service_start = is_started_by_systemd();

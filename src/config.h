@@ -76,6 +76,8 @@ typedef struct Config
     uint32_t display_refresh_interval_nsec;
     uint8_t lcd_brightness;
     uint8_t lcd_orientation;
+    // Developer/testing override: force display to be treated as circular (1) or not (0)
+    int force_display_circular;
 
     // Layout configuration - all positioning is now calculated dynamically from display dimensions
     uint16_t layout_bar_width; // Legacy - not used in dynamic scaling
@@ -104,6 +106,7 @@ typedef struct Config
     float temp_threshold_1;
     float temp_threshold_2;
     float temp_threshold_3;
+    float temp_max_scale; // Maximum temperature for bar scaling (default: 115°C)
     Color temp_threshold_1_bar;
     Color temp_threshold_2_bar;
     Color temp_threshold_3_bar;

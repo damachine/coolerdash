@@ -65,13 +65,16 @@ static inline void set_cairo_color(cairo_t *cr, const Color *color)
 
 /**
  * @brief Calculate temperature fill width with bounds checking
+ * @param temp_value Current temperature value
+ * @param max_width Maximum width of the bar in pixels
+ * @param max_temp Maximum temperature from configuration (highest threshold)
  */
-static inline int calculate_temp_fill_width(float temp_value, int max_width)
+static inline int calculate_temp_fill_width(float temp_value, int max_width, float max_temp)
 {
     if (temp_value <= 0.0f)
         return 0;
 
-    const float ratio = fminf(temp_value / 105.0f, 1.0f);
+    const float ratio = fminf(temp_value / max_temp, 1.0f);
     return (int)(ratio * max_width);
 }
 
@@ -106,8 +109,19 @@ static void calculate_scaling_params(const struct Config *config, ScalingParams 
     int is_circular_by_device = is_circular_display_device(device_name,
                                                            config->display_width,
                                                            config->display_height);
-    params->is_circular = is_circular_by_device;
-    params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
+
+    // Allow developer override from config (set via CLI --develop)
+    if (config->force_display_circular)
+    {
+        params->is_circular = 1;
+        params->inscribe_factor = M_SQRT1_2;
+        log_message(LOG_INFO, "Developer override active: forcing circular display detection (device: %s)", device_name ? device_name : "unknown");
+    }
+    else
+    {
+        params->is_circular = is_circular_by_device;
+        params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
+    }
 
     // Calculate safe area width
     const double safe_area_width = config->display_width * params->inscribe_factor;
@@ -115,6 +129,10 @@ static void calculate_scaling_params(const struct Config *config, ScalingParams 
     params->safe_content_margin = (config->display_width - params->safe_bar_width) / 2.0;
 
     params->corner_radius = 8.0 * scale_avg;
+
+    // Log detailed scaling calculations (verbose only)
+    log_message(LOG_INFO, "Scaling: safe_area=%.0fpx, bar_width=%dpx, margin=%.1fpx",
+                safe_area_width, params->safe_bar_width, params->safe_content_margin);
 }
 
 /**
@@ -128,6 +146,16 @@ static Color get_temperature_bar_color(const struct Config *config, float val);
 static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width, int height, double radius);
 static cairo_t *create_cairo_context(const struct Config *config, cairo_surface_t **surface);
 static void render_display_content(cairo_t *cr, const struct Config *config, const monitor_sensor_data_t *data, const ScalingParams *params);
+// Helper to draw degree symbol at calculated position with proper font scaling
+static void draw_degree_symbol(cairo_t *cr, double x, double y, const struct Config *config)
+{
+    if (!cr || !config)
+        return;
+    cairo_set_font_size(cr, config->font_size_temp / 1.66);
+    cairo_move_to(cr, x, y);
+    cairo_show_text(cr, "°");
+    cairo_set_font_size(cr, config->font_size_temp);
+}
 
 /**
  * @brief Draw rounded rectangle path for temperature bars
@@ -194,13 +222,24 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
     cairo_font_extents_t font_ext;
     cairo_font_extents(cr, &font_ext);
 
-    // Calculate maximum width for 2-digit numbers to keep position stable
-    cairo_text_extents_t max_num_ext;
-    cairo_text_extents(cr, "88", &max_num_ext); // Widest 2-digit number
+    // Use actual text extents for positioning to handle 3-digit temperatures correctly
+    // For values ≥100, use actual width; for <100, use fixed width of "88" for stability
+    double cpu_width = (data->temp_cpu >= 100.0f) ? cpu_num_ext.width : cpu_num_ext.width;
+    double gpu_width = (data->temp_gpu >= 100.0f) ? gpu_num_ext.width : gpu_num_ext.width;
 
-    // Left-align numbers at center position (fixed X to prevent jumping)
-    double cpu_temp_x = bar_x + (effective_bar_width - max_num_ext.width) / 2.0;
-    double gpu_temp_x = bar_x + (effective_bar_width - max_num_ext.width) / 2.0;
+    // Calculate reference width (widest 2-digit number) for sub-100 alignment
+    cairo_text_extents_t ref_width_ext;
+    cairo_text_extents(cr, "88", &ref_width_ext);
+
+    // Use reference width for values <100 to keep position stable
+    if (data->temp_cpu < 100.0f)
+        cpu_width = ref_width_ext.width;
+    if (data->temp_gpu < 100.0f)
+        gpu_width = ref_width_ext.width;
+
+    // Center-align based on actual or reference width
+    double cpu_temp_x = bar_x + (effective_bar_width - cpu_width) / 2.0;
+    double gpu_temp_x = bar_x + (effective_bar_width - gpu_width) / 2.0;
 
     // For small displays (≤240×240), shift temperatures 12px to the right
     if (config->display_width <= 240 && config->display_height <= 240)
@@ -241,15 +280,17 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
     // Draw degree symbols at fixed offset
     cairo_set_font_size(cr, config->font_size_temp / 1.66);
 
-    // Position degree symbols 18px to the right of temperature numbers
-    double degree_symbol_x = cpu_temp_x + max_num_ext.width + 16;
+    // Position degree symbols 16px to the right of temperature numbers (using actual widths)
+    double degree_cpu_x = cpu_temp_x + cpu_width + 16;
+    double degree_gpu_x = gpu_temp_x + gpu_width + 16;
     double degree_cpu_y = cpu_temp_y - cpu_num_ext.height * 0.40;
     double degree_gpu_y = gpu_temp_y - gpu_num_ext.height * 0.40;
 
     // Apply user-defined degree offsets if set
     if (config->display_degree_offset_x != -9999)
     {
-        degree_symbol_x += config->display_degree_offset_x;
+        degree_cpu_x += config->display_degree_offset_x;
+        degree_gpu_x += config->display_degree_offset_x;
     }
     if (config->display_degree_offset_y != -9999)
     {
@@ -257,13 +298,8 @@ static void draw_temperature_displays(cairo_t *cr, const monitor_sensor_data_t *
         degree_gpu_y += config->display_degree_offset_y;
     }
 
-    cairo_move_to(cr, degree_symbol_x, degree_cpu_y);
-    cairo_show_text(cr, "°");
-
-    cairo_move_to(cr, degree_symbol_x, degree_gpu_y);
-    cairo_show_text(cr, "°");
-
-    cairo_set_font_size(cr, config->font_size_temp);
+    draw_degree_symbol(cr, degree_cpu_x, degree_cpu_y, config);
+    draw_degree_symbol(cr, degree_gpu_x, degree_gpu_y, config);
 }
 
 /**
@@ -274,7 +310,9 @@ static void draw_single_temperature_bar(cairo_t *cr, const struct Config *config
     if (!cr || !config || !params)
         return;
 
-    const int fill_width = calculate_temp_fill_width(temp_value, bar_width);
+    // Use configured maximum temperature for bar scaling (default: 115°C)
+    const float max_temp = config->temp_max_scale;
+    const int fill_width = calculate_temp_fill_width(temp_value, bar_width, max_temp);
 
     // Background
     set_cairo_color(cr, &config->layout_bar_color_background);

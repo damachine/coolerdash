@@ -787,6 +787,8 @@ static int validate_device_dimensions(void)
  */
 static int update_dimension(uint16_t *config_dim, int device_dim, const char *dim_name)
 {
+    const uint16_t original_value = *config_dim;
+
     if (*config_dim == 0)
     {
         *config_dim = (uint16_t)device_dim;
@@ -795,8 +797,18 @@ static int update_dimension(uint16_t *config_dim, int device_dim, const char *di
         return 1;
     }
 
-    log_message(LOG_INFO, "Display %s from config.ini: %d (overrides device value %d)",
-                dim_name, *config_dim, device_dim);
+    // Only log if the values differ (to avoid misleading logs when using defaults)
+    if (original_value != (uint16_t)device_dim)
+    {
+        log_message(LOG_INFO, "Display %s from config.ini: %d (device reports %d)",
+                    dim_name, *config_dim, device_dim);
+    }
+    else
+    {
+        // Values match - using device value (config was commented, default matches device)
+        log_message(LOG_INFO, "Display %s: %d (device and default match)",
+                    dim_name, *config_dim);
+    }
     return 0;
 }
 
