@@ -36,6 +36,7 @@ gnupg/
 *.tmp
 *.log
 *.bak
+*.env
 
 # Editor files
 *.code-workspace
