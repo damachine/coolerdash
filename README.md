@@ -146,8 +146,10 @@ make help       # Show all options
 # Run manually (with minimal status logging)
 coolerdash
 
-# Run with detailed debug logging
-coolerdash --log
+# Run with detailed verbose logging
+coolerdash --verbose
+# or short form:
+coolerdash -v
 ```
 
 #### Debugging Steps
@@ -160,11 +162,13 @@ curl http://localhost:11987/devices
 # 2. Test CoolerDash manually (with clean output)
 coolerdash
 
-# 3. Test CoolerDash with detailed debug logging
-coolerdash --log
+# 3. Test CoolerDash with detailed verbose logging
+coolerdash --verbose
+# or short form:
+coolerdash -v
 
 # 4. Debug build for detailed information (if needed)
-make debug && coolerdash --log
+make debug && coolerdash --verbose
 
 # 5. Check service logs (STATUS messages always visible)
 journalctl -xeu coolerdash.service -f

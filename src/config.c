@@ -476,7 +476,8 @@ static int get_temperature_config(Config *config, const char *name, const char *
     static const TemperatureConfigEntry entries[] = {
         {"temp_threshold_1", offsetof(Config, temp_threshold_1)},
         {"temp_threshold_2", offsetof(Config, temp_threshold_2)},
-        {"temp_threshold_3", offsetof(Config, temp_threshold_3)}};
+        {"temp_threshold_3", offsetof(Config, temp_threshold_3)},
+        {"temp_max_scale", offsetof(Config, temp_max_scale)}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {
@@ -484,7 +485,7 @@ static int get_temperature_config(Config *config, const char *name, const char *
         {
             void *field_ptr = (void *)((char *)config + entries[i].offset);
             float *dest = (float *)field_ptr;
-            *dest = safe_atof(value, 50.0f + i * 15.0f); // 50, 65, 80
+            *dest = safe_atof(value, 50.0f + i * 15.0f); // 50, 65, 80, 115
             return 1;
         }
     }
@@ -686,22 +687,48 @@ static void set_display_positioning_defaults(Config *config)
 
 /**
  * @brief Set font default values.
- * @details Helper function to set default font configuration values.
+ * @details Helper function to set default font configuration values with dynamic scaling based on display resolution.
  */
 static void set_font_defaults(Config *config)
 {
     if (config->font_face[0] == '\0')
         SAFE_STRCPY(config->font_face, "Roboto Black");
+
+    // Dynamic font size scaling based on display resolution
+    // Base: 240×240 with font_size_temp=100.0 and font_size_labels=30.0
     if (config->font_size_temp == 0.0f)
-        config->font_size_temp = 100.0f;
+    {
+        const double base_resolution = 240.0;
+        const double base_font_size_temp = 100.0;
+
+        // Calculate scaling factor from average of width and height
+        const double scale_factor = ((double)config->display_width + (double)config->display_height) / (2.0 * base_resolution);
+
+        config->font_size_temp = (float)(base_font_size_temp * scale_factor);
+
+        log_message(LOG_INFO, "Font size (temp) auto-scaled: %.1f (display: %dx%d, scale: %.2f)",
+                    config->font_size_temp, config->display_width, config->display_height, scale_factor);
+    }
+
     if (config->font_size_labels == 0.0f)
-        config->font_size_labels = 30.0f;
+    {
+        const double base_resolution = 240.0;
+        const double base_font_size_labels = 30.0;
+
+        // Calculate scaling factor from average of width and height
+        const double scale_factor = ((double)config->display_width + (double)config->display_height) / (2.0 * base_resolution);
+
+        config->font_size_labels = (float)(base_font_size_labels * scale_factor);
+
+        log_message(LOG_INFO, "Font size (labels) auto-scaled: %.1f (display: %dx%d, scale: %.2f)",
+                    config->font_size_labels, config->display_width, config->display_height, scale_factor);
+    }
 
     set_display_positioning_defaults(config);
 }
 
 /**
- * @brief Set temperature threshold default values.
+ * @brief Set temperature defaults
  * @details Helper function to set default temperature threshold values.
  */
 static void set_temperature_defaults(Config *config)
@@ -712,6 +739,8 @@ static void set_temperature_defaults(Config *config)
         config->temp_threshold_2 = 65.0f;
     if (config->temp_threshold_3 == 0.0f)
         config->temp_threshold_3 = 75.0f;
+    if (config->temp_max_scale == 0.0f)
+        config->temp_max_scale = 115.0f;
 }
 
 /**
