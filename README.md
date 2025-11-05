@@ -106,7 +106,19 @@ systemctl enable --now coolerdash.service
 > [!TIP]
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
 > - You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
-> - **For detailed configuration options and examples, see: 📖** [Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config.md)
+> - **For detailed configuration options and examples, see: 📖** [Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)
+> - **For developers and contributors, see: 🔧** [Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)
+
+---
+
+## Documentation
+
+> [!NOTE]
+> **📚 For Developers:**
+> - **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Complete architecture, API integration, rendering pipeline, and function reference
+> - **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - How circular vs rectangular displays are detected
+> - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options explained
+> - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - List of confirmed working hardware
 
 ---
 
