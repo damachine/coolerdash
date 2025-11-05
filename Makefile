@@ -66,8 +66,8 @@ BINDIR = bin
 
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
-SRC_MODULES = $(SRCDIR)/config.c $(SRCDIR)/coolercontrol.c $(SRCDIR)/display.c $(SRCDIR)/monitor.c
-HEADERS = $(SRCDIR)/config.h $(SRCDIR)/coolercontrol.h $(SRCDIR)/display.h $(SRCDIR)/monitor.h
+SRC_MODULES = $(SRCDIR)/device/sys.c $(SRCDIR)/device/usr.c $(SRCDIR)/srv/cc_main.c $(SRCDIR)/srv/cc_conf.c $(SRCDIR)/srv/cc_sensor.c $(SRCDIR)/mods/dual.c
+HEADERS = $(SRCDIR)/device/sys.h $(SRCDIR)/device/usr.h $(SRCDIR)/srv/cc_main.h $(SRCDIR)/srv/cc_conf.h $(SRCDIR)/srv/cc_sensor.h $(SRCDIR)/mods/dual.h
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 SERVICE = etc/systemd/coolerdash.service
@@ -108,13 +108,17 @@ $(TARGET): $(OBJDIR) $(BINDIR) $(OBJECTS) $(MAIN_SOURCE)
 # Create build directory
 $(OBJDIR):
 	@mkdir -p $(OBJDIR)
+	@mkdir -p $(OBJDIR)/device
+	@mkdir -p $(OBJDIR)/srv
+	@mkdir -p $(OBJDIR)/mods
 
 # Create bin directory
 $(BINDIR):
 	@mkdir -p $(BINDIR)
 
-# Compile object files from src/
+# Compile object files from src/ and subdirectories
 $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+	@mkdir -p $(dir $@)
 	@printf "$(ICON_BUILD) $(YELLOW)Compiling module: $<$(RESET)\n"
 	@$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 

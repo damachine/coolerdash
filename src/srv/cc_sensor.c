@@ -25,9 +25,10 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "config.h"
-#include "monitor.h"
-#include "coolercontrol.h"
+#include "../device/sys.h"
+#include "cc_sensor.h"
+#include "cc_main.h"
+#include "cc_conf.h"
 
 /**
  * @brief Extract temperature from device status history

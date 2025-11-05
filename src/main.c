@@ -36,10 +36,12 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "config.h"
-#include "coolercontrol.h"
-#include "display.h"
-#include "monitor.h"
+#include "device/sys.h"
+#include "device/usr.h"
+#include "srv/cc_main.h"
+#include "srv/cc_conf.h"
+#include "mods/dual.h"
+#include "srv/cc_sensor.h"
 
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
@@ -197,10 +199,8 @@ static int is_started_by_systemd(void)
  * @brief Check if another instance of CoolerDash is running with secure PID validation.
  * @details Uses secure file reading and PID validation.
  */
-static int check_existing_instance_and_handle(const char *pid_file, int is_service_start)
+static int check_existing_instance_and_handle(const char *pid_file)
 {
-    (void)is_service_start; // Mark as intentionally unused
-
     if (!pid_file || !pid_file[0])
     {
         log_message(LOG_ERROR, "Invalid PID file path provided");
@@ -437,10 +437,8 @@ static void remove_image_file(const char *image_file)
  * @brief Enhanced help display with improved formatting and security information.
  * @details Prints comprehensive usage information and security recommendations.
  */
-static void show_help(const char *program_name, const Config *config)
+static void show_help(const char *program_name)
 {
-    (void)config; // Mark parameter as intentionally unused
-
     if (!program_name)
         program_name = "coolerdash";
 
@@ -748,7 +746,7 @@ static const char *parse_arguments(int argc, char **argv)
     {
         if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0)
         {
-            show_help(argv[0], NULL);
+            show_help(argv[0]);
             exit(EXIT_SUCCESS);
         }
         else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
@@ -776,20 +774,30 @@ static const char *parse_arguments(int argc, char **argv)
 
 /**
  * @brief Initialize configuration and instance management.
- * @details Loads config and ensures single instance.
+ * @details Loads config using new three-stage approach:
+ *          1. Initialize system defaults (always available)
+ *          2. Load user config if present (overrides defaults)
+ *          3. Apply system defaults to any missing fields
  */
 static int initialize_config_and_instance(const char *config_path, Config *config)
 {
-    if (load_config(config_path, config) != 0)
+    // Stage 1: Initialize system defaults
+    init_system_defaults(config);
+
+    // Stage 2: Load user configuration (if file exists)
+    int user_config_result = load_user_config(config_path, config);
+    if (user_config_result < 0)
     {
-        log_message(LOG_ERROR, "Failed to load configuration file: %s", config_path);
-        fprintf(stderr, "Error: Could not load config file '%s'\n", config_path);
+        log_message(LOG_ERROR, "Failed to parse configuration file: %s", config_path);
+        fprintf(stderr, "Error: Could not parse config file '%s'\n", config_path);
         fprintf(stderr, "Please check:\n");
-        fprintf(stderr, "  - File exists and is readable\n");
         fprintf(stderr, "  - File has correct INI format\n");
-        fprintf(stderr, "  - All required sections are present\n");
+        fprintf(stderr, "  - All sections and keys are valid\n");
         return -1;
     }
+
+    // Stage 3: Apply system defaults to any fields not set by user config
+    apply_system_defaults(config);
 
     /* Apply CLI overrides (developer/testing) */
     if (force_display_circular)
@@ -801,7 +809,7 @@ static int initialize_config_and_instance(const char *config_path, Config *confi
     int is_service_start = is_started_by_systemd();
     log_message(LOG_INFO, "Running mode: %s", is_service_start ? "systemd service" : "manual");
 
-    if (check_existing_instance_and_handle(config->paths_pid, is_service_start) < 0)
+    if (check_existing_instance_and_handle(config->paths_pid) < 0)
     {
         log_message(LOG_ERROR, "Instance management failed");
         fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
@@ -905,12 +913,16 @@ static void initialize_device_info(Config *config)
 
 /**
  * @brief Perform cleanup operations.
- * @details Removes PID and image files, sends shutdown image.
+ * @details Removes PID and image files, sends shutdown image, closes CoolerControl session.
  */
 static void perform_cleanup(Config *config)
 {
     log_message(LOG_INFO, "Daemon shutdown initiated");
     send_shutdown_image_if_needed();
+
+    // Close CoolerControl session and free resources
+    cleanup_coolercontrol_session();
+
     remove_pid_file(config->paths_pid);
     remove_image_file(config->paths_image_coolerdash);
     running = 0;
