@@ -3,8 +3,6 @@ bin/
 build/
 .cache/
 .makepkg/
-*/src/
-src/*
 */pkg/
 pkg/*
 *.tgz
@@ -46,6 +44,7 @@ gnupg/
 .vscode/
 .idea/
 .qodo/
+.zencoder/
 .codacy/
 .codacy.*
 
@@ -63,4 +62,3 @@ coolerdash/
 .github/instructions/best_practices.md
 .github/instructions/codacy.instructions.md
 .github/instructions/copilot-instructions.md
-.zencoder/
