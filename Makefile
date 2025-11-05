@@ -55,8 +55,8 @@ SUDO ?= sudo
 REALOS ?= yes
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo)
-LIBS = $(shell pkg-config --libs cairo) -lcurl -lm -linih -ljansson
+CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo jansson libcurl inih)
+LIBS = $(shell pkg-config --libs cairo jansson libcurl inih) -lm
 TARGET = coolerdash
 
 # Directories
@@ -238,6 +238,8 @@ check-deps:
 	if [ -n "$$MISSING" ]; then \
 		printf "$(ICON_WARNING) $(YELLOW)Missing dependencies:$$MISSING$(RESET)\n"; \
 		$(MAKE) install-deps; \
+	else \
+		printf "$(ICON_SUCCESS) $(GREEN)All dependencies found$(RESET)\n"; \
 	fi
 
 # Install Target - Installs to /opt/coolerdash/ (with automatic dependency check and service management)
