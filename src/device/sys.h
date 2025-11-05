@@ -10,20 +10,20 @@
  */
 
 /**
- * @brief Configuration management for CoolerDash LCD monitoring system.
- * @details Provides functions to load and apply configuration settings from an INI file with fallback support.
+ * @brief System default configuration values and core types.
+ * @details Provides hardcoded fallback values for all CoolerDash configuration parameters.
+ *          These values are always available and serve as baseline when user config is missing or incomplete.
  */
 
-// Include necessary headers
-#ifndef CONFIG_H
-#define CONFIG_H
+#ifndef SYS_H
+#define SYS_H
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <stdint.h>
-#include <ini.h>
 // cppcheck-suppress-end missingIncludeSystem
 
+// Configuration constants
 #define CONFIG_MAX_STRING_LEN 256
 #define CONFIG_MAX_PASSWORD_LEN 128
 #define CONFIG_MAX_PATH_LEN 512
@@ -79,8 +79,7 @@ typedef struct Config
     // Developer/testing override: force display to be treated as circular (1) or not (0)
     int force_display_circular;
 
-    // Layout configuration - all positioning is now calculated dynamically from display dimensions
-    uint16_t layout_bar_width; // Legacy - not used in dynamic scaling
+    // Layout configuration - all positioning is calculated dynamically from display dimensions
     uint16_t layout_bar_height;
     uint16_t layout_bar_gap;
     float layout_bar_border_width;
@@ -114,8 +113,8 @@ typedef struct Config
 } Config;
 
 /**
- * @brief Globale Logging-Funktion für alle Module außer main.c
- * @details Einheitliche Log-Ausgabe für Info, Status, Warnung und Fehler.
+ * @brief Global logging function for all modules except main.c
+ * @details Provides unified log output for info, status, warning and error messages.
  */
 void log_message(log_level_t level, const char *format, ...);
 
@@ -125,16 +124,47 @@ void log_message(log_level_t level, const char *format, ...);
  */
 extern int verbose_logging;
 
-/**
- * @brief Initialize config structure with safe defaults.
- * @details Clears memory and applies safe fallback values for all configuration fields.
- */
-void init_config_defaults(Config *config);
+// ============================================================================
+// Common Helper Macros and Inline Functions
+// ============================================================================
 
 /**
- * @brief Loads configuration from INI file.
- * @details Parses INI configuration file and populates Config structure with fallback defaults.
+ * @brief Safe string copy macro using project's cc_safe_strcpy.
+ * @details Automatically uses sizeof(dest) for bounds checking.
  */
-int load_config(const char *path, Config *config);
+#define SAFE_STRCPY(dest, src)                       \
+    do                                               \
+    {                                                \
+        cc_safe_strcpy((dest), sizeof(dest), (src)); \
+    } while (0)
 
-#endif // CONFIG_H
+/**
+ * @brief Validate LCD orientation value.
+ * @details Checks if orientation is one of: 0°, 90°, 180°, 270°.
+ */
+static inline int is_valid_orientation(int orientation)
+{
+    return (orientation == 0 || orientation == 90 || orientation == 180 || orientation == 270);
+}
+
+// ============================================================================
+// System Configuration Functions
+// ============================================================================
+
+/**
+ * @brief Initialize config structure with system defaults.
+ * @details Clears config memory and applies hardcoded system default values.
+ *          This function always succeeds and provides a valid baseline configuration.
+ */
+void init_system_defaults(Config *config);
+
+/**
+ * @brief Apply system default values for missing/unset fields.
+ * @details Sets fallback values only for fields that are zero/empty (not configured by user).
+ *          This allows user configuration to take precedence while providing safe defaults.
+ *
+ *          Call order: 1) init_system_defaults() 2) load user config 3) apply_system_defaults()
+ */
+void apply_system_defaults(Config *config);
+
+#endif // SYS_H

@@ -30,10 +30,11 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "config.h"
-#include "display.h"
-#include "coolercontrol.h"
-#include "monitor.h"
+#include "../device/sys.h"
+#include "dual.h"
+#include "../srv/cc_main.h"
+#include "../srv/cc_conf.h"
+#include "../srv/cc_sensor.h"
 
 // Circle inscribe factor for circular displays (1/√2 ≈ 0.7071)
 #ifndef M_SQRT1_2

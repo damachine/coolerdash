@@ -15,8 +15,8 @@
  */
 
 // Include necessary headers
-#ifndef MONITOR_H
-#define MONITOR_H
+#ifndef CC_SENSOR_H
+#define CC_SENSOR_H
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
@@ -42,4 +42,4 @@ typedef struct
  */
 int get_temperature_monitor_data(const struct Config *config, monitor_sensor_data_t *data);
 
-#endif // MONITOR_H
+#endif // CC_SENSOR_H

@@ -25,7 +25,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "monitor.h"
+#include "../srv/cc_sensor.h"
 
 // Forward declarations
 struct Config;
