@@ -125,6 +125,8 @@ systemctl enable --now coolerdash.service
 
 > [!NOTE]
 > **📚 For Developers:**
+> - **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Complete technical reference for Dual and Circle display modes - architecture, layout algorithms, rendering pipeline, and how to add new modes
+> - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - Comprehensive documentation of all cc_*.c/h modules - session management, device caching, temperature retrieval, API communication flow, and troubleshooting
 > - **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Complete architecture, API integration, rendering pipeline, and function reference
 > - **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - How circular vs rectangular displays are detected
 > - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options explained
