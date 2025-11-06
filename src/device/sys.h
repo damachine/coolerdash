@@ -78,6 +78,8 @@ typedef struct Config
     uint8_t lcd_orientation;
     // Developer/testing override: force display to be treated as circular (1) or not (0)
     int force_display_circular;
+    // Display mode: "dual" (default) or "circle" (alternating single sensor)
+    char display_mode[16];
 
     // Layout configuration - all positioning is calculated dynamically from display dimensions
     uint16_t layout_bar_height;

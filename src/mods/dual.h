@@ -43,15 +43,23 @@ struct Config;
 #endif
 
 /**
- * @brief Collects sensor data and renders display.
- * @details High-level entry point function that retrieves temperature data from monitoring subsystem and triggers display rendering with current configuration.
+ * @brief Collects sensor data and renders display based on selected mode.
+ * @details High-level entry point function that retrieves temperature data from monitoring subsystem
+ *          and triggers display rendering (dual or circle mode) with current configuration.
  */
 void draw_combined_image(const struct Config *config);
 
 /**
- * @brief Render display based on sensor data and configuration.
- * @details Low-level function that creates PNG image using Cairo graphics library based on temperature sensor data and configuration settings, then uploads to LCD device.
+ * @brief Render dual-sensor display (CPU+GPU simultaneously).
+ * @details Low-level function that creates PNG image using Cairo graphics library based on temperature
+ *          sensor data and configuration settings, then uploads to LCD device. Shows both sensors at once.
  */
-int render_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name);
+int render_dual_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name);
+
+/**
+ * @brief Collects sensor data and renders dual-sensor display.
+ * @details High-level entry point for dual mode - retrieves temperature data and triggers dual display rendering.
+ */
+void draw_dual_image(const struct Config *config);
 
 #endif // DISPLAY_H

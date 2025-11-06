@@ -454,12 +454,19 @@ static void show_help(const char *program_name)
     printf("  %s [OPTIONS] [CONFIG_PATH]\n\n", program_name);
     printf("OPTIONS:\n");
     printf("  -h, --help        Show this help message and exit\n");
-    printf("  -v, --verbose     Enable verbose logging (shows detailed INFO messages)\n\n");
-    printf("      --develop      Developer: force display to be treated as circular for testing\n\n");
+    printf("  -v, --verbose     Enable verbose logging (shows detailed INFO messages)\n");
+    printf("  --dual            Force dual display mode (CPU+GPU simultaneously)\n");
+    printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 seconds)\n");
+    printf("  --develop         Developer: force display to be treated as circular for testing\n\n");
+    printf("DISPLAY MODES:\n");
+    printf("  dual              Default mode - shows CPU and GPU simultaneously\n");
+    printf("  circle            Alternating mode - switches between CPU/GPU every 2.5 seconds\n");
+    printf("                    Configure via config.ini [display] mode=dual|circle or CLI flags\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl start coolerdash           # Start as system service (recommended)\n");
-    printf("  %s                                # Manual start with default config\n", program_name);
-    printf("  %s --verbose                      # Start with detailed logging enabled\n", program_name);
+    printf("  %s                                # Manual start with default config (dual mode)\n", program_name);
+    printf("  %s --circle                       # Start with circle mode (alternating display)\n", program_name);
+    printf("  %s --dual --verbose               # Force dual mode with detailed logging\n", program_name);
     printf("  %s -v                             # Short form: enable verbose logging\n", program_name);
     printf("  %s /custom/config.ini             # Start with custom configuration\n\n", program_name);
     printf("FILES:\n");
@@ -738,9 +745,10 @@ static int run_daemon(const Config *config)
  * @brief Parse command line arguments.
  * @details Processes command line options and returns config path.
  */
-static const char *parse_arguments(int argc, char **argv)
+static const char *parse_arguments(int argc, char **argv, char *display_mode_override)
 {
     const char *config_path = "/etc/coolerdash/config.ini";
+    display_mode_override[0] = '\0'; // Initialize as empty
 
     for (int i = 1; i < argc; i++)
     {
@@ -752,6 +760,14 @@ static const char *parse_arguments(int argc, char **argv)
         else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0)
         {
             verbose_logging = 1;
+        }
+        else if (strcmp(argv[i], "--dual") == 0)
+        {
+            cc_safe_strcpy(display_mode_override, 16, "dual");
+        }
+        else if (strcmp(argv[i], "--circle") == 0)
+        {
+            cc_safe_strcpy(display_mode_override, 16, "circle");
         }
         else if (strcmp(argv[i], "--develop") == 0)
         {
@@ -935,7 +951,8 @@ static void perform_cleanup(Config *config)
  */
 int main(int argc, char **argv)
 {
-    const char *config_path = parse_arguments(argc, argv);
+    char display_mode_override[16] = {0};
+    const char *config_path = parse_arguments(argc, argv, display_mode_override);
 
     log_message(LOG_STATUS, "CoolerDash v%s starting up...", read_version_from_file());
 
@@ -945,6 +962,13 @@ int main(int argc, char **argv)
     if (initialize_config_and_instance(config_path, &config) != 0)
     {
         return EXIT_FAILURE;
+    }
+
+    // Apply CLI display mode override if provided
+    if (display_mode_override[0] != '\0')
+    {
+        cc_safe_strcpy(config.display_mode, sizeof(config.display_mode), display_mode_override);
+        log_message(LOG_INFO, "Display mode overridden by CLI: %s", config.display_mode);
     }
 
     g_config_ptr = &config;
