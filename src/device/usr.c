@@ -255,6 +255,19 @@ static void handle_orientation(Config *config, const char *value)
     config->lcd_orientation = is_valid_orientation(orientation) ? orientation : 0;
 }
 
+static void handle_display_mode(Config *config, const char *value)
+{
+    if (strcmp(value, "dual") == 0 || strcmp(value, "circle") == 0)
+    {
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), value);
+    }
+    else
+    {
+        log_message(LOG_WARNING, "Invalid display_mode '%s', defaulting to 'dual'", value);
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
+    }
+}
+
 typedef struct
 {
     const char *key;
@@ -269,7 +282,8 @@ static int get_display_config(Config *config, const char *name, const char *valu
         {"refresh_interval_sec", handle_refresh_interval_sec},
         {"refresh_interval_nsec", handle_refresh_interval_nsec},
         {"brightness", handle_brightness},
-        {"orientation", handle_orientation}};
+        {"orientation", handle_orientation},
+        {"mode", handle_display_mode}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {

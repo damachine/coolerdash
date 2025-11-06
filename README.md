@@ -21,6 +21,9 @@
 ## Features
 - **Extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features.**
 - **Support for additional sensor values, and a sophisticated, customizable user interface.**
+- **Two display modes:**
+  - **Dual Mode (default):** Shows CPU and GPU temperatures simultaneously
+  - **Circle Mode (new):** Alternates between CPU and GPU every 5 seconds - optimized for round high-resolution displays (>240x240px)
 
 > ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
 
@@ -103,6 +106,13 @@ systemctl enable --now coolerdash.service
 > - If needed. All settings are managed in `/etc/coolerdash/config.ini`.
 > - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
 
+> [!NOTE]
+> #### Display Modes:
+> - **Dual Mode (default):** Shows CPU and GPU simultaneously - works best on all display sizes
+> - **Circle Mode (new):** Alternates between CPU and GPU every 2.5 seconds - recommended for round high-resolution displays (>240x240px) where dual mode scaling might not be optimal yet
+> - **Enable Circle Mode:** Edit `/etc/coolerdash/config.ini` → Under `[display]` section → Set `mode=circle`
+> - **CLI Override:** Use `coolerdash --circle` to force circle mode or `coolerdash --dual` to force dual mode
+
 > [!TIP]
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
 > - You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
@@ -162,6 +172,10 @@ coolerdash
 coolerdash --verbose
 # or short form:
 coolerdash -v
+
+# Force specific display mode
+coolerdash --dual      # Force dual mode (CPU+GPU simultaneously)
+coolerdash --circle    # Force circle mode (alternating CPU/GPU)
 ```
 
 #### Debugging Steps

@@ -136,6 +136,8 @@ static void set_display_defaults(Config *config)
         config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0;
+    if (config->display_mode[0] == '\0')
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
 }
 
 /**

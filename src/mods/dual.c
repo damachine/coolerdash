@@ -468,9 +468,9 @@ static void render_display_content(cairo_t *cr, const struct Config *config, con
 }
 
 /**
- * @brief Display rendering - creates surface, renders content, saves PNG
+ * @brief Display rendering - creates surface, renders content, saves PNG (Dual mode - CPU+GPU)
  */
-int render_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name)
+int render_dual_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name)
 {
     if (!data || !config)
     {
@@ -523,10 +523,10 @@ int render_display(const struct Config *config, const monitor_sensor_data_t *dat
 }
 
 /**
- * @brief Main entry point for display updates.
- * @details Collects sensor data, renders display, and sends to LCD device.
+ * @brief High-level entry point for dual mode rendering.
+ * @details Collects sensor data, renders dual display, and sends to LCD device.
  */
-void draw_combined_image(const struct Config *config)
+void draw_dual_image(const struct Config *config)
 {
     if (!config)
     {
@@ -551,10 +551,10 @@ void draw_combined_image(const struct Config *config)
                                                      device_name, sizeof(device_name),
                                                      &screen_width, &screen_height);
 
-    // Render display with device name for circular display detection
-    if (!render_display(config, &sensor_data, device_name))
+    // Render dual display with device name for circular display detection
+    if (!render_dual_display(config, &sensor_data, device_name))
     {
-        log_message(LOG_ERROR, "Display rendering failed");
+        log_message(LOG_ERROR, "Dual display rendering failed");
         return;
     }
 
@@ -562,15 +562,41 @@ void draw_combined_image(const struct Config *config)
     if (is_session_initialized() && device_available && device_uid[0] != '\0')
     {
         const char *name = (device_name[0] != '\0') ? device_name : "Unknown Device";
-        log_message(LOG_INFO, "Sending image to LCD: %s [%s]", name, device_uid);
+        log_message(LOG_INFO, "Sending dual image to LCD: %s [%s]", name, device_uid);
 
         // Send image to LCD device
         send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
 
-        log_message(LOG_INFO, "LCD image uploaded successfully");
+        log_message(LOG_INFO, "Dual LCD image uploaded successfully");
     }
     else
     {
-        log_message(LOG_WARNING, "Skipping LCD upload - device not available");
+        log_message(LOG_WARNING, "Skipping dual LCD upload - device not available");
+    }
+}
+
+/**
+ * @brief Main entry point for display updates with mode selection.
+ * @details Collects sensor data and dispatches to dual or circle mode renderer based on configuration.
+ */
+void draw_combined_image(const struct Config *config)
+{
+    if (!config)
+    {
+        log_message(LOG_ERROR, "Invalid config parameter for draw_combined_image");
+        return;
+    }
+
+    // Check display mode and dispatch to appropriate renderer
+    if (config->display_mode[0] != '\0' && strcmp(config->display_mode, "circle") == 0)
+    {
+        // Circle mode: alternating single sensor display
+        extern void draw_circle_image(const struct Config *config);
+        draw_circle_image(config);
+    }
+    else
+    {
+        // Dual mode (default): simultaneous CPU+GPU display
+        draw_dual_image(config);
     }
 }
