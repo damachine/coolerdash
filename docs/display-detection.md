@@ -3,9 +3,37 @@
 
 ## Overview
 
-The system automatically detects whether a display is **circular** (round) or **rectangular** and adjusts calculations accordingly.
+The system automatically detects whether a display is **circular** (round) or **rectangular** and adjusts calculations accordingly. You can also **manually override** the detection using the `shape` configuration parameter.
 
-## How It Works
+## Configuration Override
+
+**New in v1.96:** Manual control via `config.ini`
+
+```ini
+[display]
+# Display shape override (auto, rectangular, circular)
+# - auto: Auto-detection based on device database (default)
+# - rectangular: Force inscribe_factor=1.0 (full width)
+# - circular: Force inscribe_factor=0.7071 (inscribed circle)
+shape = auto
+```
+
+### Priority System
+
+1. **`shape` config parameter** (highest priority - manual override)
+2. **`--force-display-circular` CLI flag** (deprecated, kept for compatibility)
+3. **Automatic detection** (default behavior)
+
+**Examples:**
+```bash
+# Config file takes precedence
+coolerdash  # Uses shape from config.ini
+
+# CLI flag overrides auto-detection only (not config)
+coolerdash --force-display-circular  # Only if shape=auto in config
+```
+
+## Automatic Detection
 
 ### 1. NZXT Kraken Device Logic (Resolution-Based)
 
@@ -38,11 +66,13 @@ const char *circular_devices[] = {
 };
 ```
 
-### 3. Detection Priority
+### 3. Automatic Detection Priority (when shape=auto)
 
 1. **NZXT Kraken devices**: Resolution-based detection (≤240×240 = rectangular, >240×240 = circular)
 2. **Other devices**: Check device name database
 3. **Default**: Rectangular (safer fallback)
+
+**Note:** Manual override via `shape` config parameter takes precedence over all automatic detection methods.
 
 ## Math Explanation
 
@@ -270,23 +300,47 @@ Expected output for **NZXT Kraken Z (320×320)**:
 
 **Cause**: Device not detected as circular
 
-**Fix**: 
-- For NZXT Kraken: Verify resolution is >240×240
-- For other devices: Add device name to database
+**Solution Options**:
+1. **Quick fix (recommended)**: Set `shape=circular` in `/etc/coolerdash/config.ini`
+2. For NZXT Kraken: Verify resolution is >240×240
+3. For other devices: Add device name to database in `cc_conf.c`
 
 ### Problem: Too much padding on rectangular display
 
 **Cause**: Incorrectly detected as circular
 
-**Fix**: 
-- For NZXT Kraken: Verify resolution is ≤240×240
-- For other devices: Ensure not in circular device database
+**Solution Options**:
+1. **Quick fix (recommended)**: Set `shape=rectangular` in `/etc/coolerdash/config.ini`
+2. For NZXT Kraken: Verify resolution is ≤240×240
+3. For other devices: Ensure not in circular device database
 
 ### Problem: Unknown device defaults to rectangular
 
 **Cause**: Not in database and not NZXT Kraken
 
-**Fix**: This is intentional (safe default). Add to database if circular display needed.
+**Solution**: This is intentional (safe default). Use `shape=circular` in config if needed.
+
+### Testing Shape Override
+
+```bash
+# Test rectangular layout
+echo "shape=rectangular" >> /etc/coolerdash/config.ini
+systemctl restart coolerdash.service
+
+# Test circular layout
+echo "shape=circular" >> /etc/coolerdash/config.ini
+systemctl restart coolerdash.service
+
+# Check logs for inscribe factor
+journalctl -u coolerdash.service -f | grep "inscribe"
+```
+
+Expected output with manual override:
+```
+[INFO] Display shape forced to rectangular (inscribe factor: 1.0000)
+[INFO] Display shape forced to circular (inscribe factor: 0.7071)
+```
+
 
 ### Problem: Display Detected Incorrectly
 

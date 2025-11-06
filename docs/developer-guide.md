@@ -246,9 +246,13 @@ typedef struct {
     // Display settings
     uint16_t display_width;          // LCD width in pixels (auto-detected)
     uint16_t display_height;         // LCD height in pixels (auto-detected)
-    int refresh_interval;            // Update interval in seconds
+    float display_refresh_interval;  // Update interval in seconds (e.g., 2.50 = 2.5 seconds)
     int lcd_brightness;              // 0-100
     int lcd_orientation;             // 0=0°, 90=90°, 180=180°, 270=270°
+    char display_mode[16];           // Display mode: "dual" or "circle"
+    char display_shape[16];          // Shape override: "auto", "rectangular", "circular"
+    uint16_t circle_switch_interval; // Circle mode sensor switch interval (1-60s, default: 5)
+    float display_content_scale_factor; // Content scale factor (0.5-1.0, default: 0.98)
 
     // Layout configuration
     int layout_bar_height;           // Temperature bar height
@@ -284,7 +288,7 @@ typedef struct {
 
 ### Change Tracking System
 
-**Purpose:** Log all user customizations when `--verbose` flag is used
+**Purpose:** Log all user customizations from config.ini to systemd journal for visibility
 
 **Implementation (usr.c):**
 
@@ -296,20 +300,22 @@ static int config_change_count = 0;
 // Called by INI parser for each entry
 void record_config_change(const char *section, const char *key, const char *value);
 
-// Called after INI parsing completes
-void log_config_changes(void);  // Only logs if verbose_logging == 1
+// Called after INI parsing completes - ALWAYS logs (no verbose flag required)
+void log_config_changes(void);  // Uses LOG_STATUS level (always visible)
 ```
 
-**Example Output:**
+**Example Output (always shown in systemd journal):**
 
 ```
-[CoolerDash INFO] === User Configuration Changes (from coolerdash.ini) ===
-[CoolerDash INFO] Found 3 customized configuration values:
-[CoolerDash INFO]   [display] width = 320
-[CoolerDash INFO]   [display] brightness = 80
-[CoolerDash INFO]   [temperature] cpu_high = 85.0
-[CoolerDash INFO] === End of Configuration Changes ===
+[CoolerDash STATUS] === User Configuration Changes (from coolerdash.ini) ===
+[CoolerDash STATUS] Found 3 customized configuration values:
+[CoolerDash STATUS]   [display] refresh_interval = 3.50
+[CoolerDash STATUS]   [layout] bar_height = 33
+[CoolerDash STATUS]   [temperature] temp_threshold_1 = 60.0
+[CoolerDash STATUS] === End of Configuration Changes ===
 ```
+
+**Note:** Changed from LOG_INFO to LOG_STATUS in version 1.96+ to ensure manual configuration changes are always visible in systemd journal, even without --verbose flag.
 
 ---
 
@@ -557,12 +563,32 @@ Safe drawing area: (48, 48) to (272, 272)  [≈70.71% of original]
 
 ```c
 ScalingParams params;
-params.inscribe_factor = is_circular ? M_SQRT1_2 : 1.0;
+
+// Priority: shape config > force flag > auto-detection
+if (strcmp(config->display_shape, "rectangular") == 0) {
+    params.inscribe_factor = 1.0;
+} else if (strcmp(config->display_shape, "circular") == 0) {
+    params.inscribe_factor = M_SQRT1_2;
+} else {
+    // Auto-detection fallback
+    int is_circular = config->force_display_circular || 
+                      is_circular_display_device(device_name, width, height);
+    params.inscribe_factor = is_circular ? M_SQRT1_2 : 1.0;
+}
+
 params.safe_content_margin = (1.0 - params.inscribe_factor) / 2.0;  // ≈0.1464
 
 // Apply to all drawing coordinates
 double safe_x = params.safe_content_margin * config->display_width;
 double safe_y = params.safe_content_margin * config->display_height;
+```
+
+**Configuration Override (v1.96+):**
+
+```ini
+[display]
+# Manual override (recommended for testing/troubleshooting)
+shape = auto  # or "rectangular" or "circular"
 ```
 
 ### Temperature Bar Rendering
@@ -646,7 +672,7 @@ int calculate_temp_fill_width(float temp, int max_width, float max_temp) {
 daemon_address = "http://localhost:11987"
 daemon_password = "coolAdmin"
 display_width = 0  // Auto-detected from API
-refresh_interval = 60
+display_refresh_interval = 2.50  // 2.5 seconds
 lcd_brightness = 80
 temp_cpu_high = 80.0
 ```
@@ -933,12 +959,90 @@ log_message(LOG_ERROR, "Failed to connect to API");          // Always
 **Steps:**
 
 1. **Add field to Config struct** (`src/device/sys.h`)
-2. **Add default value** (`src/device/sys.c` → `init_system_defaults()`)
-3. **Add INI parser** (`src/device/usr.c` → `get_*_config()` handler)
-4. **Update documentation** (`docs/config.md`)
+2. **Add default value** (`src/device/sys.c` → `set_display_defaults()` or appropriate function)
+3. **Add INI parser** (`src/device/usr.c` → handler function + entry in ConfigEntry array)
+4. **Update documentation** (`docs/config-guide.md`)
 5. **Update example config** (`etc/coolerdash/config.ini`)
 
-**Example (adding new color):**
+**Example 1: Adding Circle Mode Switch Interval (uint16_t with validation)**
+
+```c
+// 1. sys.h - Add field to Config struct
+typedef struct {
+    // ...
+    uint16_t circle_switch_interval;  // Circle mode sensor switch interval (1-60s)
+} Config;
+
+// 2. sys.c - Set default value
+void set_display_defaults(Config *config) {
+    // ...
+    config->circle_switch_interval = 5;  // Default: 5 seconds
+}
+
+// 3. usr.c - Add handler with validation
+static int handle_circle_switch_interval(void *user, const char *section, 
+                                         const char *name, const char *value) {
+    Config *config = (Config *)user;
+    if (strcmp(section, "display") == 0 && strcmp(name, "circle_switch_interval") == 0) {
+        long val = strtol(value, NULL, 10);
+        if (val >= 1 && val <= 60) {
+            config->circle_switch_interval = (uint16_t)val;
+            record_config_change(section, name, value);
+        } else {
+            log_message(LOG_WARNING, "circle_switch_interval must be 1-60, using default: 5");
+        }
+        return 1;
+    }
+    return 0;
+}
+
+// Add to DisplayConfigEntry array
+static const DisplayConfigEntry display_config_entries[] = {
+    // ...
+    {"circle_switch_interval", handle_circle_switch_interval},
+};
+```
+
+**Example 2: Adding Content Scale Factor (float with validation)**
+
+```c
+// 1. sys.h - Add field to Config struct
+typedef struct {
+    // ...
+    float display_content_scale_factor;  // Content scale factor (0.5-1.0)
+} Config;
+
+// 2. sys.c - Set default value
+void set_display_defaults(Config *config) {
+    // ...
+    config->display_content_scale_factor = 0.98f;  // Default: 98% (2% margin)
+}
+
+// 3. usr.c - Add handler with validation
+static int handle_content_scale_factor(void *user, const char *section, 
+                                       const char *name, const char *value) {
+    Config *config = (Config *)user;
+    if (strcmp(section, "display") == 0 && strcmp(name, "content_scale_factor") == 0) {
+        float val = strtof(value, NULL);
+        if (val >= 0.5f && val <= 1.0f) {
+            config->display_content_scale_factor = val;
+            record_config_change(section, name, value);
+        } else {
+            log_message(LOG_WARNING, "content_scale_factor must be 0.5-1.0, using default: 0.98");
+        }
+        return 1;
+    }
+    return 0;
+}
+
+// Add to DisplayConfigEntry array
+static const DisplayConfigEntry display_config_entries[] = {
+    // ...
+    {"content_scale_factor", handle_content_scale_factor},
+};
+```
+
+**Example 3: Adding New Color**
 
 ```c
 // 1. sys.h
@@ -948,7 +1052,7 @@ typedef struct {
 } Config;
 
 // 2. sys.c
-void init_system_defaults(Config *config) {
+void set_color_defaults(Config *config) {
     // ...
     config->color_my_new_element = (Color){0, 255, 0};  // Green
 }
@@ -962,6 +1066,14 @@ static int get_color_config(Config *config, const char *section,
     }
 }
 ```
+
+**Configuration Best Practices:**
+- Always provide sensible defaults
+- Validate user input with clear error messages
+- Use appropriate data types (uint16_t for small integers, float for decimals)
+- Document acceptable ranges in both code comments and config.ini
+- Log warnings for invalid values and fallback to defaults
+- Record configuration changes for debugging with `record_config_change()`
 
 ---
 

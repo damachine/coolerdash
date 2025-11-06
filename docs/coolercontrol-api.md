@@ -604,8 +604,24 @@ int is_circular_display_device(const char *device_name, int screen_width, int sc
 - **240x240**: Rectangular (e.g., Kraken Z53)
 - **>240x240**: Circular (e.g., Kraken Elite 280/360 with 640x640 display)
 
-**Force Circular Override**:
-Config option `force_display_circular = true` bypasses detection.
+**Display Shape Override (v1.96+)**:
+
+**Recommended Method:** `display_shape` config parameter (highest priority):
+```ini
+[display]
+shape = auto  # or "rectangular" or "circular"
+```
+
+**Legacy Method:** `force_display_circular` flag (backwards compatibility):
+```ini
+[display]
+force_circular = true
+```
+
+**Priority System:**
+1. `display_shape` config (manual override)
+2. `force_display_circular` flag (legacy)
+3. Automatic device detection (default)
 
 #### 5. Configuration Update
 
@@ -1038,7 +1054,8 @@ struct Config {
     // Display settings
     uint16_t display_width;        // e.g., 640 (auto-detected if 0)
     uint16_t display_height;       // e.g., 640
-    int force_display_circular;    // Override detection
+    char display_shape[16];        // "auto", "rectangular", or "circular" (v1.96+)
+    int force_display_circular;    // Legacy override (deprecated)
     
     // LCD settings
     int lcd_brightness;            // 0-100

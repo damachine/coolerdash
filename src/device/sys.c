@@ -128,16 +128,20 @@ static void set_display_defaults(Config *config)
 {
     try_set_lcd_dimensions(config);
 
-    if (config->display_refresh_interval_sec == 0)
-        config->display_refresh_interval_sec = 2;
-    if (config->display_refresh_interval_nsec == 0)
-        config->display_refresh_interval_nsec = 500000000;
+    if (config->display_refresh_interval == 0.0f)
+        config->display_refresh_interval = 2.50f; // Default: 2.5 seconds
     if (config->lcd_brightness == 0)
         config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0;
+    if (config->display_shape[0] == '\0')
+        cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), "auto");
     if (config->display_mode[0] == '\0')
         cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
+    if (config->circle_switch_interval == 0)
+        config->circle_switch_interval = 5; // Default: 5 seconds
+    if (config->display_content_scale_factor == 0.0f)
+        config->display_content_scale_factor = 0.98f; // Default: 98% (2% margin)
 }
 
 /**

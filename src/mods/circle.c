@@ -41,11 +41,6 @@
 #define M_SQRT1_2 0.7071067811865476
 #endif
 
-// Dynamic positioning factors
-#define CONTENT_SCALE_FACTOR 0.98
-#define SWITCH_INTERVAL_SEC 5
-#define SWITCH_INTERVAL_NSEC 000000000L // 0.0 seconds = 5s total
-
 /**
  * @brief Sensor display mode enumeration
  */
@@ -123,32 +118,52 @@ static void calculate_scaling_params(const struct Config *config, ScalingParams 
                                                            config->display_width,
                                                            config->display_height);
 
-    if (config->force_display_circular)
+    // Check display_shape configuration
+    if (strcmp(config->display_shape, "rectangular") == 0)
     {
+        // Force rectangular (inscribe_factor = 1.0)
+        params->is_circular = 0;
+        params->inscribe_factor = 1.0;
+        log_message(LOG_INFO, "Circle mode: Display shape forced to rectangular via config (inscribe_factor: 1.0)");
+    }
+    else if (strcmp(config->display_shape, "circular") == 0)
+    {
+        // Force circular (inscribe_factor = M_SQRT1_2 ≈ 0.7071)
+        params->is_circular = 1;
+        params->inscribe_factor = M_SQRT1_2;
+        log_message(LOG_INFO, "Circle mode: Display shape forced to circular via config (inscribe_factor: %.4f)", M_SQRT1_2);
+    }
+    else if (config->force_display_circular)
+    {
+        // Legacy developer override (CLI --develop)
         params->is_circular = 1;
         params->inscribe_factor = M_SQRT1_2;
     }
     else
     {
+        // Auto-detection based on device database
         params->is_circular = is_circular_by_device;
         params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
     }
 
     // Calculate safe area width
     const double safe_area_width = config->display_width * params->inscribe_factor;
-    params->safe_bar_width = (int)(safe_area_width * CONTENT_SCALE_FACTOR);
+    const float content_scale = (config->display_content_scale_factor > 0.0f && config->display_content_scale_factor <= 1.0f)
+                                    ? config->display_content_scale_factor
+                                    : 0.98f; // Fallback: 98%
+    params->safe_bar_width = (int)(safe_area_width * content_scale);
     params->safe_content_margin = (config->display_width - params->safe_bar_width) / 2.0;
 
     params->corner_radius = 8.0 * scale_avg;
 
-    log_message(LOG_INFO, "Circle mode scaling: safe_area=%.0fpx, bar_width=%dpx, margin=%.1fpx",
-                safe_area_width, params->safe_bar_width, params->safe_content_margin);
+    log_message(LOG_INFO, "Circle mode scaling: safe_area=%.0fpx, bar_width=%dpx, margin=%.1fpx (scale=%.2f)",
+                safe_area_width, params->safe_bar_width, params->safe_content_margin, content_scale);
 }
 
 /**
- * @brief Check if sensor should switch (2.5 seconds elapsed)
+ * @brief Check if sensor should switch based on configured interval
  */
-static void update_sensor_mode(void)
+static void update_sensor_mode(const struct Config *config)
 {
     time_t current_time = time(NULL);
 
@@ -158,9 +173,12 @@ static void update_sensor_mode(void)
         return;
     }
 
-    // Check if 2.5 seconds have elapsed (approximately)
-    // Using SWITCH_INTERVAL_SEC (2) as threshold for time() granularity
-    if (difftime(current_time, last_switch_time) >= SWITCH_INTERVAL_SEC)
+    // Check if configured interval has elapsed
+    const double interval = (config && config->circle_switch_interval > 0)
+                                ? (double)config->circle_switch_interval
+                                : 5.0; // Fallback: 5 seconds
+
+    if (difftime(current_time, last_switch_time) >= interval)
     {
         // Toggle sensor
         current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
@@ -169,8 +187,8 @@ static void update_sensor_mode(void)
         // Verbose logging only
         if (verbose_logging)
         {
-            log_message(LOG_INFO, "Circle mode: switched to %s display",
-                        current_sensor == SENSOR_CPU ? "CPU" : "GPU");
+            log_message(LOG_INFO, "Circle mode: switched to %s display (interval: %.0fs)",
+                        current_sensor == SENSOR_CPU ? "CPU" : "GPU", interval);
         }
     }
 }
@@ -358,8 +376,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
     cairo_paint(cr);
 
-    // Update sensor mode (check if 2.5s elapsed)
-    update_sensor_mode();
+    // Update sensor mode (check if configured interval elapsed)
+    update_sensor_mode(config);
 
     // Draw current sensor
     float temp_value = (current_sensor == SENSOR_CPU) ? data->temp_cpu : data->temp_gpu;

@@ -71,28 +71,27 @@ static void record_config_change(const char *section, const char *key, const cha
 
 /**
  * @brief Log all recorded INI configuration changes.
- * @details Only logs if verbose_logging is enabled and changes were recorded.
+ * @details Always logs user customizations to systemd journal (LOG_STATUS level).
+ *          This ensures manual config changes are visible without --verbose flag.
  */
 static void log_config_changes(void)
 {
-    extern int verbose_logging;
-
-    if (!verbose_logging || config_change_count == 0)
+    if (config_change_count == 0)
     {
-        return; // No logging needed
+        return; // No changes to log
     }
 
-    log_message(LOG_INFO, "=== User Configuration Changes (from coolerdash.ini) ===");
-    log_message(LOG_INFO, "Found %d customized configuration value%s:",
+    log_message(LOG_STATUS, "=== User Configuration Changes (from coolerdash.ini) ===");
+    log_message(LOG_STATUS, "Found %d customized configuration value%s:",
                 config_change_count, config_change_count == 1 ? "" : "s");
 
     for (int i = 0; i < config_change_count; i++)
     {
         ConfigChange *change = &config_changes[i];
-        log_message(LOG_INFO, "  [%s] %s = %s", change->section, change->key, change->value);
+        log_message(LOG_STATUS, "  [%s] %s = %s", change->section, change->key, change->value);
     }
 
-    log_message(LOG_INFO, "=== End of Configuration Changes ===");
+    log_message(LOG_STATUS, "=== End of Configuration Changes ===");
 }
 
 /**
@@ -233,14 +232,18 @@ static void handle_display_height(Config *config, const char *value)
     config->display_height = (height > 0) ? (uint16_t)height : 0;
 }
 
-static void handle_refresh_interval_sec(Config *config, const char *value)
+static void handle_refresh_interval(Config *config, const char *value)
 {
-    config->display_refresh_interval_sec = safe_atoi(value, 0);
-}
-
-static void handle_refresh_interval_nsec(Config *config, const char *value)
-{
-    config->display_refresh_interval_nsec = safe_atoi(value, 0);
+    float interval = strtof(value, NULL);
+    if (interval >= 0.01f && interval <= 60.0f)
+    {
+        config->display_refresh_interval = interval;
+    }
+    else
+    {
+        log_message(LOG_WARNING, "refresh_interval must be 0.01-60.0, using default: 2.50");
+        config->display_refresh_interval = 2.50f;
+    }
 }
 
 static void handle_brightness(Config *config, const char *value)
@@ -268,6 +271,52 @@ static void handle_display_mode(Config *config, const char *value)
     }
 }
 
+static void handle_display_shape(Config *config, const char *value)
+{
+    if (strcmp(value, "auto") == 0 || strcmp(value, "rectangular") == 0 || strcmp(value, "circular") == 0)
+    {
+        cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), value);
+    }
+    else
+    {
+        log_message(LOG_WARNING, "Invalid display_shape '%s', defaulting to 'auto'", value);
+        cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), "auto");
+    }
+}
+
+static void handle_circle_switch_interval(Config *config, const char *value)
+{
+    int interval = safe_atoi(value, 5); // Default: 5 seconds
+    if (interval < 1)
+    {
+        log_message(LOG_WARNING, "Circle switch interval must be >= 1 second, using default (5s)");
+        config->circle_switch_interval = 5;
+    }
+    else if (interval > 60)
+    {
+        log_message(LOG_WARNING, "Circle switch interval too large (%d), capping at 60 seconds", interval);
+        config->circle_switch_interval = 60;
+    }
+    else
+    {
+        config->circle_switch_interval = interval;
+    }
+}
+
+static void handle_content_scale_factor(Config *config, const char *value)
+{
+    float scale = strtof(value, NULL);
+    if (scale < 0.5f || scale > 1.0f)
+    {
+        log_message(LOG_WARNING, "Content scale factor must be between 0.5 and 1.0, using default (0.98)");
+        config->display_content_scale_factor = 0.98f;
+    }
+    else
+    {
+        config->display_content_scale_factor = scale;
+    }
+}
+
 typedef struct
 {
     const char *key;
@@ -279,11 +328,13 @@ static int get_display_config(Config *config, const char *name, const char *valu
     static const DisplayConfigEntry entries[] = {
         {"width", handle_display_width},
         {"height", handle_display_height},
-        {"refresh_interval_sec", handle_refresh_interval_sec},
-        {"refresh_interval_nsec", handle_refresh_interval_nsec},
+        {"refresh_interval", handle_refresh_interval},
         {"brightness", handle_brightness},
         {"orientation", handle_orientation},
-        {"mode", handle_display_mode}};
+        {"shape", handle_display_shape},
+        {"mode", handle_display_mode},
+        {"circle_switch_interval", handle_circle_switch_interval},
+        {"content_scale_factor", handle_content_scale_factor}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {

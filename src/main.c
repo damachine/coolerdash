@@ -515,9 +515,8 @@ static void show_system_diagnostics(const Config *config, int api_width, int api
                     config->display_width, config->display_height);
     }
 
-    log_message(LOG_STATUS, "Refresh interval: %d.%03d seconds",
-                config->display_refresh_interval_sec,
-                config->display_refresh_interval_nsec / 1000000);
+    log_message(LOG_STATUS, "Refresh interval: %.2f seconds",
+                config->display_refresh_interval);
 }
 
 /**
@@ -705,9 +704,13 @@ static int run_daemon(const Config *config)
         return -1;
     }
 
+    // Convert float seconds to timespec (e.g., 2.50 -> tv_sec=2, tv_nsec=500000000)
+    const long interval_sec = (long)config->display_refresh_interval;
+    const long interval_nsec = (long)((config->display_refresh_interval - interval_sec) * 1000000000);
+
     const struct timespec interval = {
-        .tv_sec = config->display_refresh_interval_sec,
-        .tv_nsec = config->display_refresh_interval_nsec};
+        .tv_sec = interval_sec,
+        .tv_nsec = interval_nsec};
 
     struct timespec next_time;
     if (clock_gettime(CLOCK_MONOTONIC, &next_time) != 0)
