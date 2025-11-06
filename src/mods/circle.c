@@ -166,8 +166,12 @@ static void update_sensor_mode(void)
         current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
         last_switch_time = current_time;
 
-        log_message(LOG_INFO, "Circle mode: switched to %s display",
-                    current_sensor == SENSOR_CPU ? "CPU" : "GPU");
+        // Verbose logging only
+        if (verbose_logging)
+        {
+            log_message(LOG_INFO, "Circle mode: switched to %s display",
+                        current_sensor == SENSOR_CPU ? "CPU" : "GPU");
+        }
     }
 }
 
@@ -376,9 +380,13 @@ int render_circle_display(const struct Config *config, const monitor_sensor_data
     ScalingParams params = {0};
     calculate_scaling_params(config, &params, device_name);
 
-    log_message(LOG_INFO, "Circle mode: rendering %s (%.1f°C)",
-                current_sensor == SENSOR_CPU ? "CPU" : "GPU",
-                current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
+    // Verbose logging only
+    if (verbose_logging)
+    {
+        log_message(LOG_INFO, "Circle mode: rendering %s (%.1f°C)",
+                    current_sensor == SENSOR_CPU ? "CPU" : "GPU",
+                    current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
+    }
 
     cairo_surface_t *surface = NULL;
     cairo_t *cr = create_cairo_context(config, &surface);
@@ -418,9 +426,13 @@ int render_circle_display(const struct Config *config, const monitor_sensor_data
         return 0;
     }
 
-    log_message(LOG_STATUS, "Circle mode: %s display updated (%.1f°C)",
-                current_sensor == SENSOR_CPU ? "CPU" : "GPU",
-                current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
+    // Verbose logging only
+    if (verbose_logging)
+    {
+        log_message(LOG_STATUS, "Circle mode: %s display updated (%.1f°C)",
+                    current_sensor == SENSOR_CPU ? "CPU" : "GPU",
+                    current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
+    }
 
     return 1;
 }
