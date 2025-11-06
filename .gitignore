@@ -58,7 +58,6 @@ coolerdash/
 !.gitignore
 
 # Ignore vscode AI rules
-.github/instructions/BEST_PRACTICES.md
-.github/instructions/best_practices.md
+.github/copilot-instructions.md
+.github/instructions/BEST_PRACTICES.instructions.md  
 .github/instructions/codacy.instructions.md
-.github/instructions/copilot-instructions.md
