@@ -56,7 +56,7 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict s
 
 /**
  * @brief Static cache for device information (never changes during runtime).
- * @details Holds the device UID, name, and display dimensions once fetched from the API.
+ * @details Holds the device UID, name, display dimensions, and circular display flag once fetched from the API.
  */
 static struct
 {
@@ -65,6 +65,7 @@ static struct
     char device_name[CC_NAME_SIZE];
     int screen_width;
     int screen_height;
+    int is_circular;
 } device_cache = {0};
 
 /**
@@ -327,8 +328,13 @@ static int process_device_cache_response(const http_response *chunk)
     if (result && found_liquidctl)
     {
         device_cache.initialized = 1;
-        log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel)",
-                    device_cache.device_name, device_cache.screen_width, device_cache.screen_height);
+        device_cache.is_circular = is_circular_display_device(device_cache.device_name,
+                                                              device_cache.screen_width,
+                                                              device_cache.screen_height);
+
+        const char *shape_mode = device_cache.is_circular ? "scaled (circular)" : "unscaled (rectangular)";
+        log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel, %s)",
+                    device_cache.device_name, device_cache.screen_width, device_cache.screen_height, shape_mode);
         return 1;
     }
 
