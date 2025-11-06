@@ -90,9 +90,28 @@ typedef struct {
 ##### `calculate_scaling_params()`
 Calculates dynamic scaling based on display dimensions:
 - Base resolution: 240x240px
-- Detects circular displays via device name or forced configuration
+- Checks `shape` config override (rectangular/circular/auto)
+- Falls back to device detection for circular displays
 - Applies inscribe factor (1/√2 ≈ 0.7071) for circular displays
+- **Uses configurable `content_scale_factor`** (0.5-1.0, default: 0.98) to determine safe area percentage
 - Calculates safe content area to avoid edge clipping
+
+**Priority system:**
+1. `shape` config parameter (manual override)
+2. `force_display_circular` flag (deprecated)
+3. Automatic device detection (default)
+
+**Content Scale Configuration:**
+```ini
+[display]
+content_scale_factor=0.98  # 0.5-1.0, default: 0.98 (2% margin)
+```
+
+**Scale Factor Impact:**
+- **0.98-1.0:** Minimal margins, maximum screen usage
+- **0.90-0.97:** Comfortable padding, safe text rendering
+- **0.70-0.89:** Extra margins, conservative layout
+- **0.5-0.69:** Large margins, centered content focus
 
 ##### `draw_dual_bars()`
 Renders CPU and GPU temperature bars:
@@ -162,17 +181,41 @@ static SensorMode current_sensor = SENSOR_CPU;
 static time_t last_switch_time = 0;
 ```
 
-#### 3. Timing Constants
+#### 3. Configuration-Based Timing
+
+The sensor switch interval is **configurable** via `config.ini`:
+
 ```c
-#define SWITCH_INTERVAL_SEC 5          // 5 seconds
-#define SWITCH_INTERVAL_NSEC 000000000L // 0.0 seconds = 5s total
+// No longer hardcoded - uses Config parameter
+void update_sensor_mode(const struct Config *config)
+{
+    time_t current_time = time(NULL);
+    
+    // Use circle_switch_interval from config (default: 5 seconds)
+    if (difftime(current_time, last_switch_time) >= config->circle_switch_interval) {
+        current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
+        last_switch_time = current_time;
+    }
+}
 ```
+
+**Configuration:**
+```ini
+[display]
+mode=circle
+circle_switch_interval=5  # 1-60 seconds, default: 5
+```
+
+**Use Cases:**
+- **Fast (1-3s):** Quick sensor overview
+- **Moderate (5-8s):** Balanced viewing (default: 5s)
+- **Slow (10-60s):** Focus on individual sensors
 
 #### 4. Core Functions
 
-##### `update_sensor_mode()`
+##### `update_sensor_mode(const struct Config *config)`
 Manages sensor alternation:
-- Uses `time()` for 5-second intervals
+- Uses `time()` with configurable interval from `config->circle_switch_interval`
 - Toggles between CPU and GPU
 - Logs sensor switches for debugging
 
@@ -238,15 +281,26 @@ This ensures visual balance by treating "45°" as a single unit rather than cent
 
 ### Timing Implementation
 
-The 5-second alternation uses `time()` for second-granularity:
+The sensor switching interval is **configurable** via `config.ini` (1-60 seconds, default: 5):
 
 ```c
-time_t current_time = time(NULL);
-
-if (difftime(current_time, last_switch_time) >= SWITCH_INTERVAL_SEC) {
-    current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
-    last_switch_time = current_time;
+void update_sensor_mode(const struct Config *config)
+{
+    time_t current_time = time(NULL);
+    
+    // Use configurable interval from config.ini
+    if (difftime(current_time, last_switch_time) >= config->circle_switch_interval) {
+        current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
+        last_switch_time = current_time;
+    }
 }
+```
+
+**Configuration:**
+```ini
+[display]
+mode=circle
+circle_switch_interval=5  # 1-60 seconds, default: 5
 ```
 
 **Note**: For sub-second precision, `nanosleep()` or `clock_gettime()` could be used, but the current implementation provides sufficient accuracy for display purposes.
@@ -401,17 +455,33 @@ int is_circular = is_circular_display_device(device_name, width, height);
 - NZXT Kraken Elite (240x240)
 - Corsair iCUE LINK (Other models to be added)
 
-### Force Circular Mode
+### Display Shape Override (New in v1.96)
 
-Configuration option to override detection:
+**Recommended Method:** Manual configuration override in `config.ini`:
+```ini
+[display]
+# Display shape override (auto, rectangular, circular)
+# - auto: Auto-detection based on device database (default)
+# - rectangular: Force inscribe_factor=1.0 (full width)
+# - circular: Force inscribe_factor=0.7071 (inscribed circle)
+shape = auto
+```
+
+**Legacy Method (Deprecated):** CLI flag for backwards compatibility:
 ```ini
 [display]
 force_circular = true
 ```
 
-This is useful for:
+**Priority System:**
+1. `shape` config parameter (highest - manual override)
+2. `force_display_circular` flag (legacy compatibility)
+3. Automatic device detection (default)
+
+**Use cases:**
 - Testing circular layout on rectangular displays
-- Devices not in the detection list
+- Fixing incorrect auto-detection results
+- Devices not in the detection database
 - Custom/modded hardware
 
 ### Inscribe Factor Application
@@ -615,6 +685,27 @@ if (!cr || !config || !data) {
 ### 6. Scaling Calculations
 
 Use dynamic scaling for resolution independence:
+```c
+ScalingParams params = calculate_scaling_params(config);
+
+// Use configurable content_scale_factor (default: 0.98)
+double content_scale = (config->display_content_scale_factor > 0.5 && 
+                       config->display_content_scale_factor <= 1.0) ?
+                       config->display_content_scale_factor : 0.98;
+
+// Apply inscribe factor for circular displays
+double inscribe = params.inscribe_factor;  // 1.0 or M_SQRT1_2 (≈0.7071)
+
+// Calculate safe area
+double safe_width = config->display_width * content_scale * inscribe;
+double safe_height = config->display_height * content_scale * inscribe;
+```
+
+**Configuration:**
+```ini
+[display]
+content_scale_factor=0.98  # 0.5-1.0, controls margin/padding
+```
 ```c
 const double scale_avg = (scale_x + scale_y) / 2.0;
 const double corner_radius = 8.0 * scale_avg;

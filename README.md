@@ -109,9 +109,11 @@ systemctl enable --now coolerdash.service
 > [!NOTE]
 > #### Display Modes:
 > - **Dual Mode (default):** Shows CPU and GPU simultaneously - works best on all display sizes
-> - **Circle Mode (new):** Alternates between CPU and GPU every 2.5 seconds - recommended for round high-resolution displays (>240x240px) where dual mode scaling might not be optimal yet
+> - **Circle Mode (new):** Alternates between CPU and GPU every 5 seconds (configurable: 1-60s) - recommended for round high-resolution displays (>240x240px) where dual mode scaling might not be optimal yet
 > - **Enable Circle Mode:** Edit `/etc/coolerdash/config.ini` → Under `[display]` section → Set `mode=circle`
 > - **CLI Override:** Use `coolerdash --circle` to force circle mode or `coolerdash --dual` to force dual mode
+> - **Display Shape Override:** Set `shape=rectangular` or `shape=circular` in config.ini to manually control the inscribe factor (see Configuration Guide)
+> - **Customization:** Adjust `circle_switch_interval` (1-60s) and `content_scale_factor` (0.5-1.0) for fine-tuning
 
 > [!TIP]
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.

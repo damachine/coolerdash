@@ -43,7 +43,6 @@
 
 // Dynamic positioning factors
 #define LABEL_MARGIN_FACTOR 0.02
-#define CONTENT_SCALE_FACTOR 0.98
 
 /**
  * @brief Convert color component to cairo format (0-255 to 0.0-1.0)
@@ -111,29 +110,48 @@ static void calculate_scaling_params(const struct Config *config, ScalingParams 
                                                            config->display_width,
                                                            config->display_height);
 
-    // Allow developer override from config (set via CLI --develop)
-    if (config->force_display_circular)
+    // Check display_shape configuration
+    if (strcmp(config->display_shape, "rectangular") == 0)
     {
+        // Force rectangular (inscribe_factor = 1.0)
+        params->is_circular = 0;
+        params->inscribe_factor = 1.0;
+        log_message(LOG_INFO, "Display shape forced to rectangular via config (inscribe_factor: 1.0)");
+    }
+    else if (strcmp(config->display_shape, "circular") == 0)
+    {
+        // Force circular (inscribe_factor = M_SQRT1_2 ≈ 0.7071)
+        params->is_circular = 1;
+        params->inscribe_factor = M_SQRT1_2;
+        log_message(LOG_INFO, "Display shape forced to circular via config (inscribe_factor: %.4f)", M_SQRT1_2);
+    }
+    else if (config->force_display_circular)
+    {
+        // Legacy developer override (CLI --develop)
         params->is_circular = 1;
         params->inscribe_factor = M_SQRT1_2;
         log_message(LOG_INFO, "Developer override active: forcing circular display detection (device: %s)", device_name ? device_name : "unknown");
     }
     else
     {
+        // Auto-detection based on device database
         params->is_circular = is_circular_by_device;
         params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
     }
 
     // Calculate safe area width
     const double safe_area_width = config->display_width * params->inscribe_factor;
-    params->safe_bar_width = (int)(safe_area_width * CONTENT_SCALE_FACTOR);
+    const float content_scale = (config->display_content_scale_factor > 0.0f && config->display_content_scale_factor <= 1.0f)
+                                    ? config->display_content_scale_factor
+                                    : 0.98f; // Fallback: 98%
+    params->safe_bar_width = (int)(safe_area_width * content_scale);
     params->safe_content_margin = (config->display_width - params->safe_bar_width) / 2.0;
 
     params->corner_radius = 8.0 * scale_avg;
 
     // Log detailed scaling calculations (verbose only)
-    log_message(LOG_INFO, "Scaling: safe_area=%.0fpx, bar_width=%dpx, margin=%.1fpx",
-                safe_area_width, params->safe_bar_width, params->safe_content_margin);
+    log_message(LOG_INFO, "Scaling: safe_area=%.0fpx, bar_width=%dpx, margin=%.1fpx (scale=%.2f)",
+                safe_area_width, params->safe_bar_width, params->safe_content_margin, content_scale);
 }
 
 /**

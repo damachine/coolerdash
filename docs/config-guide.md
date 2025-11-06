@@ -73,19 +73,25 @@ LCD display configuration tested with NZXT Kraken 2023.
 [display]
 width=240
 height=240
-refresh_interval_sec=2
-refresh_interval_nsec=500000000
+refresh_interval=2.50
 brightness=80
 orientation=0
+shape=auto
+mode=dual
+circle_switch_interval=5
+content_scale_factor=0.98
 ```
 
 ### Settings
 - **`width`**: Screen width in pixels (240 for NZXT Kraken)
 - **`height`**: Screen height in pixels (240 for NZXT Kraken)
-- **`refresh_interval_sec`**: Update interval in seconds (1-10 recommended)
-- **`refresh_interval_nsec`**: Additional nanoseconds (500000000 = 0.5s)
+- **`refresh_interval`**: Update interval in seconds with 2 decimal places (0.01-60.0, default: 2.50)
 - **`brightness`**: LCD brightness 0-100% (80% recommended)
 - **`orientation`**: Screen rotation: `0`, `90`, `180`, `270` degrees
+- **`shape`**: Display shape override: `auto` (default), `rectangular`, or `circular`
+- **`mode`**: Display mode: `dual` (default) or `circle`
+- **`circle_switch_interval`**: Circle mode sensor switch interval in seconds (1-60, default: 5)
+- **`content_scale_factor`**: Content scale factor (0.5-1.0, default: 0.98) - percentage of safe area used for content
 
 ### Brightness Examples
 ```ini
@@ -102,17 +108,94 @@ brightness=100
 ### Refresh Rate Examples
 ```ini
 # Fast updates (1 second)
-refresh_interval_sec=1
-refresh_interval_nsec=0
+refresh_interval=1.00
 
-# Standard updates (2.5 seconds)
-refresh_interval_sec=2
-refresh_interval_nsec=500000000
+# Standard updates (2.5 seconds) - default
+refresh_interval=2.50
+
+# Moderate updates (3.5 seconds)
+refresh_interval=3.50
 
 # Slow updates (5 seconds) - saves power
-refresh_interval_sec=5
-refresh_interval_nsec=0
+refresh_interval=5.00
 ```
+
+### Display Shape Override
+
+The `shape` parameter allows manual control of the **inscribe factor** used for layout calculations:
+
+- **`auto`** (default): Automatic detection based on device database
+- **`rectangular`**: Force inscribe factor = 1.0 (use full display width)
+- **`circular`**: Force inscribe factor = 0.7071 (inscribed square for round displays)
+
+**When to use:**
+- Testing different layouts on your display
+- Troubleshooting clipping issues on circular displays
+- Overriding auto-detection if it's incorrect for your device
+
+**Examples:**
+```ini
+# Auto-detection (recommended)
+shape=auto
+
+# Force rectangular layout (full width, inscribe factor = 1.0)
+shape=rectangular
+
+# Force circular layout (inscribed square, inscribe factor = 0.7071)
+shape=circular
+```
+
+**Priority:** `shape` config > `--force-display-circular` CLI flag > auto-detection
+
+**Note:** See [Display Detection Guide](display-detection.md) for technical details about inscribe factors.
+
+#### Circle Mode Sensor Switching
+
+**Parameter:** `circle_switch_interval`
+
+Controls how frequently the circle mode rotates between available sensors:
+
+- **Range:** 1-60 seconds
+- **Default:** 5 seconds
+- **Applies to:** Circle mode only
+
+**Example:**
+```ini
+[display]
+mode=circle
+circle_switch_interval=10  # Switch every 10 seconds
+```
+
+**Use Cases:**
+- **Fast switching (1-3s):** Quick overview of all sensors
+- **Moderate (5-8s):** Default balanced viewing
+- **Slow switching (10-60s):** Focus on individual sensors longer
+
+#### Content Scale Factor
+
+**Parameter:** `content_scale_factor`
+
+Controls the safe area percentage used for rendering content (determines margin/padding):
+
+- **Range:** 0.5-1.0 (50%-100%)
+- **Default:** 0.98 (98% = 2% margin)
+- **Applies to:** Both dual and circle modes
+
+**Example:**
+```ini
+[display]
+content_scale_factor=0.95  # 5% margin for more padding
+```
+
+**Use Cases:**
+- **0.98-1.0:** Minimal margins, maximum screen usage
+- **0.90-0.97:** Comfortable padding, safe for text rendering
+- **0.70-0.89:** Extra margins, conservative layout
+- **0.5-0.69:** Large margins, centered content focus
+
+**Visual Impact:**
+- Higher values (0.95-1.0) = content fills more screen area, less padding
+- Lower values (0.5-0.8) = more white space around content, safer margins
 
 ---
 
@@ -411,8 +494,7 @@ pid=/tmp/coolerdash.pid
 [display]
 width=240
 height=240
-refresh_interval_sec=2
-refresh_interval_nsec=500000000
+refresh_interval=2.50
 brightness=80
 orientation=0
 

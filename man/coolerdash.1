@@ -1,120 +1,478 @@
-.TH COOLERDASH 1 "26 September 2025" "CoolerDash 1.76.2" "User Commands"
+.TH COOLERDASH 1 "November 2025" "CoolerDash 1.96" "User Commands"
 .SH NAME
-CoolerDash \- LCD dashboard renderer for CoolerControl devices
+coolerdash \- LCD dashboard renderer for CoolerControl-compatible AIO coolers
 .SH SYNOPSIS
 .B coolerdash
-[\fIOPTIONS\fR]
+[\fB\-v\fR|\fB\-\-verbose\fR]
+[\fB\-\-dual\fR]
+[\fB\-\-circle\fR]
+[\fB\-\-force\-display\-circular\fR]
+.br
+.B coolerdash
+[\fB\-h\fR|\fB\-\-help\fR]
+[\fB\-\-version\fR]
 .SH DESCRIPTION
-CoolerDash generates and uploads images to AIO liquid cooler LCD displays using data provided by the CoolerControl daemon.
-It extends CoolerControl's LCD functionality with additional sensors, improved layout, and configurable behavior.
-
-This manual page summarizes installation, configuration and common usage patterns. For full documentation see the project's README and docs directory.
+.B coolerdash
+generates and uploads real-time sensor images to AIO liquid cooler LCD displays
+using data from the CoolerControl daemon. It extends CoolerControl's LCD
+functionality with multiple display modes, temperature visualization, and
+extensive customization options.
+.PP
+The program supports two display modes:
+.B dual mode
+(simultaneous CPU+GPU display) and
+.B circle mode
+(alternating single-sensor display). Display shape detection automatically
+adjusts layouts for circular and rectangular screens.
+.PP
+.B coolerdash
+runs as a systemd service by default but can be executed manually for testing
+and debugging purposes.
 .SH OPTIONS
 .TP
-.B \-\-help
-Show brief help and exit.
+.BR \-h ", " \-\-help
+Display usage information and exit.
 .TP
-.B \-l, \-\-log
-Enable detailed debug logging.
+.BR \-v ", " \-\-verbose
+Enable verbose logging. Shows detailed information about API calls, device
+detection, rendering operations, and display updates. Useful for debugging
+and troubleshooting.
 .TP
-.B \-c, \-\-config \fIFILE\fR
-Use alternate configuration file (default: /etc/coolerdash/config.ini).
-.SH INSTALLATION
+.B \-\-version
+Display version information and exit.
+.TP
+.B \-\-dual
+Force dual display mode (CPU and GPU simultaneously). Overrides config.ini setting.
+.TP
+.B \-\-circle
+Force circle display mode (alternating CPU/GPU every 2.5 seconds). Overrides
+config.ini setting.
+.TP
+.B \-\-force\-display\-circular
+Force circular display layout (inscribe factor = 0.7071). Overrides automatic
+display shape detection. Deprecated in favor of the \fBshape\fR configuration
+parameter.
+.SH CONFIGURATION
+.B coolerdash
+is configured through
+.IR /etc/coolerdash/config.ini .
+After modifying the configuration file, restart the service:
+.PP
+.RS
+.nf
+.B sudo systemctl restart coolerdash.service
+.fi
+.RE
+.SS Important Configuration Sections
+.TP
+.B [daemon]
+CoolerControl daemon connection settings (address, password).
+.TP
+.B [display]
+Display settings including width, height, refresh rate, brightness, orientation,
+display mode (\fBdual\fR or \fBcircle\fR), and shape override (\fBauto\fR,
+\fBrectangular\fR, or \fBcircular\fR).
+.TP
+.B [layout]
+Visual layout configuration for box dimensions, bar sizes, gaps, and borders.
+.TP
+.B [temperature]
+Temperature thresholds and color zones for visual indication.
+.TP
+.B [font]
+Font family, sizes, and colors for temperature values and labels.
+.PP
+For detailed configuration options, see
+.I /usr/share/doc/coolerdash/config-guide.md
+or visit the project documentation online.
+.SH DISPLAY MODES
+.SS Dual Mode (default)
+Displays CPU and GPU temperatures simultaneously in a side-by-side layout.
+Recommended for all display sizes and shapes. Provides constant visibility
+of both sensors.
+.SS Circle Mode
+Alternates between CPU and GPU display every 2.5 seconds. Optimized for
+circular high-resolution displays (>240x240px) where larger text and graphics
+provide better visibility.
+.PP
+To enable circle mode, edit
+.I /etc/coolerdash/config.ini
+and set:
+.PP
+.RS
+.nf
+[display]
+mode = circle
+.fi
+.RE
+.PP
+Or use the
+.B \-\-circle
+command-line option to temporarily override the configuration.
+.SH DISPLAY SHAPE DETECTION
+.B coolerdash
+automatically detects whether your LCD is circular or rectangular and adjusts
+the layout accordingly using an inscribe factor.
+.SS Automatic Detection Rules
+.TP
+.B NZXT Kraken devices
+Resolution-based detection:
+.RS
+.IP \(bu 3
+≤240×240 pixels → Rectangular (inscribe factor = 1.0)
+.IP \(bu 3
+>240×240 pixels → Circular (inscribe factor = 0.7071)
+.RE
+.TP
+.B Other devices
+Checked against internal device database.
+.TP
+.B Default
+Rectangular (safer fallback for unknown devices).
+.SS Manual Override
+You can manually override automatic detection in
+.IR /etc/coolerdash/config.ini :
+.PP
+.RS
+.nf
+[display]
+shape = auto          # Auto-detection (default)
+# shape = rectangular # Force rectangular (inscribe factor = 1.0)
+# shape = circular    # Force circular (inscribe factor = 0.7071)
+.fi
+.RE
+.PP
+Priority: \fBshape\fR config > \fB\-\-force-display-circular\fR flag > auto-detection
+.SH SYSTEMD SERVICE
+.B coolerdash
+is designed to run as a systemd service, starting automatically at boot.
 .PP
 Arch Linux (recommended):
+.SH INSTALLATION
+.SS Arch Linux (Recommended)
+Using an AUR helper (e.g., yay, paru):
+.PP
 .RS
-.SS Using an AUR helper
-.EX
-$ yay -S coolerdash-git
-.EE
+.nf
+.B yay -S coolerdash-git
+.B sudo systemctl daemon-reload
+.B sudo systemctl enable --now coolerdash.service
+.fi
+.RE
+.SS All Linux Distributions
+Manual installation from source:
+.PP
+.RS
+.nf
+.B git clone https://github.com/damachine/coolerdash.git
+.B cd coolerdash
+.B make install
+.B sudo systemctl daemon-reload
+.B sudo systemctl enable --now coolerdash.service
+.fi
 .RE
 .PP
-Manual install:
-.RS
-.EX
-$ git clone https://github.com/damachine/coolerdash.git
-$ cd coolerdash
-$ make install
-$ sudo systemctl daemon-reload
-$ sudo systemctl enable --now coolerdash.service
-.EE
-.RE
-.SH REQUIREMENTS
-.PP
-.IP "Operating system:" 4
-Linux
-.IP "CoolerControl:" 4
-Version >= 2.2.2 (must be installed and the coolercontrold daemon running)
-.IP "CPU:" 4
-x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
-.IP "LCD:" 4
-AIO liquid cooler displays (NZXT, etc.)
-.SH CONFIGURATION
-Configuration is managed in /etc/coolerdash/config.ini. Edit values and restart the service:
-.RS
-.EX
-$ sudo systemctl restart coolerdash.service
-.EE
-.RE
-.PP
-In CoolerControl GUI select one sensor for CPU and one for GPU and set the LCD output type to Image/GIF.
-.SH USAGE
-.PP
-Run the daemon via systemd or manually for debugging:
-.RS
-.EX
-# Run as installed service
-$ sudo systemctl enable --now coolerdash.service
-
-# Run manually (foreground)
-$ coolerdash
-# Detailed debug output
-$ coolerdash --log
-.EE
-.RE
-.SH DEBUGGING
-Common troubleshooting steps:
+The
+.B make install
+command automatically detects your distribution and installs required
+dependencies.
+.SH SYSTEM REQUIREMENTS
 .TP
-.B "Check CoolerControl"
-$ systemctl status coolercontrold
-$ curl http://localhost:11987/devices | jq
+.B Operating System
+Linux (any distribution)
 .TP
-.B "Journal"
-$ journalctl -u coolerdash.service -f
+.B CoolerControl
+Version ≥2.2.2 (must be installed and running). See
+.UR https://gitlab.com/coolercontrol/coolercontrol
+.UE
+for installation instructions.
 .TP
-.B "Manual run"
-Stop the systemd service before running manually to avoid conflicts:
+.B CPU Architecture
+x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+ or newer)
+.TP
+.B LCD Display
+AIO liquid cooler with LCD display (NZXT Kraken, Corsair iCUE, etc.).
+All devices supported by CoolerControl/liquidctl should work.
+.TP
+.B Build Dependencies
+gcc, make, cairo, jansson, curl, inih (automatically installed by
+.BR "make install" )
+.SH COOLERCONTROL SETUP
+Before using
+.BR coolerdash ,
+configure CoolerControl:
+.IP 1. 4
+Open CoolerControl GUI
+.IP 2. 4
+Navigate to
+.B Settings
+→
+.B "Device and Sensor"
+.IP 3. 4
+Select one sensor for
+.B CPU
+(e.g., "CPU Package")
+.IP 4. 4
+Select one sensor for
+.B GPU
+(e.g., "GPU Temperature")
+.IP 5. 4
+Set your LCD display output type to
+.B "Image/gif"
+.IP 6. 4
+Save settings and restart coolerdash service
+.SH EXAMPLES
+.SS Run manually with verbose logging
+Stop the systemd service first to avoid conflicts:
+.PP
 .RS
-.EX
-$ sudo systemctl stop coolerdash.service
-$ coolerdash --log
-.EE
+.nf
+.B sudo systemctl stop coolerdash.service
+.B coolerdash --verbose
+.fi
+.RE
+.SS Force dual mode temporarily
+.PP
+.RS
+.nf
+.B coolerdash --dual --verbose
+.fi
+.RE
+.SS Force circle mode temporarily
+.PP
+.RS
+.nf
+.B coolerdash --circle --verbose
+.fi
+.RE
+.SS Check CoolerControl device information
+.PP
+.RS
+.nf
+.B curl http://localhost:11987/devices | jq
+.fi
+.RE
+.SS View recent service logs
+.PP
+.RS
+.nf
+.B journalctl -u coolerdash.service -n 50
+.fi
+.RE
+.SH TROUBLESHOOTING
+.SS Service won't start
+Check CoolerControl daemon status:
+.PP
+.RS
+.nf
+.B systemctl status coolercontrold
+.fi
+.RE
+.PP
+Ensure coolercontrold is running before starting coolerdash.
+.SS No devices found
+Verify CoolerControl can see your device:
+.PP
+.RS
+.nf
+.B curl http://localhost:11987/devices
+.fi
+.RE
+.PP
+Check that your LCD is set to "Image/gif" mode in CoolerControl GUI.
+.SS Clipping on circular display
+The content appears cut off at the edges. Override display shape detection:
+.PP
+.RS
+.nf
+Edit /etc/coolerdash/config.ini:
+[display]
+shape = circular
+.fi
+.RE
+.PP
+Then restart the service.
+.SS Too much padding on rectangular display
+Content appears too small with large margins. Override display shape:
+.PP
+.RS
+.nf
+Edit /etc/coolerdash/config.ini:
+[display]
+shape = rectangular
+.fi
+.RE
+.SS Debug build for detailed information
+.PP
+.RS
+.nf
+.B cd /path/to/coolerdash
+.B make debug
+.B sudo systemctl stop coolerdash.service
+.B ./bin/coolerdash --verbose
+.fi
 .RE
 .SH FILES
-.IP "/etc/coolerdash/config.ini" 4
-Main configuration file.
-.IP "/usr/bin/coolerdash" 4
-Installed binary (if installed system-wide).
-.IP "/usr/share/man/man1/coolerdash.1.gz" 4
-Man page (when installed).
+.TP
+.I /etc/coolerdash/config.ini
+Main configuration file. Contains all settings for daemon connection, display
+properties, layout, colors, fonts, and temperature thresholds.
+.TP
+.I /usr/bin/coolerdash
+Installed binary executable.
+.TP
+.I /etc/systemd/system/coolerdash.service
+Systemd service unit file.
+.TP
+.I /opt/coolerdash/images/
+Default image directory containing shutdown.png and other display images.
+.TP
+.I /tmp/coolerdash.png
+Temporary file for generated display image (default location).
+.TP
+.I /tmp/coolerdash.pid
+PID file for the running coolerdash process.
+.TP
+.I /usr/share/man/man1/coolerdash.1.gz
+This manual page (when installed system-wide).
+.TP
+.I /usr/share/doc/coolerdash/
+Documentation directory containing detailed guides:
+.RS
+.IP \(bu 3
+.I config-guide.md
+\- Complete configuration reference
+.IP \(bu 3
+.I display-modes.md
+\- Display modes technical documentation
+.IP \(bu 3
+.I display-detection.md
+\- Display shape detection details
+.IP \(bu 3
+.I coolercontrol-api.md
+\- CoolerControl API integration guide
+.IP \(bu 3
+.I developer-guide.md
+\- Developer documentation
+.IP \(bu 3
+.I devices.md
+\- List of confirmed working devices
+.RE
+.SH ENVIRONMENT
+.B coolerdash
+does not use environment variables. All configuration is managed through
+.IR /etc/coolerdash/config.ini .
+.SH EXIT STATUS
+.TP
+.B 0
+Successful execution or graceful shutdown.
+.TP
+.B 1
+General error (configuration error, CoolerControl connection failure, etc.).
+.TP
+.B 2
+Invalid command-line arguments.
+.SH NOTES
+.IP \(bu 3
+When
+.B coolerdash
+stops (during shutdown or reboot), it automatically displays the shutdown.png
+image because sensor data is no longer available.
+.IP \(bu 3
+The service must be restarted after modifying
+.I /etc/coolerdash/config.ini
+for changes to take effect.
+.IP \(bu 3
+Verbose logging (
+.BR \-\-verbose )
+is recommended when troubleshooting display issues or API communication problems.
+.IP \(bu 3
+Multiple instances of coolerdash cannot run simultaneously. Stop the systemd
+service before manual execution.
+.IP \(bu 3
+The
+.B \-\-force\-display\-circular
+flag is deprecated. Use the
+.B shape
+configuration parameter instead for better control.
 .SH EXAMPLES
 .RS
-.EX
-# Render once from command line (example)
-$ coolerdash
-
-# Check devices
-$ curl http://localhost:11987/devices | jq
-.EE
+.nf
+.B coolerdash --verbose
+.fi
 .RE
+.PP
+For additional examples, see the
+.B EXAMPLES
+section above.
 .SH SEE ALSO
-.BR coolercontrold (8),
-.BR jq (1),
-.BR systemctl (1)
+.BR systemctl (1),
+.BR journalctl (1),
+.BR curl (1),
+.BR jq (1)
+.PP
+.B CoolerControl
+.RS
+.UR https://gitlab.com/coolercontrol/coolercontrol
+.UE
+.RE
+.PP
+.B CoolerDash GitHub Repository
+.RS
+.UR https://github.com/damachine/coolerdash
+.UE
+.RE
+.PP
+.B liquidctl (supported devices)
+.RS
+.UR https://github.com/liquidctl/liquidctl
+.UE
+.RE
 .SH AUTHOR
-Developed by DAMACHINE \<christkue79@gmail.com\>
+Written by DAMACHINE.
+.PP
+.MT christkue79@gmail.com
+.ME
 .SH COPYRIGHT
-Copyright © 2025 DAMACHINE. Distributed under the MIT License.
+Copyright \(co 2024-2025 DAMACHINE.
+.PP
+License: MIT License
+.UR https://opensource.org/licenses/MIT
+.UE
+.PP
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
 .SH BUGS
-Report issues and feature requests at:
-https://github.com/damachine/coolerdash/issues
+.SS Reporting Bugs
+Report bugs and feature requests at:
+.UR https://github.com/damachine/coolerdash/issues
+.UE
+.PP
+When reporting bugs, please include:
+.IP \(bu 3
+Output of
+.B coolerdash \-\-verbose
+.IP \(bu 3
+Content of
+.I /etc/coolerdash/config.ini
+.IP \(bu 3
+Output of
+.B "systemctl status coolercontrold"
+.IP \(bu 3
+Output of
+.B "curl http://localhost:11987/devices"
+.IP \(bu 3
+Your device model and LCD resolution
+.IP \(bu 3
+Linux distribution and kernel version
+.SS Known Issues
+See the GitHub Issues page for current known issues and workarounds.
+.SH HISTORY
+.B coolerdash
+was created to extend CoolerControl's LCD functionality on Linux systems,
+providing features similar to those available on Windows platforms for AIO
+liquid cooler displays.
+.PP
+The project started with basic temperature display and has evolved to include
+multiple display modes, automatic shape detection, extensive customization
+options, and support for various cooler brands.
