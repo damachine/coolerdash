@@ -97,18 +97,11 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
           MSG: ${{ steps.version.outputs.release_msg }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
           set -euo pipefail
           git fetch origin
           echo "Creating signed tag: $TAG"
-          gpg-agent --daemon --allow-preset-passphrase --max-cache-ttl 3600 || true
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
-            --sign --armor --detach-sign --local-user "${{ steps.gpg.outputs.keyid }}" \
-            --output /tmp/dummy.sig <(echo "test") || true
-          echo "$GPG_PASSPHRASE" | git -c "gpg.program=gpg" \
-            -c "user.signingkey=${{ steps.gpg.outputs.keyid }}" \
-            tag -s "$TAG" -m "$MSG" HEAD
+          git tag -s "$TAG" -m "$MSG" HEAD
           git push origin "$TAG"
           echo "Successfully created and pushed signed tag: $TAG"
 
@@ -170,8 +163,7 @@ jobs:
     name: Arch/AUR Release Summary
     runs-on: ubuntu-latest
     needs: [aur-update]
-    if: always()  # Runs even if previous jobs fail
-    
+    if: always()
     steps:
       - name: Create summary report
         run: |
