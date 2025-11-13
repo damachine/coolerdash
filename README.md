@@ -119,7 +119,6 @@ systemctl enable --now coolerdash.service
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
 > - You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
 > - **For detailed configuration options and examples, see: 📖** [Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)
-> - **For developers and contributors, see: 🔧** [Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)
 
 ---
 
