@@ -52,7 +52,7 @@
 
 ## Installation
 
-#### Arch Linux (Recommended)
+#### Arch Linux
 
 <a href="https://github.com/damachine/coolerdash/actions/workflows/aur.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg"></a>  
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
@@ -119,19 +119,6 @@ systemctl enable --now coolerdash.service
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
 > - You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
 > - **For detailed configuration options and examples, see: 📖** [Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)
-
----
-
-## Documentation
-
-> [!NOTE]
-> **📚 For Developers:**
-> - **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Complete technical reference for Dual and Circle display modes - architecture, layout algorithms, rendering pipeline, and how to add new modes
-> - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - Comprehensive documentation of all cc_*.c/h modules - session management, device caching, temperature retrieval, API communication flow, and troubleshooting
-> - **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Complete architecture, API integration, rendering pipeline, and function reference
-> - **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - How circular vs rectangular displays are detected
-> - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options explained
-> - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - List of confirmed working hardware
 
 ---
 
@@ -272,8 +259,19 @@ systemctl stop coolerdash.service
 
 ---
 
+> [!NOTE]
+> **📚 For developers and contributors:**
+> - **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Complete technical reference for Dual and Circle display modes - architecture, layout algorithms, rendering pipeline, and how to add new modes
+> - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - Comprehensive documentation of all cc_*.c/h modules - session management, device caching, temperature retrieval, API communication flow, and troubleshooting
+> - **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Complete architecture, API integration, rendering pipeline, and function reference
+> - **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - How circular vs rectangular displays are detected
+> - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options explained
+> - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - List of confirmed working hardware
+
+---
+
 > [!TIP]
-> ### Have a question or an idea?
+> #### Have a question or an idea?
 > - **Suggest improvements** or discuss new features in our **[Discussions](https://github.com/damachine/coolerdash/discussions)**.
 > - **Report a bug** or request help by opening an **[Issue](https://github.com/damachine/coolerdash/issues)**.
 >
@@ -281,12 +279,7 @@ systemctl stop coolerdash.service
 
 ---
 
-## ⚠️ Disclaimer
-
-This software is provided "as is", without warranty of any kind, express or implied.  
-I do not guarantee that it will work as intended on your system. 
-
-## 📄 License
+#### 📄 License
 
 MIT License - See LICENSE file for details.
 
@@ -298,7 +291,7 @@ Individual Coolercontrol package have their own licenses:
 
 ---
 
-## 💝 Support the Project
+#### 💝 Support the Project
 
 If you find CoolerDash useful and want to support its development:
 
