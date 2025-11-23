@@ -82,7 +82,7 @@ static float extract_device_temperature(const json_t *device, const char *device
             return temperature;
         }
         else if (strcmp(device_type, "GPU") == 0 &&
-                 (strstr(sensor_name, "GPU") || strstr(sensor_name, "gpu")))
+                 (strstr(sensor_name, "GPU") || strstr(sensor_name, "gpu") || strstr(sensor_name, "temp1")))
         {
             return temperature;
         }
