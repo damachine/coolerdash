@@ -5,7 +5,7 @@ on:
     paths:
       - 'VERSION'
     branches:
-      - main
+      - master
   workflow_dispatch:
 permissions:
   contents: write
