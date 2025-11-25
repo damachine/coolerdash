@@ -11,7 +11,7 @@
 
 # CoolerDash 🐧
 
-#### This tool is to display real-time sensor on an AIO liquid cooler LCD displays.
+#### This tool is to display real-time sensor on an AIO liquid cooler with integrated LCD displays.
 Developed this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet the desired expectations.   
 Use it successfully myself – maybe it will help you too! ❤️
 
