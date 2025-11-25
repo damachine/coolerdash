@@ -85,6 +85,10 @@ typedef struct Config
     uint16_t circle_switch_interval;
     // Content scale factor (0.0-1.0) - how much of safe area to use - default: 0.98
     float display_content_scale_factor;
+    // Custom inscribe factor for circular displays (>=0 && <=1.0)
+    // - 0.0 = auto (use geometric inscribe factor 1/√2 ≈ 0.7071)
+    // Default: 0.70710678 (geometric inscribe 1/√2)
+    float display_inscribe_factor;
 
     // Layout configuration - all positioning is calculated dynamically from display dimensions
     uint16_t layout_bar_height;

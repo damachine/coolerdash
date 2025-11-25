@@ -112,7 +112,7 @@ If circle radius = R:
 
 **Circular Displays:**
 ```
-inscribe_factor = 0.7071 (reduced safe area)
+inscribe_factor = 0.7071 (reduced safe area) - NOTE: The `inscribe_factor` is configurable via `display_inscribe_factor` in `config.ini`; default is 0.70710678 (0.0 = auto)
 safe_area_width = 240 × 0.7071 = ~170px
 safe_bar_width = 170 × 0.98 = ~167px
 margin = (240 - 170) / 2 = ~35px

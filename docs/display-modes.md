@@ -463,7 +463,7 @@ int is_circular = is_circular_display_device(device_name, width, height);
 # Display shape override (auto, rectangular, circular)
 # - auto: Auto-detection based on device database (default)
 # - rectangular: Force inscribe_factor=1.0 (full width)
-# - circular: Force inscribe_factor=0.7071 (inscribed circle)
+# - circular: Force inscribe_factor=0.7071 (inscribed circle). Note: The value is configurable via `display_inscribe_factor` in `config.ini` (default: 0.70710678) — 0.0 = auto
 shape = auto
 ```
 
@@ -489,7 +489,10 @@ force_circular = true
 For circular displays:
 ```c
 if (is_circular) {
-    params->inscribe_factor = M_SQRT1_2;  // 1/√2 ≈ 0.7071
+    // `params->inscribe_factor` is set to either the configured
+    // `display_inscribe_factor` (>0 && <=1) or falls back to the
+    // geometric inscribe factor M_SQRT1_2 (1/√2 ≈ 0.7071)
+    params->inscribe_factor = cfg_inscribe;
     safe_area_width = display_width * inscribe_factor;
 } else {
     params->inscribe_factor = 1.0;

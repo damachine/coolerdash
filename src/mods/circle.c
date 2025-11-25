@@ -130,20 +130,50 @@ static void calculate_scaling_params(const struct Config *config, ScalingParams 
     {
         // Force circular (inscribe_factor = M_SQRT1_2 ≈ 0.7071)
         params->is_circular = 1;
-        params->inscribe_factor = M_SQRT1_2;
-        log_message(LOG_INFO, "Circle mode: Display shape forced to circular via config (inscribe_factor: %.4f)", M_SQRT1_2);
+        double cfg_inscribe;
+        if (config->display_inscribe_factor == 0.0f)
+            cfg_inscribe = M_SQRT1_2; // user 'auto'
+        else if (config->display_inscribe_factor > 0.0f && config->display_inscribe_factor <= 1.0f)
+            cfg_inscribe = (double)config->display_inscribe_factor;
+        else
+            cfg_inscribe = M_SQRT1_2; // fallback
+        params->inscribe_factor = cfg_inscribe;
+        log_message(LOG_INFO, "Circle mode: Display shape forced to circular via config (inscribe_factor: %.4f)", params->inscribe_factor);
     }
     else if (config->force_display_circular)
     {
         // Legacy developer override (CLI --develop)
         params->is_circular = 1;
-        params->inscribe_factor = M_SQRT1_2;
+        {
+            double cfg_inscribe;
+            if (config->display_inscribe_factor == 0.0f)
+                cfg_inscribe = M_SQRT1_2;
+            else if (config->display_inscribe_factor > 0.0f && config->display_inscribe_factor <= 1.0f)
+                cfg_inscribe = (double)config->display_inscribe_factor;
+            else
+                cfg_inscribe = M_SQRT1_2;
+            params->inscribe_factor = cfg_inscribe;
+        }
     }
     else
     {
         // Auto-detection based on device database
         params->is_circular = is_circular_by_device;
-        params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
+        if (params->is_circular)
+        {
+            double cfg_inscribe;
+            if (config->display_inscribe_factor == 0.0f)
+                cfg_inscribe = M_SQRT1_2;
+            else if (config->display_inscribe_factor > 0.0f && config->display_inscribe_factor <= 1.0f)
+                cfg_inscribe = (double)config->display_inscribe_factor;
+            else
+                cfg_inscribe = M_SQRT1_2;
+            params->inscribe_factor = cfg_inscribe;
+        }
+        else
+        {
+            params->inscribe_factor = 1.0;
+        }
     }
 
     // Calculate safe area width

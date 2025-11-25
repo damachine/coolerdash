@@ -80,6 +80,13 @@ shape=auto
 mode=dual
 circle_switch_interval=5
 content_scale_factor=0.98
+
+# Optional: Custom inscribe factor for circular displays
+# - Range: >=0 && <=1.0
+# - 0.0 means "auto" (use geometric inscribe factor 1/√2 ≈ 0.7071)
+# - Default: 0.70710678 (geometric inscribe)
+# - Example values: 0.70710678 (geometric), 0.85 (more usable area)
+# inscribe_factor=0.70710678
 ```
 
 ### Settings
@@ -583,3 +590,13 @@ Before making changes, backup your working configuration:
 ```bash
 sudo cp /etc/coolerdash/config.ini /etc/coolerdash/config.ini.backup
 ```
+
+## 🧪 Run scaling unit test (developer)
+
+There is a small test harness that validates safe_area and safe_bar calculations used by the renderers.
+Build and run the test with:
+```bash
+gcc -std=c99 -Iinclude -I./src -o build/test_scaling tests/test_scaling.c -lm
+./build/test_scaling
+```
+This will print the computed safe_area and safe_bar width for representative cases: auto (0.0), explicit 0.70710678 and custom 0.85.
