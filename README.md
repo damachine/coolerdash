@@ -11,11 +11,9 @@
 
 # CoolerDash 🐧
 
-#### This tool is intended to simplify display real-time sensor on an AIO liquid cooler LCD displays.
-
-##### I made the tool because the LCD display of my NZXT Kraken 2023 under Linux does not correspond to the desired features. :P
-
-##### I've been using this tool successfully for quite a while—maybe it will help you too!❤️
+#### This tool is to display real-time sensor on an AIO liquid cooler LCD displays.
+Developed this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet the desired expectations.   
+Use it successfully myself – maybe it will help you too! ❤️
 
 ---
 ## Features
@@ -23,11 +21,11 @@
 - **Support for additional sensor values, and a sophisticated, customizable user interface.**
 - **Two display modes:**
   - **Dual Mode (default):** Shows CPU and GPU temperatures simultaneously
-  - **Circle Mode (new):** Alternates between CPU and GPU every 5 seconds - optimized for round high-resolution displays (>240x240px)
+  - **Circle Mode (beta):** Alternates between CPU and GPU every 5 sec. - optimized for round high-resolution displays (>240x240px)
 
 > ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
 
-<a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerControl%20Discussion-blue?logo=discord"></a>
+<a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerDash%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
   <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/> 
@@ -115,9 +113,11 @@ systemctl enable --now coolerdash.service
 > - **Display Shape Override:** Set `shape=rectangular` or `shape=circular` in config.ini to manually control the inscribe factor (see Configuration Guide)
 > - **Customization:** Adjust `circle_switch_interval` (1-60s) and `content_scale_factor` (0.5-1.0) for fine-tuning
 
-> [!TIP]
+> [!NOTE]
 > - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
-> - You can customize this and much more as you wish, by editing the `/etc/coolerdash/config.ini` file.
+
+> [!TIP]
+> - You can customize as you wish, by editing the `/etc/coolerdash/config.ini` file.
 > - **For detailed configuration options and examples, see: 📖** [Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)
 
 ---
