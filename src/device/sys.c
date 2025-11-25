@@ -142,6 +142,8 @@ static void set_display_defaults(Config *config)
         config->circle_switch_interval = 5; // Default: 5 seconds
     if (config->display_content_scale_factor == 0.0f)
         config->display_content_scale_factor = 0.98f; // Default: 98% (2% margin)
+    if (config->display_inscribe_factor < 0.0f)
+        config->display_inscribe_factor = 0.70710678f; // Default: 1/√2 ≈ 0.7071 (geometric inscribe)
 }
 
 /**
@@ -294,7 +296,8 @@ void init_system_defaults(Config *config)
 {
     if (!config)
         return;
-
     memset(config, 0, sizeof(Config));
+    // Set explicit unset sentinel for display_inscribe_factor so 0.0 can be used as auto by user
+    config->display_inscribe_factor = -1.0f;
     apply_system_defaults(config);
 }

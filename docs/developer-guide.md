@@ -502,7 +502,8 @@ Response: 200 OK
 │ 2. render_display(config, data, device_name)                     │
 │    ├─ Detect display shape (circular vs rectangular)             │
 │    ├─ Calculate scaling parameters                               │
-│    │   ├─ Circular: inscribe_factor = 1/√2 (≈0.7071)            │
+│    │   ├─ Circular: inscribe_factor = 1/√2 (≈0.7071, default)
+│    │   │   * Can be overridden in `config.ini` with `inscribe_factor` (>=0; 0 = auto)
 │    │   └─ Rectangular: inscribe_factor = 1.0                     │
 │    ├─ Create Cairo surface (width × height × ARGB32)             │
 │    ├─ Draw background                                            │
@@ -533,6 +534,25 @@ int is_circular_display_device(const char *device_name, int width, int height) {
     return 0;
 }
 ```
+### Scaling unit tests
+
+There is a small test harness at `tests/test_scaling.c` that validates `safe_area` and `safe_bar` calculations.
+Use it to verify behavior across cases:
+
+- `inscribe_factor = 0.0` → auto fallback (1/√2)
+- `inscribe_factor = 0.70710678` → explicit geometry
+- `inscribe_factor = 0.85` → custom factor
+- For rectangular overrides the `inscribe_factor = 1.0`.
+- Invalid values (e.g. -1 or 1.5) fallback to the geometric factor.
+
+Build & run:
+```bash
+gcc -std=c99 -Iinclude -I./src -o build/test_scaling tests/test_scaling.c -lm
+./build/test_scaling
+```
+
+This script prints a table summarizing `inscribe_used`, `safe_area`, and `safe_bar` for the test cases and whether they meet expectations.
+
 
 **Known Devices:**
 - **NZXT Kraken Z53** (280x280) → Circular

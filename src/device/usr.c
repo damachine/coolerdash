@@ -317,6 +317,18 @@ static void handle_content_scale_factor(Config *config, const char *value)
     }
 }
 
+static void handle_display_inscribe_factor(Config *config, const char *value)
+{
+    float val = strtof(value, NULL);
+    if (val < 0.0f || val > 1.0f)
+    {
+        log_message(LOG_WARNING, "display_inscribe_factor must be >=0 && <=1 (0 = auto), using default (%.2f)", config->display_inscribe_factor < 0.0f ? 0.70710678f : config->display_inscribe_factor);
+        return;
+    }
+    // val == 0.0f is allowed and interpreted as 'auto' (use geometric inscribe factor at runtime)
+    config->display_inscribe_factor = val;
+}
+
 typedef struct
 {
     const char *key;
@@ -334,7 +346,8 @@ static int get_display_config(Config *config, const char *name, const char *valu
         {"shape", handle_display_shape},
         {"mode", handle_display_mode},
         {"circle_switch_interval", handle_circle_switch_interval},
-        {"content_scale_factor", handle_content_scale_factor}};
+        {"content_scale_factor", handle_content_scale_factor},
+        {"inscribe_factor", handle_display_inscribe_factor}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {
