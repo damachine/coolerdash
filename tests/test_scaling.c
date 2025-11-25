@@ -24,8 +24,8 @@ static void run_case(const char *name, int width, float content_scale, float ins
     Config cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.display_width = (uint16_t)width;
-    cfg.display_shape[0] = '\0';
-    strncpy(cfg.display_shape, "circular", sizeof(cfg.display_shape));
+    // Use snprintf for a local, safe copy to avoid external symbol dependency during unit tests
+    snprintf(cfg.display_shape, sizeof(cfg.display_shape), "%s", "circular");
     cfg.display_content_scale_factor = content_scale;
     cfg.display_inscribe_factor = inscribe_cfg;
 
