@@ -579,9 +579,9 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             size_t cpu_len = (size_t)(comma - value);
             if (cpu_len < sizeof(cpu_str))
             {
-                strncpy(cpu_str, value, cpu_len);
+                memcpy(cpu_str, value, cpu_len);
                 cpu_str[cpu_len] = '\0';
-                strncpy(gpu_str, comma + 1, sizeof(gpu_str) - 1);
+                cc_safe_strcpy(gpu_str, sizeof(gpu_str), comma + 1);
                 config->display_temp_offset_x_cpu = safe_atoi(cpu_str, -9999);
                 config->display_temp_offset_x_gpu = safe_atoi(gpu_str, -9999);
                 record_config_change("display_positioning", "display_temp_offset_x", value);
@@ -609,9 +609,9 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             size_t cpu_len = (size_t)(comma - value);
             if (cpu_len < sizeof(cpu_str))
             {
-                strncpy(cpu_str, value, cpu_len);
+                memcpy(cpu_str, value, cpu_len);
                 cpu_str[cpu_len] = '\0';
-                strncpy(gpu_str, comma + 1, sizeof(gpu_str) - 1);
+                cc_safe_strcpy(gpu_str, sizeof(gpu_str), comma + 1);
                 config->display_temp_offset_y_cpu = safe_atoi(cpu_str, -9999);
                 config->display_temp_offset_y_gpu = safe_atoi(gpu_str, -9999);
                 record_config_change("display_positioning", "display_temp_offset_y", value);
