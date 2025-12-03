@@ -614,7 +614,7 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             {
                 int written = snprintf(cpu_str, sizeof(cpu_str), "%.*s", (int)cpu_len, value);
                 if (written < 0 || (size_t)written >= sizeof(cpu_str))
-                    cpu_str[0] = '\0';  // Truncation safety
+                    cpu_str[0] = '\0'; // Truncation safety
             }
             cc_safe_strcpy(gpu_str, sizeof(gpu_str), comma + 1);
             config->display_temp_offset_y_cpu = safe_atoi(cpu_str, -9999);
