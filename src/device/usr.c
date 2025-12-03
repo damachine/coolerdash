@@ -577,13 +577,12 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             char cpu_str[32] = {0};
             char gpu_str[32] = {0};
             size_t cpu_len = (size_t)(comma - value);
-            // Ensure buffer safety: limit copy to prevent overflow
-            if (cpu_len >= sizeof(cpu_str))
-                cpu_len = sizeof(cpu_str) - 1;
-            if (cpu_len > 0)
+            // Use snprintf for safe buffer copy with size validation
+            if (cpu_len > 0 && cpu_len < sizeof(cpu_str))
             {
-                memcpy(cpu_str, value, cpu_len);
-                cpu_str[cpu_len] = '\0';
+                int written = snprintf(cpu_str, sizeof(cpu_str), "%.*s", (int)cpu_len, value);
+                if (written < 0 || (size_t)written >= sizeof(cpu_str))
+                    cpu_str[0] = '\0';  // Truncation safety
             }
             cc_safe_strcpy(gpu_str, sizeof(gpu_str), comma + 1);
             config->display_temp_offset_x_cpu = safe_atoi(cpu_str, -9999);
