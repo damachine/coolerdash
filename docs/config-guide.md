@@ -208,51 +208,53 @@ content_scale_factor=0.95  # 5% margin for more padding
 
 ## 🎨 Visual Layout
 
-Display layout and spacing configuration.
+Display layout and spacing configuration. All positioning is now calculated dynamically from display dimensions.
 
 ### Example Configuration
 ```ini
 [layout]
-box_width=240
-box_height=120
-box_gap=0
-bar_width=230
-bar_height=22
-bar_gap=10
-bar_border_width=1.5
+bar_height=24
+bar_width=98
+bar_gap=12
+bar_border=2.0
 ```
 
 ### Settings
-- **`box_width`**: Main display box width (should match display width)
-- **`box_height`**: Main display box height (typically half display height)
-- **`box_gap`**: Space between display boxes
-- **`bar_width`**: Temperature bar width (fits within box_width)
-- **`bar_height`**: Temperature bar thickness
-- **`bar_gap`**: Space between temperature bars
-- **`bar_border_width`**: Border line thickness
+- **`bar_height`**: Temperature bar thickness in pixels (default: auto-scaled)
+- **`bar_width`**: Bar width as percentage of display width (1-100%, default: 98%)
+  - 98% = 1% margin left + 1% margin right
+  - 50% = centered bar with 25% margin on each side
+  - 100% = full width, no margins
+- **`bar_gap`**: Space between temperature bars in pixels (default: auto-scaled)
+- **`bar_border`**: Border line thickness in pixels (default: 1.0)
 
 ### Layout Examples
 
 #### Compact Layout
 ```ini
 [layout]
-box_width=240
-box_height=115
-bar_width=220
 bar_height=18
+bar_width=90
 bar_gap=5
-bar_border_width=1.0
+bar_border=1.0
 ```
 
 #### Spacious Layout
 ```ini
 [layout]
-box_width=240
-box_height=125
-bar_width=235
 bar_height=26
+bar_width=98
 bar_gap=15
-bar_border_width=2.0
+bar_border=2.0
+```
+
+#### Custom Width Example (Centered)
+```ini
+[layout]
+bar_height=24
+bar_width=60     # 60% width = 20% margin on each side
+bar_gap=12
+bar_border=1.5
 ```
 
 ---
@@ -321,7 +323,7 @@ b=255
 
 ## 🔤 Font Settings
 
-Text appearance configuration.
+Text appearance configuration with automatic display-size-dependent defaults.
 
 ### Example Configuration
 ```ini
@@ -341,22 +343,48 @@ g=200
 b=200
 ```
 
+### Settings
+- **`font_face`**: Font family name (must be installed on system, default: Roboto Black)
+- **`font_size_temp`**: Temperature number size in points
+  - **Dynamic defaults** based on display resolution:
+    - 240x240: 100.0pt (base size)
+    - 320x320: 133.3pt (automatically scaled)
+    - 480x480: 200.0pt (automatically scaled)
+  - Formula: `100.0 × ((width + height) / (2 × 240.0))`
+- **`font_size_labels`**: CPU/GPU label size in points
+  - **Dynamic defaults** based on display resolution:
+    - 240x240: 30.0pt (base size)
+    - 320x320: 40.0pt (automatically scaled)
+    - 480x480: 60.0pt (automatically scaled)
+  - Formula: `30.0 × ((width + height) / (2 × 240.0))`
+
+**Note:** If you set custom values in config.ini, they override the automatic scaling.
+
 ### Font Examples
 
-#### Large Text Setup
+#### Large Text Setup (Manual Override)
 ```ini
 [font]
 font_face=Arial Bold
-font_size_temp=120.0    # Larger temperature numbers
-font_size_labels=35.0   # Larger labels
+font_size_temp=150.0    # Override auto-scaling with fixed large size
+font_size_labels=45.0   # Override auto-scaling
 ```
 
-#### Compact Text Setup
+#### Compact Text Setup (Manual Override)
 ```ini
 [font]
 font_face=Helvetica
-font_size_temp=80.0     # Smaller temperature numbers
-font_size_labels=24.0   # Smaller labels
+font_size_temp=80.0     # Override auto-scaling with fixed small size
+font_size_labels=24.0   # Override auto-scaling
+```
+
+#### Use Auto-Scaling (Recommended)
+```ini
+[font]
+font_face=Roboto Black
+# Comment out or remove font_size_* lines to use automatic scaling
+# ;font_size_temp=100.0    # Automatically scaled based on display size
+# ;font_size_labels=30.0   # Automatically scaled based on display size
 ```
 
 #### Color Examples
@@ -504,15 +532,16 @@ height=240
 refresh_interval=2.50
 brightness=80
 orientation=0
+shape=auto
+mode=dual
+circle_switch_interval=5
+content_scale_factor=0.98
 
 [layout]
-box_width=240
-box_height=120
-box_gap=0
-bar_width=230
-bar_height=22
-bar_gap=10
-bar_border_width=1.5
+bar_height=24
+bar_width=98
+bar_gap=12
+bar_border=2.0
 
 [bar_color_background]
 r=52
@@ -567,14 +596,97 @@ b=0
 
 ---
 
+## 🎯 Advanced: Manual Position Offsets
+
+Fine-tune element positions with pixel-level precision. All values are in pixels.
+
+### Example Configuration
+```ini
+[display_positioning]
+# Temperature numbers (CPU and GPU independent)
+display_temp_offset_x=0,0      # Horizontal offset (single value=both, "cpu,gpu"=separate)
+display_temp_offset_y=0,0      # Vertical offset (single value=both, "cpu,gpu"=separate)
+
+# Degree symbol spacing
+display_degree_spacing=16      # Distance from temperature number (default: 16px)
+
+# CPU/GPU labels
+display_label_offset_x=0       # Horizontal offset (+right, -left)
+display_label_offset_y=0       # Vertical offset (+down, -up)
+```
+
+### Temperature Offsets
+
+Control CPU and GPU temperature number positions independently:
+
+```ini
+# Both temperatures the same
+display_temp_offset_x=15       # Both CPU+GPU 15px right
+display_temp_offset_y=-10      # Both CPU+GPU 10px up
+
+# CPU and GPU different (comma-separated)
+display_temp_offset_x=20,-5    # CPU: 20px right, GPU: 5px left
+display_temp_offset_y=10,-10   # CPU: 10px down, GPU: 10px up
+```
+
+**Behavior:**
+- `-9999` or commented out = auto positioning (default)
+- Single value = applies to both CPU and GPU
+- Comma-separated = individual CPU,GPU values
+- Positive = right/down, Negative = left/up
+- Degree symbol moves with temperature (bound together)
+
+### Degree Symbol Spacing
+
+Adjust distance between temperature number and degree symbol:
+
+```ini
+display_degree_spacing=10      # Closer: 10px
+display_degree_spacing=20      # Wider: 20px
+display_degree_spacing=16      # Default: 16px
+```
+
+### Label Offsets
+
+Adjust CPU/GPU label positions:
+
+```ini
+display_label_offset_x=5       # 5px right
+display_label_offset_y=-3      # 3px up
+display_label_offset_x=-10     # 10px left
+```
+
+### Use Cases
+
+**Dual Mode Fine-Tuning:**
+```ini
+# Shift CPU temp slightly up, GPU slightly down
+display_temp_offset_y=-5,5
+```
+
+**Circle Mode Adjustments:**
+```ini
+# CPU display uses first value, GPU display uses second
+display_temp_offset_x=10,15    # CPU: +10px, GPU: +15px
+```
+
+**Tighter Layout:**
+```ini
+display_degree_spacing=8       # Closer degree symbol
+display_label_offset_x=-5      # Labels closer to edge
+```
+
+---
+
 ## 🔧 Troubleshooting
 
 ### Common Issues
 
 1. **Display not updating**: Check refresh intervals and restart service
 2. **Wrong colors**: Verify RGB values are 0-255
-3. **Text too small/large**: Adjust font_size_temp and font_size_labels
-4. **Bars don't fit**: Ensure bar_width < box_width
+3. **Text too small/large**: Adjust font_size_temp and font_size_labels (or remove them for auto-scaling)
+4. **Bars too wide/narrow**: Adjust bar_width percentage (1-100%, default: 98%)
+5. **Content clipped on circular displays**: Check inscribe_factor and content_scale_factor settings
 
 ### Testing Changes
 

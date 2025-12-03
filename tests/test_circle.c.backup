@@ -297,39 +297,38 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config, const S
     const int bar_height = config->layout_bar_height;
     const int bar_gap = config->layout_bar_gap;
 
-    // Calculate vertical layout - BAR is centered (like original)
-    // For CPU: Extra liquid bar below CPU bar
-    // For GPU: Single bar (original behavior)
-    const int bar_y = (config->display_height - bar_height) / 2;         // Bar centered vertically
-    const int bar_x = (config->display_width - effective_bar_width) / 2; // Bar centered horizontally
+    // **NEW LAYOUT: Top-down positioning**
+    // 1. CPU Temperature (10% from top)
+    // 2. CPU Bar
+    // 3. Liquid Bar (only for CPU sensor mode)
+    // 4. Liquid Temperature (under liquid bar, only for CPU)
+    // 5. CPU/GPU Label (12% from bottom)
 
-    // Temperature above the bar (10% of display height above bar)
-    const int temp_spacing = (int)(config->display_height * 0.10); // 10% spacing
-    const int temp_y = bar_y - temp_spacing;
+    // Calculate vertical positions from top
+    const int top_margin = (int)(config->display_height * 0.10);
+    const int bar_x = (config->display_width - effective_bar_width) / 2;
 
-    // Draw temperature value (centered horizontally INCLUDING degree symbol)
+    // --- 1. CPU/GPU Temperature (top) ---
     char temp_str[16];
     snprintf(temp_str, sizeof(temp_str), "%d", (int)temp_value);
 
-    const Color *value_color = &config->font_color_temp;
-
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, config->font_size_temp);
-    set_cairo_color(cr, value_color);
+    set_cairo_color(cr, &config->font_color_temp);
 
     cairo_text_extents_t temp_ext;
     cairo_text_extents(cr, temp_str, &temp_ext);
 
-    // Calculate degree symbol width for proper centering
+    // Calculate degree symbol width
     cairo_set_font_size(cr, config->font_size_temp / 1.66);
     cairo_text_extents_t degree_ext;
     cairo_text_extents(cr, "°", &degree_ext);
-    cairo_set_font_size(cr, config->font_size_temp); // Restore temp font size
+    cairo_set_font_size(cr, config->font_size_temp);
 
-    // Center temperature + degree symbol as a unit
+    // Center temperature + degree symbol
     const double total_width = temp_ext.width - 4 + degree_ext.width;
     double temp_x = (config->display_width - total_width) / 2.0;
-    double final_temp_y = temp_y;
+    double final_temp_y = top_margin;
 
     // Apply user-defined offsets for CPU/GPU
     if (sensor == SENSOR_CPU)
@@ -350,27 +349,27 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config, const S
     cairo_move_to(cr, temp_x, final_temp_y);
     cairo_show_text(cr, temp_str);
 
-    // Draw degree symbol (next to temperature, always bound to temp position)
+    // Degree symbol
     const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
     double degree_x = temp_x + temp_ext.width + degree_spacing;
     double degree_y = final_temp_y - config->font_size_temp * 0.25;
-
     draw_degree_symbol(cr, degree_x, degree_y, config);
 
-    // Draw temperature bar (centered reference point)
+    // --- 2. CPU/GPU Bar ---
+    const int cpu_bar_y = (int)final_temp_y + bar_gap;
 
     // Bar background
     set_cairo_color(cr, &config->layout_bar_color_background);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height, params->corner_radius);
+    draw_rounded_rectangle_path(cr, bar_x, cpu_bar_y, effective_bar_width, bar_height, params->corner_radius);
     cairo_fill(cr);
 
     // Bar border
     set_cairo_color(cr, &config->layout_bar_color_border);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height, params->corner_radius);
+    draw_rounded_rectangle_path(cr, bar_x, cpu_bar_y, effective_bar_width, bar_height, params->corner_radius);
     cairo_set_line_width(cr, config->layout_bar_border);
     cairo_stroke(cr);
 
-    // Bar fill (temperature-based)
+    // Bar fill
     const float max_temp = config->temp_max_scale;
     const int fill_width = calculate_temp_fill_width(temp_value, effective_bar_width, max_temp);
 
@@ -380,17 +379,17 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config, const S
         set_cairo_color(cr, &bar_color);
 
         cairo_save(cr);
-        draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height, params->corner_radius);
+        draw_rounded_rectangle_path(cr, bar_x, cpu_bar_y, effective_bar_width, bar_height, params->corner_radius);
         cairo_clip(cr);
-        cairo_rectangle(cr, bar_x, bar_y, fill_width, bar_height);
+        cairo_rectangle(cr, bar_x, cpu_bar_y, fill_width, bar_height);
         cairo_fill(cr);
         cairo_restore(cr);
     }
 
-    // --- Liquid Bar and Temperature (only for CPU mode) ---
+    // --- 3. & 4. Liquid Bar and Temperature (only for CPU mode) ---
     if (sensor == SENSOR_CPU)
     {
-        const int liquid_bar_y = bar_y + bar_height + bar_gap;
+        const int liquid_bar_y = cpu_bar_y + bar_height + bar_gap;
 
         // Liquid bar background
         set_cairo_color(cr, &config->layout_bar_color_background);
@@ -403,9 +402,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config, const S
         cairo_set_line_width(cr, config->layout_bar_border);
         cairo_stroke(cr);
 
-        // Liquid bar fill (0-40°C typical range for AIO coolers)
+        // Liquid bar fill (-50 to +50°C range)
         const float max_liquid_temp = config->temp_liquid_max_scale;
-        const int liquid_fill_width = calculate_temp_fill_width(temp_liquid, effective_bar_width, max_liquid_temp);
+        const float normalized_liquid_temp = temp_liquid + max_liquid_temp; // Shift -50..+50 to 0..100
+        const int liquid_fill_width = calculate_temp_fill_width(normalized_liquid_temp, effective_bar_width, 
+                                                                 max_liquid_temp * 2.0f);
 
         if (liquid_fill_width > 0)
         {
@@ -420,71 +421,52 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config, const S
             cairo_restore(cr);
         }
 
-        // Liquid temperature text (under liquid bar with 1 decimal, half size, 10% spacing)
+        // Liquid temperature text (under liquid bar)
         char liquid_temp_str[16];
-        snprintf(liquid_temp_str, sizeof(liquid_temp_str), "%.1f", temp_liquid);
+        snprintf(liquid_temp_str, sizeof(liquid_temp_str), "%d", (int)temp_liquid);
 
-        const float liquid_font_size = config->font_size_temp / 2.0f; // Half size of normal temp
-        cairo_set_font_size(cr, liquid_font_size);
+        cairo_set_font_size(cr, config->font_size_temp);
         set_cairo_color(cr, &config->font_color_temp);
 
         cairo_text_extents_t liquid_temp_ext;
         cairo_text_extents(cr, liquid_temp_str, &liquid_temp_ext);
 
         // Calculate degree symbol width for liquid temp
-        cairo_set_font_size(cr, liquid_font_size / 1.66);
+        cairo_set_font_size(cr, config->font_size_temp / 1.66);
         cairo_text_extents_t liquid_degree_ext;
         cairo_text_extents(cr, "°", &liquid_degree_ext);
-        cairo_set_font_size(cr, liquid_font_size);
+        cairo_set_font_size(cr, config->font_size_temp);
 
         const double liquid_total_width = liquid_temp_ext.width - 4 + liquid_degree_ext.width;
-        double liquid_temp_x = (config->display_width - liquid_total_width) / 2.0;
-
-        // Position directly under liquid bar (minimal spacing)
-        cairo_font_extents_t liquid_font_ext;
-        cairo_font_extents(cr, &liquid_font_ext);
-        int liquid_temp_y = liquid_bar_y + bar_height + (int)liquid_font_ext.ascent;
-
-        // Apply user-defined offsets for liquid temperature
-        if (config->display_temp_offset_x_liquid != -9999)
-            liquid_temp_x += config->display_temp_offset_x_liquid;
-        if (config->display_temp_offset_y_liquid != -9999)
-            liquid_temp_y += config->display_temp_offset_y_liquid;
+        const double liquid_temp_x = (config->display_width - liquid_total_width) / 2.0;
+        const int liquid_temp_y = liquid_bar_y + bar_height + bar_gap;
 
         cairo_move_to(cr, liquid_temp_x, liquid_temp_y);
         cairo_show_text(cr, liquid_temp_str);
 
-        // Liquid degree symbol (half size like liquid temp)
-        const double liquid_degree_x = liquid_temp_x + liquid_temp_ext.width + degree_spacing / 2.0;
-        const double liquid_degree_y = liquid_temp_y - liquid_font_size * 0.25;
-        cairo_set_font_size(cr, liquid_font_size / 1.66); // Match liquid temp sizing
-        cairo_move_to(cr, liquid_degree_x, liquid_degree_y);
-        cairo_show_text(cr, "°");
+        // Liquid degree symbol
+        const double liquid_degree_x = liquid_temp_x + liquid_temp_ext.width + degree_spacing;
+        const double liquid_degree_y = liquid_temp_y - config->font_size_temp * 0.25;
+        draw_degree_symbol(cr, liquid_degree_x, liquid_degree_y, config);
     }
 
-    // Draw label (CPU or GPU) - centered horizontally, close to bar
+    // --- 5. CPU/GPU Label (bottom) ---
     const char *label_text = (sensor == SENSOR_CPU) ? "CPU" : "GPU";
-    const Color *label_color = &config->font_color_label;
 
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     cairo_set_font_size(cr, config->font_size_labels);
-    set_cairo_color(cr, label_color);
+    set_cairo_color(cr, &config->font_color_label);
 
-    // Get text extents for centering
     cairo_text_extents_t label_text_ext;
     cairo_text_extents(cr, label_text, &label_text_ext);
 
-    // Get font extents for baseline positioning
     cairo_font_extents_t label_font_ext;
     cairo_font_extents(cr, &label_font_ext);
 
-    // Center label horizontally
     double label_x = (config->display_width - label_text_ext.width) / 2.0;
+    double final_label_y = config->display_height - (config->display_height * 0.12) + label_font_ext.ascent;
 
-    // Position label 2% from bottom (baseline position, not adding ascent again)
-    double final_label_y = config->display_height - (config->display_height * 0.02);
-
-    // Apply user-defined offsets if set
+    // Apply user-defined label offsets
     if (config->display_label_offset_x != -9999)
         label_x += config->display_label_offset_x;
     if (config->display_label_offset_y != -9999)

@@ -86,16 +86,22 @@ static float extract_device_temperature(const json_t *device, const char *device
         {
             return temperature;
         }
+        else if (strcmp(device_type, "Liquidctl") == 0 &&
+                 (strstr(sensor_name, "Liquid") || strstr(sensor_name, "liquid") ||
+                  strstr(sensor_name, "Coolant") || strstr(sensor_name, "coolant")))
+        {
+            return temperature;
+        }
     }
 
     return 0.0f;
 }
 
 /**
- * @brief Parse sensor JSON and extract temperatures from CPU and GPU devices.
- * @details Simplified JSON parsing to extract CPU and GPU temperature values.
+ * @brief Parse sensor JSON and extract temperatures from CPU, GPU, and Liquidctl devices.
+ * @details Simplified JSON parsing to extract CPU, GPU, and Liquid temperature values.
  */
-static int parse_temperature_data(const char *json, float *temp_cpu, float *temp_gpu)
+static int parse_temperature_data(const char *json, float *temp_cpu, float *temp_gpu, float *temp_liquid)
 {
     if (!json || json[0] == '\0')
     {
@@ -108,6 +114,8 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
         *temp_cpu = 0.0f;
     if (temp_gpu)
         *temp_gpu = 0.0f;
+    if (temp_liquid)
+        *temp_liquid = 0.0f;
 
     // Parse JSON
     json_error_t json_error;
@@ -126,11 +134,11 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
         return 0;
     }
 
-    // Search for CPU and GPU devices
+    // Search for CPU, GPU, and Liquidctl devices
     size_t device_count = json_array_size(devices);
-    int cpu_found = 0, gpu_found = 0;
+    int cpu_found = 0, gpu_found = 0, liquid_found = 0;
 
-    for (size_t i = 0; i < device_count && (!cpu_found || !gpu_found); i++)
+    for (size_t i = 0; i < device_count && (!cpu_found || !gpu_found || !liquid_found); i++)
     {
         const json_t *device = json_array_get(devices, i);
         if (!device)
@@ -154,6 +162,17 @@ static int parse_temperature_data(const char *json, float *temp_cpu, float *temp
             {
                 *temp_gpu = extract_device_temperature(device, "GPU");
                 gpu_found = 1;
+            }
+        }
+        else if (!liquid_found && strcmp(device_type, "Liquidctl") == 0)
+        {
+            if (temp_liquid)
+            {
+                *temp_liquid = extract_device_temperature(device, "Liquidctl");
+                if (*temp_liquid > 0.0f)
+                {
+                    liquid_found = 1;
+                }
             }
         }
     }
@@ -181,17 +200,18 @@ static void configure_status_request(CURL *curl, const char *url, struct http_re
 }
 
 /**
- * @brief Get CPU and GPU temperature data from CoolerControl API.
+ * @brief Get CPU, GPU, and Liquid temperature data from CoolerControl API.
  * @details Simplified HTTP request to get temperature data from status endpoint.
  */
-static int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu)
+static int get_temperature_data(const Config *config, float *temp_cpu, float *temp_gpu, float *temp_liquid)
 {
-    if (!config || !temp_cpu || !temp_gpu)
+    if (!config || !temp_cpu || !temp_gpu || !temp_liquid)
         return 0;
 
     // Initialize outputs
     *temp_cpu = 0.0f;
     *temp_gpu = 0.0f;
+    *temp_liquid = 0.0f;
 
     if (config->daemon_address[0] == '\0')
     {
@@ -251,7 +271,7 @@ static int get_temperature_data(const Config *config, float *temp_cpu, float *te
 
         if (response_code == 200)
         {
-            result = parse_temperature_data(response.data, temp_cpu, temp_gpu);
+            result = parse_temperature_data(response.data, temp_cpu, temp_gpu, temp_liquid);
         }
         else
         {
@@ -273,8 +293,8 @@ static int get_temperature_data(const Config *config, float *temp_cpu, float *te
 }
 
 /**
- * @brief Get all relevant sensor data (CPU/GPU temperature and LCD UID).
- * @details Reads the current CPU and GPU temperatures and LCD UID via API.
+ * @brief Get all relevant sensor data (CPU/GPU/Liquid temperature and LCD UID).
+ * @details Reads the current CPU, GPU, and Liquid temperatures via API.
  */
 int get_temperature_monitor_data(const Config *config, monitor_sensor_data_t *data)
 {
@@ -283,5 +303,5 @@ int get_temperature_monitor_data(const Config *config, monitor_sensor_data_t *da
         return 0;
 
     // Get temperature data from monitor module
-    return get_temperature_data(config, &data->temp_cpu, &data->temp_gpu);
+    return get_temperature_data(config, &data->temp_cpu, &data->temp_gpu, &data->temp_liquid);
 }

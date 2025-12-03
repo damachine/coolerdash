@@ -41,10 +41,7 @@ Use it successfully myself – maybe it will help you too! ❤️
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
-> [!NOTE]
-> See the [Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md), for a list of confirmed working hardware.  
-> To confirm a device: [Submit a Device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).  
-> In principle, all devices supported by CoolerControl/-[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash.
+> See the [Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md) for confirmed working hardware. In principle, all devices supported by CoolerControl/[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) to help expand the list.
 
 ---
 
@@ -86,39 +83,32 @@ systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
 
-> For manual installations, please make sure all required dependencies are installed correctly.  
-> **At this time, manual installations need to be updated manually**.
+> For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
 
 ---
 
 ## Configuration
 
-> [!IMPORTANT]
-> #### CoolerControl GUI:
-> - In the CoolerControl settings, under **`Device and Sensor`**, select one sensor for the **`CPU`** and one for the **`GPU`**. Set your **`LCD`** display to **`Image/gif`**.
+**CoolerControl Setup:**  
+In CoolerControl GUI → **Device and Sensor** → Select CPU and GPU sensors → Set LCD display to **Image/gif**
 
-> [!IMPORTANT]
-> #### CoolerDash Runtime:
-> - Don't forget to enable/start the service `systemctl enable --now coolerdash.service`.
-> - The application starts with preset default settings.
-> - If needed. All settings are managed in `/etc/coolerdash/config.ini`.
-> - After editing the config file, restart the service with `systemctl restart coolerdash.service` to apply your changes.
+**Start Service:**
+```bash
+systemctl enable --now coolerdash.service
+```
 
-> [!NOTE]
-> #### Display Modes:
-> - **Dual Mode (default):** Shows CPU and GPU simultaneously - works best on all display sizes
-> - **Circle Mode (new):** Alternates between CPU and GPU every 5 seconds (configurable: 1-60s) - recommended for round high-resolution displays (>240x240px) where dual mode scaling might not be optimal yet
-> - **Enable Circle Mode:** Edit `/etc/coolerdash/config.ini` → Under `[display]` section → Set `mode=circle`
-> - **CLI Override:** Use `coolerdash --circle` to force circle mode or `coolerdash --dual` to force dual mode
-> - **Display Shape Override:** Set `shape=rectangular` or `shape=circular` in config.ini to manually control the inscribe factor (see Configuration Guide)
-> - **Customization:** Adjust `circle_switch_interval` (1-60s) and `content_scale_factor` (0.5-1.0) for fine-tuning
+**Configuration:**  
+Edit `/etc/coolerdash/config.ini` then restart: `systemctl restart coolerdash.service`
+
+**Display Modes:**
+- **Dual (default):** CPU + GPU simultaneously (all displays)
+- **Circle:** Alternates CPU/GPU every 5s (round displays >240x240px)
+
+Enable Circle Mode: Edit config.ini → `[display]` section → `mode=circle`  
+CLI override: `coolerdash --circle` or `coolerdash --dual`
 
 > [!NOTE]
-> - When CoolerDash stops (for example during system shutdown or reboot), it automatically displays the `shutdown.png` image from the install path. This happens because sensor data is no longer available at that point.
-
-> [!TIP]
-> - You can customize as you wish, by editing the `/etc/coolerdash/config.ini` file.
-> - **For detailed configuration options and examples, see: 📖** [Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)
+> See **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** for all options.
 
 ---
 
@@ -203,111 +193,72 @@ systemctl stop coolerdash.service
 
 ## Troubleshooting
 
-#### Common Issues
+#### Installation Issues
+If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, CoolerDash was previously installed manually via `make install`.
 
-> [!WARNING]
-> - **Installation:** If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, this means CoolerDash was previously installed manually (via `make install`).
+**Solution:**
+```bash
+sudo systemctl stop coolerdash.service
+sudo make uninstall
+```
 
-  > [!TIP]
-  > - If problems persist, run:
-  > ```bash
-  >   sudo systemctl stop coolerdash.service
-  >   sudo make uninstall
-  > ```
-  > - Remove any leftover files:
-  > ```bash
-  >    sudo rm -rf /opt/coolerdash/ \
-  >                /usr/bin/coolerdash \
-  >                /etc/systemd/system/coolerdash.service
-  > ```
-  > - Then retry the installation.
+Remove any leftover files:
+```bash
+sudo rm -rf /opt/coolerdash/ \
+            /usr/bin/coolerdash \
+            /etc/systemd/system/coolerdash.service
+```
 
-#   
+```bash
+sudo systemctl stop coolerdash.service
+sudo make uninstall
+sudo rm -rf /opt/coolerdash/ /usr/bin/coolerdash /etc/systemd/system/coolerdash.service
+```
 
->   [!WARNING]
-> - **Device/-Connection failed:** No devices found or wrong device UID.
-> - ***Please post this outputs when you report any issue.***
+#### Check CoolerControl devices
 
-  > [!TIP]
-  > - Check CoolerControl configuration and LCD connection → Verify device with:
-  > ```bash
-  >    liquidctl --version
-  > ```
-  > ###### Example output:
-  > ```bash
-  >    liquidctl v1.15.0 (Linux-6.17.1-273-linux-tkg-x86_64-with-glibc2.42)
-  > ```
+```bash
+liquidctl --version
+# Expected: liquidctl v1.15.0 (or newer)
+```
 
-  > [!TIP]
-  > ```bash
-  >    curl http://localhost:11987/devices | jq
-  > ```
-  > ###### Example output:
-  > ```json
-  > {
-  >       "name": "NZXT Kraken 2023",
-  >       "type": "Liquidctl",
-  >       "type_index": 1,
-  >       "uid": "8d4becb03bca2a8e8d4213ac376a1094f39d2786f688549ad3b6a591c3affdf9",
-  >       "lc_info": {
-  >         "driver_type": "KrakenZ3",
-  >         "firmware_version": "2.0.0",
-  >         "unknown_asetek": false
-  >       }
-  > }
-  > ```
+  ```bash
+  curl http://localhost:11987/devices | jq
+  ```
+
+  ```json
+  {
+        "name": "NZXT Kraken 2023",
+        "type": "Liquidctl",
+        "type_index": 1,
+        "uid": "8d4becb03bca2a8e8d4213ac376a1094f39d2786f688549ad3b6a591c3affdf9",
+        "lc_info": {
+          "driver_type": "KrakenZ3",
+          "firmware_version": "2.0.0",
+          "unknown_asetek": false
+        }
+  }
+  ```
 
 ---
 
-> [!NOTE]
-> **📚 For developers and contributors:**
-> - **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Complete technical reference for Dual and Circle display modes - architecture, layout algorithms, rendering pipeline, and how to add new modes
-> - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - Comprehensive documentation of all cc_*.c/h modules - session management, device caching, temperature retrieval, API communication flow, and troubleshooting
-> - **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Complete architecture, API integration, rendering pipeline, and function reference
-> - **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - How circular vs rectangular displays are detected
-> - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options explained
-> - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - List of confirmed working hardware
+## Documentation
+
+- **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options
+- **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - Confirmed working hardware
+- **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Dual and Circle mode reference
+- **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Architecture and API integration
+- **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - Display shape detection
+- **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - API module documentation
 
 ---
 
-> [!TIP]
-> #### Have a question or an idea?
-> - **Suggest improvements** or discuss new features in our **[Discussions](https://github.com/damachine/coolerdash/discussions)**.
-> - **Report a bug** or request help by opening an **[Issue](https://github.com/damachine/coolerdash/issues)**.
->
-> <a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
+## Community & Support
 
----
+**Questions or ideas?** Join our [Discussions](https://github.com/damachine/coolerdash/discussions) or open an [Issue](https://github.com/damachine/coolerdash/issues).
 
-#### 📄 License
+<a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
 
-MIT License - See LICENSE file for details.
+**Support the project:** ⭐ Star this repo • 🐛 Report bugs • 🔄 Share with others • 📝 Contribute • [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-
-Individual Coolercontrol package have their own licenses:
-
-- See respective repositories at [https://gitlab.com/coolercontrol/coolercontrol](https://gitlab.com/coolercontrol/coolercontrol)
-
----
-
-#### 💝 Support the Project
-
-If you find CoolerDash useful and want to support its development:
-
-- ⭐ **Star this repository** on GitHub.
-- 🐛 **Report bugs** and suggest improvements.
-- 🔄 **Share** the project with others.
-- 📝 **Contribute** Add device support, code or documentation.
-- [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
-
-> *🙏 Your support keeps this project alive and improving — thank you!.*
-
-#### ⭐ Stargazers over time
 [![Stargazers over time](https://starchart.cc/damachine/coolerdash.svg?variant=adaptive)](https://starchart.cc/damachine/coolerdash)
-
----
-
-**👨‍💻 Developed by DAMACHINE** 
-**📧 Contact:** [christkue79@gmail.com](mailto:christkue79@gmail.com) 
-**🌐 Repository:** [GitHub](https://github.com/damachine/coolerdash) 

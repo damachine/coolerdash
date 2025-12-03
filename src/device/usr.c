@@ -122,7 +122,12 @@ static inline int safe_atoi(const char *str, int default_value)
         return default_value;
     char *endptr;
     long val = strtol(str, &endptr, 10);
-    if (endptr == str || *endptr != '\0')
+    if (endptr == str)
+        return default_value;
+    // Allow trailing whitespace and comments (INI format)
+    while (*endptr == ' ' || *endptr == '\t')
+        endptr++;
+    if (*endptr != '\0' && *endptr != '#')
         return default_value;
     if (val < INT_MIN || val > INT_MAX)
         return default_value;
@@ -135,7 +140,12 @@ static inline float safe_atof(const char *str, float default_value)
         return default_value;
     char *endptr;
     float val = strtof(str, &endptr);
-    if (endptr == str || *endptr != '\0')
+    if (endptr == str)
+        return default_value;
+    // Allow trailing whitespace and comments (INI format)
+    while (*endptr == ' ' || *endptr == '\t')
+        endptr++;
+    if (*endptr != '\0' && *endptr != '#')
         return default_value;
     return val;
 }
@@ -416,16 +426,66 @@ static int handle_mixed_config(Config *config, const char *name, const char *val
     return 1;
 }
 
+static void handle_layout_bar_width(Config *config, const char *value)
+{
+    int val = safe_atoi(value, 98);
+    if (val >= 1 && val <= 100)
+    {
+        config->layout_bar_width = (uint8_t)val;
+        record_config_change("layout", "bar_width", value);
+    }
+}
+
+static void handle_layout_label_margin_left(Config *config, const char *value)
+{
+    int val = safe_atoi(value, 1);
+    if (val >= 1 && val <= 50)
+    {
+        config->layout_label_margin_left = (uint8_t)val;
+        record_config_change("layout", "label_margin_left", value);
+    }
+}
+
+static void handle_layout_label_margin_bar(Config *config, const char *value)
+{
+    int val = safe_atoi(value, 1);
+    if (val >= 1 && val <= 20)
+    {
+        config->layout_label_margin_bar = (uint8_t)val;
+        record_config_change("layout", "label_margin_bar", value);
+    }
+}
+
 // ============================================================================
 // Layout Section Handler
 // ============================================================================
 
 static int get_layout_config(Config *config, const char *name, const char *value)
 {
+    // Handle bar_width separately (validation required)
+    if (strcmp(name, "bar_width") == 0)
+    {
+        handle_layout_bar_width(config, value);
+        return 1;
+    }
+
+    // Handle label margins separately (validation required)
+    if (strcmp(name, "label_margin_left") == 0)
+    {
+        handle_layout_label_margin_left(config, value);
+        return 1;
+    }
+
+    if (strcmp(name, "label_margin_bar") == 0)
+    {
+        handle_layout_label_margin_bar(config, value);
+        return 1;
+    }
+
     static const MixedConfigEntry entries[] = {
         {"bar_height", offsetof(Config, layout_bar_height), TYPE_UINT16, 0},
         {"bar_gap", offsetof(Config, layout_bar_gap), TYPE_UINT16, 0},
-        {"bar_border_width", offsetof(Config, layout_bar_border_width), TYPE_FLOAT, 0}};
+        {"bar_border", offsetof(Config, layout_bar_border), TYPE_FLOAT, 0}};
 
     return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
 }
@@ -434,14 +494,62 @@ static int get_layout_config(Config *config, const char *name, const char *value
 // Font Section Handler
 // ============================================================================
 
+static void handle_font_size_temp(Config *config, const char *value)
+{
+    // Calculate dynamic default based on display size (same formula as auto-scaling)
+    const double base_resolution = 240.0;
+    const double base_font_size_temp = 100.0;
+    const double scale_factor = ((double)config->display_width + (double)config->display_height) / (2.0 * base_resolution);
+    const float dynamic_default = (float)(base_font_size_temp * scale_factor);
+
+    float parsed = safe_atof(value, dynamic_default);
+    if (parsed > 0.0f)
+    {
+        config->font_size_temp = parsed;
+    }
+}
+
+static void handle_font_size_labels(Config *config, const char *value)
+{
+    // Calculate dynamic default based on display size
+    const double base_resolution = 240.0;
+    const double base_font_size_labels = 30.0;
+    const double scale_factor = ((double)config->display_width + (double)config->display_height) / (2.0 * base_resolution);
+    const float dynamic_default = (float)(base_font_size_labels * scale_factor);
+
+    float parsed = safe_atof(value, dynamic_default);
+    if (parsed > 0.0f)
+    {
+        config->font_size_labels = parsed;
+    }
+}
+
 static int get_font_config(Config *config, const char *name, const char *value)
 {
-    static const MixedConfigEntry entries[] = {
-        {"font_face", offsetof(Config, font_face), TYPE_STRING, CONFIG_MAX_FONT_NAME_LEN},
-        {"font_size_temp", offsetof(Config, font_size_temp), TYPE_FLOAT, 0},
-        {"font_size_labels", offsetof(Config, font_size_labels), TYPE_FLOAT, 0}};
+    // Handle font_face as string
+    if (strcmp(name, "font_face") == 0)
+    {
+        if (value && value[0] != '\0')
+        {
+            cc_safe_strcpy(config->font_face, sizeof(config->font_face), value);
+        }
+        return 1;
+    }
 
-    return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+    // Handle font sizes with dynamic defaults
+    if (strcmp(name, "font_size_temp") == 0)
+    {
+        handle_font_size_temp(config, value);
+        return 1;
+    }
+
+    if (strcmp(name, "font_size_labels") == 0)
+    {
+        handle_font_size_labels(config, value);
+        return 1;
+    }
+
+    return 1;
 }
 
 // ============================================================================
@@ -459,11 +567,71 @@ static int get_display_positioning_config(Config *config, const char *name, cons
     if (!value || value[0] == '\0')
         return 1;
 
+    // Handle comma-separated CPU,GPU temperature offsets
+    if (strcmp(name, "display_temp_offset_x") == 0)
+    {
+        char *comma = strchr(value, ',');
+        if (comma)
+        {
+            // Format: "cpu_value,gpu_value"
+            char cpu_str[32] = {0};
+            char gpu_str[32] = {0};
+            size_t cpu_len = (size_t)(comma - value);
+            if (cpu_len < sizeof(cpu_str))
+            {
+                strncpy(cpu_str, value, cpu_len);
+                cpu_str[cpu_len] = '\0';
+                strncpy(gpu_str, comma + 1, sizeof(gpu_str) - 1);
+                config->display_temp_offset_x_cpu = safe_atoi(cpu_str, -9999);
+                config->display_temp_offset_x_gpu = safe_atoi(gpu_str, -9999);
+                record_config_change("display_positioning", "display_temp_offset_x", value);
+            }
+        }
+        else
+        {
+            // Single value applies to both
+            int val = safe_atoi(value, -9999);
+            config->display_temp_offset_x_cpu = val;
+            config->display_temp_offset_x_gpu = val;
+            record_config_change("display_positioning", "display_temp_offset_x", value);
+        }
+        return 1;
+    }
+
+    if (strcmp(name, "display_temp_offset_y") == 0)
+    {
+        char *comma = strchr(value, ',');
+        if (comma)
+        {
+            // Format: "cpu_value,gpu_value"
+            char cpu_str[32] = {0};
+            char gpu_str[32] = {0};
+            size_t cpu_len = (size_t)(comma - value);
+            if (cpu_len < sizeof(cpu_str))
+            {
+                strncpy(cpu_str, value, cpu_len);
+                cpu_str[cpu_len] = '\0';
+                strncpy(gpu_str, comma + 1, sizeof(gpu_str) - 1);
+                config->display_temp_offset_y_cpu = safe_atoi(cpu_str, -9999);
+                config->display_temp_offset_y_gpu = safe_atoi(gpu_str, -9999);
+                record_config_change("display_positioning", "display_temp_offset_y", value);
+            }
+        }
+        else
+        {
+            // Single value applies to both
+            int val = safe_atoi(value, -9999);
+            config->display_temp_offset_y_cpu = val;
+            config->display_temp_offset_y_gpu = val;
+            record_config_change("display_positioning", "display_temp_offset_y", value);
+        }
+        return 1;
+    }
+
     static const PositioningConfigEntry entries[] = {
-        {"display_temp_offset_x", offsetof(Config, display_temp_offset_x)},
-        {"display_temp_offset_y", offsetof(Config, display_temp_offset_y)},
-        {"display_degree_offset_x", offsetof(Config, display_degree_offset_x)},
-        {"display_degree_offset_y", offsetof(Config, display_degree_offset_y)},
+        {"display_temp_offset_x_liquid", offsetof(Config, display_temp_offset_x_liquid)},
+        {"display_temp_offset_y_liquid", offsetof(Config, display_temp_offset_y_liquid)},
+        {"display_degree_spacing", offsetof(Config, display_degree_spacing)},
         {"display_label_offset_x", offsetof(Config, display_label_offset_x)},
         {"display_label_offset_y", offsetof(Config, display_label_offset_y)}};
 
@@ -497,7 +665,11 @@ static int get_temperature_config(Config *config, const char *name, const char *
         {"temp_threshold_1", offsetof(Config, temp_threshold_1)},
         {"temp_threshold_2", offsetof(Config, temp_threshold_2)},
         {"temp_threshold_3", offsetof(Config, temp_threshold_3)},
-        {"temp_max_scale", offsetof(Config, temp_max_scale)}};
+        {"temp_max_scale", offsetof(Config, temp_max_scale)},
+        {"liquid_max_scale", offsetof(Config, temp_liquid_max_scale)},
+        {"liquid_threshold_1", offsetof(Config, temp_liquid_threshold_1)},
+        {"liquid_threshold_2", offsetof(Config, temp_liquid_threshold_2)},
+        {"liquid_threshold_3", offsetof(Config, temp_liquid_threshold_3)}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {
@@ -532,7 +704,11 @@ static Color *get_color_pointer_from_section(Config *config, const char *section
         {"temp_threshold_1_bar", offsetof(Config, temp_threshold_1_bar)},
         {"temp_threshold_2_bar", offsetof(Config, temp_threshold_2_bar)},
         {"temp_threshold_3_bar", offsetof(Config, temp_threshold_3_bar)},
-        {"temp_threshold_4_bar", offsetof(Config, temp_threshold_4_bar)}};
+        {"temp_threshold_4_bar", offsetof(Config, temp_threshold_4_bar)},
+        {"liquid_threshold_1_bar", offsetof(Config, temp_liquid_threshold_1_bar)},
+        {"liquid_threshold_2_bar", offsetof(Config, temp_liquid_threshold_2_bar)},
+        {"liquid_threshold_3_bar", offsetof(Config, temp_liquid_threshold_3_bar)},
+        {"liquid_threshold_4_bar", offsetof(Config, temp_liquid_threshold_4_bar)}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {
