@@ -28,12 +28,13 @@ struct Config;
 
 /**
  * @brief Structure to hold temperature sensor data.
- * @details Contains two temperature values (temp_cpu and temp_gpu) representing CPU and GPU temperatures in degrees Celsius.
+ * @details Contains temperature values (CPU, GPU, and Liquid/Coolant) representing temperatures in degrees Celsius.
  */
 typedef struct
 {
     float temp_cpu;
     float temp_gpu;
+    float temp_liquid; // Liquid/Coolant temperature from Liquidctl device
 } monitor_sensor_data_t;
 
 /**

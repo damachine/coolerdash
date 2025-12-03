@@ -93,7 +93,10 @@ typedef struct Config
     // Layout configuration - all positioning is calculated dynamically from display dimensions
     uint16_t layout_bar_height;
     uint16_t layout_bar_gap;
-    float layout_bar_border_width;
+    float layout_bar_border;
+    uint8_t layout_bar_width;         // Bar width as percentage of display width (1-100), default: 98
+    uint8_t layout_label_margin_left; // Label distance from left screen edge (1-50%, default: 1)
+    uint8_t layout_label_margin_bar;  // Label distance from bars (1-20%, default: 1)
     Color layout_bar_color_background;
     Color layout_bar_color_border;
 
@@ -105,12 +108,15 @@ typedef struct Config
     Color font_color_label;
 
     // Display positioning overrides (optional - set to -9999 for auto)
-    int display_temp_offset_x;   // Horizontal offset for temperature numbers
-    int display_temp_offset_y;   // Vertical offset for temperature numbers
-    int display_degree_offset_x; // Horizontal offset for degree symbols
-    int display_degree_offset_y; // Vertical offset for degree symbols
-    int display_label_offset_x;  // Horizontal offset for CPU/GPU labels
-    int display_label_offset_y;  // Vertical offset for CPU/GPU labels
+    int display_temp_offset_x_cpu;    // Horizontal offset for CPU temperature
+    int display_temp_offset_x_gpu;    // Horizontal offset for GPU temperature
+    int display_temp_offset_y_cpu;    // Vertical offset for CPU temperature
+    int display_temp_offset_y_gpu;    // Vertical offset for GPU temperature
+    int display_temp_offset_x_liquid; // Horizontal offset for Liquid temperature
+    int display_temp_offset_y_liquid; // Vertical offset for Liquid temperature
+    int display_degree_spacing;       // Spacing between temperature and degree symbol (pixels, default: 16)
+    int display_label_offset_x;       // Horizontal offset for CPU/GPU labels
+    int display_label_offset_y;       // Vertical offset for CPU/GPU labels
 
     // Temperature configuration
     float temp_threshold_1;
@@ -121,6 +127,16 @@ typedef struct Config
     Color temp_threshold_2_bar;
     Color temp_threshold_3_bar;
     Color temp_threshold_4_bar;
+
+    // Liquid temperature configuration (for circle mode, shown with CPU)
+    float temp_liquid_max_scale;       // Maximum liquid temperature for bar scaling (default: 50°C)
+    float temp_liquid_threshold_1;     // Liquid temp threshold 1 (default: 25°C)
+    float temp_liquid_threshold_2;     // Liquid temp threshold 2 (default: 30°C)
+    float temp_liquid_threshold_3;     // Liquid temp threshold 3 (default: 35°C)
+    Color temp_liquid_threshold_1_bar; // Bar color for liquid < threshold_1
+    Color temp_liquid_threshold_2_bar; // Bar color for threshold_1 <= liquid < threshold_2
+    Color temp_liquid_threshold_3_bar; // Bar color for threshold_2 <= liquid < threshold_3
+    Color temp_liquid_threshold_4_bar; // Bar color for liquid >= threshold_3
 } Config;
 
 /**

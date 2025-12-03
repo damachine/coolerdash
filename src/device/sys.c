@@ -151,12 +151,18 @@ static void set_display_defaults(Config *config)
  */
 static void set_layout_defaults(Config *config)
 {
+    if (config->layout_bar_width == 0)
+        config->layout_bar_width = 98; // Default: 98% width (1% margin left+right)
+    if (config->layout_label_margin_left == 0)
+        config->layout_label_margin_left = 1; // Default: 1% from left edge
+    if (config->layout_label_margin_bar == 0)
+        config->layout_label_margin_bar = 1; // Default: 1% from bars
     if (config->layout_bar_height == 0)
         config->layout_bar_height = 20;
     if (config->layout_bar_gap == 0)
         config->layout_bar_gap = 10.0f;
-    if (config->layout_bar_border_width == 0.0f)
-        config->layout_bar_border_width = 1.0f;
+    if (config->layout_bar_border == 0.0f)
+        config->layout_bar_border = 1.0f;
 }
 
 /**
@@ -164,14 +170,20 @@ static void set_layout_defaults(Config *config)
  */
 static void set_display_positioning_defaults(Config *config)
 {
-    if (config->display_temp_offset_x == 0)
-        config->display_temp_offset_x = -9999;
-    if (config->display_temp_offset_y == 0)
-        config->display_temp_offset_y = -9999;
-    if (config->display_degree_offset_x == 0)
-        config->display_degree_offset_x = -9999;
-    if (config->display_degree_offset_y == 0)
-        config->display_degree_offset_y = -9999;
+    if (config->display_temp_offset_x_cpu == 0)
+        config->display_temp_offset_x_cpu = -9999;
+    if (config->display_temp_offset_x_gpu == 0)
+        config->display_temp_offset_x_gpu = -9999;
+    if (config->display_temp_offset_y_cpu == 0)
+        config->display_temp_offset_y_cpu = -9999;
+    if (config->display_temp_offset_y_gpu == 0)
+        config->display_temp_offset_y_gpu = -9999;
+    if (config->display_temp_offset_x_liquid == 0)
+        config->display_temp_offset_x_liquid = -9999;
+    if (config->display_temp_offset_y_liquid == 0)
+        config->display_temp_offset_y_liquid = -9999;
+    if (config->display_degree_spacing == 0)
+        config->display_degree_spacing = 16; // Default: 16px spacing
     if (config->display_label_offset_x == 0)
         config->display_label_offset_x = -9999;
     if (config->display_label_offset_y == 0)
@@ -224,6 +236,16 @@ static void set_temperature_defaults(Config *config)
         config->temp_threshold_3 = 75.0f;
     if (config->temp_max_scale == 0.0f)
         config->temp_max_scale = 115.0f;
+
+    // Liquid temperature defaults (Range: 0-50°C for AIO coolers)
+    if (config->temp_liquid_max_scale == 0.0f)
+        config->temp_liquid_max_scale = 50.0f;
+    if (config->temp_liquid_threshold_1 == 0.0f)
+        config->temp_liquid_threshold_1 = 25.0f;
+    if (config->temp_liquid_threshold_2 == 0.0f)
+        config->temp_liquid_threshold_2 = 28.0f;
+    if (config->temp_liquid_threshold_3 == 0.0f)
+        config->temp_liquid_threshold_3 = 31.0f;
 }
 
 /**
@@ -256,7 +278,11 @@ static void set_color_defaults(Config *config)
         {&config->temp_threshold_1_bar, 0, 255, 0},
         {&config->temp_threshold_2_bar, 255, 140, 0},
         {&config->temp_threshold_3_bar, 255, 70, 0},
-        {&config->temp_threshold_4_bar, 255, 0, 0}};
+        {&config->temp_threshold_4_bar, 255, 0, 0},
+        {&config->temp_liquid_threshold_1_bar, 0, 255, 0},
+        {&config->temp_liquid_threshold_2_bar, 255, 140, 0},
+        {&config->temp_liquid_threshold_3_bar, 255, 70, 0},
+        {&config->temp_liquid_threshold_4_bar, 255, 0, 0}};
 
     const size_t color_count = sizeof(color_defaults) / sizeof(color_defaults[0]);
     for (size_t i = 0; i < color_count; i++)
@@ -299,5 +325,4 @@ void init_system_defaults(Config *config)
     memset(config, 0, sizeof(Config));
     // Set explicit unset sentinel for display_inscribe_factor so 0.0 can be used as auto by user
     config->display_inscribe_factor = -1.0f;
-    apply_system_defaults(config);
 }
