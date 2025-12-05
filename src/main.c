@@ -36,7 +36,7 @@
 #include "device/usr.h"
 #include "srv/cc_main.h"
 #include "srv/cc_conf.h"
-#include "mods/dual.h"
+#include "mods/display.h"
 #include "srv/cc_sensor.h"
 
 // Security and performance constants
@@ -727,7 +727,7 @@ static int run_daemon(const Config *config)
         }
 
         // Execute main rendering task
-        draw_combined_image(config);
+        draw_display_image(config);
 
         // Sleep until absolute time with error handling
         int sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);

@@ -561,8 +561,8 @@ int render_dual_display(const struct Config *config, const monitor_sensor_data_t
 }
 
 /**
- * @brief High-level entry point for dual mode rendering.
- * @details Collects sensor data, renders dual display, and sends to LCD device.
+ * @brief Main dual mode entry point.
+ * @details Collects sensor data, renders dual display using render_dual_display(), and sends to LCD device.
  */
 void draw_dual_image(const struct Config *config)
 {
@@ -610,31 +610,5 @@ void draw_dual_image(const struct Config *config)
     else
     {
         log_message(LOG_WARNING, "Skipping dual LCD upload - device not available");
-    }
-}
-
-/**
- * @brief Main entry point for display updates with mode selection.
- * @details Collects sensor data and dispatches to dual or circle mode renderer based on configuration.
- */
-void draw_combined_image(const struct Config *config)
-{
-    if (!config)
-    {
-        log_message(LOG_ERROR, "Invalid config parameter for draw_combined_image");
-        return;
-    }
-
-    // Check display mode and dispatch to appropriate renderer
-    if (config->display_mode[0] != '\0' && strcmp(config->display_mode, "circle") == 0)
-    {
-        // Circle mode: alternating single sensor display
-        extern void draw_circle_image(const struct Config *config);
-        draw_circle_image(config);
-    }
-    else
-    {
-        // Dual mode (default): simultaneous CPU+GPU display
-        draw_dual_image(config);
     }
 }
