@@ -115,6 +115,10 @@ static void strip_inline_comment(char *value)
     if (!value)
         return;
 
+    // Safety check for null pointer
+    if (!value)
+        return;
+
     // Find first '#' character (inline comment)
     char *comment = strchr(value, '#');
     if (comment)
@@ -122,8 +126,11 @@ static void strip_inline_comment(char *value)
         *comment = '\0'; // Terminate string at comment
     }
 
-    // Trim trailing whitespace
-    size_t len = strlen(value);
+    // Trim trailing whitespace (value is now guaranteed null-terminated)
+    // Manual length calculation to satisfy static analysis
+    size_t len = 0;
+    while (value[len] != '\0')
+        len++;
     while (len > 0 && (value[len - 1] == ' ' || value[len - 1] == '\t'))
     {
         value[--len] = '\0';

@@ -131,7 +131,7 @@ echo ""
 
 # 5. Extended Issue Checks
 echo -e "${YELLOW}[5/5] Checking for common issues...${NC}"
-ISSUES=0
+ISSUES=0  # Track issues count (currently unused, reserved for future enhancement)
 
 # Check for TODO/FIXME comments
 TODO_COUNT=$(grep -rn "TODO\|FIXME" src/ 2>/dev/null | wc -l)
