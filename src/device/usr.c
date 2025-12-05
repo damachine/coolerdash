@@ -1,8 +1,8 @@
 /**
-* -----------------------------------------------------------------------------
-* Created by: damachine (christkue79 at gmail dot com)
-* Website: https://github.com/damachine/coolerdash
-* -----------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * Created by: damachine (christkue79 at gmail dot com)
+ * Website: https://github.com/damachine/coolerdash
+ * -----------------------------------------------------------------------------
  */
 
 /**
@@ -21,8 +21,8 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "usr.h"
 #include "../srv/cc_conf.h"
+#include "usr.h"
 
 // ============================================================================
 // Change Tracking for Verbose Logging
@@ -51,7 +51,8 @@ static int config_change_count = 0;
  * @brief Record a configuration change for verbose logging.
  * @details Stores section, key, and value when INI parser encounters an entry.
  */
-static void record_config_change(const char *section, const char *key, const char *value)
+static void record_config_change(const char *section, const char *key,
+                                 const char *value)
 {
     if (config_change_count >= MAX_CONFIG_CHANGES)
     {
@@ -59,7 +60,8 @@ static void record_config_change(const char *section, const char *key, const cha
     }
 
     ConfigChange *change = &config_changes[config_change_count];
-    snprintf(change->section, sizeof(change->section), "%s", section ? section : "unknown");
+    snprintf(change->section, sizeof(change->section), "%s",
+             section ? section : "unknown");
     snprintf(change->key, sizeof(change->key), "%s", key ? key : "unknown");
     snprintf(change->value, sizeof(change->value), "%s", value ? value : "");
     config_change_count++;
@@ -67,8 +69,9 @@ static void record_config_change(const char *section, const char *key, const cha
 
 /**
  * @brief Log all recorded INI configuration changes.
- * @details Always logs user customizations to systemd journal (LOG_STATUS level).
- *          This ensures manual config changes are visible without --verbose flag.
+ * @details Always logs user customizations to systemd journal (LOG_STATUS
+ * level). This ensures manual config changes are visible without --verbose
+ * flag.
  */
 static void log_config_changes(void)
 {
@@ -77,14 +80,17 @@ static void log_config_changes(void)
         return; // No changes to log
     }
 
-    log_message(LOG_STATUS, "=== User Configuration Changes (from coolerdash.ini) ===");
-    log_message(LOG_STATUS, "Found %d customized configuration value%s:",
-                config_change_count, config_change_count == 1 ? "" : "s");
+    log_message(LOG_STATUS,
+                "=== User Configuration Changes (from coolerdash.ini) ===");
+    log_message(LOG_STATUS,
+                "Found %d customized configuration value%s:", config_change_count,
+                config_change_count == 1 ? "" : "s");
 
     for (int i = 0; i < config_change_count; i++)
     {
         ConfigChange *change = &config_changes[i];
-        log_message(LOG_STATUS, "  [%s] %s = %s", change->section, change->key, change->value);
+        log_message(LOG_STATUS, "  [%s] %s = %s", change->section, change->key,
+                    change->value);
     }
 
     log_message(LOG_STATUS, "=== End of Configuration Changes ===");
@@ -99,15 +105,47 @@ static void reset_config_changes(void)
     memset(config_changes, 0, sizeof(config_changes));
 }
 
+/**
+ * @brief Remove inline comments and trailing whitespace from INI value.
+ * @details Strips everything after '#' character and trims trailing spaces.
+ * @param value Input string (will be modified in place)
+ */
+static void strip_inline_comment(char *value)
+{
+    if (!value)
+        return;
+
+    // Find first '#' character (inline comment)
+    char *comment = strchr(value, '#');
+    if (comment)
+    {
+        *comment = '\0'; // Terminate string at comment
+    }
+
+    // Trim trailing whitespace
+    size_t len = strlen(value);
+    while (len > 0 && (value[len - 1] == ' ' || value[len - 1] == '\t'))
+    {
+        value[--len] = '\0';
+    }
+}
+
 // Forward declarations for static handler functions
-static int get_daemon_config(Config *config, const char *name, const char *value);
-static int get_paths_config(Config *config, const char *name, const char *value);
-static int get_display_config(Config *config, const char *name, const char *value);
-static int get_layout_config(Config *config, const char *name, const char *value);
+static int get_daemon_config(Config *config, const char *name,
+                             const char *value);
+static int get_paths_config(Config *config, const char *name,
+                            const char *value);
+static int get_display_config(Config *config, const char *name,
+                              const char *value);
+static int get_layout_config(Config *config, const char *name,
+                             const char *value);
 static int get_font_config(Config *config, const char *name, const char *value);
-static int get_temperature_config(Config *config, const char *name, const char *value);
-static int get_color_config(Config *config, const char *section, const char *name, const char *value);
-static int get_display_positioning_config(Config *config, const char *name, const char *value);
+static int get_temperature_config(Config *config, const char *name,
+                                  const char *value);
+static int get_color_config(Config *config, const char *section,
+                            const char *name, const char *value);
+static int get_display_positioning_config(Config *config, const char *name,
+                                          const char *value);
 
 /**
  * @brief Helper functions for string parsing with validation.
@@ -157,7 +195,8 @@ static void parse_color_component(const char *value, uint8_t *component)
 
 static inline int is_color_section(const char *section)
 {
-    return (strstr(section, "color") != NULL || strstr(section, "threshold") != NULL);
+    return (strstr(section, "color") != NULL ||
+            strstr(section, "threshold") != NULL);
 }
 
 // ============================================================================
@@ -174,8 +213,10 @@ typedef struct
 /**
  * @brief Generic helper for string-based configuration sections.
  */
-static int handle_string_config(Config *config, const char *name, const char *value,
-                                const StringConfigEntry *entries, size_t entry_count)
+static int handle_string_config(Config *config, const char *name,
+                                const char *value,
+                                const StringConfigEntry *entries,
+                                size_t entry_count)
 {
     if (!value || value[0] == '\0')
         return 1;
@@ -196,28 +237,36 @@ static int handle_string_config(Config *config, const char *name, const char *va
 // Daemon Section Handler
 // ============================================================================
 
-static int get_daemon_config(Config *config, const char *name, const char *value)
+static int get_daemon_config(Config *config, const char *name,
+                             const char *value)
 {
     static const StringConfigEntry entries[] = {
-        {"address", offsetof(Config, daemon_address), sizeof(config->daemon_address)},
-        {"password", offsetof(Config, daemon_password), sizeof(config->daemon_password)}};
+        {"address", offsetof(Config, daemon_address),
+         sizeof(config->daemon_address)},
+        {"password", offsetof(Config, daemon_password),
+         sizeof(config->daemon_password)}};
 
-    return handle_string_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+    return handle_string_config(config, name, value, entries,
+                                sizeof(entries) / sizeof(entries[0]));
 }
 
 // ============================================================================
 // Paths Section Handler
 // ============================================================================
 
-static int get_paths_config(Config *config, const char *name, const char *value)
+static int get_paths_config(Config *config, const char *name,
+                            const char *value)
 {
     static const StringConfigEntry entries[] = {
         {"images", offsetof(Config, paths_images), sizeof(config->paths_images)},
-        {"image_coolerdash", offsetof(Config, paths_image_coolerdash), sizeof(config->paths_image_coolerdash)},
-        {"image_shutdown", offsetof(Config, paths_image_shutdown), sizeof(config->paths_image_shutdown)},
+        {"image_coolerdash", offsetof(Config, paths_image_coolerdash),
+         sizeof(config->paths_image_coolerdash)},
+        {"image_shutdown", offsetof(Config, paths_image_shutdown),
+         sizeof(config->paths_image_shutdown)},
         {"pid", offsetof(Config, paths_pid), sizeof(config->paths_pid)}};
 
-    return handle_string_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+    return handle_string_config(config, name, value, entries,
+                                sizeof(entries) / sizeof(entries[0]));
 }
 
 // ============================================================================
@@ -247,7 +296,8 @@ static void handle_refresh_interval(Config *config, const char *value)
     }
     else
     {
-        log_message(LOG_WARNING, "refresh_interval must be 0.01-60.0, using default: 2.50");
+        log_message(LOG_WARNING,
+                    "refresh_interval must be 0.01-60.0, using default: 2.50");
         config->display_refresh_interval = 2.50f;
     }
 }
@@ -255,7 +305,8 @@ static void handle_refresh_interval(Config *config, const char *value)
 static void handle_brightness(Config *config, const char *value)
 {
     int brightness = safe_atoi(value, 0);
-    config->lcd_brightness = (brightness >= 0 && brightness <= 100) ? (uint8_t)brightness : 0;
+    config->lcd_brightness =
+        (brightness >= 0 && brightness <= 100) ? (uint8_t)brightness : 0;
 }
 
 static void handle_orientation(Config *config, const char *value)
@@ -272,21 +323,25 @@ static void handle_display_mode(Config *config, const char *value)
     }
     else
     {
-        log_message(LOG_WARNING, "Invalid display_mode '%s', defaulting to 'dual'", value);
+        log_message(LOG_WARNING, "Invalid display_mode '%s', defaulting to 'dual'",
+                    value);
         cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
     }
 }
 
 static void handle_display_shape(Config *config, const char *value)
 {
-    if (strcmp(value, "auto") == 0 || strcmp(value, "rectangular") == 0 || strcmp(value, "circular") == 0)
+    if (strcmp(value, "auto") == 0 || strcmp(value, "rectangular") == 0 ||
+        strcmp(value, "circular") == 0)
     {
         cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), value);
     }
     else
     {
-        log_message(LOG_WARNING, "Invalid display_shape '%s', defaulting to 'auto'", value);
-        cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), "auto");
+        log_message(LOG_WARNING, "Invalid display_shape '%s', defaulting to 'auto'",
+                    value);
+        cc_safe_strcpy(config->display_shape, sizeof(config->display_shape),
+                       "auto");
     }
 }
 
@@ -295,12 +350,16 @@ static void handle_circle_switch_interval(Config *config, const char *value)
     int interval = safe_atoi(value, 5); // Default: 5 seconds
     if (interval < 1)
     {
-        log_message(LOG_WARNING, "Circle switch interval must be >= 1 second, using default (5s)");
+        log_message(
+            LOG_WARNING,
+            "Circle switch interval must be >= 1 second, using default (5s)");
         config->circle_switch_interval = 5;
     }
     else if (interval > 60)
     {
-        log_message(LOG_WARNING, "Circle switch interval too large (%d), capping at 60 seconds", interval);
+        log_message(LOG_WARNING,
+                    "Circle switch interval too large (%d), capping at 60 seconds",
+                    interval);
         config->circle_switch_interval = 60;
     }
     else
@@ -314,7 +373,8 @@ static void handle_content_scale_factor(Config *config, const char *value)
     float scale = strtof(value, NULL);
     if (scale < 0.5f || scale > 1.0f)
     {
-        log_message(LOG_WARNING, "Content scale factor must be between 0.5 and 1.0, using default (0.98)");
+        log_message(LOG_WARNING, "Content scale factor must be between 0.5 and "
+                                 "1.0, using default (0.98)");
         config->display_content_scale_factor = 0.98f;
     }
     else
@@ -328,10 +388,16 @@ static void handle_display_inscribe_factor(Config *config, const char *value)
     float val = strtof(value, NULL);
     if (val < 0.0f || val > 1.0f)
     {
-        log_message(LOG_WARNING, "display_inscribe_factor must be >=0 && <=1 (0 = auto), using default (%.2f)", config->display_inscribe_factor < 0.0f ? 0.70710678f : config->display_inscribe_factor);
+        log_message(LOG_WARNING,
+                    "display_inscribe_factor must be >=0 && <=1 (0 = auto), using "
+                    "default (%.2f)",
+                    config->display_inscribe_factor < 0.0f
+                        ? 0.70710678f
+                        : config->display_inscribe_factor);
         return;
     }
-    // val == 0.0f is allowed and interpreted as 'auto' (use geometric inscribe factor at runtime)
+    // val == 0.0f is allowed and interpreted as 'auto' (use geometric inscribe
+    // factor at runtime)
     config->display_inscribe_factor = val;
 }
 
@@ -341,7 +407,8 @@ typedef struct
     DisplayConfigHandler handler;
 } DisplayConfigEntry;
 
-static int get_display_config(Config *config, const char *name, const char *value)
+static int get_display_config(Config *config, const char *name,
+                              const char *value)
 {
     static const DisplayConfigEntry entries[] = {
         {"width", handle_display_width},
@@ -383,8 +450,10 @@ typedef struct
     size_t string_size;
 } MixedConfigEntry;
 
-static int handle_mixed_config(Config *config, const char *name, const char *value,
-                               const MixedConfigEntry *entries, size_t entry_count)
+static int handle_mixed_config(Config *config, const char *name,
+                               const char *value,
+                               const MixedConfigEntry *entries,
+                               size_t entry_count)
 {
     for (size_t i = 0; i < entry_count; i++)
     {
@@ -456,7 +525,8 @@ static void handle_layout_label_margin_bar(Config *config, const char *value)
 // Layout Section Handler
 // ============================================================================
 
-static int get_layout_config(Config *config, const char *name, const char *value)
+static int get_layout_config(Config *config, const char *name,
+                             const char *value)
 {
     // Handle bar_width separately (validation required)
     if (strcmp(name, "bar_width") == 0)
@@ -483,7 +553,8 @@ static int get_layout_config(Config *config, const char *name, const char *value
         {"bar_gap", offsetof(Config, layout_bar_gap), TYPE_UINT16, 0},
         {"bar_border", offsetof(Config, layout_bar_border), TYPE_FLOAT, 0}};
 
-    return handle_mixed_config(config, name, value, entries, sizeof(entries) / sizeof(entries[0]));
+    return handle_mixed_config(config, name, value, entries,
+                               sizeof(entries) / sizeof(entries[0]));
 }
 
 // ============================================================================
@@ -492,10 +563,13 @@ static int get_layout_config(Config *config, const char *name, const char *value
 
 static void handle_font_size_temp(Config *config, const char *value)
 {
-    // Calculate dynamic default based on display size (same formula as auto-scaling)
+    // Calculate dynamic default based on display size (same formula as
+    // auto-scaling)
     const double base_resolution = 240.0;
     const double base_font_size_temp = 100.0;
-    const double scale_factor = ((double)config->display_width + (double)config->display_height) / (2.0 * base_resolution);
+    const double scale_factor =
+        ((double)config->display_width + (double)config->display_height) /
+        (2.0 * base_resolution);
     const float dynamic_default = (float)(base_font_size_temp * scale_factor);
 
     float parsed = safe_atof(value, dynamic_default);
@@ -510,7 +584,9 @@ static void handle_font_size_labels(Config *config, const char *value)
     // Calculate dynamic default based on display size
     const double base_resolution = 240.0;
     const double base_font_size_labels = 30.0;
-    const double scale_factor = ((double)config->display_width + (double)config->display_height) / (2.0 * base_resolution);
+    const double scale_factor =
+        ((double)config->display_width + (double)config->display_height) /
+        (2.0 * base_resolution);
     const float dynamic_default = (float)(base_font_size_labels * scale_factor);
 
     float parsed = safe_atof(value, dynamic_default);
@@ -520,7 +596,8 @@ static void handle_font_size_labels(Config *config, const char *value)
     }
 }
 
-static int get_font_config(Config *config, const char *name, const char *value)
+static int get_font_config(Config *config, const char *name,
+                           const char *value)
 {
     // Handle font_face as string
     if (strcmp(name, "font_face") == 0)
@@ -558,7 +635,8 @@ typedef struct
     size_t offset;
 } PositioningConfigEntry;
 
-static int get_display_positioning_config(Config *config, const char *name, const char *value)
+static int get_display_positioning_config(Config *config, const char *name,
+                                          const char *value)
 {
     if (!value || value[0] == '\0')
         return 1;
@@ -566,7 +644,7 @@ static int get_display_positioning_config(Config *config, const char *name, cons
     // Handle comma-separated CPU,GPU temperature offsets
     if (strcmp(name, "display_temp_offset_x") == 0)
     {
-        char *comma = strchr(value, ',');
+        const char *comma = strchr(value, ',');
         if (comma)
         {
             // Format: "cpu_value,gpu_value"
@@ -576,14 +654,16 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             // Use snprintf for safe buffer copy with size validation
             if (cpu_len > 0 && cpu_len < sizeof(cpu_str))
             {
-                int written = snprintf(cpu_str, sizeof(cpu_str), "%.*s", (int)cpu_len, value);
+                int written =
+                    snprintf(cpu_str, sizeof(cpu_str), "%.*s", (int)cpu_len, value);
                 if (written < 0 || (size_t)written >= sizeof(cpu_str))
                     cpu_str[0] = '\0'; // Truncation safety
             }
             cc_safe_strcpy(gpu_str, sizeof(gpu_str), comma + 1);
             config->display_temp_offset_x_cpu = safe_atoi(cpu_str, -9999);
             config->display_temp_offset_x_gpu = safe_atoi(gpu_str, -9999);
-            record_config_change("display_positioning", "display_temp_offset_x", value);
+            record_config_change("display_positioning", "display_temp_offset_x",
+                                 value);
         }
         else
         {
@@ -591,14 +671,15 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             int val = safe_atoi(value, -9999);
             config->display_temp_offset_x_cpu = val;
             config->display_temp_offset_x_gpu = val;
-            record_config_change("display_positioning", "display_temp_offset_x", value);
+            record_config_change("display_positioning", "display_temp_offset_x",
+                                 value);
         }
         return 1;
     }
 
     if (strcmp(name, "display_temp_offset_y") == 0)
     {
-        char *comma = strchr(value, ',');
+        const char *comma = strchr(value, ',');
         if (comma)
         {
             // Format: "cpu_value,gpu_value"
@@ -608,14 +689,16 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             // Use snprintf for safe buffer copy with size validation
             if (cpu_len > 0 && cpu_len < sizeof(cpu_str))
             {
-                int written = snprintf(cpu_str, sizeof(cpu_str), "%.*s", (int)cpu_len, value);
+                int written =
+                    snprintf(cpu_str, sizeof(cpu_str), "%.*s", (int)cpu_len, value);
                 if (written < 0 || (size_t)written >= sizeof(cpu_str))
                     cpu_str[0] = '\0'; // Truncation safety
             }
             cc_safe_strcpy(gpu_str, sizeof(gpu_str), comma + 1);
             config->display_temp_offset_y_cpu = safe_atoi(cpu_str, -9999);
             config->display_temp_offset_y_gpu = safe_atoi(gpu_str, -9999);
-            record_config_change("display_positioning", "display_temp_offset_y", value);
+            record_config_change("display_positioning", "display_temp_offset_y",
+                                 value);
         }
         else
         {
@@ -623,14 +706,17 @@ static int get_display_positioning_config(Config *config, const char *name, cons
             int val = safe_atoi(value, -9999);
             config->display_temp_offset_y_cpu = val;
             config->display_temp_offset_y_gpu = val;
-            record_config_change("display_positioning", "display_temp_offset_y", value);
+            record_config_change("display_positioning", "display_temp_offset_y",
+                                 value);
         }
         return 1;
     }
 
     static const PositioningConfigEntry entries[] = {
-        {"display_temp_offset_x_liquid", offsetof(Config, display_temp_offset_x_liquid)},
-        {"display_temp_offset_y_liquid", offsetof(Config, display_temp_offset_y_liquid)},
+        {"display_temp_offset_x_liquid",
+         offsetof(Config, display_temp_offset_x_liquid)},
+        {"display_temp_offset_y_liquid",
+         offsetof(Config, display_temp_offset_y_liquid)},
         {"display_degree_spacing", offsetof(Config, display_degree_spacing)},
         {"display_label_offset_x", offsetof(Config, display_label_offset_x)},
         {"display_label_offset_y", offsetof(Config, display_label_offset_y)}};
@@ -659,7 +745,8 @@ typedef struct
     size_t offset;
 } TemperatureConfigEntry;
 
-static int get_temperature_config(Config *config, const char *name, const char *value)
+static int get_temperature_config(Config *config, const char *name,
+                                  const char *value)
 {
     static const TemperatureConfigEntry entries[] = {
         {"temp_threshold_1", offsetof(Config, temp_threshold_1)},
@@ -694,7 +781,8 @@ typedef struct
     size_t color_offset;
 } ColorSectionEntry;
 
-static Color *get_color_pointer_from_section(Config *config, const char *section)
+static Color *get_color_pointer_from_section(Config *config,
+                                             const char *section)
 {
     static const ColorSectionEntry entries[] = {
         {"bar_color_background", offsetof(Config, layout_bar_color_background)},
@@ -708,7 +796,8 @@ static Color *get_color_pointer_from_section(Config *config, const char *section
         {"liquid_threshold_1_bar", offsetof(Config, temp_liquid_threshold_1_bar)},
         {"liquid_threshold_2_bar", offsetof(Config, temp_liquid_threshold_2_bar)},
         {"liquid_threshold_3_bar", offsetof(Config, temp_liquid_threshold_3_bar)},
-        {"liquid_threshold_4_bar", offsetof(Config, temp_liquid_threshold_4_bar)}};
+        {"liquid_threshold_4_bar",
+         offsetof(Config, temp_liquid_threshold_4_bar)}};
 
     for (size_t i = 0; i < sizeof(entries) / sizeof(entries[0]); i++)
     {
@@ -720,7 +809,8 @@ static Color *get_color_pointer_from_section(Config *config, const char *section
     return NULL;
 }
 
-static void set_color_component(Color *color, const char *name, const char *value)
+static void set_color_component(Color *color, const char *name,
+                                const char *value)
 {
     if (!color || !name || !value || name[1] != '\0')
         return;
@@ -739,7 +829,8 @@ static void set_color_component(Color *color, const char *name, const char *valu
     }
 }
 
-static int get_color_config(Config *config, const char *section, const char *name, const char *value)
+static int get_color_config(Config *config, const char *section,
+                            const char *name, const char *value)
 {
     Color *color = get_color_pointer_from_section(config, section);
     if (color)
@@ -753,8 +844,10 @@ static int get_color_config(Config *config, const char *section, const char *nam
 // Main INI Parser Callback
 // ============================================================================
 
-typedef int (*SectionHandler)(Config *config, const char *name, const char *value);
-typedef int (*ColorSectionHandler)(Config *config, const char *section, const char *name, const char *value);
+typedef int (*SectionHandler)(Config *config, const char *name,
+                              const char *value);
+typedef int (*ColorSectionHandler)(Config *config, const char *section,
+                                   const char *name, const char *value);
 
 typedef struct
 {
@@ -762,12 +855,18 @@ typedef struct
     SectionHandler handler;
 } SectionHandlerEntry;
 
-static int parse_config_data(void *user, const char *section, const char *name, const char *value)
+static int parse_config_data(void *user, const char *section, const char *name,
+                             const char *value)
 {
     Config *config = (Config *)user;
 
-    // Record this configuration change for verbose logging
-    record_config_change(section, name, value);
+    // Strip inline comments and trailing whitespace from value
+    char clean_value[CONFIG_MAX_STRING_LEN];
+    cc_safe_strcpy(clean_value, sizeof(clean_value), value);
+    strip_inline_comment(clean_value);
+
+    // Record this configuration change for verbose logging (with cleaned value)
+    record_config_change(section, name, clean_value);
 
     static const SectionHandlerEntry handlers[] = {
         {"daemon", get_daemon_config},
@@ -782,13 +881,13 @@ static int parse_config_data(void *user, const char *section, const char *name, 
     {
         if (strcmp(section, handlers[i].section_name) == 0)
         {
-            return handlers[i].handler(config, name, value);
+            return handlers[i].handler(config, name, clean_value);
         }
     }
 
     if (is_color_section(section))
     {
-        return get_color_config(config, section, name, value);
+        return get_color_config(config, section, name, clean_value);
     }
 
     return 1;
@@ -813,7 +912,8 @@ int load_user_config(const char *path, Config *config)
     if (!file)
     {
         // File doesn't exist - skip user config, system defaults will be used
-        log_message(LOG_INFO, "User config file '%s' not found, using system defaults", path);
+        log_message(LOG_INFO,
+                    "User config file '%s' not found, using system defaults", path);
         return 0; // Not an error - missing user config is valid
     }
     fclose(file);

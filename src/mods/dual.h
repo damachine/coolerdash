@@ -1,13 +1,14 @@
 /**
-* -----------------------------------------------------------------------------
-* Created by: damachine (christkue79 at gmail dot com)
-* Website: https://github.com/damachine/coolerdash
-* -----------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * Created by: damachine (christkue79 at gmail dot com)
+ * Website: https://github.com/damachine/coolerdash
+ * -----------------------------------------------------------------------------
  */
 
 /**
  * @brief LCD rendering and image upload interface for CoolerDash.
- * @details Provides functions for rendering temperature data to LCD displays, including Cairo-based image generation and upload to CoolerControl devices.
+ * @details Provides functions for rendering temperature data to LCD displays,
+ * including Cairo-based image generation and upload to CoolerControl devices.
  */
 
 // Include necessary headers
@@ -40,15 +41,19 @@ struct Config;
 
 /**
  * @brief Render dual-sensor display (CPU+GPU simultaneously).
- * @details Low-level function that creates PNG image using Cairo graphics library based on temperature
- *          sensor data and configuration settings, then uploads to LCD device. Shows both sensors at once.
+ * @details Low-level function that creates PNG image using Cairo graphics
+ * library based on temperature sensor data and configuration settings, then
+ * uploads to LCD device. Shows both sensors at once.
  */
-int render_dual_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name);
+int render_dual_display(const struct Config *config,
+                        const monitor_sensor_data_t *data,
+                        const char *device_name);
 
 /**
  * @brief Main dual mode entry point.
- * @details Collects sensor data, renders dual display using render_dual_display(), and uploads to LCD.
- *          This is the high-level function called by the dispatcher to show CPU+GPU simultaneously.
+ * @details Collects sensor data, renders dual display using
+ * render_dual_display(), and uploads to LCD. This is the high-level function
+ * called by the dispatcher to show CPU+GPU simultaneously.
  */
 void draw_dual_image(const struct Config *config);
 

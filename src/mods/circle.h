@@ -1,13 +1,14 @@
 /**
-* -----------------------------------------------------------------------------
-* Created by: damachine (christkue79 at gmail dot com)
-* Website: https://github.com/damachine/coolerdash
-* -----------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * Created by: damachine (christkue79 at gmail dot com)
+ * Website: https://github.com/damachine/coolerdash
+ * -----------------------------------------------------------------------------
  */
 
 /**
  * @brief Circle mode LCD rendering - Single sensor alternating display.
- * @details Provides functions for rendering single CPU or GPU sensor with automatic switching every 2.5 seconds.
+ * @details Provides functions for rendering single CPU or GPU sensor with
+ * automatic switching every 2.5 seconds.
  */
 
 #ifndef CIRCLE_H
@@ -39,14 +40,18 @@ struct Config;
 
 /**
  * @brief Collects sensor data and renders circle mode display.
- * @details High-level entry point function that retrieves temperature data and triggers alternating single-sensor display rendering.
+ * @details High-level entry point function that retrieves temperature data and
+ * triggers alternating single-sensor display rendering.
  */
 void draw_circle_image(const struct Config *config);
 
 /**
  * @brief Render single sensor display based on current mode (CPU or GPU).
- * @details Creates PNG image using Cairo graphics library showing either CPU or GPU temperature, alternates every 2.5 seconds.
+ * @details Creates PNG image using Cairo graphics library showing either CPU or
+ * GPU temperature, alternates every 2.5 seconds.
  */
-int render_circle_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name);
+int render_circle_display(const struct Config *config,
+                          const monitor_sensor_data_t *data,
+                          const char *device_name);
 
 #endif // CIRCLE_H

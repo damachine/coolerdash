@@ -1,13 +1,14 @@
 /**
-* -----------------------------------------------------------------------------
-* Created by: damachine (christkue79 at gmail dot com)
-* Website: https://github.com/damachine/coolerdash
-* -----------------------------------------------------------------------------
+ * -----------------------------------------------------------------------------
+ * Created by: damachine (christkue79 at gmail dot com)
+ * Website: https://github.com/damachine/coolerdash
+ * -----------------------------------------------------------------------------
  */
 
 /**
  * @brief CoolerControl main API - Session management and HTTP communication.
- * @details Provides functions for session initialization, authentication, and LCD image upload.
+ * @details Provides functions for session initialization, authentication, and
+ * LCD image upload.
  */
 
 #ifndef CC_MAIN_H
@@ -37,13 +38,13 @@ struct curl_slist;
 
 /**
  * @brief Response buffer for libcurl HTTP operations.
- * @details Structure to hold HTTP response data with dynamic memory management for effiziente Datensammlung.
+ * @details Structure to hold HTTP response data with dynamic memory management
+ * for effiziente Datensammlung.
  */
-typedef struct http_response
-{
-    char *data;
-    size_t size;
-    size_t capacity;
+typedef struct http_response {
+  char *data;
+  size_t size;
+  size_t capacity;
 } http_response;
 
 /**
@@ -60,32 +61,40 @@ void cc_cleanup_response_buffer(http_response *response);
 
 /**
  * @brief Callback for libcurl to write received data into a buffer.
- * @details This function is used by libcurl to store incoming HTTP response data into a dynamically allocated buffer.
+ * @details This function is used by libcurl to store incoming HTTP response
+ * data into a dynamically allocated buffer.
  */
-size_t write_callback(const void *contents, size_t size, size_t nmemb, http_response *response);
+size_t write_callback(const void *contents, size_t size, size_t nmemb,
+                      http_response *response);
 
 /**
- * @brief Initializes a CoolerControl session and authenticates with the daemon using configuration.
- * @details Must be called before any other CoolerControl API function. Sets up CURL session and performs authentication.
+ * @brief Initializes a CoolerControl session and authenticates with the daemon
+ * using configuration.
+ * @details Must be called before any other CoolerControl API function. Sets up
+ * CURL session and performs authentication.
  */
 int init_coolercontrol_session(const struct Config *config);
 
 /**
  * @brief Returns whether the session is initialized.
- * @details Checks if the session is ready for communication with the CoolerControl daemon.
+ * @details Checks if the session is ready for communication with the
+ * CoolerControl daemon.
  */
 int is_session_initialized(void);
 
 /**
  * @brief Cleans up and terminates the CoolerControl session.
- * @details Frees all resources and closes the session, including CURL cleanup and cookie file removal.
+ * @details Frees all resources and closes the session, including CURL cleanup
+ * and cookie file removal.
  */
 void cleanup_coolercontrol_session(void);
 
 /**
  * @brief Sends an image directly to the LCD of the CoolerControl device.
- * @details Uploads an image to the LCD display using a multipart HTTP PUT request with brightness and orientation settings.
+ * @details Uploads an image to the LCD display using a multipart HTTP PUT
+ * request with brightness and orientation settings.
  */
-int send_image_to_lcd(const struct Config *config, const char *image_path, const char *device_uid);
+int send_image_to_lcd(const struct Config *config, const char *image_path,
+                      const char *device_uid);
 
 #endif // CC_MAIN_H
