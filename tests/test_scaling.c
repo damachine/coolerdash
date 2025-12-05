@@ -3,9 +3,11 @@
  * Validates safe_area_width and safe_bar_width for given display_inscribe_factor values.
  */
 #define _POSIX_C_SOURCE 200112L
+// cppcheck-suppress-begin missingIncludeSystem
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+// cppcheck-suppress-end missingIncludeSystem
 
 #include "../src/device/sys.h"
 
