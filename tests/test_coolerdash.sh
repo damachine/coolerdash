@@ -121,7 +121,6 @@ echo ""
 
 # 5. Check for common issues
 echo -e "${YELLOW}[5/5] Checking for common issues...${NC}"
-ISSUES=0  # Track issues count (currently unused, reserved for future enhancement)
 
 # Check for TODO/FIXME comments
 if grep -rn "TODO\|FIXME" src/ > /dev/null 2>&1; then
