@@ -1,6 +1,7 @@
 # Source files
 bin/
 build/
+reports/
 .cache/
 .makepkg/
 */pkg/

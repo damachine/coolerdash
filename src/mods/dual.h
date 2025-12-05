@@ -1,17 +1,14 @@
 /**
- * @author damachine (christkue79@gmail.com)
- * @Maintainer: damachine <christkue79@gmail.com>
- * @website https://github.com/damachine
- * @copyright (c) 2025 damachine
- * @license MIT
- * @version 1.0
- *    This software is provided "as is", without warranty of any kind, express or implied.
- *    I do not guarantee that it will work as intended on your system.
+ * -----------------------------------------------------------------------------
+ * Created by: damachine (christkue79 at gmail dot com)
+ * Website: https://github.com/damachine/coolerdash
+ * -----------------------------------------------------------------------------
  */
 
 /**
  * @brief LCD rendering and image upload interface for CoolerDash.
- * @details Provides functions for rendering temperature data to LCD displays, including Cairo-based image generation and upload to CoolerControl devices.
+ * @details Provides functions for rendering temperature data to LCD displays,
+ * including Cairo-based image generation and upload to CoolerControl devices.
  */
 
 // Include necessary headers
@@ -43,22 +40,20 @@ struct Config;
 #endif
 
 /**
- * @brief Collects sensor data and renders display based on selected mode.
- * @details High-level entry point function that retrieves temperature data from monitoring subsystem
- *          and triggers display rendering (dual or circle mode) with current configuration.
- */
-void draw_combined_image(const struct Config *config);
-
-/**
  * @brief Render dual-sensor display (CPU+GPU simultaneously).
- * @details Low-level function that creates PNG image using Cairo graphics library based on temperature
- *          sensor data and configuration settings, then uploads to LCD device. Shows both sensors at once.
+ * @details Low-level function that creates PNG image using Cairo graphics
+ * library based on temperature sensor data and configuration settings, then
+ * uploads to LCD device. Shows both sensors at once.
  */
-int render_dual_display(const struct Config *config, const monitor_sensor_data_t *data, const char *device_name);
+int render_dual_display(const struct Config *config,
+                        const monitor_sensor_data_t *data,
+                        const char *device_name);
 
 /**
- * @brief Collects sensor data and renders dual-sensor display.
- * @details High-level entry point for dual mode - retrieves temperature data and triggers dual display rendering.
+ * @brief Main dual mode entry point.
+ * @details Collects sensor data, renders dual display using
+ * render_dual_display(), and uploads to LCD. This is the high-level function
+ * called by the dispatcher to show CPU+GPU simultaneously.
  */
 void draw_dual_image(const struct Config *config);
 

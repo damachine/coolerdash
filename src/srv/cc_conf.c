@@ -1,17 +1,14 @@
 /**
- * @author damachine (christkue79@gmail.com)
- * @Maintainer: damachine <christkue79@gmail.com>
- * @website https://github.com/damachine
- * @copyright (c) 2025 damachine
- * @license MIT
- * @version 1.0
- *    This software is provided "as is", without warranty of any kind, express or implied.
- *    I do not guarantee that it will work as intended on your system.
+ * -----------------------------------------------------------------------------
+ * Created by: damachine (christkue79 at gmail dot com)
+ * Website: https://github.com/damachine/coolerdash
+ * -----------------------------------------------------------------------------
  */
 
 /**
  * @brief CoolerControl configuration - Device cache and display detection.
- * @details Provides functions for device information caching and circular display detection.
+ * @details Provides functions for device information caching and circular
+ * display detection.
  */
 
 // Define POSIX constants
@@ -33,9 +30,11 @@
 
 /**
  * @brief Secure string copy with bounds checking.
- * @details Performs safe string copying with buffer overflow protection and null termination guarantee.
+ * @details Performs safe string copying with buffer overflow protection and
+ * null termination guarantee.
  */
-int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict src)
+int cc_safe_strcpy(char *restrict dest, size_t dest_size,
+                   const char *restrict src)
 {
     if (!dest || !src || dest_size == 0)
     {
@@ -56,7 +55,8 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict s
 
 /**
  * @brief Static cache for device information (never changes during runtime).
- * @details Holds the device UID, name, display dimensions, and circular display flag once fetched from the API.
+ * @details Holds the device UID, name, display dimensions, and circular display
+ * flag once fetched from the API.
  */
 static struct
 {
@@ -70,7 +70,8 @@ static struct
 
 /**
  * @brief Extract device type from JSON device object.
- * @details Common helper function to extract device type string from JSON device object.
+ * @details Common helper function to extract device type string from JSON
+ * device object.
  */
 const char *extract_device_type_from_json(const json_t *dev)
 {
@@ -86,9 +87,11 @@ const char *extract_device_type_from_json(const json_t *dev)
 
 /**
  * @brief Check if a device has a circular display based on device name/type.
- * @details Returns 1 if the device is known to have a circular/round LCD display.
+ * @details Returns 1 if the device is known to have a circular/round LCD
+ * display.
  */
-int is_circular_display_device(const char *device_name, int screen_width, int screen_height)
+int is_circular_display_device(const char *device_name, int screen_width,
+                               int screen_height)
 {
     if (!device_name)
         return 0;
@@ -101,20 +104,8 @@ int is_circular_display_device(const char *device_name, int screen_width, int sc
         return is_large_display ? 1 : 0;
     }
 
-    const char *circular_devices[] = {
-        // Add other brands with circular displays here
-    };
-
-    const size_t num_circular = sizeof(circular_devices) / sizeof(circular_devices[0]);
-
-    for (size_t i = 0; i < num_circular; i++)
-    {
-        if (strstr(device_name, circular_devices[i]) != NULL)
-        {
-            return 1;
-        }
-    }
-
+    // Placeholder for future circular display device names
+    // Currently no other brands detected, only by display size
     return 0;
 }
 
@@ -140,7 +131,8 @@ static int is_liquidctl_device(const char *type_str)
 /**
  * @brief Extract device UID from JSON device object.
  */
-static void extract_device_uid(const json_t *dev, char *uid_buffer, size_t buffer_size)
+static void extract_device_uid(const json_t *dev, char *uid_buffer,
+                               size_t buffer_size)
 {
     if (!dev || !uid_buffer || buffer_size == 0)
         return;
@@ -156,7 +148,8 @@ static void extract_device_uid(const json_t *dev, char *uid_buffer, size_t buffe
 /**
  * @brief Extract device name from JSON device object.
  */
-static void extract_device_name(const json_t *dev, char *name_buffer, size_t buffer_size)
+static void extract_device_name(const json_t *dev, char *name_buffer,
+                                size_t buffer_size)
 {
     if (!dev || !name_buffer || buffer_size == 0)
         return;
@@ -219,7 +212,9 @@ static void extract_lcd_dimensions(const json_t *dev, int *width, int *height)
 /**
  * @brief Initialize output parameters to default values.
  */
-static void initialize_liquidctl_output_params(char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+static void initialize_liquidctl_output_params(
+    char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width,
+    int *screen_height, char *device_name, size_t name_size)
 {
     if (lcd_uid && uid_size > 0)
         lcd_uid[0] = '\0';
@@ -236,7 +231,10 @@ static void initialize_liquidctl_output_params(char *lcd_uid, size_t uid_size, i
 /**
  * @brief Extract all information from a Liquidctl device.
  */
-static void extract_liquidctl_device_info(const json_t *dev, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+static void extract_liquidctl_device_info(const json_t *dev, char *lcd_uid,
+                                          size_t uid_size, int *found_liquidctl,
+                                          int *screen_width, int *screen_height,
+                                          char *device_name, size_t name_size)
 {
     if (found_liquidctl)
         *found_liquidctl = 1;
@@ -249,7 +247,10 @@ static void extract_liquidctl_device_info(const json_t *dev, char *lcd_uid, size
 /**
  * @brief Search for Liquidctl device in devices array.
  */
-static int search_liquidctl_device(const json_t *devices, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+static int search_liquidctl_device(const json_t *devices, char *lcd_uid,
+                                   size_t uid_size, int *found_liquidctl,
+                                   int *screen_width, int *screen_height,
+                                   char *device_name, size_t name_size)
 {
     const size_t device_count = json_array_size(devices);
     for (size_t i = 0; i < device_count; i++)
@@ -262,7 +263,9 @@ static int search_liquidctl_device(const json_t *devices, char *lcd_uid, size_t 
         if (!is_liquidctl_device(type_str))
             continue;
 
-        extract_liquidctl_device_info(dev, lcd_uid, uid_size, found_liquidctl, screen_width, screen_height, device_name, name_size);
+        extract_liquidctl_device_info(dev, lcd_uid, uid_size, found_liquidctl,
+                                      screen_width, screen_height, device_name,
+                                      name_size);
         return 1;
     }
 
@@ -272,12 +275,17 @@ static int search_liquidctl_device(const json_t *devices, char *lcd_uid, size_t 
 /**
  * @brief Parse devices JSON and extract LCD UID, display info and device name.
  */
-static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size, int *found_liquidctl, int *screen_width, int *screen_height, char *device_name, size_t name_size)
+static int parse_liquidctl_data(const char *json, char *lcd_uid,
+                                size_t uid_size, int *found_liquidctl,
+                                int *screen_width, int *screen_height,
+                                char *device_name, size_t name_size)
 {
     if (!json)
         return 0;
 
-    initialize_liquidctl_output_params(lcd_uid, uid_size, found_liquidctl, screen_width, screen_height, device_name, name_size);
+    initialize_liquidctl_output_params(lcd_uid, uid_size, found_liquidctl,
+                                       screen_width, screen_height, device_name,
+                                       name_size);
 
     json_error_t error;
     json_t *root = json_loads(json, 0, &error);
@@ -294,7 +302,9 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
         return 0;
     }
 
-    int result = search_liquidctl_device(devices, lcd_uid, uid_size, found_liquidctl, screen_width, screen_height, device_name, name_size);
+    int result = search_liquidctl_device(devices, lcd_uid, uid_size,
+                                         found_liquidctl, screen_width,
+                                         screen_height, device_name, name_size);
     json_decref(root);
     return result;
 }
@@ -302,10 +312,14 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid, size_t uid_size
 /**
  * @brief Configure CURL options for device cache request.
  */
-static void configure_device_cache_curl(CURL *curl, const char *url, http_response *chunk, struct curl_slist **headers)
+static void configure_device_cache_curl(CURL *curl, const char *url,
+                                        http_response *chunk,
+                                        struct curl_slist **headers)
 {
     curl_easy_setopt(curl, CURLOPT_URL, url);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, (size_t (*)(const void *, size_t, size_t, void *))write_callback);
+    curl_easy_setopt(
+        curl, CURLOPT_WRITEFUNCTION,
+        (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, chunk);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
 
@@ -319,22 +333,24 @@ static void configure_device_cache_curl(CURL *curl, const char *url, http_respon
 static int process_device_cache_response(const http_response *chunk)
 {
     int found_liquidctl = 0;
-    int result = parse_liquidctl_data(chunk->data,
-                                      device_cache.device_uid, sizeof(device_cache.device_uid),
-                                      &found_liquidctl,
-                                      &device_cache.screen_width, &device_cache.screen_height,
-                                      device_cache.device_name, sizeof(device_cache.device_name));
+    int result = parse_liquidctl_data(
+        chunk->data, device_cache.device_uid, sizeof(device_cache.device_uid),
+        &found_liquidctl, &device_cache.screen_width, &device_cache.screen_height,
+        device_cache.device_name, sizeof(device_cache.device_name));
 
     if (result && found_liquidctl)
     {
         device_cache.initialized = 1;
-        device_cache.is_circular = is_circular_display_device(device_cache.device_name,
-                                                              device_cache.screen_width,
-                                                              device_cache.screen_height);
+        device_cache.is_circular = is_circular_display_device(
+            device_cache.device_name, device_cache.screen_width,
+            device_cache.screen_height);
 
-        const char *shape_mode = device_cache.is_circular ? "scaled (circular)" : "unscaled (rectangular)";
+        const char *shape_mode = device_cache.is_circular
+                                     ? "scaled (circular)"
+                                     : "unscaled (rectangular)";
         log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel, %s)",
-                    device_cache.device_name, device_cache.screen_width, device_cache.screen_height, shape_mode);
+                    device_cache.device_name, device_cache.screen_width,
+                    device_cache.screen_height, shape_mode);
         return 1;
     }
 
@@ -393,7 +409,9 @@ static int initialize_device_cache(const Config *config)
 /**
  * @brief Get complete Liquidctl device information from cache.
  */
-int get_liquidctl_data(const Config *config, char *device_uid, size_t uid_size, char *device_name, size_t name_size, int *screen_width, int *screen_height)
+int get_liquidctl_data(const Config *config, char *device_uid, size_t uid_size,
+                       char *device_name, size_t name_size, int *screen_width,
+                       int *screen_height)
 {
     if (!initialize_device_cache(config))
     {
@@ -431,8 +449,10 @@ static int validate_device_dimensions(void)
 {
     if (device_cache.screen_width <= 0 || device_cache.screen_height <= 0)
     {
-        log_message(LOG_WARNING, "Device has invalid screen dimensions (%dx%d), using config values",
-                    device_cache.screen_width, device_cache.screen_height);
+        log_message(
+            LOG_WARNING,
+            "Device has invalid screen dimensions (%dx%d), using config values",
+            device_cache.screen_width, device_cache.screen_height);
         return 0;
     }
     return 1;
@@ -441,14 +461,16 @@ static int validate_device_dimensions(void)
 /**
  * @brief Update config display dimension if not set.
  */
-static int update_dimension(uint16_t *config_dim, int device_dim, const char *dim_name)
+static int update_dimension(uint16_t *config_dim, int device_dim,
+                            const char *dim_name)
 {
     const uint16_t original_value = *config_dim;
 
     if (*config_dim == 0)
     {
         *config_dim = (uint16_t)device_dim;
-        log_message(LOG_INFO, "Display %s set from device: %d (config.ini was commented out)",
+        log_message(LOG_INFO,
+                    "Display %s set from device: %d (config.ini was commented out)",
                     dim_name, *config_dim);
         return 1;
     }
@@ -460,8 +482,8 @@ static int update_dimension(uint16_t *config_dim, int device_dim, const char *di
     }
     else
     {
-        log_message(LOG_INFO, "Display %s: %d (device and default match)",
-                    dim_name, *config_dim);
+        log_message(LOG_INFO, "Display %s: %d (device and default match)", dim_name,
+                    *config_dim);
     }
     return 0;
 }
@@ -479,7 +501,9 @@ int update_config_from_device(Config *config)
 
     if (!device_cache.initialized)
     {
-        log_message(LOG_WARNING, "Device cache not initialized, using config values as fallback");
+        log_message(
+            LOG_WARNING,
+            "Device cache not initialized, using config values as fallback");
         return 0;
     }
 
@@ -487,8 +511,10 @@ int update_config_from_device(Config *config)
         return 0;
 
     int updated = 0;
-    updated |= update_dimension(&config->display_width, device_cache.screen_width, "width");
-    updated |= update_dimension(&config->display_height, device_cache.screen_height, "height");
+    updated |= update_dimension(&config->display_width, device_cache.screen_width,
+                                "width");
+    updated |= update_dimension(&config->display_height,
+                                device_cache.screen_height, "height");
 
     return updated;
 }
