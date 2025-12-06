@@ -209,12 +209,6 @@ sudo rm -rf /opt/coolerdash/ \
             /etc/systemd/system/coolerdash.service
 ```
 
-```bash
-sudo systemctl stop coolerdash.service
-sudo make uninstall
-sudo rm -rf /opt/coolerdash/ /usr/bin/coolerdash /etc/systemd/system/coolerdash.service
-```
-
 #### Check CoolerControl devices
 
 ```bash
