@@ -11,9 +11,11 @@
 
 # CoolerDash 🐧
 
-#### This tool is to display real-time sensor on an AIO liquid cooler with integrated LCD displays.
-Developed this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet the desired expectations.   
-Use it successfully myself – maybe it will help you too! ❤️
+#### Used to display real-time telemetry data from an AIO liquid cooler with an integrated LCD display.   
+   
+I started developing this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet my expectations.   
+   
+> Use it successfully myself – maybe it will help you too! ❤️
 
 ---
 ## Features
@@ -114,6 +116,9 @@ CLI override: `coolerdash --circle` or `coolerdash --dual`
 
 ## Advanced Usage
 
+<details>
+  <summary>Expand</summary>
+   
 #### Service Management
 
 ```bash
@@ -188,10 +193,14 @@ journalctl -u coolerdash.service -n 50
 ```bash
 systemctl stop coolerdash.service
 ```
+</details>
 
 ---
-
+   
 ## Troubleshooting
+
+<details>
+  <summary>Expand</summary>
 
 #### Installation Issues
 If you see errors like "conflicting files" or "manual installation detected" during Arch/AUR `makepkg -si`, CoolerDash was previously installed manually via `make install`.
@@ -233,6 +242,7 @@ liquidctl --version
         }
   }
   ```
+</details>
 
 ---
 
@@ -253,6 +263,11 @@ liquidctl --version
 
 <a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
 
-**Support the project:** ⭐ Star this repo • 🐛 Report bugs • 🔄 Share with others • 📝 Contribute • [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
-
+**Support the project:**  
+• ⭐ Star this repo   
+• 🐛 Report bugs   
+• 🔄 Share with others   
+• 📝 Contribute   
+• [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)   
+   
 [![Stargazers over time](https://starchart.cc/damachine/coolerdash.svg?variant=adaptive)](https://starchart.cc/damachine/coolerdash)
