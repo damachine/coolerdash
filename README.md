@@ -11,7 +11,7 @@
 
 # CoolerDash 🐧
 
-#### Used to display real-time telemetry data from an AIO liquid cooler with an integrated LCD display.   
+#### Used to display real-time telemetry data on an AIO liquid cooler with an integrated LCD display.   
    
 I started developing this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet my expectations.   
    
