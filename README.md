@@ -11,7 +11,7 @@
 
 # CoolerDash 🐧
 
-#### With this tool, it is possible to display real-time telemetry data from the sensors on an AIO liquid cooler with an integrated LCD display.   
+#### This tool allows you to display real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.   
    
 I started developing this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet my expectations.   
    
