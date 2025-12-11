@@ -245,8 +245,10 @@ liquidctl --version
 </details>
 
 ---
-
 ## Documentation
+
+<details>
+  <summary>Expand</summary>
 
 - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options
 - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - Confirmed working hardware
@@ -254,6 +256,7 @@ liquidctl --version
 - **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Architecture and API integration
 - **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - Display shape detection
 - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - API module documentation
+</details>
 
 ---
 
