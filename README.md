@@ -96,11 +96,11 @@ In CoolerControl GUI → **Device and Sensor** → Select CPU and GPU sensors �
 
 **Start Service:**
 ```bash
-systemctl enable --now coolerdash.service
+systemctl enable --now coolercontrold.service
 ```
 
 **Configuration:**  
-Edit `/etc/coolerdash/config.ini` then restart: `systemctl restart coolerdash.service`
+Edit `/etc/coolerdash/config.ini` then restart: `systemctl restart coolercontrold.service`
 
 **Display Modes:**
 - **Dual (default):** CPU + GPU simultaneously (all displays)
