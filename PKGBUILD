@@ -104,6 +104,8 @@ build() {
     cp -a etc/systemd/coolerdash.service "$srcdir/systemd/coolerdash.service"
     mkdir -p "$srcdir/man"
     cp -a man/coolerdash.1 "$srcdir/man/coolerdash.1"
+    mkdir -p "$srcdir/plugins/coolercontrol"
+    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "$srcdir/plugins/coolercontrol/manifest.toml"
 }
 
 check() {
@@ -133,5 +135,6 @@ package() {
     install -dm755 "$pkgdir/usr/bin"
     ln -sf /opt/coolerdash/bin/coolerdash "$pkgdir/usr/bin/coolerdash"
     install -Dm644 "$srcdir/systemd/coolerdash.service" "$pkgdir/etc/systemd/system/coolerdash.service"
+    install -Dm644 "$srcdir/plugins/coolercontrol/manifest.toml" "$pkgdir/etc/coolercontrol/plugins/coolerdash/manifest.toml"
     install -Dm644 "$srcdir/man/coolerdash.1" "$pkgdir/usr/share/man/man1/coolerdash.1"
 }

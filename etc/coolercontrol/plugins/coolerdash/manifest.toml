@@ -1,0 +1,5 @@
+id = "coolerdash"
+type = "integration"
+description = "Enhanced LCD dashboard for AIO liquid coolers."
+executable = "/opt/coolerdash/bin/coolerdash"
+privileged = false

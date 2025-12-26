@@ -52,6 +52,7 @@ HEADERS = $(SRCDIR)/device/sys.h $(SRCDIR)/device/usr.h $(SRCDIR)/srv/cc_main.h 
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 SERVICE = etc/systemd/coolerdash.service
+MANIFEST = etc/coolercontrol/plugins/coolerdash/manifest.toml
 MANPAGE = man/coolerdash.1
 README = README.md
 
@@ -246,6 +247,11 @@ install: check-deps $(TARGET)
 		else \
 			printf "  $(BLUE)→$(RESET) Service not running\n"; \
 		fi; \
+		if $(SUDO) systemctl is-enabled --quiet coolerdash.service; then \
+			printf "  $(YELLOW)→$(RESET) Service enabled, disabling to prevent conflicts with plugin...\n"; \
+			$(SUDO) systemctl disable coolerdash.service 2>/dev/null || true; \
+			printf "  $(GREEN)→$(RESET) Service disabled\n"; \
+		fi; \
 		COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 		if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
 			printf "  $(YELLOW)→$(RESET) Found $$COOLERDASH_COUNT manual coolerdash process(es), terminating...\n"; \
@@ -299,17 +305,20 @@ install: check-deps $(TARGET)
 		printf "$(ICON_INFO) $(YELLOW)Symlink skipped (CI environment)$(RESET)\n"; \
 	fi
 	@printf "\n"
-	@printf "$(ICON_SERVICE) $(CYAN)Installing service & documentation...$(RESET)\n"
+	@printf "$(ICON_SERVICE) $(CYAN)Installing service, plugin & documentation...$(RESET)\n"
 	install -Dm644 $(SERVICE) "$(DESTDIR)/etc/systemd/system/coolerdash.service"
+	install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	install -Dm644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
 	@printf "  $(GREEN)Service:$(RESET) $(DESTDIR)/etc/systemd/system/coolerdash.service\n"
-	@printf "  $(GREEN)Manual:$(RESET) $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
+	@printf "  $(GREEN)Plugin:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml\n"
+	@printf "  $(GREEN)Manual:$(RESET)  $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
 	@printf "\n"
 	@printf "$(ICON_SUCCESS) $(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
 	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
-	@printf "  $(PURPLE)Start service:$(RESET)  systemctl enable --now coolerdash.service\n"
+	@printf "  $(PURPLE)Plugin:$(RESET)         CoolerControl will manage coolerdash automatically\n"
+	@printf "  $(PURPLE)Manual Start:$(RESET)   systemctl enable --now coolerdash.service (optional)\n"
 	@printf "  $(PURPLE)Show manual:$(RESET)    man coolerdash\n"
 	@printf "\n"
 
@@ -325,6 +334,7 @@ uninstall:
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Removing all files...$(RESET)\n"
 	$(SUDO) rm -f /etc/systemd/system/coolerdash.service 2>/dev/null || true
+	$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
 	$(SUDO) rm -f /usr/share/man/man1/coolerdash.1 2>/dev/null || true
 	$(SUDO) rm -f /opt/coolerdash/README.md 2>/dev/null || true
 	$(SUDO) rm -f /opt/coolerdash/LICENSE 2>/dev/null || true
@@ -340,6 +350,7 @@ uninstall:
 	# Remove any remaining files in /opt/coolerdash (catch-all, safe if dir already gone)
 	$(SUDO) rm -f /opt/coolerdash/* 2>/dev/null || true
 	@printf "  $(RED)✗$(RESET) Service: /etc/systemd/system/coolerdash.service\n"
+	@printf "  $(RED)✗$(RESET) Plugin:  /etc/coolercontrol/plugins/coolerdash\n"
 	@printf "  $(RED)✗$(RESET) Manual: /usr/share/man/man1/coolerdash.1\n"
 	@printf "  $(RED)✗$(RESET) Program: /opt/coolerdash/bin/$(TARGET)\n"
 	@printf "  $(RED)✗$(RESET) Documentation: /opt/coolerdash/README.md, LICENSE, CHANGELOG.md\n"
@@ -382,7 +393,7 @@ help:
 	@printf "  $(GREEN)make debug$(RESET)    - Debug build with AddressSanitizer\n"
 	@printf "\n"
 	@printf "$(YELLOW)📦 Installation:$(RESET)\n"
-	@printf "  $(GREEN)make install$(RESET)  - Installs to /opt/coolerdash/bin/ (auto-installs dependencies)\n"
+	@printf "  $(GREEN)make install$(RESET)  - Installs to /opt/coolerdash/bin/ and as CoolerControl Plugin\n"
 	@printf "  $(GREEN)make uninstall$(RESET)- Uninstalls the program\n"
 	@printf "\n"
 	@printf "$(YELLOW)⚙️  Service Management:$(RESET)\n"
@@ -393,6 +404,7 @@ help:
 	@printf "  $(GREEN)systemctl enable coolerdash.service$(RESET)   - Enables autostart\n"
 	@printf "  $(GREEN)systemctl disable coolerdash.service$(RESET)  - Disables autostart\n"
 	@printf "  $(GREEN)journalctl -u coolerdash.service -f$(RESET)   - Shows live logs\n"
+	@printf "  $(BLUE)Plugin:$(RESET) CoolerControl automatically starts/stops coolerdash via manifest.toml\n"
 	@printf "  $(BLUE)Shutdown:$(RESET) Service automatically displays shutdown.png when stopped (integrated in C code)\n"
 	@printf "\n"
 	@printf "$(YELLOW)📚 Documentation:$(RESET)\n"
