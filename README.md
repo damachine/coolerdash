@@ -60,10 +60,6 @@ I started developing this tool because the LCD display of my NZXT Kraken 2023 un
 # STEP 1: Install
 yay -S coolerdash-git
 #OR any other AUR helper
-
-# STEP 2: Enable/Start CoolerDash sytemd service
-systemctl daemon-reload
-systemctl enable --now coolerdash.service
 ```
 
 #### All Distributions
@@ -79,10 +75,6 @@ cd coolerdash
 
 # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
-
-# STEP 3: Enable/Start CoolerDash sytemd service
-systemctl daemon-reload
-systemctl enable --now coolerdash.service
 ```
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
