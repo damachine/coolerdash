@@ -13,8 +13,6 @@
 
 #### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.   
    
-I started developing this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet my expectations.   
-   
 > Use it successfully myself – maybe it will help you too! ❤️
 
 ---
@@ -39,7 +37,7 @@ I started developing this tool because the LCD display of my NZXT Kraken 2023 un
 ## System Requirements
 
 - **OS**: Linux
-- **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
+- **CoolerControl**: Version >=3.0.3 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
@@ -83,23 +81,20 @@ make install
 
 ## Configuration
 
-**CoolerControl Setup:**  
-In CoolerControl GUI → **Device and Sensor** → Select CPU and GPU sensors → Set LCD display to **Image/gif**
-
-**Start Service:**
+**Start CoolerControl Service (if not already enabled):**
 ```bash
 systemctl enable --now coolercontrold.service
 ```
 
-**Configuration:**  
-Edit `/etc/coolerdash/config.ini` then restart: `systemctl restart coolercontrold.service`
+**CoolerDash Configuration (optional):**  
+Edit `/etc/coolerdash/config.ini` and adjust settings as needed.
+ Then restart: `systemctl restart coolercontrold.service`
 
 **Display Modes:**
 - **Dual (default):** CPU + GPU simultaneously (all displays)
 - **Circle:** Alternates CPU/GPU every 5s (round displays >240x240px)
 
 Enable Circle Mode: Edit config.ini → `[display]` section → `mode=circle`  
-CLI override: `coolerdash --circle` or `coolerdash --dual`
 
 > [!NOTE]
 > See **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** for all options.

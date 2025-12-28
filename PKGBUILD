@@ -1,7 +1,6 @@
 # -----------------------------------------------------------------------------
-# author: damachine (christkue79@gmail.com)
-# website: https://github.com/damachine
-#          https://github.com/damachine/coolerdash
+# Created by: damachine (damachine3 at proton dot me)
+# Website: https://github.com/damachine/coolerdash
 # -----------------------------------------------------------------------------
 pkgname=coolerdash
 pkgver=$(cat VERSION)
