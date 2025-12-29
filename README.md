@@ -49,7 +49,7 @@ I started developing this tool because the LCD display of my NZXT Kraken 2023 un
 
 ## Installation
 
-#### Arch Linux
+#### Arch-based distributions
 
 <a href="https://github.com/damachine/coolerdash/actions/workflows/aur.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg"></a>  
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
@@ -66,7 +66,7 @@ systemctl daemon-reload
 systemctl enable --now coolerdash.service
 ```
 
-#### All Distributions
+#### All distributions
 
 <a href="https://github.com/damachine/coolerdash/actions/workflows/install.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg"></a>
 
