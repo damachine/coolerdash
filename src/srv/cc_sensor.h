@@ -1,6 +1,6 @@
 /**
  * -----------------------------------------------------------------------------
- * Created by: damachine (christkue79 at gmail dot com)
+ * Created by: damachine (damachine3 at proton dot me)
  * Website: https://github.com/damachine/coolerdash
  * -----------------------------------------------------------------------------
  */

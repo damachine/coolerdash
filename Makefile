@@ -1,33 +1,3 @@
-# -----------------------------------------------------------------------------
-# Created by: damachine (christkue79 at gmail dot com)
-# Website: https://github.com/damachine/coolerdash
-# -----------------------------------------------------------------------------
-# Makefile for CoolerDash (C99 compliant).
-#
-# Info:
-#   CoolerDash 'Makefile' - Installation and Build
-#   Build system for CoolerDash (C99 compliant).
-#   Project coding standards and packaging notes (see README for details)
-#
-# Details:
-#   This 'Makefile' handles build, install, dependencies, and packaging.
-#   Edit dependencies, paths, and user as needed for your system.
-#   Do not run as root. Use dedicated user for security.
-#   Ensure all required dependencies are installed.
-#   It uses color output and Unicode icons for better readability. All paths and dependencies are configurable.
-#   See 'README.md' for further details.
-#
-# Build:
-#   'make' - Builds the program with standard C99 structure
-#   'make install' - Installs the program into '/opt/coolerdash/' and creates a symlink in '/usr/bin/'
-#   'make uninstall' - Removes all files
-#
-# Dependency:
-#   'cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' are required for core functionality
-#   'ttf-roboto' is required for proper font rendering on the LCD
-#   All dependencies are documented in 'README.md'.
-# -----------------------------------------------------------------------------
-
 .PHONY: clean install uninstall debug logs help detect-distro install-deps check-deps
 
 VERSION := $(shell cat VERSION)
