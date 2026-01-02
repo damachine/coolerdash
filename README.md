@@ -11,10 +11,8 @@
 
 # CoolerDash 🐧
 
-#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.   
-   
-I started developing this tool because the LCD display of my NZXT Kraken 2023 under Linux did not meet my expectations.   
-   
+#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.
+
 > Use it successfully myself – maybe it will help you too! ❤️
 
 ---
@@ -91,16 +89,18 @@ systemctl enable --now coolerdash.service
 
 ## Configuration
 
-**CoolerControl Setup:**  
-In CoolerControl GUI → **Device and Sensor** → Select CPU and GPU sensors → Set LCD display to **Image/gif**
-
-**Start Service:**
+**Start Service(if not already enabled):**
 ```bash
 systemctl enable --now coolerdash.service
 ```
 
-**Configuration:**  
-Edit `/etc/coolerdash/config.ini` then restart: `systemctl restart coolerdash.service`
+**Manual Configuration(optional):**  
+Edit `/etc/coolerdash/config.ini` to your liking. 
+For example, to enable Circle Mode.
+After editing, restart the service to apply changes:
+```bash
+systemctl restart coolerdash.service
+```
 
 **Display Modes:**
 - **Dual (default):** CPU + GPU simultaneously (all displays)
