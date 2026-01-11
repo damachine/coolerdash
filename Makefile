@@ -278,9 +278,6 @@ install: check-deps $(TARGET)
 	install -Dm644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.ini"
 	install -Dm644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
 	install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
-	@if [ "$(REALOS)" = "yes" ] && command -v chown >/dev/null 2>&1; then \
-		$(SUDO) chown -R cc-plugin-user:cc-plugin-user "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash" 2>/dev/null || true; \
-	fi
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.ini\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml\n"
