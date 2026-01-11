@@ -63,6 +63,9 @@
 # STEP 1: Install
 yay -S coolerdash-git
 #OR any other AUR helper
+
+# STEP 2: Restart CoolerControl to load the plugin
+sudo systemctl restart coolercontrold
 ```
 
 #### All distributions
@@ -78,6 +81,12 @@ cd coolerdash
 
 # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
+
+# STEP 3: Reload systemd configuration
+systemctl daemon-reload
+
+# STEP 4: Restart CoolerControl to load the plugin
+sudo systemctl restart coolercontrold
 ```
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
