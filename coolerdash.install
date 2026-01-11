@@ -43,8 +43,11 @@ post_install() {
     systemctl daemon-reload
     
     # Restart CoolerControl to pick up the new plugin
+    echo "Restarting CoolerControl service to load plugin..."
     if systemctl is-active --quiet coolercontrold.service; then
-        systemctl restart coolercontrold.service
+        systemctl restart coolercontrold.service && echo "  ✓ CoolerControl service restarted successfully" || echo "  ✗ Failed to restart CoolerControl service"
+    else
+        echo "  → CoolerControl service is not running, start it with: sudo systemctl start coolercontrold.service"
     fi
     echo "CoolerControl will manage coolerdash automatically as a plugin."
 
@@ -84,8 +87,9 @@ pre_remove() {
     systemctl daemon-reload
     
     # Restart CoolerControl to remove the plugin
+    echo "Restarting CoolerControl service to unload plugin..."
     if systemctl is-active --quiet coolercontrold.service; then
-        systemctl restart coolercontrold.service
+        systemctl restart coolercontrold.service && echo "  ✓ CoolerControl service restarted successfully" || echo "  ✗ Failed to restart CoolerControl service"
     fi
     echo "================================================================"
     echo "CoolerDash and all related files have been removed."
