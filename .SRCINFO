@@ -19,6 +19,6 @@ pkgbase = coolerdash
 	provides = coolerdash-git
 	conflicts = coolerdash-git
 	replaces = coolerdash-git
-	backup = etc/coolerdash/config.ini
+	backup = etc/coolercontrol/plugins/coolerdash/config.ini
 
 pkgname = coolerdash
