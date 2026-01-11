@@ -49,9 +49,16 @@ post_install() {
 
     # Ensure plugin directory has correct permissions and ownership for cc-plugin-user to write generated images
     if [ -d /etc/coolercontrol/plugins/coolerdash ]; then
-        chown -R cc-plugin-user:cc-plugin-user /etc/coolercontrol/plugins/coolerdash
         chmod 775 /etc/coolercontrol/plugins/coolerdash
-        echo "Plugin directory ownership and permissions updated for image generation"
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/* 2>/dev/null || true
+        
+        if id -u cc-plugin-user &>/dev/null 2>&1; then
+            chown -R cc-plugin-user:cc-plugin-user /etc/coolercontrol/plugins/coolerdash
+            echo "Plugin directory ownership updated for image generation"
+        else
+            echo "Note: cc-plugin-user not yet created (will be created by CoolerControl)"
+        fi
+        echo "Plugin directory permissions configured"
     fi
 
     echo "CoolerDash has been installed successfully!"
