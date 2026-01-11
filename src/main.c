@@ -122,7 +122,7 @@ static const char *read_version_from_file(void)
   if (!fp)
   {
     // Try alternative path for installed version
-    fp = fopen("/opt/coolerdash/VERSION", "r");
+    fp = fopen("/etc/coolercontrol/plugins/coolerdash/VERSION", "r");
   }
 
   if (!fp)
@@ -174,32 +174,34 @@ static pid_t safe_parse_pid(const char *pid_str)
 }
 
 /**
- * @brief Detect if we were started by systemd service (not user session).
- * @details Distinguishes between systemd service and user session/terminal.
+ * @brief Detect if we were started by CoolerControl plugin system.
+ * @details Checks if running as CoolerControl plugin or standalone.
  */
-static int is_started_by_systemd(void)
+static int is_started_as_plugin(void)
 {
-  // Check if running as systemd service by looking at process hierarchy
-  // Real systemd services have parent PID 1 and specific unit name
-  if (getppid() != 1)
-  {
-    return 0; // Not direct child of init/systemd
-  }
-
-  // Check if we have a proper systemd service unit name
+  // Check if we have CoolerControl environment variables
+  // CoolerControl sets INVOCATION_ID when starting plugins
   const char *invocation_id = getenv("INVOCATION_ID");
   if (invocation_id && invocation_id[0])
   {
-    // Check if we're running as a proper service (not user session)
-    // Services typically have no controlling terminal
+    // Running as plugin under CoolerControl/systemd
+    return 1;
+  }
+
+  // Check if parent process is coolercontrold
+  // This is a secondary indicator for plugin mode
+  if (getppid() != 1)
+  {
+    // Not direct child of init, could be plugin or manual start
+    // Plugins typically run without controlling terminal
     if (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) &&
         !isatty(STDERR_FILENO))
     {
-      return 1; // Likely a real systemd service
+      return 1; // Likely running as plugin
     }
   }
 
-  return 0; // User session or manual start
+  return 0; // Manual/standalone start
 }
 
 /**
@@ -498,39 +500,35 @@ static void show_help(const char *program_name)
   printf("                    Configure via config.ini [display] "
          "mode=dual|circle or CLI flags\n\n");
   printf("EXAMPLES:\n");
-  printf("  sudo systemctl start coolerdash           # Start as system "
-         "service (recommended)\n");
-  printf("  %s                                # Manual start with default "
+  printf("  sudo systemctl restart coolercontrold     # Restart CoolerControl "
+         "(reloads plugin)\n");
+  printf("  %s                                # Standalone start with default "
          "config (dual mode)\n",
          program_name);
-  printf("  %s --circle                       # Start with circle mode "
+  printf("  %s --circle                       # Standalone with circle mode "
          "(alternating display)\n",
          program_name);
   printf("  %s --dual --verbose               # Force dual mode with detailed "
-         "logging\n",
-         program_name);
-  printf("  %s -v                             # Short form: enable verbose "
          "logging\n",
          program_name);
   printf("  %s /custom/config.ini             # Start with custom "
          "configuration\n\n",
          program_name);
   printf("FILES:\n");
-  printf("  /usr/bin/coolerdash                       # Main program "
-         "executable\n");
-  printf(
-      "  /etc/coolercontrol/plugins/coolerdash/    # Installation directory\n");
-  printf("  /etc/coolercontrol/plugins/coolerdash/config.ini # Default configuration "
+  printf("  /etc/coolercontrol/plugins/coolerdash/    # Installation directory\n");
+  printf("  /etc/coolercontrol/plugins/coolerdash/coolerdash # Main executable\n");
+  printf("  /etc/coolercontrol/plugins/coolerdash/config.ini # Configuration "
          "file\n");
+  printf("  /etc/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
   printf("  /tmp/coolerdash.pid                       # PID file "
-         "(auto-managed, user-accessible)\n");
-  printf("  /var/log/syslog                           # Log output (when run "
-         "as service)\n\n");
-  printf("SECURITY:\n");
-  printf("  - Runs as dedicated user 'coolerdash' for enhanced security\n");
+         "(auto-managed)\n");
+  printf("  journalctl -u coolercontrold.service      # View plugin logs\n\n");
+  printf("PLUGIN MODE:\n");
+  printf("  - Managed by CoolerControl (coolercontrold.service)\n");
+  printf("  - Runs as CoolerControl plugin user (isolated environment)\n");
   printf("  - Communicates via CoolerControl's HTTP API (no direct device "
          "access)\n");
-  printf("  - Automatically manages single-instance enforcement\n");
+  printf("  - Automatically started/stopped with CoolerControl\n");
   printf("For detailed documentation: man coolerdash\n");
   printf("Project repository: https://github.com/damachine/coolerdash\n");
   printf("====================================================================="
@@ -907,9 +905,9 @@ static int initialize_config_and_instance(const char *config_path,
                           "detection (via --develop)");
   }
 
-  int is_service_start = is_started_by_systemd();
+  int is_plugin_mode = is_started_as_plugin();
   log_message(LOG_INFO, "Running mode: %s",
-              is_service_start ? "systemd service" : "manual");
+              is_plugin_mode ? "CoolerControl plugin" : "standalone");
 
   if (check_existing_instance_and_handle(config->paths_pid) < 0)
   {
@@ -917,11 +915,11 @@ static int initialize_config_and_instance(const char *config_path,
     fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
     fprintf(stderr, "To stop the running instance:\n");
     fprintf(stderr,
-            "  sudo systemctl stop coolerdash     # Stop systemd service\n");
+            "  sudo systemctl restart coolercontrold  # Restart CoolerControl (reloads plugin)\n");
     fprintf(stderr,
-            "  sudo pkill coolerdash              # Force kill if needed\n");
+            "  sudo pkill coolerdash                  # Force kill if needed\n");
     fprintf(stderr,
-            "  sudo systemctl status coolerdash   # Check service status\n");
+            "  sudo systemctl status coolercontrold   # Check CoolerControl status\n");
     return -1;
   }
 

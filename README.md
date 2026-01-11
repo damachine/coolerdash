@@ -37,9 +37,9 @@
 ## System Requirements
 
 > [!NOTE]
-> The new version 2.0.4 no longer requires the systemd service `coolerdash.service`. Only `coolercontrold.service` is now required.
-> The service is disabled by default after the upgrade. Please do not enable it manually. I'm leaving the service in place for regression reasons. It will be removed in future versions.
-> If your distribution package is not updated with CoolerControl >=3.1.0, you will need `coolerdash.service` until your distribution package is updated.
+> Version 2.0.4+ runs as a CoolerControl plugin. No separate `coolerdash.service` required.
+> The plugin is automatically managed by `coolercontrold.service`.
+> Requires CoolerControl >=3.1.0 with plugin support.
 
 - **OS**: Linux
 - **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
@@ -92,7 +92,7 @@ systemctl enable --now coolercontrold.service
 ```
 
 **CoolerDash Configuration (optional):**  
-Edit `/etc/coolerdash/config.ini` and adjust settings as needed.
+Edit `/etc/coolercontrol/plugins/coolerdash/config.ini` and adjust settings as needed.
 
 Then restart: `systemctl restart coolercontrold.service` to apply the changes.
 
@@ -131,21 +131,21 @@ systemctl status coolercontrold
 curl http://localhost:11987/devices
 
 # 2. Test CoolerDash manually (with clean output)
-coolerdash
+/etc/coolercontrol/plugins/coolerdash/coolerdash
 
 # 3. Test CoolerDash with detailed verbose logging
-coolerdash --verbose
+/etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
 # or short form:
-coolerdash -v
+/etc/coolercontrol/plugins/coolerdash/coolerdash -v
 
 # 4. Debug build for detailed information (if needed)
-make debug && coolerdash --verbose
+make debug && /etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
 
-# 5. Check service logs (STATUS messages always visible)
-journalctl -xeu coolerdash.service -f
+# 5. Check plugin logs (STATUS messages always visible)
+journalctl -xeu coolercontrold.service -f
 
 # 6. View recent logs with context
-journalctl -u coolerdash.service -n 50
+journalctl -u coolercontrold.service -n 50
 ```
 </details>
 
@@ -164,10 +164,10 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 sudo make uninstall
 ```
 
-Remove any leftover files:
+Remove any leftover legacy files:
 ```bash
 sudo rm -rf /opt/coolerdash/ \
-            /usr/bin/coolerdash \
+            /etc/coolerdash/ \
             /etc/systemd/system/coolerdash.service
 ```
 

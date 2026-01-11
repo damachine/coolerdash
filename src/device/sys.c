@@ -31,15 +31,20 @@
  * @details Provides unified log output for info, status, warning and error
  * messages.
  */
-void log_message(log_level_t level, const char *format, ...) {
-  if (level == LOG_INFO && !verbose_logging) {
+void log_message(log_level_t level, const char *format, ...)
+{
+  if (level == LOG_INFO && !verbose_logging)
+  {
     return;
   }
   const char *prefix[] = {"INFO", "STATUS", "WARNING", "ERROR"};
   FILE *output = (level == LOG_ERROR) ? stderr : stdout;
   fprintf(output, "[CoolerDash %s] ", prefix[level]);
 
-  enum { LOG_MSG_CAP = 1024 };
+  enum
+  {
+    LOG_MSG_CAP = 1024
+  };
   char msg_buf[LOG_MSG_CAP];
   msg_buf[0] = '\0';
   va_list args;
@@ -58,11 +63,14 @@ void log_message(log_level_t level, const char *format, ...) {
 /**
  * @brief Set daemon default values.
  */
-static void set_daemon_defaults(Config *config) {
-  if (config->daemon_address[0] == '\0') {
+static void set_daemon_defaults(Config *config)
+{
+  if (config->daemon_address[0] == '\0')
+  {
     SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
   }
-  if (config->daemon_password[0] == '\0') {
+  if (config->daemon_password[0] == '\0')
+  {
     SAFE_STRCPY(config->daemon_password, "coolAdmin");
   }
 }
@@ -70,18 +78,23 @@ static void set_daemon_defaults(Config *config) {
 /**
  * @brief Set paths default values.
  */
-static void set_paths_defaults(Config *config) {
-  if (config->paths_images[0] == '\0') {
-    SAFE_STRCPY(config->paths_images, "/opt/coolerdash/images");
+static void set_paths_defaults(Config *config)
+{
+  if (config->paths_images[0] == '\0')
+  {
+    SAFE_STRCPY(config->paths_images, "/etc/coolercontrol/plugins/coolerdash");
   }
-  if (config->paths_image_coolerdash[0] == '\0') {
-    SAFE_STRCPY(config->paths_image_coolerdash, "/tmp/coolerdash.png");
+  if (config->paths_image_coolerdash[0] == '\0')
+  {
+    SAFE_STRCPY(config->paths_image_coolerdash, "/etc/coolercontrol/plugins/coolerdash/coolerdash.png");
   }
-  if (config->paths_image_shutdown[0] == '\0') {
+  if (config->paths_image_shutdown[0] == '\0')
+  {
     SAFE_STRCPY(config->paths_image_shutdown,
-                "/opt/coolerdash/images/shutdown.png");
+                "/etc/coolercontrol/plugins/coolerdash/shutdown.png");
   }
-  if (config->paths_pid[0] == '\0') {
+  if (config->paths_pid[0] == '\0')
+  {
     SAFE_STRCPY(config->paths_pid, "/tmp/coolerdash.pid");
   }
 }
@@ -89,7 +102,8 @@ static void set_paths_defaults(Config *config) {
 /**
  * @brief Try to set display dimensions from LCD device.
  */
-static void try_set_lcd_dimensions(Config *config) {
+static void try_set_lcd_dimensions(Config *config)
+{
   if (config->display_width != 0 && config->display_height != 0)
     return;
 
@@ -109,7 +123,8 @@ static void try_set_lcd_dimensions(Config *config) {
 /**
  * @brief Set display default values with LCD device fallback.
  */
-static void set_display_defaults(Config *config) {
+static void set_display_defaults(Config *config)
+{
   try_set_lcd_dimensions(config);
 
   if (config->display_refresh_interval == 0.0f)
@@ -135,7 +150,8 @@ static void set_display_defaults(Config *config) {
 /**
  * @brief Set layout default values.
  */
-static void set_layout_defaults(Config *config) {
+static void set_layout_defaults(Config *config)
+{
   if (config->layout_bar_width == 0)
     config->layout_bar_width = 98; // Default: 98% width (1% margin left+right)
   if (config->layout_label_margin_left == 0)
@@ -153,7 +169,8 @@ static void set_layout_defaults(Config *config) {
 /**
  * @brief Set display positioning default values.
  */
-static void set_display_positioning_defaults(Config *config) {
+static void set_display_positioning_defaults(Config *config)
+{
   if (config->display_temp_offset_x_cpu == 0)
     config->display_temp_offset_x_cpu = -9999;
   if (config->display_temp_offset_x_gpu == 0)
@@ -177,11 +194,13 @@ static void set_display_positioning_defaults(Config *config) {
 /**
  * @brief Set font default values with dynamic scaling.
  */
-static void set_font_defaults(Config *config) {
+static void set_font_defaults(Config *config)
+{
   if (config->font_face[0] == '\0')
     SAFE_STRCPY(config->font_face, "Roboto Black");
 
-  if (config->font_size_temp == 0.0f) {
+  if (config->font_size_temp == 0.0f)
+  {
     const double base_resolution = 240.0;
     const double base_font_size_temp = 100.0;
     const double scale_factor =
@@ -196,7 +215,8 @@ static void set_font_defaults(Config *config) {
         scale_factor);
   }
 
-  if (config->font_size_labels == 0.0f) {
+  if (config->font_size_labels == 0.0f)
+  {
     const double base_resolution = 240.0;
     const double base_font_size_labels = 30.0;
     const double scale_factor =
@@ -217,7 +237,8 @@ static void set_font_defaults(Config *config) {
 /**
  * @brief Set temperature defaults.
  */
-static void set_temperature_defaults(Config *config) {
+static void set_temperature_defaults(Config *config)
+{
   if (config->temp_threshold_1 == 0.0f)
     config->temp_threshold_1 = 55.0f;
   if (config->temp_threshold_2 == 0.0f)
@@ -241,14 +262,16 @@ static void set_temperature_defaults(Config *config) {
 /**
  * @brief Check if color is unset.
  */
-static inline int is_color_unset(const Color *color) {
+static inline int is_color_unset(const Color *color)
+{
   return (color->r == 0 && color->g == 0 && color->b == 0);
 }
 
 /**
  * @brief Color default configuration entry.
  */
-typedef struct {
+typedef struct
+{
   Color *color_ptr;
   uint8_t r, g, b;
 } ColorDefault;
@@ -256,7 +279,8 @@ typedef struct {
 /**
  * @brief Set color default values.
  */
-static void set_color_defaults(Config *config) {
+static void set_color_defaults(Config *config)
+{
   ColorDefault color_defaults[] = {
       {&config->layout_bar_color_background, 52, 52, 52},
       {&config->layout_bar_color_border, 192, 192, 192},
@@ -272,8 +296,10 @@ static void set_color_defaults(Config *config) {
       {&config->temp_liquid_threshold_4_bar, 255, 0, 0}};
 
   const size_t color_count = sizeof(color_defaults) / sizeof(color_defaults[0]);
-  for (size_t i = 0; i < color_count; i++) {
-    if (is_color_unset(color_defaults[i].color_ptr)) {
+  for (size_t i = 0; i < color_count; i++)
+  {
+    if (is_color_unset(color_defaults[i].color_ptr))
+    {
       color_defaults[i].color_ptr->r = color_defaults[i].r;
       color_defaults[i].color_ptr->g = color_defaults[i].g;
       color_defaults[i].color_ptr->b = color_defaults[i].b;
@@ -286,7 +312,8 @@ static void set_color_defaults(Config *config) {
  * @details Public function - sets fallback values for all unset configuration
  * fields.
  */
-void apply_system_defaults(Config *config) {
+void apply_system_defaults(Config *config)
+{
   if (!config)
     return;
 
@@ -304,7 +331,8 @@ void apply_system_defaults(Config *config) {
  * @details Public function - clears memory and applies all system default
  * values.
  */
-void init_system_defaults(Config *config) {
+void init_system_defaults(Config *config)
+{
   if (!config)
     return;
   memset(config, 0, sizeof(Config));
