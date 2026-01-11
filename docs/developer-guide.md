@@ -509,7 +509,7 @@ Response: 200 OK
 │    ├─ Draw background                                            │
 │    ├─ Draw CPU section (label + value + bar)                     │
 │    ├─ Draw GPU section (label + value + bar)                     │
-│    ├─ Write PNG to /tmp/coolerdash.png                           │
+│    ├─ Write PNG to /etc/coolercontrol/plugins/coolerdash/coolerdash.png  │
 │    └─ Upload to LCD via send_image_to_lcd()                      │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -875,7 +875,7 @@ draw_temperature_section(cr, config, params, data->temp_cpu, "CPU", CPU);
 draw_temperature_section(cr, config, params, data->temp_gpu, "GPU", GPU);
 
 // Save to PNG
-cairo_surface_write_to_png(surface, "/tmp/coolerdash.png");
+cairo_surface_write_to_png(surface, "/etc/coolercontrol/plugins/coolerdash/coolerdash.png");
 cairo_destroy(cr);
 cairo_surface_destroy(surface);
 ```

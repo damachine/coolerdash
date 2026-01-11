@@ -869,6 +869,27 @@ static const char *parse_arguments(int argc, char **argv,
 }
 
 /**
+ * @brief Verify plugin directory write permissions for generated images.
+ * @details Ensures the plugin directory is writable by the current user.
+ */
+static void verify_plugin_dir_permissions(const char *plugin_dir)
+{
+  if (!plugin_dir || !plugin_dir[0])
+    return;
+
+  if (access(plugin_dir, W_OK) != 0)
+  {
+    log_message(LOG_WARNING,
+                "Plugin directory not writable: %s (errno: %d) - Generated images may fail",
+                plugin_dir, errno);
+  }
+  else
+  {
+    log_message(LOG_INFO, "Plugin directory verified: %s", plugin_dir);
+  }
+}
+
+/**
  * @brief Initialize configuration and instance management.
  * @details Loads config using new three-stage approach:
  *          1. Initialize system defaults (always available)
@@ -908,6 +929,9 @@ static int initialize_config_and_instance(const char *config_path,
   int is_plugin_mode = is_started_as_plugin();
   log_message(LOG_INFO, "Running mode: %s",
               is_plugin_mode ? "CoolerControl plugin" : "standalone");
+
+  // Verify plugin directory write permissions for image generation
+  verify_plugin_dir_permissions(config->paths_images);
 
   if (check_existing_instance_and_handle(config->paths_pid) < 0)
   {

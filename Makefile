@@ -260,6 +260,7 @@ install: check-deps $(TARGET)
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing plugin files to /etc/coolercontrol/plugins/coolerdash/...$(RESET)\n"
 	install -dm755 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
+	chmod 775 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
 	install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash"
 	install -Dm644 $(README) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/README.md"
 	install -Dm644 LICENSE "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/LICENSE"
