@@ -16,7 +16,7 @@ post_install() {
     # Remove old systemd service file if it exists (migration from standalone to plugin mode)
     if [ -f /etc/systemd/system/coolerdash.service ]; then
         echo "Removing deprecated systemd service file..."
-        rm -f /etc/systemd/system/coolerdash.servicehier so 
+        rm -f /etc/systemd/system/coolerdash.service
     fi
     
     # Remove legacy installation directories if they exist
@@ -35,6 +35,16 @@ post_install() {
     if id -u coolerdash &>/dev/null; then
         echo "Removing legacy coolerdash user..."
         userdel -rf coolerdash || true
+    fi
+
+    # Remove legacy symlinks in /bin/ and /usr/bin/ if they exist (migration from standalone)
+    if [ -L /bin/coolerdash ] || [ -f /bin/coolerdash ]; then
+        echo "Removing legacy symlink: /bin/coolerdash"
+        rm -f /bin/coolerdash
+    fi
+    if [ -L /usr/bin/coolerdash ] || [ -f /usr/bin/coolerdash ]; then
+        echo "Removing legacy symlink: /usr/bin/coolerdash"
+        rm -f /usr/bin/coolerdash
     fi
 
     # Ensure plugin directory has correct permissions and ownership for cc-plugin-user to write generated images
@@ -83,6 +93,7 @@ pre_remove() {
         rm -f /etc/systemd/system/coolerdash.service
     fi
     rm -f /usr/share/man/man1/coolerdash.1
+    rm -f /bin/coolerdash
     rm -f /usr/bin/coolerdash
     rm -rf /opt/coolerdash
     rm -rf /etc/coolerdash

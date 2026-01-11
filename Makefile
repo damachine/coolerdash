@@ -230,6 +230,16 @@ install: check-deps $(TARGET)
 			$(SUDO) rm -rf /etc/coolerdash 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
+		if [ -L /bin/coolerdash ] || [ -f /bin/coolerdash ]; then \
+			printf "  $(RED)✗$(RESET) Removing legacy symlink: /bin/coolerdash\n"; \
+			$(SUDO) rm -f /bin/coolerdash 2>/dev/null || true; \
+			LEGACY_FOUND=1; \
+		fi; \
+		if [ -L /usr/bin/coolerdash ] || [ -f /usr/bin/coolerdash ]; then \
+			printf "  $(RED)✗$(RESET) Removing legacy symlink: /usr/bin/coolerdash\n"; \
+			$(SUDO) rm -f /usr/bin/coolerdash 2>/dev/null || true; \
+			LEGACY_FOUND=1; \
+		fi; \
 		if id -u coolerdash &>/dev/null 2>&1; then \
 			printf "  $(RED)✗$(RESET) Removing legacy coolerdash user...\n"; \
 			$(SUDO) userdel -rf coolerdash 2>/dev/null || true; \
@@ -277,14 +287,7 @@ install: check-deps $(TARGET)
 	@printf "  $(GREEN)Image:$(RESET)        $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png\n"
 	@printf "  $(GREEN)Documentation:$(RESET) README.md, LICENSE, CHANGELOG.md, VERSION\n"
 	@printf "\n"
-	@if [ "$(REALOS)" = "yes" ]; then \
-		printf "$(ICON_INFO) $(CYAN)Creating system symlink...$(RESET)\n"; \
-		install -dm755 "$(DESTDIR)/usr/bin"; \
-		$(SUDO) ln -sf /etc/coolercontrol/plugins/coolerdash/coolerdash "$(DESTDIR)/usr/bin/coolerdash"; \
-		printf "  $(GREEN)Symlink:$(RESET) /usr/bin/coolerdash -> /etc/coolercontrol/plugins/coolerdash/coolerdash\n"; \
-	else \
-		printf "$(ICON_INFO) $(YELLOW)Symlink skipped (CI environment)$(RESET)\n"; \
-	fi
+	@printf "$(ICON_INFO) $(CYAN)Note: Plugin binary is available at /etc/coolercontrol/plugins/coolerdash/coolerdash$(RESET)\\n"
 	@printf "\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing documentation...$(RESET)\n"
 	install -Dm644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
@@ -318,11 +321,11 @@ uninstall:
 	@printf "$(ICON_INFO) $(CYAN)Removing all files...$(RESET)\n"
 	$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
 	$(SUDO) rm -rf /opt/coolerdash 2>/dev/null || true
-	$(SUDO) rm -rf /etc/coolerdash 2>/dev/null || true
-	@printf "  $(RED)✗$(RESET) Plugin: /etc/coolercontrol/plugins/coolerdash\n"
+	$(SUDO) rm -rf /etc/coolerdash 2>/dev/null || true	$(SUDO) rm -f /bin/coolerdash 2>/dev/null || true
+	$(SUDO) rm -f /usr/bin/coolerdash 2>/dev/null || true	@printf "  $(RED)✗$(RESET) Plugin: /etc/coolercontrol/plugins/coolerdash\n"
 	@printf "  $(RED)✗$(RESET) Manual: /usr/share/man/man1/coolerdash.1\n"
 	@printf "  $(RED)✗$(RESET) Legacy: /opt/coolerdash/, /etc/coolerdash/\n"
-	@printf "  $(RED)✗$(RESET) Symlink: /usr/bin/coolerdash\n"
+	@printf "  $(RED)✗$(RESET) Legacy symlinks: /bin/coolerdash, /usr/bin/coolerdash\\n"
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Updating system...$(RESET)\n"
 	@if id -u coolerdash &>/dev/null; then \

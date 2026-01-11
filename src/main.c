@@ -699,9 +699,6 @@ static void handle_shutdown_signal(int signum)
   ssize_t written = write(STDERR_FILENO, msg, msg_len);
   (void)written; // Suppress unused variable warning
 
-  // Send shutdown image immediately for clean LCD state
-  send_shutdown_image_if_needed();
-
   // Clean up temporary files (PID and image) - signal-safe operations
   if (g_config_ptr)
   {
