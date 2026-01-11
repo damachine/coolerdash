@@ -2,4 +2,5 @@ id = "coolerdash"
 type = "integration"
 description = "Enhanced LCD dashboard for AIO liquid coolers."
 executable = "/etc/coolercontrol/plugins/coolerdash/coolerdash"
+args = "--verbose"
 privileged = true
