@@ -64,7 +64,7 @@ check() {
 
 package() {
     # Plugin-mode installation: Everything in /etc/coolercontrol/plugins/coolerdash/
-    install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
+    install -dm775 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
     install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/coolerdash"
     install -Dm644 "${srcdir}/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
     install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"

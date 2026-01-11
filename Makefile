@@ -259,8 +259,7 @@ install: check-deps $(TARGET)
 	fi
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing plugin files to /etc/coolercontrol/plugins/coolerdash/...$(RESET)\n"
-	install -dm755 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
-	chmod 775 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
+	install -dm775 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
 	install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash"
 	install -Dm644 $(README) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/README.md"
 	install -Dm644 LICENSE "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/LICENSE"
@@ -269,6 +268,9 @@ install: check-deps $(TARGET)
 	install -Dm644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.ini"
 	install -Dm644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
 	install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+	@if [ "$(REALOS)" = "yes" ] && command -v chown >/dev/null 2>&1; then \
+		$(SUDO) chown -R cc-plugin-user:cc-plugin-user "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash" 2>/dev/null || true; \
+	fi
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.ini\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml\n"

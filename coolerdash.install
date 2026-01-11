@@ -16,7 +16,7 @@ post_install() {
     # Remove old systemd service file if it exists (migration from standalone to plugin mode)
     if [ -f /etc/systemd/system/coolerdash.service ]; then
         echo "Removing deprecated systemd service file..."
-        rm -f /etc/systemd/system/coolerdash.service
+        rm -f /etc/systemd/system/coolerdash.servicehier so 
     fi
     
     # Remove legacy installation directories if they exist
@@ -35,6 +35,13 @@ post_install() {
     if id -u coolerdash &>/dev/null; then
         echo "Removing legacy coolerdash user..."
         userdel -rf coolerdash || true
+    fi
+
+    # Ensure plugin directory has correct permissions and ownership for cc-plugin-user to write generated images
+    if [ -d /etc/coolercontrol/plugins/coolerdash ]; then
+        chown -R cc-plugin-user:cc-plugin-user /etc/coolercontrol/plugins/coolerdash
+        chmod 775 /etc/coolercontrol/plugins/coolerdash
+        echo "Plugin directory ownership and permissions updated for image generation"
     fi
 
     echo "CoolerDash has been installed successfully!"
