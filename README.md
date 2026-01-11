@@ -93,7 +93,8 @@ systemctl enable --now coolercontrold.service
 
 **CoolerDash Configuration (optional):**  
 Edit `/etc/coolerdash/config.ini` and adjust settings as needed.
- Then restart: `systemctl restart coolercontrold.service`
+
+Then restart: `systemctl restart coolercontrold.service` to apply the changes.
 
 **Display Modes:**
 - **Dual (default):** CPU + GPU simultaneously (all displays)
@@ -110,23 +111,6 @@ Enable Circle Mode: Edit config.ini → `[display]` section → `mode=circle`
 
 <details>
   <summary>Expand</summary>
-   
-#### Service Management
-
-```bash
-# Service control
-systemctl enable --now coolerdash.service  # Enable and Start!
-systemctl start coolerdash.service         # Start
-systemctl stop coolerdash.service          # Stop
-systemctl restart coolerdash.service       # Restart
-systemctl status coolerdash.service        # Status + recent logs
-
-# Journal log
-journalctl -u coolerdash.service
-
-# Live logs
-journalctl -xeu coolerdash.service -f
-```
 
 #### Build Commands
 
@@ -137,22 +121,6 @@ make install    # System installation with dependency auto-detection
 make uninstall  # Remove installation (service, binary, files)
 make debug      # Debug build with AddressSanitizer
 make help       # Show all options
-```
-
-#### Manual Usage 
-
-```bash
-# Run manually (with minimal status logging)
-coolerdash
-
-# Run with detailed verbose logging
-coolerdash --verbose
-# or short form:
-coolerdash -v
-
-# Force specific display mode
-coolerdash --dual      # Force dual mode (CPU+GPU simultaneously)
-coolerdash --circle    # Force circle mode (alternating CPU/GPU)
 ```
 
 #### Debugging Steps
@@ -179,12 +147,6 @@ journalctl -xeu coolerdash.service -f
 # 6. View recent logs with context
 journalctl -u coolerdash.service -n 50
 ```
-
-> The systemd service must be stopped before running manually to avoid conflicts:
-
-```bash
-systemctl stop coolerdash.service
-```
 </details>
 
 ---
@@ -199,7 +161,6 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 
 **Solution:**
 ```bash
-sudo systemctl stop coolerdash.service
 sudo make uninstall
 ```
 
