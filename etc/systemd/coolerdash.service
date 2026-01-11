@@ -2,24 +2,9 @@
 # Created by: damachine (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
 # -----------------------------------------------------------------------------
-# Info:
-# 	CoolerDash systemd daemon service file
-# 	This file is part of CoolerDash, a C99 LCD daemon for monitoring and controlling
-#	Project coding standards and packaging notes (see README for details)
-# Details:
-#   Simple systemd service for CoolerDash daemon.
-#   Runs as dedicated user 'coolerdash' for security.
-#   Requires coolercontrol services to be running.
-#   Uses configuration file at '/etc/coolerdash/config.ini'.
-#   PID file at '/tmp/coolerdash.pid' for process management.
-#   Do not run as root. Use dedicated user for security.
-#   See 'README.md' and 'AUR-README.md' for details.
-# Example:
-#   To enable and start the service, use:
-#   'sudo systemctl enable coolerdash.service'
-#   'sudo systemctl start coolerdash.service'
-#   To check the status of the service, use:
-#   'systemctl status coolerdash.service'
+# This service file is deprecated and will be removed in future releases.
+# If you are using CoolerControl <=3.1.0 with CoolerDash, please continue using this file.
+# For CoolerControl >=3.1.0, please let this disabled and use the new CoolerControl plugin service.
 # -----------------------------------------------------------------------------
 
 [Unit]

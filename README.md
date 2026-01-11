@@ -36,6 +36,11 @@
 
 ## System Requirements
 
+> [!NOTE]
+> The new version 2.0.4 no longer requires the systemd service `coolerdash.service`. Only `coolercontrold.service` is now required.
+> The service is disabled by default after the upgrade. Please do not enable it manually. I'm leaving the service in place for regression reasons. It will be removed in future versions.
+> If your distribution package is not updated with CoolerControl >=3.1.0, you will need `coolerdash.service` until your distribution package is updated.
+
 - **OS**: Linux
 - **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)

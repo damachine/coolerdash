@@ -1,7 +1,3 @@
-# -----------------------------------------------------------------------------
-# Created by: damachine (damachine3 at proton dot me)
-# Website: https://github.com/damachine/coolerdash
-# -----------------------------------------------------------------------------
 .PHONY: clean install uninstall debug logs help detect-distro install-deps check-deps
 VERSION := $(shell cat VERSION)
 
