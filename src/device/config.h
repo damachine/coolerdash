@@ -33,7 +33,8 @@
  * @details Represents RGB color values with 8-bit components and padding for
  * memory alignment.
  */
-typedef struct {
+typedef struct
+{
   uint8_t r;
   uint8_t g;
   uint8_t b;
@@ -45,20 +46,26 @@ typedef struct {
  * @details Defines standardized logging levels used throughout the application
  * for consistent message categorization.
  */
-typedef enum { LOG_INFO, LOG_STATUS, LOG_WARNING, LOG_ERROR } log_level_t;
+typedef enum
+{
+  LOG_INFO,
+  LOG_STATUS,
+  LOG_WARNING,
+  LOG_ERROR
+} log_level_t;
 
 /**
  * @brief Configuration structure.
  * @details Contains all settings for the CoolerDash system, including paths,
  * display settings, temperature thresholds, and visual styling options.
  */
-typedef struct Config {
+typedef struct Config
+{
   // Daemon configuration
   char daemon_address[CONFIG_MAX_STRING_LEN];
   char daemon_password[CONFIG_MAX_PASSWORD_LEN];
 
   // Paths configuration
-  char paths_pid[CONFIG_MAX_PATH_LEN];
   char paths_images[CONFIG_MAX_PATH_LEN];
   char paths_image_coolerdash[CONFIG_MAX_PATH_LEN];
   char paths_image_shutdown[CONFIG_MAX_PATH_LEN];
@@ -145,16 +152,18 @@ extern int verbose_logging;
  * @brief Safe string copy macro using project's cc_safe_strcpy.
  * @details Automatically uses sizeof(dest) for bounds checking.
  */
-#define SAFE_STRCPY(dest, src)                                                 \
-  do {                                                                         \
-    cc_safe_strcpy((dest), sizeof(dest), (src));                               \
+#define SAFE_STRCPY(dest, src)                   \
+  do                                             \
+  {                                              \
+    cc_safe_strcpy((dest), sizeof(dest), (src)); \
   } while (0)
 
 /**
  * @brief Validate LCD orientation value.
  * @details Checks if orientation is one of: 0°, 90°, 180°, 270°.
  */
-static inline int is_valid_orientation(int orientation) {
+static inline int is_valid_orientation(int orientation)
+{
   return (orientation == 0 || orientation == 90 || orientation == 180 ||
           orientation == 270);
 }

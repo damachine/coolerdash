@@ -97,10 +97,6 @@ static void set_paths_defaults(Config *config)
         SAFE_STRCPY(config->paths_image_shutdown,
                     "/etc/coolercontrol/plugins/coolerdash/shutdown.png");
     }
-    if (config->paths_pid[0] == '\0')
-    {
-        SAFE_STRCPY(config->paths_pid, "/tmp/coolerdash.pid");
-    }
 }
 
 /**
@@ -440,12 +436,6 @@ static void load_paths_from_json(json_t *root, Config *config)
     if (image_shutdown && json_is_string(image_shutdown))
     {
         SAFE_STRCPY(config->paths_image_shutdown, json_string_value(image_shutdown));
-    }
-
-    json_t *pid = json_object_get(paths, "pid");
-    if (pid && json_is_string(pid))
-    {
-        SAFE_STRCPY(config->paths_pid, json_string_value(pid));
     }
 }
 

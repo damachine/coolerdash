@@ -9,8 +9,7 @@
   "paths": {
     "images": "/etc/coolercontrol/plugins/coolerdash",
     "image_coolerdash": "/etc/coolercontrol/plugins/coolerdash/coolerdash.png",
-    "image_shutdown": "/etc/coolercontrol/plugins/coolerdash/shutdown.png",
-    "pid": "/tmp/coolerdash.pid"
+    "image_shutdown": "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
   },
 
   "display": {
@@ -19,8 +18,8 @@
     "refresh_interval": 2.5,
     "brightness": 80,
     "orientation": 0,
-    "width": 240,
-    "height": 240,
+    "width": 0,
+    "height": 0,
     "shape": "auto",
     "content_scale_factor": 0.98,
     "inscribe_factor": 0.70710678

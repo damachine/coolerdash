@@ -50,7 +50,7 @@ build() {
     cp -a images/shutdown.png "${srcdir}/images/"
     cp -a man/coolerdash.1 "${srcdir}/man/"
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
-    cp -a etc/applications/coolerdash-settings.desktop "${srcdir}/etc/applications/"
+    cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
 }
 
@@ -87,7 +87,7 @@ package() {
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
     
     # Desktop shortcut for settings UI
-    install -Dm644 "${srcdir}/etc/applications/coolerdash-settings.desktop" "${pkgdir}/usr/share/applications/coolerdash-settings.desktop"
+    install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
     
     # Application icon
     install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"

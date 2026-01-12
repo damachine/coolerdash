@@ -63,6 +63,12 @@
 # STEP 1: Install
 yay -S coolerdash-git
 #OR any other AUR helper
+
+# STEP 2: Reload systemd configuration
+systemctl daemon-reload
+
+# STEP 3: Restart CoolerControl to load the plugin
+sudo systemctl restart coolercontrold
 ```
 
 #### All distributions

@@ -39,6 +39,10 @@ post_install() {
         echo "Removing legacy ui.html..." 2>/dev/null
         rm -f /etc/coolercontrol/plugins/coolerdash/ui.html 2>/dev/null
     fi
+    if [ -f /usr/share/applications/coolerdash-settings.desktop ]; then
+        echo "Removing legacy coolerdash-settings.desktop..." 2>/dev/null
+        rm -f /usr/share/applications/coolerdash-settings.desktop 2>/dev/null
+    fi
     
     # Remove legacy user if it exists
     if id -u coolerdash &>/dev/null; then
@@ -96,6 +100,7 @@ pre_remove() {
         rm -f /etc/systemd/system/coolerdash.service
     fi
     rm -f /usr/share/man/man1/coolerdash.1
+    rm -f /usr/share/applications/coolerdash-settings.desktop
     rm -f /bin/coolerdash
     rm -f /usr/bin/coolerdash
     rm -rf /opt/coolerdash

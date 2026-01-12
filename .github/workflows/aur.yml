@@ -129,7 +129,7 @@ jobs:
             
             # STEP 2: Enable/Start CoolerDash sytemd service
             systemctl daemon-reload
-            systemctl enable --now coolerdash.service
+            systemctl enable --now coolercontrold
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

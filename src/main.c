@@ -151,28 +151,6 @@ static const char *read_version_from_file(void)
 }
 
 /**
- * @brief Safely parse PID from string with validation.
- * @details Uses strtol for secure parsing with proper error checking.
- */
-static pid_t safe_parse_pid(const char *pid_str)
-{
-  if (!pid_str || !pid_str[0])
-    return -1;
-
-  char *endptr;
-  errno = 0;
-  long pid = strtol(pid_str, &endptr, 10);
-
-  // Validation checks
-  if (errno != 0 || endptr == pid_str || *endptr != '\0')
-    return -1;
-  if (pid <= 0 || pid > INT_MAX)
-    return -1;
-
-  return (pid_t)pid;
-}
-
-/**
  * @brief Detect if we were started by CoolerControl plugin system.
  * @details Checks INVOCATION_ID environment variable set by systemd/CoolerControl.
  */
@@ -180,240 +158,6 @@ static int is_started_as_plugin(void)
 {
   const char *invocation_id = getenv("INVOCATION_ID");
   return (invocation_id && invocation_id[0]) ? 1 : 0;
-}
-
-/**
- * @brief Check if another instance of CoolerDash is running with secure PID
- * validation.
- * @details Uses secure file reading and PID validation.
- */
-static int check_existing_instance_and_handle(const char *pid_file)
-{
-  if (!pid_file || !pid_file[0])
-  {
-    log_message(LOG_ERROR, "Invalid PID file path provided");
-    return -1;
-  }
-
-  FILE *fp = fopen(pid_file, "r");
-  if (!fp)
-    return 0; // No PID file exists, no running instance
-
-  // Secure reading with fixed buffer size
-  char pid_buffer[PID_READ_BUFFER_SIZE] = {0};
-  if (!fgets(pid_buffer, sizeof(pid_buffer), fp))
-  {
-    fclose(fp);
-    unlink(pid_file); // Remove corrupted PID file
-    return 0;
-  }
-  fclose(fp);
-
-  // Remove trailing newline and validate
-  pid_buffer[strcspn(pid_buffer, "\n\r")] = '\0';
-  pid_t existing_pid = safe_parse_pid(pid_buffer);
-
-  if (existing_pid <= 0)
-  {
-    log_message(LOG_WARNING, "Invalid PID in file, removing stale PID file");
-    unlink(pid_file);
-    return 0;
-  }
-
-  // Check if process exists using kill(pid, 0)
-  if (kill(existing_pid, 0) == 0)
-  {
-    log_message(LOG_ERROR, "Another instance is already running (PID %d)",
-                existing_pid);
-    return -1;
-  }
-  else if (errno == EPERM)
-  {
-    log_message(LOG_ERROR,
-                "Another instance may be running (PID %d) - insufficient "
-                "permissions to verify",
-                existing_pid);
-    return -1;
-  }
-
-  // Process doesn't exist, remove stale PID file
-  log_message(LOG_INFO, "Removing stale PID file (process %d no longer exists)",
-              existing_pid);
-  unlink(pid_file);
-  return 0;
-}
-
-/**
- * @brief Create parent directory for PID file.
- * @details Ensures the directory exists with proper permissions.
- */
-static int create_pid_directory(const char *pid_file)
-{
-  char *dir_path = strdup(pid_file);
-  if (!dir_path)
-  {
-    log_message(LOG_ERROR, "Memory allocation failed for directory path");
-    return -1;
-  }
-
-  char *last_slash = strrchr(dir_path, '/');
-  if (last_slash)
-  {
-    *last_slash = '\0';
-    if (mkdir(dir_path, 0755) == -1 && errno != EEXIST)
-    {
-      log_message(LOG_WARNING, "Could not create PID directory '%s': %s",
-                  dir_path, strerror(errno));
-    }
-  }
-  free(dir_path);
-  return 0;
-}
-
-/**
- * @brief Open temporary PID file with security checks.
- * @details Creates temporary file with atomic operations and validates it's a
- * regular file.
- */
-static int open_temp_pid_file(const char *temp_file)
-{
-  int fd = open(temp_file, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0644);
-  if (fd == -1)
-  {
-    log_message(LOG_ERROR, "Could not create temporary PID file '%s': %s",
-                temp_file, strerror(errno));
-    return -1;
-  }
-
-  struct stat st;
-  if (fstat(fd, &st) == 0)
-  {
-    if (!S_ISREG(st.st_mode))
-    {
-      close(fd);
-      log_message(LOG_ERROR, "PID file is not a regular file: %s", temp_file);
-      return -1;
-    }
-  }
-  return fd;
-}
-
-/**
- * @brief Write PID to file descriptor.
- * @details Converts fd to FILE* and writes PID with error checking.
- */
-static int write_pid_to_file(int fd, const char *temp_file)
-{
-  FILE *f = fdopen(fd, "w");
-  if (!f)
-  {
-    log_message(LOG_ERROR, "Could not convert file descriptor to FILE*: %s",
-                strerror(errno));
-    close(fd);
-    unlink(temp_file);
-    return -1;
-  }
-
-  pid_t current_pid = getpid();
-  if (fprintf(f, "%d\n", current_pid) < 0)
-  {
-    log_message(LOG_ERROR, "Could not write PID to temporary file '%s': %s",
-                temp_file, strerror(errno));
-    fclose(f);
-    unlink(temp_file);
-    return -1;
-  }
-
-  if (fclose(f) != 0)
-  {
-    log_message(LOG_ERROR, "Could not close temporary PID file '%s': %s",
-                temp_file, strerror(errno));
-    unlink(temp_file);
-    return -1;
-  }
-  return 0;
-}
-
-/**
- * @brief Create temporary file path for PID file.
- * @details Generates a temporary file path with proper bounds checking.
- */
-static int create_temp_pid_path(const char *pid_file, char *temp_file,
-                                size_t temp_file_size)
-{
-  int ret = snprintf(temp_file, temp_file_size, "%s.tmp", pid_file);
-  if (ret >= (int)temp_file_size || ret < 0)
-  {
-    log_message(LOG_ERROR, "PID file path too long");
-    return -1;
-  }
-  return 0;
-}
-
-/**
- * @brief Write current PID to file with enhanced security and error checking.
- * @details Creates PID file with proper permissions and atomic write operation.
- */
-static int write_pid_file(const char *pid_file)
-{
-  if (!pid_file || !pid_file[0])
-  {
-    log_message(LOG_ERROR, "Invalid PID file path provided");
-    return -1;
-  }
-
-  if (create_pid_directory(pid_file) != 0)
-  {
-    return -1;
-  }
-
-  char temp_file[PATH_MAX];
-  if (create_temp_pid_path(pid_file, temp_file, sizeof(temp_file)) != 0)
-  {
-    return -1;
-  }
-
-  int fd = open_temp_pid_file(temp_file);
-  if (fd == -1)
-  {
-    return -1;
-  }
-
-  if (write_pid_to_file(fd, temp_file) != 0)
-  {
-    return -1;
-  }
-
-  if (rename(temp_file, pid_file) != 0)
-  {
-    log_message(LOG_ERROR, "Could not rename temporary PID file to '%s': %s",
-                pid_file, strerror(errno));
-    unlink(temp_file);
-    return -1;
-  }
-
-  log_message(LOG_STATUS, "PID file: %s (PID: %d)", pid_file, getpid());
-  return 0;
-}
-
-/**
- * @brief Remove PID file with enhanced error handling.
- * @details Securely removes the PID file with proper error reporting.
- */
-static void remove_pid_file(const char *pid_file)
-{
-  if (!pid_file || !pid_file[0])
-    return;
-
-  if (unlink(pid_file) == 0)
-  {
-    log_message(LOG_INFO, "PID file removed");
-  }
-  else if (errno != ENOENT)
-  {
-    log_message(LOG_WARNING, "Could not remove PID file '%s': %s", pid_file,
-                strerror(errno));
-  }
 }
 
 /**
@@ -890,34 +634,6 @@ static int initialize_config_and_instance(const char *config_path,
   // Verify plugin directory write permissions for image generation
   verify_plugin_dir_permissions(config->paths_images);
 
-  // PID file management - only if path is configured (optional for plugin mode)
-  if (config->paths_pid[0])
-  {
-    if (check_existing_instance_and_handle(config->paths_pid) < 0)
-    {
-      log_message(LOG_ERROR, "Instance management failed");
-      fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
-      fprintf(stderr, "To stop the running instance:\n");
-      fprintf(stderr,
-              "  sudo systemctl restart coolercontrold  # Restart CoolerControl (reloads plugin)\n");
-      fprintf(stderr,
-              "  sudo pkill coolerdash                  # Force kill if needed\n");
-      fprintf(stderr,
-              "  sudo systemctl status coolercontrold   # Check CoolerControl status\n");
-      return -1;
-    }
-
-    if (write_pid_file(config->paths_pid) != 0)
-    {
-      log_message(LOG_WARNING, "Failed to create PID file: %s", config->paths_pid);
-      // Continue without PID file - not critical for plugin mode
-    }
-  }
-  else
-  {
-    log_message(LOG_INFO, "PID file disabled - running in plugin mode");
-  }
-
   return 0;
 }
 
@@ -939,7 +655,6 @@ static int initialize_coolercontrol_services(const Config *config)
             "  - Are network connections allowed?\n",
             config->daemon_address);
     fflush(stderr);
-    remove_pid_file(config->paths_pid);
     return -1;
   }
 
@@ -954,7 +669,6 @@ static int initialize_coolercontrol_services(const Config *config)
             "  - Is the password correct in configuration?\n"
             "  - Are network connections allowed?\n",
             config->daemon_address);
-    remove_pid_file(config->paths_pid);
     return -1;
   }
 
@@ -1023,7 +737,6 @@ static void perform_cleanup(const Config *config)
   // Close CoolerControl session and free resources
   cleanup_coolercontrol_session();
 
-  remove_pid_file(config->paths_pid);
   remove_image_file(config->paths_image_coolerdash);
   running = 0;
   log_message(LOG_INFO, "CoolerDash shutdown complete");

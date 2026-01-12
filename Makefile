@@ -206,76 +206,70 @@ install: check-deps $(TARGET)
 		printf "$(ICON_SERVICE) $(CYAN)Migration: Checking for legacy files and services...$(RESET)\n"; \
 		LEGACY_FOUND=0; \
 		if $(SUDO) systemctl is-active --quiet coolerdash.service 2>/dev/null; then \
-			@printf "  $(YELLOW)→$(RESET) Stopping legacy coolerdash.service...\n" >/dev/null 2>&1; \
 			$(SUDO) systemctl stop coolerdash.service 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if $(SUDO) systemctl is-enabled --quiet coolerdash.service 2>/dev/null; then \
-			@printf "  $(YELLOW)→$(RESET) Disabling legacy coolerdash.service...\n" >/dev/null 2>&1; \
 			$(SUDO) systemctl disable coolerdash.service 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ -f /etc/systemd/system/coolerdash.service ]; then \
-			@printf "  $(RED)✗$(RESET) Removing: /etc/systemd/system/coolerdash.service\n" >/dev/null 2>&1; \
 			$(SUDO) rm -f /etc/systemd/system/coolerdash.service 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ -d /opt/coolerdash ]; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy directory: /opt/coolerdash/\n" >/dev/null 2>&1; \
 			$(SUDO) rm -rf /opt/coolerdash 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ -d /etc/coolerdash ]; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy config: /etc/coolerdash/\n" >/dev/null 2>&1; \
 			$(SUDO) rm -rf /etc/coolerdash 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ -f /etc/coolercontrol/plugins/coolerdash/config.ini ]; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy config.ini: /etc/coolercontrol/plugins/coolerdash/config.ini\n" >/dev/null 2>&1; \
 			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/config.ini 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ -f /etc/coolercontrol/plugins/coolerdash/ui.html ]; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy ui.html: /etc/coolercontrol/plugins/coolerdash/ui.html\n" >/dev/null 2>&1; \
 			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/ui.html 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
+		if [ -f /usr/share/applications/coolerdash-settings.desktop ]; then \
+			$(SUDO) rm -f /usr/share/applications/coolerdash-settings.desktop 2>/dev/null || true; \
+			LEGACY_FOUND=1; \
+		fi; \
 		if [ -L /bin/coolerdash ] || [ -f /bin/coolerdash ]; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy symlink: /bin/coolerdash\n" >/dev/null 2>&1; \
 			$(SUDO) rm -f /bin/coolerdash 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ -L /usr/bin/coolerdash ] || [ -f /usr/bin/coolerdash ]; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy symlink: /usr/bin/coolerdash\n" >/dev/null 2>&1; \
 			$(SUDO) rm -f /usr/bin/coolerdash 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if id -u coolerdash &>/dev/null 2>&1; then \
-			@printf "  $(RED)✗$(RESET) Removing legacy coolerdash user...\n" >/dev/null 2>&1; \
 			$(SUDO) userdel -rf coolerdash 2>/dev/null || true; \
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ "$$LEGACY_FOUND" -eq 1 ]; then \
-			@printf "  $(GREEN)✓$(RESET) Legacy cleanup complete\n" >/dev/null 2>&1; \
+			printf "  $(GREEN)✓$(RESET) Legacy cleanup complete\n" >/dev/null 2>&1; \
 		else \
-			@printf "  $(BLUE)→$(RESET) No legacy files found (clean install)\n" >/dev/null 2>&1; \
+			printf "  $(BLUE)→$(RESET) No legacy files found (clean install)\n" >/dev/null 2>&1; \
 		fi; \
-		@printf "\n" >/dev/null 2>&1; \
+		printf "\n" >/dev/null 2>&1; \
 		COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 		if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
-			@printf "$(ICON_SERVICE) $(CYAN)Terminating running coolerdash process(es)...$(RESET)\n" >/dev/null 2>&1; \
+			printf "$(ICON_SERVICE) $(CYAN)Terminating running coolerdash process(es)...$(RESET)\n" >/dev/null 2>&1; \
 			$(SUDO) killall -TERM coolerdash 2>/dev/null || true; \
 			sleep 2; \
 			REMAINING_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 			if [ "$$REMAINING_COUNT" -gt 0 ]; then \
-				@printf "  $(YELLOW)→$(RESET) Force killing $$REMAINING_COUNT remaining process(es)...\n" >/dev/null 2>&1; \
+				printf "  $(YELLOW)→$(RESET) Force killing $$REMAINING_COUNT remaining process(es)...\n" >/dev/null 2>&1; \
 				$(SUDO) killall -KILL coolerdash 2>/dev/null || true; \
 			fi; \
-			@printf "  $(GREEN)→$(RESET) Processes terminated\n" >/dev/null 2>&1; \
-			@printf "\n" >/dev/null 2>&1; \
+			printf "  $(GREEN)→$(RESET) Processes terminated\n" >/dev/null 2>&1; \
+			printf "\n" >/dev/null 2>&1; \
 		fi; \
 	else \
-		@printf "$(ICON_INFO) $(YELLOW)Migration skipped (CI environment).$(RESET)\n" >/dev/null 2>&1; \
+		printf "$(ICON_INFO) $(YELLOW)Migration skipped (CI environment).$(RESET)\n" >/dev/null 2>&1; \
 	fi
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing plugin files to /etc/coolercontrol/plugins/coolerdash/...$(RESET)\n"
@@ -295,7 +289,7 @@ install: check-deps $(TARGET)
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/index.html\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml\n"
-	@printf "  $(GREEN)Image:$(RESET)        $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png\n"
+	@printf "  $(GREEN)Image:$(RESET)        shutdown.png (coolerdash.png)\n"
 	@printf "  $(GREEN)Documentation:$(RESET) README.md, LICENSE, CHANGELOG.md, VERSION\n"
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Note: Plugin binary is available at /etc/coolercontrol/plugins/coolerdash/coolerdash$(RESET)\\n"
@@ -304,8 +298,8 @@ install: check-deps $(TARGET)
 	@install -Dm644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
 	@printf "  $(GREEN)Manual:$(RESET)  $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing desktop shortcut...$(RESET)\n"
-	@install -Dm644 etc/applications/coolerdash-settings.desktop "$(DESTDIR)/usr/share/applications/coolerdash-settings.desktop"
-	@printf "  $(GREEN)Shortcut:$(RESET) $(DESTDIR)/usr/share/applications/coolerdash-settings.desktop\n"
+	@install -Dm644 etc/applications/coolerdash.desktop "$(DESTDIR)/usr/share/applications/coolerdash.desktop"
+	@printf "  $(GREEN)Shortcut:$(RESET) $(DESTDIR)/usr/share/applications/coolerdash.desktop\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing icon...$(RESET)\n"
 	@install -Dm644 etc/icons/coolerdash.svg "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 	@printf "  $(GREEN)Icon:$(RESET)     $(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg\n"
@@ -353,6 +347,10 @@ uninstall:
 			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/ui.html >/dev/null 2>&1 || true; \
 			LEGACY_FOUND=1; \
 		fi; \
+		if [ -f /usr/share/applications/coolerdash-settings.desktop ]; then \
+			$(SUDO) rm -f /usr/share/applications/coolerdash-settings.desktop 2>/dev/null || true; \
+			LEGACY_FOUND=1; \
+		fi; \
 		if [ -L /bin/coolerdash ] || [ -f /bin/coolerdash ]; then \
 			$(SUDO) rm -f /bin/coolerdash >/dev/null 2>&1 || true; \
 			LEGACY_FOUND=1; \
@@ -368,7 +366,7 @@ uninstall:
 	fi
 	@$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash >/dev/null 2>&1 || true
 	@$(SUDO) rm -f /usr/share/man/man1/coolerdash.1 >/dev/null 2>&1 || true
-	@$(SUDO) rm -f /usr/share/applications/coolerdash-settings.desktop >/dev/null 2>&1 || true
+	@$(SUDO) rm -f /usr/share/applications/coolerdash.desktop >/dev/null 2>&1 || true
 	@$(SUDO) rm -f /usr/share/icons/hicolor/scalable/apps/coolerdash.svg >/dev/null 2>&1 || true
 	@if id -u coolerdash &>/dev/null; then \
         $(SUDO) userdel -rf coolerdash >/dev/null 2>&1 || true; \
@@ -385,7 +383,7 @@ debug: $(TARGET)
 
 logs:
 	@printf "$(ICON_INFO) $(CYAN)Live logs (Ctrl+C to exit):$(RESET)\n"
-	journalctl -u coolerdash.service -f
+	journalctl -u cc-plugin-coolerdash.service -f
 
 # Help
 help:
