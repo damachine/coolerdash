@@ -1,6 +1,10 @@
 id = "coolerdash"
 type = "integration"
-description = "Enhanced LCD dashboard for AIO liquid coolers."
+version = "{{VERSION}}"
+description = "Enhanced LCD dashboard for AIO liquid coolers displaying CPU/GPU temperatures."
 executable = "/etc/coolercontrol/plugins/coolerdash/coolerdash"
 args = "--verbose"
 privileged = true
+url = "https://github.com/damachine/coolerdash"
+author = "damachine"
+license = "MIT"

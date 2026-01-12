@@ -175,33 +175,12 @@ static pid_t safe_parse_pid(const char *pid_str)
 
 /**
  * @brief Detect if we were started by CoolerControl plugin system.
- * @details Checks if running as CoolerControl plugin or standalone.
+ * @details Checks INVOCATION_ID environment variable set by systemd/CoolerControl.
  */
 static int is_started_as_plugin(void)
 {
-  // Check if we have CoolerControl environment variables
-  // CoolerControl sets INVOCATION_ID when starting plugins
   const char *invocation_id = getenv("INVOCATION_ID");
-  if (invocation_id && invocation_id[0])
-  {
-    // Running as plugin under CoolerControl/systemd
-    return 1;
-  }
-
-  // Check if parent process is coolercontrold
-  // This is a secondary indicator for plugin mode
-  if (getppid() != 1)
-  {
-    // Not direct child of init, could be plugin or manual start
-    // Plugins typically run without controlling terminal
-    if (!isatty(STDIN_FILENO) && !isatty(STDOUT_FILENO) &&
-        !isatty(STDERR_FILENO))
-    {
-      return 1; // Likely running as plugin
-    }
-  }
-
-  return 0; // Manual/standalone start
+  return (invocation_id && invocation_id[0]) ? 1 : 0;
 }
 
 /**
@@ -608,13 +587,8 @@ static int get_device_uid_for_shutdown(char *device_uid, size_t uid_size)
  * @brief Handle missing shutdown image by turning off LCD.
  * @details Creates temporary config with brightness 0 to turn off display.
  */
-static void handle_missing_shutdown_image(const char *shutdown_image_path,
-                                          const char *device_uid)
+static void handle_missing_shutdown_image(const char *device_uid)
 {
-  log_message(LOG_WARNING,
-              "Shutdown image '%s' not found, turning off LCD display",
-              shutdown_image_path);
-
   Config temp_config = *g_config_ptr;
   temp_config.lcd_brightness = 0;
 
@@ -658,7 +632,7 @@ static void send_shutdown_image_if_needed(void)
   }
   else
   {
-    handle_missing_shutdown_image(shutdown_image_path, device_uid);
+    handle_missing_shutdown_image(device_uid);
   }
 }
 
@@ -673,6 +647,8 @@ static void handle_shutdown_signal(int signum)
       "Received SIGTERM - initiating graceful shutdown\n";
   static const char int_msg[] =
       "Received SIGINT - initiating graceful shutdown\n";
+  static const char quit_msg[] =
+      "Received SIGQUIT - initiating graceful shutdown\n";
   static const char unknown_msg[] = "Received signal - initiating shutdown\n";
 
   const char *msg;
@@ -689,6 +665,10 @@ static void handle_shutdown_signal(int signum)
     msg = int_msg;
     msg_len = sizeof(int_msg) - 1;
     break;
+  case SIGQUIT:
+    msg = quit_msg;
+    msg_len = sizeof(quit_msg) - 1;
+    break;
   default:
     msg = unknown_msg;
     msg_len = sizeof(unknown_msg) - 1;
@@ -699,23 +679,8 @@ static void handle_shutdown_signal(int signum)
   ssize_t written = write(STDERR_FILENO, msg, msg_len);
   (void)written; // Suppress unused variable warning
 
-  // Clean up temporary files (PID and image) - signal-safe operations
-  if (g_config_ptr)
-  {
-    // Remove PID file - array address is never NULL, just check if path is set
-    if (g_config_ptr->paths_pid[0])
-    {
-      unlink(g_config_ptr->paths_pid);
-    }
-    // Remove generated image file - array address is never NULL, just check if
-    // path is set
-    if (g_config_ptr->paths_image_coolerdash[0])
-    {
-      unlink(g_config_ptr->paths_image_coolerdash);
-    }
-  }
-
   // Signal graceful shutdown atomically
+  // Note: File cleanup (PID, images) is handled in perform_cleanup()
   running = 0;
 }
 
@@ -745,6 +710,12 @@ static void setup_enhanced_signal_handlers(void)
   if (sigaction(SIGINT, &sa, NULL) == -1)
   {
     log_message(LOG_WARNING, "Failed to install SIGINT handler: %s",
+                strerror(errno));
+  }
+
+  if (sigaction(SIGQUIT, &sa, NULL) == -1)
+  {
+    log_message(LOG_WARNING, "Failed to install SIGQUIT handler: %s",
                 strerror(errno));
   }
 
@@ -930,24 +901,32 @@ static int initialize_config_and_instance(const char *config_path,
   // Verify plugin directory write permissions for image generation
   verify_plugin_dir_permissions(config->paths_images);
 
-  if (check_existing_instance_and_handle(config->paths_pid) < 0)
+  // PID file management - only if path is configured (optional for plugin mode)
+  if (config->paths_pid[0])
   {
-    log_message(LOG_ERROR, "Instance management failed");
-    fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
-    fprintf(stderr, "To stop the running instance:\n");
-    fprintf(stderr,
-            "  sudo systemctl restart coolercontrold  # Restart CoolerControl (reloads plugin)\n");
-    fprintf(stderr,
-            "  sudo pkill coolerdash                  # Force kill if needed\n");
-    fprintf(stderr,
-            "  sudo systemctl status coolercontrold   # Check CoolerControl status\n");
-    return -1;
-  }
+    if (check_existing_instance_and_handle(config->paths_pid) < 0)
+    {
+      log_message(LOG_ERROR, "Instance management failed");
+      fprintf(stderr, "Error: Another CoolerDash instance is already running\n");
+      fprintf(stderr, "To stop the running instance:\n");
+      fprintf(stderr,
+              "  sudo systemctl restart coolercontrold  # Restart CoolerControl (reloads plugin)\n");
+      fprintf(stderr,
+              "  sudo pkill coolerdash                  # Force kill if needed\n");
+      fprintf(stderr,
+              "  sudo systemctl status coolercontrold   # Check CoolerControl status\n");
+      return -1;
+    }
 
-  if (write_pid_file(config->paths_pid) != 0)
+    if (write_pid_file(config->paths_pid) != 0)
+    {
+      log_message(LOG_WARNING, "Failed to create PID file: %s", config->paths_pid);
+      // Continue without PID file - not critical for plugin mode
+    }
+  }
+  else
   {
-    log_message(LOG_ERROR, "Failed to create PID file: %s", config->paths_pid);
-    return -1;
+    log_message(LOG_INFO, "PID file disabled - running in plugin mode");
   }
 
   return 0;
