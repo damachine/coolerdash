@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CoolerDash Settings</title>
+    <script type="text/javascript" src="../../lib/cc-plugin-lib.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eaeaea;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #e94560, #ff9a9e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #a0a0a0;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .config-section {
+            background: #0f3460;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid #2d4263;
+        }
+
+        .config-section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            color: #ff9a9e;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .config-item {
+            margin-bottom: 20px;
+        }
+
+        .config-item:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #c0c0c0;
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        label small {
+            color: #808080;
+            font-weight: 400;
+            font-size: 0.85rem;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #2d4263;
+            border-radius: 8px;
+            background: #16213e;
+            color: #eaeaea;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #e94560;
+            background: #1a2942;
+        }
+
+        input[type="number"] {
+            width: 120px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background 0.2s, transform 0.1s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        button:hover {
+            background: #ff6b8a;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: #2d4263;
+        }
+
+        button.secondary:hover {
+            background: #3a5577;
+        }
+
+        .info-box {
+            background: #16213e;
+            border-left: 4px solid #e94560;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #c0c0c0;
+            font-size: 0.9rem;
+        }
+
+        .info-box strong {
+            color: #eaeaea;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #0f3460;
+            border: 1px solid #2d4263;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-left: 4px solid #00d26a;
+        }
+
+        .toast.error {
+            border-left: 4px solid #ff4757;
+        }
+
+        .range-value {
+            display: inline-block;
+            min-width: 50px;
+            text-align: right;
+            color: #e94560;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚙️ CoolerDash Configuration</h1>
+        <p class="subtitle">Configure your LCD temperature dashboard settings</p>
+
+        <div class="info-box">
+            <strong>Note:</strong> Changes require a plugin restart. Use <code>sudo systemctl restart coolercontrold</code> to apply.
+        </div>
+
+        <form id="pluginConfigForm">
+            <!-- Daemon Settings -->
+            <div class="config-section">
+                <h2>🌐 Daemon Settings</h2>
+                <div class="config-item">
+                    <label>
+                        CoolerControl API Address
+                        <small>Default: http://localhost:11987</small>
+                    </label>
+                    <input type="text" name="daemon_address" value="http://localhost:11987" required>
+                </div>
+                <div class="config-item">
+                    <label>
+                        API Password
+                        <small>Leave empty if authentication is disabled</small>
+                    </label>
+                    <input type="password" name="daemon_password" placeholder="coolAdmin">
+                </div>
+            </div>
+
+            <!-- Display Mode -->
+            <div class="config-section">
+                <h2>🖥️ Display Mode</h2>
+                <div class="config-item">
+                    <label>
+                        Mode
+                        <small>Dual = CPU+GPU together, Circle = Alternating display</small>
+                    </label>
+                    <select name="display_mode" id="display_mode">
+                        <option value="dual">Dual (CPU + GPU simultaneously)</option>
+                        <option value="circle">Circle (Alternating display)</option>
+                    </select>
+                </div>
+                <div class="config-item" id="circle_interval_item" style="display: none;">
+                    <label>
+                        Circle Switch Interval (seconds)
+                        <small>How long to show each sensor in circle mode</small>
+                    </label>
+                    <input type="number" name="circle_switch_interval" value="5" min="1" max="60" step="1">
+                </div>
+            </div>
+
+            <!-- Display Settings -->
+            <div class="config-section">
+                <h2>📊 Display Settings</h2>
+                <div class="config-item">
+                    <label>
+                        Refresh Interval (seconds)
+                        <small>How often to update the display (0.5 - 60 seconds)</small>
+                    </label>
+                    <input type="number" name="refresh_interval" value="2.5" min="0.5" max="60" step="0.1">
+                </div>
+                <div class="config-item">
+                    <label>
+                        Brightness (%)
+                        <small>LCD brightness level (80% recommended to prevent burn-in)</small>
+                        <span class="range-value" id="brightness_value">80%</span>
+                    </label>
+                    <input type="range" name="brightness" id="brightness" value="80" min="0" max="100" step="1">
+                </div>
+                <div class="config-item">
+                    <label>
+                        Orientation
+                        <small>Display rotation in degrees</small>
+                    </label>
+                    <select name="orientation">
+                        <option value="0">0° (Default)</option>
+                        <option value="90">90° (Clockwise)</option>
+                        <option value="180">180° (Upside Down)</option>
+                        <option value="270">270° (Counter-Clockwise)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Advanced Settings -->
+            <div class="config-section">
+                <h2>🔧 Advanced Settings</h2>
+                <div class="config-item">
+                    <label>
+                        Display Width (pixels)
+                        <small>Usually 240 for AIO coolers</small>
+                    </label>
+                    <input type="number" name="width" value="240" min="100" max="1024">
+                </div>
+                <div class="config-item">
+                    <label>
+                        Display Height (pixels)
+                        <small>Usually 240 for AIO coolers</small>
+                    </label>
+                    <input type="number" name="height" value="240" min="100" max="1024">
+                </div>
+            </div>
+        </form>
+
+        <div class="button-group">
+            <button type="button" onclick="saveConfig()">
+                💾 Save Configuration
+            </button>
+            <button type="button" class="secondary" onclick="resetConfig()">
+                ↺ Reset to Defaults
+            </button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script type="text/javascript">
+        // Tell CoolerControl to close UI after successful save
+        successfulConfigSaveCallback(close);
+
+        // Default configuration
+        const DEFAULT_CONFIG = {
+            daemon_address: "http://localhost:11987",
+            daemon_password: "",
+            display_mode: "dual",
+            refresh_interval: 2.5,
+            brightness: 80,
+            circle_switch_interval: 5,
+            orientation: 0,
+            width: 240,
+            height: 240
+        };
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast ${type} show`;
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Update brightness display
+        document.getElementById('brightness').addEventListener('input', (e) => {
+            document.getElementById('brightness_value').textContent = e.target.value + '%';
+        });
+
+        // Toggle circle interval visibility
+        document.getElementById('display_mode').addEventListener('change', (e) => {
+            const circleItem = document.getElementById('circle_interval_item');
+            circleItem.style.display = e.target.value === 'circle' ? 'block' : 'none';
+        });
+
+        // Save configuration to CoolerControl
+        const saveConfig = () => {
+            const form = document.getElementById('pluginConfigForm');
+            const formData = new FormData(form);
+            const config = {};
+            
+            // Convert FormData to object with proper types
+            for (const [key, value] of formData.entries()) {
+                if (key === 'refresh_interval') {
+                    config[key] = parseFloat(value);
+                } else if (['brightness', 'circle_switch_interval', 'orientation', 'width', 'height'].includes(key)) {
+                    config[key] = parseInt(value);
+                } else {
+                    config[key] = value;
+                }
+            }
+            
+            console.log("Saving config:", config);
+            
+            try {
+                // Save to CoolerControl's plugin config system
+                savePluginConfig(config);
+                showToast('✅ Configuration saved successfully!', 'success');
+                
+                // Close UI after short delay
+                setTimeout(() => {
+                    if (typeof close === 'function') {
+                        close();
+                    }
+                }, 1500);
+            } catch (error) {
+                console.error("Failed to save config:", error);
+                showToast('❌ Failed to save configuration', 'error');
+            }
+        };
+
+        // Reset to defaults
+        const resetConfig = () => {
+            if (confirm('Reset all settings to default values?\n\nThis will discard any unsaved changes.')) {
+                populateForm(DEFAULT_CONFIG);
+                showToast('↺ Settings reset to defaults', 'success');
+            }
+        };
+
+        // Populate form with config values
+        function populateForm(config) {
+            for (const [key, value] of Object.entries(config)) {
+                const field = document.querySelector(`[name="${key}"]`);
+                if (field) {
+                    field.value = value;
+                    
+                    // Trigger events for UI updates
+                    if (key === 'brightness') {
+                        document.getElementById('brightness_value').textContent = value + '%';
+                    } else if (key === 'display_mode') {
+                        const circleItem = document.getElementById('circle_interval_item');
+                        circleItem.style.display = value === 'circle' ? 'block' : 'none';
+                    }
+                }
+            }
+        }
+
+        // Load existing configuration on startup
+        runPluginScript(async () => {
+            try {
+                const config = await getPluginConfig();
+                console.log("Loaded config:", config);
+                
+                if (config && Object.keys(config).length > 0) {
+                    // Merge with defaults to ensure all fields are present
+                    const mergedConfig = { ...DEFAULT_CONFIG, ...config };
+                    populateForm(mergedConfig);
+                    showToast('✅ Configuration loaded', 'success');
+                } else {
+                    // No saved config, use defaults
+                    populateForm(DEFAULT_CONFIG);
+                    console.log("No saved config found, using defaults");
+                }
+            } catch (error) {
+                console.error("Failed to load config:", error);
+                // Fallback to defaults on error
+                populateForm(DEFAULT_CONFIG);
+                showToast('⚠️ Using default configuration', 'error');
+            }
+        });
+    </script>
+</body>
+</html>

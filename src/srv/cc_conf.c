@@ -24,7 +24,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 #include "cc_conf.h"
 #include "cc_main.h"
 
