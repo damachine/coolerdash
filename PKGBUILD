@@ -12,10 +12,10 @@ pkgdesc="Monitor telemetry data on an AIO liquid cooler with an integrated LCD d
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
-depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' 'ttf-roboto')
+depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config' 'git')
 optdepends=()
-backup=('etc/coolercontrol/plugins/coolerdash/config.ini')
+backup=('etc/coolercontrol/plugins/coolerdash/config.json')
 install=coolerdash.install
 source=()
 sha256sums=()
@@ -42,14 +42,14 @@ build() {
     make || return 1
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
-    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolerdash" "${srcdir}/etc/applications" "${srcdir}/etc/icons" "${srcdir}/etc/coolercontrol/plugins/coolerdash"
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash" "${srcdir}/etc/applications" "${srcdir}/etc/icons"
     cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
-    cp -a etc/coolerdash/config.ini "${srcdir}/etc/coolerdash/"
+    cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
+    cp -a etc/coolercontrol/plugins/coolerdash/index.html "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
     cp -a images/shutdown.png "${srcdir}/images/"
     cp -a man/coolerdash.1 "${srcdir}/man/"
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
-    cp -a etc/coolercontrol/plugins/coolerdash/ui.html "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
     cp -a etc/applications/coolerdash-settings.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
 }
@@ -75,10 +75,10 @@ package() {
     install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
     install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/LICENSE"
     install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
-    install -Dm644 "${srcdir}/etc/coolerdash/config.ini" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.ini"
+    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
+    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/index.html"
     install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
     install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
-    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui.html"
     
     # Substitute VERSION placeholder in manifest.toml
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"

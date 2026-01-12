@@ -28,7 +28,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
 #include "../srv/cc_sensor.h"
@@ -42,7 +42,11 @@
 /**
  * @brief Sensor display mode enumeration
  */
-typedef enum { SENSOR_CPU = 0, SENSOR_GPU = 1 } SensorMode;
+typedef enum
+{
+  SENSOR_CPU = 0,
+  SENSOR_GPU = 1
+} SensorMode;
 
 /**
  * @brief Global state for sensor alternation
@@ -53,14 +57,16 @@ static time_t last_switch_time = 0;
 /**
  * @brief Convert color component to cairo format (0-255 to 0.0-1.0)
  */
-static inline double cairo_color_convert(uint8_t color_component) {
+static inline double cairo_color_convert(uint8_t color_component)
+{
   return color_component / 255.0;
 }
 
 /**
  * @brief Set cairo color from Color structure
  */
-static inline void set_cairo_color(cairo_t *cr, const Color *color) {
+static inline void set_cairo_color(cairo_t *cr, const Color *color)
+{
   cairo_set_source_rgb(cr, cairo_color_convert(color->r),
                        cairo_color_convert(color->g),
                        cairo_color_convert(color->b));
@@ -70,7 +76,8 @@ static inline void set_cairo_color(cairo_t *cr, const Color *color) {
  * @brief Calculate temperature fill width with bounds checking
  */
 static inline int calculate_temp_fill_width(float temp_value, int max_width,
-                                            float max_temp) {
+                                            float max_temp)
+{
   if (temp_value <= 0.0f)
     return 0;
 
@@ -81,7 +88,8 @@ static inline int calculate_temp_fill_width(float temp_value, int max_width,
 /**
  * @brief Dynamic scaling parameters structure
  */
-typedef struct {
+typedef struct
+{
   double scale_x;
   double scale_y;
   double corner_radius;
@@ -96,7 +104,8 @@ typedef struct {
  */
 static void calculate_scaling_params(const struct Config *config,
                                      ScalingParams *params,
-                                     const char *device_name) {
+                                     const char *device_name)
+{
   const double base_width = 240.0;
   const double base_height = 240.0;
 
@@ -109,13 +118,16 @@ static void calculate_scaling_params(const struct Config *config,
       device_name, config->display_width, config->display_height);
 
   // Check display_shape configuration
-  if (strcmp(config->display_shape, "rectangular") == 0) {
+  if (strcmp(config->display_shape, "rectangular") == 0)
+  {
     // Force rectangular (inscribe_factor = 1.0)
     params->is_circular = 0;
     params->inscribe_factor = 1.0;
     log_message(LOG_INFO, "Circle mode: Display shape forced to rectangular "
                           "via config (inscribe_factor: 1.0)");
-  } else if (strcmp(config->display_shape, "circular") == 0) {
+  }
+  else if (strcmp(config->display_shape, "circular") == 0)
+  {
     // Force circular (inscribe_factor = M_SQRT1_2 ≈ 0.7071)
     params->is_circular = 1;
     double cfg_inscribe;
@@ -131,7 +143,9 @@ static void calculate_scaling_params(const struct Config *config,
                 "Circle mode: Display shape forced to circular via config "
                 "(inscribe_factor: %.4f)",
                 params->inscribe_factor);
-  } else if (config->force_display_circular) {
+  }
+  else if (config->force_display_circular)
+  {
     // Legacy developer override (CLI --develop)
     params->is_circular = 1;
     {
@@ -145,10 +159,13 @@ static void calculate_scaling_params(const struct Config *config,
         cfg_inscribe = M_SQRT1_2;
       params->inscribe_factor = cfg_inscribe;
     }
-  } else {
+  }
+  else
+  {
     // Auto-detection based on device database
     params->is_circular = is_circular_by_device;
-    if (params->is_circular) {
+    if (params->is_circular)
+    {
       double cfg_inscribe;
       if (config->display_inscribe_factor == 0.0f)
         cfg_inscribe = M_SQRT1_2;
@@ -158,7 +175,9 @@ static void calculate_scaling_params(const struct Config *config,
       else
         cfg_inscribe = M_SQRT1_2;
       params->inscribe_factor = cfg_inscribe;
-    } else {
+    }
+    else
+    {
       params->inscribe_factor = 1.0;
     }
   }
@@ -191,10 +210,12 @@ static void calculate_scaling_params(const struct Config *config,
 /**
  * @brief Check if sensor should switch based on configured interval
  */
-static void update_sensor_mode(const struct Config *config) {
+static void update_sensor_mode(const struct Config *config)
+{
   time_t current_time = time(NULL);
 
-  if (last_switch_time == 0) {
+  if (last_switch_time == 0)
+  {
     last_switch_time = current_time;
     return;
   }
@@ -204,13 +225,15 @@ static void update_sensor_mode(const struct Config *config) {
                               ? (double)config->circle_switch_interval
                               : 5.0; // Fallback: 5 seconds
 
-  if (difftime(current_time, last_switch_time) >= interval) {
+  if (difftime(current_time, last_switch_time) >= interval)
+  {
     // Toggle sensor
     current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
     last_switch_time = current_time;
 
     // Verbose logging only
-    if (verbose_logging) {
+    if (verbose_logging)
+    {
       log_message(LOG_INFO,
                   "Circle mode: switched to %s display (interval: %.0fs)",
                   current_sensor == SENSOR_CPU ? "CPU" : "GPU", interval);
@@ -222,7 +245,8 @@ static void update_sensor_mode(const struct Config *config) {
  * @brief Get temperature bar color based on thresholds
  */
 static Color get_temperature_bar_color(const struct Config *config, float val,
-                                       SensorMode sensor) {
+                                       SensorMode sensor)
+{
   // Use unified temperature thresholds (same for CPU/GPU)
   (void)sensor; // Unused parameter - keeping for API consistency
 
@@ -239,7 +263,8 @@ static Color get_temperature_bar_color(const struct Config *config, float val,
 /**
  * @brief Get liquid temperature bar color based on thresholds
  */
-static Color get_liquid_bar_color(const struct Config *config, float val) {
+static Color get_liquid_bar_color(const struct Config *config, float val)
+{
   if (val < config->temp_liquid_threshold_1)
     return config->temp_liquid_threshold_1_bar;
   else if (val < config->temp_liquid_threshold_2)
@@ -254,7 +279,8 @@ static Color get_liquid_bar_color(const struct Config *config, float val) {
  * @brief Draw rounded rectangle path
  */
 static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
-                                        int height, double radius) {
+                                        int height, double radius)
+{
   cairo_new_sub_path(cr);
   cairo_arc(cr, x + width - radius, y + radius, radius, -CIRCLE_M_PI_2, 0);
   cairo_arc(cr, x + width - radius, y + height - radius, radius, 0,
@@ -269,7 +295,8 @@ static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
  * @brief Draw degree symbol at calculated position
  */
 static void draw_degree_symbol(cairo_t *cr, double x, double y,
-                               const struct Config *config) {
+                               const struct Config *config)
+{
   if (!cr || !config)
     return;
   cairo_set_font_size(cr, config->font_size_temp / 1.66);
@@ -284,7 +311,8 @@ static void draw_degree_symbol(cairo_t *cr, double x, double y,
  */
 static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                const ScalingParams *params, float temp_value,
-                               float temp_liquid, SensorMode sensor) {
+                               float temp_liquid, SensorMode sensor)
+{
   if (!cr || !config || !params)
     return;
 
@@ -330,12 +358,14 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
   double final_temp_y = temp_y;
 
   // Apply user-defined offsets for CPU/GPU
-  if (sensor == SENSOR_CPU) {
+  if (sensor == SENSOR_CPU)
+  {
     if (config->display_temp_offset_x_cpu != -9999)
       temp_x += config->display_temp_offset_x_cpu;
     if (config->display_temp_offset_y_cpu != -9999)
       final_temp_y += config->display_temp_offset_y_cpu;
-  } else // SENSOR_GPU
+  }
+  else // SENSOR_GPU
   {
     if (config->display_temp_offset_x_gpu != -9999)
       temp_x += config->display_temp_offset_x_gpu;
@@ -375,7 +405,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
   const int fill_width =
       calculate_temp_fill_width(temp_value, effective_bar_width, max_temp);
 
-  if (fill_width > 0) {
+  if (fill_width > 0)
+  {
     Color bar_color = get_temperature_bar_color(config, temp_value, sensor);
     set_cairo_color(cr, &bar_color);
 
@@ -389,7 +420,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
   }
 
   // --- Liquid Bar and Temperature (only for CPU mode) ---
-  if (sensor == SENSOR_CPU) {
+  if (sensor == SENSOR_CPU)
+  {
     const int liquid_bar_y = bar_y + bar_height + bar_gap;
 
     // Liquid bar background
@@ -410,7 +442,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const int liquid_fill_width = calculate_temp_fill_width(
         temp_liquid, effective_bar_width, max_liquid_temp);
 
-    if (liquid_fill_width > 0) {
+    if (liquid_fill_width > 0)
+    {
       Color liquid_bar_color = get_liquid_bar_color(config, temp_liquid);
       set_cairo_color(cr, &liquid_bar_color);
 
@@ -508,16 +541,19 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
  * @brief Create cairo context and surface
  */
 static cairo_t *create_cairo_context(const struct Config *config,
-                                     cairo_surface_t **surface) {
+                                     cairo_surface_t **surface)
+{
   *surface = cairo_image_surface_create(
       CAIRO_FORMAT_ARGB32, config->display_width, config->display_height);
-  if (cairo_surface_status(*surface) != CAIRO_STATUS_SUCCESS) {
+  if (cairo_surface_status(*surface) != CAIRO_STATUS_SUCCESS)
+  {
     log_message(LOG_ERROR, "Failed to create Cairo surface");
     return NULL;
   }
 
   cairo_t *cr = cairo_create(*surface);
-  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+  {
     log_message(LOG_ERROR, "Failed to create Cairo context");
     cairo_surface_destroy(*surface);
     return NULL;
@@ -531,7 +567,8 @@ static cairo_t *create_cairo_context(const struct Config *config,
  */
 static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
-                                   const ScalingParams *params) {
+                                   const ScalingParams *params)
+{
   if (!cr || !config || !data || !params)
     return;
 
@@ -554,8 +591,10 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
  */
 int render_circle_display(const struct Config *config,
                           const monitor_sensor_data_t *data,
-                          const char *device_name) {
-  if (!config || !data) {
+                          const char *device_name)
+{
+  if (!config || !data)
+  {
     log_message(LOG_ERROR, "Invalid parameters for circle mode rendering");
     return 0;
   }
@@ -564,7 +603,8 @@ int render_circle_display(const struct Config *config,
   calculate_scaling_params(config, &params, device_name);
 
   // Verbose logging only
-  if (verbose_logging) {
+  if (verbose_logging)
+  {
     log_message(LOG_INFO, "Circle mode: rendering %s (%.1f°C)",
                 current_sensor == SENSOR_CPU ? "CPU" : "GPU",
                 current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
@@ -583,7 +623,8 @@ int render_circle_display(const struct Config *config,
   cairo_destroy(cr);
   cairo_surface_destroy(surface);
 
-  if (write_status != CAIRO_STATUS_SUCCESS) {
+  if (write_status != CAIRO_STATUS_SUCCESS)
+  {
     log_message(LOG_ERROR, "Failed to write PNG: %s",
                 cairo_status_to_string(write_status));
     return 0;
@@ -596,19 +637,22 @@ int render_circle_display(const struct Config *config,
 
   if (!get_liquidctl_data(config, device_uid, sizeof(device_uid),
                           device_name_buf, sizeof(device_name_buf),
-                          &screen_width, &screen_height)) {
+                          &screen_width, &screen_height))
+  {
     log_message(LOG_ERROR, "Failed to get device information");
     return 0;
   }
 
   // Upload to LCD
-  if (!send_image_to_lcd(config, config->paths_image_coolerdash, device_uid)) {
+  if (!send_image_to_lcd(config, config->paths_image_coolerdash, device_uid))
+  {
     log_message(LOG_ERROR, "Failed to upload circle mode image to LCD");
     return 0;
   }
 
   // Verbose logging only
-  if (verbose_logging) {
+  if (verbose_logging)
+  {
     log_message(LOG_STATUS, "Circle mode: %s display updated (%.1f°C)",
                 current_sensor == SENSOR_CPU ? "CPU" : "GPU",
                 current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
@@ -620,8 +664,10 @@ int render_circle_display(const struct Config *config,
 /**
  * @brief High-level entry point for circle mode rendering
  */
-void draw_circle_image(const struct Config *config) {
-  if (!config) {
+void draw_circle_image(const struct Config *config)
+{
+  if (!config)
+  {
     log_message(LOG_ERROR, "Invalid config for circle mode");
     return;
   }
@@ -632,14 +678,16 @@ void draw_circle_image(const struct Config *config) {
   int screen_width = 0, screen_height = 0;
 
   if (!get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
-                          sizeof(device_name), &screen_width, &screen_height)) {
+                          sizeof(device_name), &screen_width, &screen_height))
+  {
     log_message(LOG_ERROR, "Circle mode: Failed to get device data");
     return;
   }
 
   // Get temperature data
   monitor_sensor_data_t data = {0};
-  if (!get_temperature_monitor_data(config, &data)) {
+  if (!get_temperature_monitor_data(config, &data))
+  {
     log_message(LOG_WARNING, "Circle mode: Failed to get temperature data");
     return;
   }

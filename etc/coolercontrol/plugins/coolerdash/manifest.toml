@@ -8,3 +8,4 @@ privileged = true
 url = "https://github.com/damachine/coolerdash"
 author = "damachine"
 license = "MIT"
+ui_page = "index.html"

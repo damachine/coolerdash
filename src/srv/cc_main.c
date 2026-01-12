@@ -25,7 +25,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 #include "cc_conf.h"
 #include "cc_main.h"
 
@@ -33,14 +33,17 @@
  * @brief Initialize HTTP response buffer with specified capacity.
  * @details Allocates memory for HTTP response data with proper initialization.
  */
-int cc_init_response_buffer(http_response *response, size_t initial_capacity) {
+int cc_init_response_buffer(http_response *response, size_t initial_capacity)
+{
   if (!response || initial_capacity == 0 ||
-      initial_capacity > CC_MAX_SAFE_ALLOC_SIZE) {
+      initial_capacity > CC_MAX_SAFE_ALLOC_SIZE)
+  {
     return 0;
   }
 
   response->data = malloc(initial_capacity);
-  if (!response->data) {
+  if (!response->data)
+  {
     response->size = 0;
     response->capacity = 0;
     return 0;
@@ -56,12 +59,15 @@ int cc_init_response_buffer(http_response *response, size_t initial_capacity) {
  * @brief Cleanup HTTP response buffer and free memory.
  * @details Properly frees allocated memory and resets buffer state.
  */
-void cc_cleanup_response_buffer(http_response *response) {
-  if (!response) {
+void cc_cleanup_response_buffer(http_response *response)
+{
+  if (!response)
+  {
     return;
   }
 
-  if (response->data) {
+  if (response->data)
+  {
     free(response->data);
     response->data = NULL;
   }
@@ -74,7 +80,8 @@ void cc_cleanup_response_buffer(http_response *response) {
  * @details Contains the CURL handle, cookie jar path, and session
  * initialization status.
  */
-typedef struct {
+typedef struct
+{
   CURL *curl_handle;
   char cookie_jar[CC_COOKIE_SIZE];
   int session_initialized;
@@ -93,13 +100,15 @@ static CoolerControlSession cc_session = {
  * @details Grows buffer capacity using exponential growth strategy.
  */
 static int reallocate_response_buffer(http_response *response,
-                                      size_t required_size) {
+                                      size_t required_size)
+{
   const size_t new_capacity = (required_size > response->capacity * 3 / 2)
                                   ? required_size
                                   : response->capacity * 3 / 2;
 
   char *ptr = realloc(response->data, new_capacity);
-  if (!ptr) {
+  if (!ptr)
+  {
     log_message(LOG_ERROR,
                 "Memory allocation failed for response data: %zu bytes",
                 new_capacity);
@@ -121,16 +130,19 @@ static int reallocate_response_buffer(http_response *response,
  * dynamically allocated buffer with automatic reallocation when needed.
  */
 size_t write_callback(const void *contents, size_t size, size_t nmemb,
-                      http_response *response) {
+                      http_response *response)
+{
   const size_t realsize = size * nmemb;
   const size_t new_size = response->size + realsize + 1;
 
-  if (new_size > response->capacity) {
+  if (new_size > response->capacity)
+  {
     if (!reallocate_response_buffer(response, new_size))
       return 0;
   }
 
-  if (realsize > 0) {
+  if (realsize > 0)
+  {
     memmove(response->data + response->size, contents, realsize);
     response->size += realsize;
     response->data[response->size] = '\0';
@@ -143,8 +155,10 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb,
  * @brief Validate snprintf result for buffer overflow.
  * @details Checks if snprintf truncated output.
  */
-static int validate_snprintf(int written, size_t buffer_size, char *buffer) {
-  if (written < 0 || (size_t)written >= buffer_size) {
+static int validate_snprintf(int written, size_t buffer_size, char *buffer)
+{
+  if (written < 0 || (size_t)written >= buffer_size)
+  {
     buffer[buffer_size - 1] = '\0';
     return 0;
   }
@@ -157,7 +171,8 @@ static int validate_snprintf(int written, size_t buffer_size, char *buffer) {
  */
 static int build_login_credentials(const Config *config, char *login_url,
                                    size_t url_size, char *userpwd,
-                                   size_t pwd_size) {
+                                   size_t pwd_size)
+{
   int written_url =
       snprintf(login_url, url_size, "%s/login", config->daemon_address);
   if (!validate_snprintf(written_url, url_size, login_url))
@@ -177,7 +192,8 @@ static int build_login_credentials(const Config *config, char *login_url,
  */
 static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
                                                const char *login_url,
-                                               const char *userpwd) {
+                                               const char *userpwd)
+{
   curl_easy_setopt(curl, CURLOPT_URL, login_url);
   curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
   curl_easy_setopt(curl, CURLOPT_USERPWD, userpwd);
@@ -193,7 +209,8 @@ static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
   // Enable SSL verification for HTTPS
-  if (strncmp(config->daemon_address, "https://", 8) == 0) {
+  if (strncmp(config->daemon_address, "https://", 8) == 0)
+  {
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
   }
@@ -205,7 +222,8 @@ static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
  * @brief Check login response status.
  * @details Validates CURL result and HTTP response code.
  */
-static int is_login_successful(CURLcode res, long response_code) {
+static int is_login_successful(CURLcode res, long response_code)
+{
   return (res == CURLE_OK && (response_code == 200 || response_code == 204));
 }
 
@@ -215,7 +233,8 @@ static int is_login_successful(CURLcode res, long response_code) {
  * cookie jar, constructs the login URL and credentials, and performs a login to
  * the CoolerControl API.
  */
-int init_coolercontrol_session(const Config *config) {
+int init_coolercontrol_session(const Config *config)
+{
   curl_global_init(CURL_GLOBAL_DEFAULT);
   cc_session.curl_handle = curl_easy_init();
   if (!cc_session.curl_handle)
@@ -225,7 +244,8 @@ int init_coolercontrol_session(const Config *config) {
       snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar),
                "/tmp/coolerdash_cookie_%d.txt", getpid());
   if (written_cookie < 0 ||
-      (size_t)written_cookie >= sizeof(cc_session.cookie_jar)) {
+      (size_t)written_cookie >= sizeof(cc_session.cookie_jar))
+  {
     cc_session.cookie_jar[sizeof(cc_session.cookie_jar) - 1] = '\0';
   }
 
@@ -253,7 +273,8 @@ int init_coolercontrol_session(const Config *config) {
   if (headers)
     curl_slist_free_all(headers);
 
-  if (is_login_successful(res, response_code)) {
+  if (is_login_successful(res, response_code))
+  {
     cc_session.session_initialized = 1;
     return 1;
   }
@@ -275,7 +296,8 @@ int is_session_initialized(void) { return cc_session.session_initialized; }
  * @details This function performs cleanup of the CURL handle, removes the
  * cookie jar file, and marks the session as uninitialized.
  */
-void cleanup_coolercontrol_session(void) {
+void cleanup_coolercontrol_session(void)
+{
   static int cleanup_done = 0;
   if (cleanup_done)
     return;
@@ -283,7 +305,8 @@ void cleanup_coolercontrol_session(void) {
   int all_cleaned = 1;
 
   // Clean up CURL handle
-  if (cc_session.curl_handle) {
+  if (cc_session.curl_handle)
+  {
     curl_easy_cleanup(cc_session.curl_handle);
     cc_session.curl_handle = NULL;
   }
@@ -292,7 +315,8 @@ void cleanup_coolercontrol_session(void) {
   curl_global_cleanup();
 
   // Remove cookie jar file
-  if (unlink(cc_session.cookie_jar) != 0) {
+  if (unlink(cc_session.cookie_jar) != 0)
+  {
     all_cleaned = 0;
   }
 
@@ -300,7 +324,8 @@ void cleanup_coolercontrol_session(void) {
   cc_session.session_initialized = 0;
 
   // Set cleanup flag only if all operations succeeded
-  if (all_cleaned) {
+  if (all_cleaned)
+  {
     cleanup_done = 1;
   }
 }
@@ -310,22 +335,26 @@ void cleanup_coolercontrol_session(void) {
  * @details Helper function to add a named string field to curl_mime form.
  */
 static int add_mime_field(curl_mime *form, const char *field_name,
-                          const char *field_value) {
+                          const char *field_value)
+{
   curl_mimepart *field = curl_mime_addpart(form);
-  if (!field) {
+  if (!field)
+  {
     log_message(LOG_ERROR, "Failed to create %s field", field_name);
     return 0;
   }
 
   CURLcode result = curl_mime_name(field, field_name);
-  if (result != CURLE_OK) {
+  if (result != CURLE_OK)
+  {
     log_message(LOG_ERROR, "Failed to set %s field name: %s", field_name,
                 curl_easy_strerror(result));
     return 0;
   }
 
   result = curl_mime_data(field, field_value, CURL_ZERO_TERMINATED);
-  if (result != CURLE_OK) {
+  if (result != CURLE_OK)
+  {
     log_message(LOG_ERROR, "Failed to set %s field data: %s", field_name,
                 curl_easy_strerror(result));
     return 0;
@@ -338,24 +367,29 @@ static int add_mime_field(curl_mime *form, const char *field_name,
  * @brief Add image file to multipart form with error checking.
  * @details Adds the image file field with proper MIME type and validation.
  */
-static int add_image_file_field(curl_mime *form, const char *image_path) {
+static int add_image_file_field(curl_mime *form, const char *image_path)
+{
   curl_mimepart *field = curl_mime_addpart(form);
-  if (!field) {
+  if (!field)
+  {
     log_message(LOG_ERROR, "Failed to create image field");
     return 0;
   }
 
   CURLcode result = curl_mime_name(field, "images[]");
-  if (result != CURLE_OK) {
+  if (result != CURLE_OK)
+  {
     log_message(LOG_ERROR, "Failed to set image field name: %s",
                 curl_easy_strerror(result));
     return 0;
   }
 
   result = curl_mime_filedata(field, image_path);
-  if (result != CURLE_OK) {
+  if (result != CURLE_OK)
+  {
     struct stat file_stat;
-    if (stat(image_path, &file_stat) == 0) {
+    if (stat(image_path, &file_stat) == 0)
+    {
       log_message(LOG_ERROR, "Failed to set image file data: %s",
                   curl_easy_strerror(result));
     }
@@ -363,7 +397,8 @@ static int add_image_file_field(curl_mime *form, const char *image_path) {
   }
 
   result = curl_mime_type(field, "image/png");
-  if (result != CURLE_OK) {
+  if (result != CURLE_OK)
+  {
     log_message(LOG_ERROR, "Failed to set image MIME type: %s",
                 curl_easy_strerror(result));
     return 0;
@@ -378,15 +413,18 @@ static int add_image_file_field(curl_mime *form, const char *image_path) {
  * orientation and image fields.
  */
 static curl_mime *build_lcd_upload_form(const Config *config,
-                                        const char *image_path) {
+                                        const char *image_path)
+{
   curl_mime *form = curl_mime_init(cc_session.curl_handle);
-  if (!form) {
+  if (!form)
+  {
     log_message(LOG_ERROR, "Failed to initialize multipart form");
     return NULL;
   }
 
   // Add mode field
-  if (!add_mime_field(form, "mode", "image")) {
+  if (!add_mime_field(form, "mode", "image"))
+  {
     curl_mime_free(form);
     return NULL;
   }
@@ -395,7 +433,8 @@ static curl_mime *build_lcd_upload_form(const Config *config,
   char brightness_str[8];
   snprintf(brightness_str, sizeof(brightness_str), "%d",
            config->lcd_brightness);
-  if (!add_mime_field(form, "brightness", brightness_str)) {
+  if (!add_mime_field(form, "brightness", brightness_str))
+  {
     curl_mime_free(form);
     return NULL;
   }
@@ -404,13 +443,15 @@ static curl_mime *build_lcd_upload_form(const Config *config,
   char orientation_str[8];
   snprintf(orientation_str, sizeof(orientation_str), "%d",
            config->lcd_orientation);
-  if (!add_mime_field(form, "orientation", orientation_str)) {
+  if (!add_mime_field(form, "orientation", orientation_str))
+  {
     curl_mime_free(form);
     return NULL;
   }
 
   // Add image file
-  if (!add_image_file_field(form, image_path)) {
+  if (!add_image_file_field(form, image_path))
+  {
     curl_mime_free(form);
     return NULL;
   }
@@ -425,13 +466,15 @@ static curl_mime *build_lcd_upload_form(const Config *config,
 static struct curl_slist *configure_lcd_upload_curl(const Config *config,
                                                     const char *upload_url,
                                                     curl_mime *form,
-                                                    http_response *response) {
+                                                    http_response *response)
+{
   curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
   curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
   curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
 
   // Enable SSL verification for HTTPS
-  if (strncmp(config->daemon_address, "https://", 8) == 0) {
+  if (strncmp(config->daemon_address, "https://", 8) == 0)
+  {
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
   }
@@ -455,7 +498,8 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
  * @brief Cleanup CURL options after LCD upload.
  * @details Resets all CURL options set during the upload request.
  */
-static void cleanup_lcd_upload_curl(void) {
+static void cleanup_lcd_upload_curl(void)
+{
   curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
   curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
   curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
@@ -468,9 +512,11 @@ static void cleanup_lcd_upload_curl(void) {
  * @details Checks all required parameters for LCD upload.
  */
 static int validate_upload_params(const char *image_path,
-                                  const char *device_uid) {
+                                  const char *device_uid)
+{
   if (!cc_session.curl_handle || !image_path || !device_uid ||
-      !cc_session.session_initialized) {
+      !cc_session.session_initialized)
+  {
     log_message(LOG_ERROR, "Invalid parameters or session not initialized");
     return 0;
   }
@@ -482,13 +528,15 @@ static int validate_upload_params(const char *image_path,
  * @details Validates CURL result and HTTP response code for LCD upload.
  */
 static int check_upload_response(CURLcode res, long http_response_code,
-                                 const http_response *response) {
+                                 const http_response *response)
+{
   if (res == CURLE_OK && http_response_code == 200)
     return 1;
 
   log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res,
               http_response_code);
-  if (response->data && response->size > 0) {
+  if (response->data && response->size > 0)
+  {
     response->data[response->size] = '\0';
     log_message(LOG_ERROR, "Server response: %s", response->data);
   }
@@ -501,7 +549,8 @@ static int check_upload_response(CURLcode res, long http_response_code,
  * HTTP PUT request.
  */
 int send_image_to_lcd(const Config *config, const char *image_path,
-                      const char *device_uid) {
+                      const char *device_uid)
+{
   if (!validate_upload_params(image_path, device_uid))
     return 0;
 
@@ -515,7 +564,8 @@ int send_image_to_lcd(const Config *config, const char *image_path,
     return 0;
 
   http_response response = {0};
-  if (!cc_init_response_buffer(&response, 4096)) {
+  if (!cc_init_response_buffer(&response, 4096))
+  {
     log_message(LOG_ERROR, "Failed to initialize response buffer");
     curl_mime_free(form);
     return 0;

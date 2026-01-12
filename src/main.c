@@ -35,8 +35,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "device/sys.h"
-#include "device/usr.h"
+#include "device/config.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -476,7 +475,7 @@ static void show_help(const char *program_name)
       "  dual              Default mode - shows CPU and GPU simultaneously\n");
   printf("  circle            Alternating mode - switches between CPU/GPU "
          "every 2.5 seconds\n");
-  printf("                    Configure via config.ini [display] "
+  printf("                    Configure via config.json [display] "
          "mode=dual|circle or CLI flags\n\n");
   printf("EXAMPLES:\n");
   printf("  sudo systemctl restart coolercontrold     # Restart CoolerControl "
@@ -490,14 +489,15 @@ static void show_help(const char *program_name)
   printf("  %s --dual --verbose               # Force dual mode with detailed "
          "logging\n",
          program_name);
-  printf("  %s /custom/config.ini             # Start with custom "
+  printf("  %s /custom/config.json            # Start with custom "
          "configuration\n\n",
          program_name);
   printf("FILES:\n");
   printf("  /etc/coolercontrol/plugins/coolerdash/    # Installation directory\n");
   printf("  /etc/coolercontrol/plugins/coolerdash/coolerdash # Main executable\n");
-  printf("  /etc/coolercontrol/plugins/coolerdash/config.ini # Configuration "
+  printf("  /etc/coolercontrol/plugins/coolerdash/config.json # Configuration "
          "file\n");
+  printf("  /etc/coolercontrol/plugins/coolerdash/index.html # Web UI settings\n");
   printf("  /etc/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
   printf("  /tmp/coolerdash.pid                       # PID file "
          "(auto-managed)\n");
@@ -792,7 +792,7 @@ static int run_daemon(const Config *config)
 static const char *parse_arguments(int argc, char **argv,
                                    char *display_mode_override)
 {
-  const char *config_path = "/etc/coolercontrol/plugins/coolerdash/config.ini";
+  const char *config_path = "/etc/coolercontrol/plugins/coolerdash/config.json";
   display_mode_override[0] = '\0'; // Initialize as empty
 
   for (int i = 1; i < argc; i++)
@@ -858,33 +858,22 @@ static void verify_plugin_dir_permissions(const char *plugin_dir)
 }
 
 /**
- * @brief Initialize configuration and instance management.
- * @details Loads config using new three-stage approach:
- *          1. Initialize system defaults (always available)
- *          2. Load user config if present (overrides defaults)
- *          3. Apply system defaults to any missing fields
+ * @brief Initialize configuration from plugin config.json
+ * @details Loads config using unified plugin.c system:
+ *          1. Initialize defaults (hardcoded)
+ *          2. Try to load config.json (overrides defaults)
+ *          3. Apply remaining defaults for missing fields
  */
 static int initialize_config_and_instance(const char *config_path,
                                           Config *config)
 {
-  // Stage 1: Initialize system defaults
-  init_system_defaults(config);
+  // Load configuration from config.json (or defaults if not found)
+  int json_loaded = load_plugin_config(config, config_path);
 
-  // Stage 2: Load user configuration (if file exists)
-  int user_config_result = load_user_config(config_path, config);
-  if (user_config_result < 0)
+  if (!json_loaded)
   {
-    log_message(LOG_ERROR, "Failed to parse configuration file: %s",
-                config_path);
-    fprintf(stderr, "Error: Could not parse config file '%s'\n", config_path);
-    fprintf(stderr, "Please check:\n");
-    fprintf(stderr, "  - File has correct INI format\n");
-    fprintf(stderr, "  - All sections and keys are valid\n");
-    return -1;
+    log_message(LOG_INFO, "Using hardcoded defaults (no config.json found)");
   }
-
-  // Stage 3: Apply system defaults to any fields not set by user config
-  apply_system_defaults(config);
 
   /* Apply CLI overrides (developer/testing) */
   if (force_display_circular)
