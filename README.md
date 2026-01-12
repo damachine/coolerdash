@@ -97,10 +97,15 @@ sudo systemctl restart coolercontrold
 systemctl enable --now coolercontrold.service
 ```
 
-**CoolerDash Configuration (optional):**  
+**CoolerDash Configuration (optional):**
+
+> [!NOTE]
+> The web interface is still under development and is not currently functional.
+> Please edit it as follows for the time being:
+
 Edit `/etc/coolercontrol/plugins/coolerdash/config.ini` and adjust settings as needed.
 
-Then restart: `systemctl restart coolercontrold.service` to apply the changes.
+Then restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
 
 **Display Modes:**
 - **Dual (default):** CPU + GPU simultaneously (all displays)
