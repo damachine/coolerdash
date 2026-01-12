@@ -406,7 +406,7 @@ static void load_daemon_from_json(json_t *root, Config *config)
     if (address && json_is_string(address))
     {
         const char *addr = json_string_value(address);
-        if (addr && strlen(addr) > 0)
+        if (addr && addr[0] != '\0')
         {
             SAFE_STRCPY(config->daemon_address, addr);
         }
