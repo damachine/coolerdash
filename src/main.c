@@ -577,14 +577,12 @@ static void show_system_diagnostics(const Config *config, int api_width,
 }
 
 /**
- * @brief Validate configuration for shutdown image.
- * @details Checks if configuration is valid. Configuration may be available
- * even if session is not initialized. Triggered by cc-plugin-coolerdash.service
- * SIGTERM during shutdown. We only need config, not session state.
+ * @brief Validate session and configuration for shutdown image.
+ * @details Checks if session is initialized and configuration is valid.
  */
 static int validate_shutdown_conditions(void)
 {
-  if (!g_config_ptr)
+  if (!is_session_initialized() || !g_config_ptr)
   {
     return 0;
   }
@@ -594,27 +592,15 @@ static int validate_shutdown_conditions(void)
 /**
  * @brief Get device UID for shutdown operation.
  * @details Retrieves device UID from liquidctl data.
- * Called when cc-plugin-coolerdash.service sends SIGTERM during shutdown.
- * Tries primary method, then returns success even if UID is not available
- * (API might use device discovery).
  */
 static int get_device_uid_for_shutdown(char *device_uid, size_t uid_size)
 {
-  if (!device_uid || uid_size == 0)
+  if (!get_liquidctl_data(g_config_ptr, device_uid, uid_size, NULL, 0, NULL,
+                          NULL) ||
+      !device_uid[0])
   {
     return 0;
   }
-
-  // Try primary method: get from liquidctl data
-  if (get_liquidctl_data(g_config_ptr, device_uid, uid_size, NULL, 0, NULL,
-                         NULL) &&
-      device_uid[0])
-  {
-    return 1;
-  }
-
-  // If retrieval fails, continue anyway
-  // The shutdown image can still be sent (device discovery might work)
   return 1;
 }
 
@@ -625,6 +611,10 @@ static int get_device_uid_for_shutdown(char *device_uid, size_t uid_size)
 static void handle_missing_shutdown_image(const char *shutdown_image_path,
                                           const char *device_uid)
 {
+  log_message(LOG_WARNING,
+              "Shutdown image '%s' not found, turning off LCD display",
+              shutdown_image_path);
+
   Config temp_config = *g_config_ptr;
   temp_config.lcd_brightness = 0;
 
@@ -638,9 +628,8 @@ static void handle_missing_shutdown_image(const char *shutdown_image_path,
 /**
  * @brief Send shutdown image if needed or turn off LCD if image is missing.
  * @details Checks if shutdown image should be sent to LCD device and performs
- * the transmission if conditions are met. Called when cc-plugin-coolerdash.service
- * sends SIGTERM. If shutdown image is missing or UID unavailable, tries fallback
- * to coolerdash image or turns off LCD.
+ * the transmission if conditions are met. If shutdown image is missing, sets
+ * LCD brightness to 0 to turn off the display.
  */
 static void send_shutdown_image_if_needed(void)
 {
@@ -649,37 +638,39 @@ static void send_shutdown_image_if_needed(void)
     return;
   }
 
-  char device_uid[128] = {0};
-  get_device_uid_for_shutdown(device_uid, sizeof(device_uid));
-
-  // Try primary shutdown image first
-  const char *shutdown_image_path = g_config_ptr->paths_image_shutdown;
-  if (shutdown_image_path && shutdown_image_path[0])
+  char device_uid[128];
+  if (!get_device_uid_for_shutdown(device_uid, sizeof(device_uid)))
   {
-    FILE *image_file = fopen(shutdown_image_path, "r");
-    if (image_file)
-    {
-      fclose(image_file);
-      send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
-      return;
-    }
+    return;
   }
 
-  // Fallback: turn off LCD or send default image
-  handle_missing_shutdown_image(shutdown_image_path, device_uid);
+  const char *shutdown_image_path = g_config_ptr->paths_image_shutdown;
+  if (!shutdown_image_path || !shutdown_image_path[0])
+  {
+    return;
+  }
+
+  FILE *image_file = fopen(shutdown_image_path, "r");
+  if (image_file)
+  {
+    fclose(image_file);
+    send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
+  }
+  else
+  {
+    handle_missing_shutdown_image(shutdown_image_path, device_uid);
+  }
 }
 
 /**
  * @brief Enhanced signal handler with atomic operations and secure shutdown.
  * @details Signal-safe implementation using only async-signal-safe functions.
- * When running as CoolerControl plugin, cc-plugin-coolerdash.service sends
- * SIGTERM to gracefully shutdown and trigger the shutdown image sequence.
  */
 static void handle_shutdown_signal(int signum)
 {
   // Use only async-signal-safe functions in signal handlers
   static const char term_msg[] =
-      "Received SIGTERM - cc-plugin-coolerdash.service initiated shutdown\n";
+      "Received SIGTERM - initiating graceful shutdown\n";
   static const char int_msg[] =
       "Received SIGINT - initiating graceful shutdown\n";
   static const char unknown_msg[] = "Received signal - initiating shutdown\n";
@@ -725,13 +716,13 @@ static void handle_shutdown_signal(int signum)
   }
 
   // Signal graceful shutdown atomically
-  // perform_cleanup() will handle sending shutdown image to LCD
   running = 0;
 }
 
 /**
  * @brief Setup enhanced signal handlers with comprehensive signal management.
- * @details Installs signal handlers for graceful shutdown and blocks unwanted signals.
+ * @details Installs signal handlers for graceful shutdown and blocks unwanted
+ * signals.
  */
 static void setup_enhanced_signal_handlers(void)
 {
@@ -1053,13 +1044,12 @@ static void initialize_device_info(Config *config)
 
 /**
  * @brief Perform cleanup operations.
- * @details Removes PID and image files, sends shutdown image to LCD via
- * cc-plugin-coolerdash.service shutdown sequence, and closes CoolerControl
- * session. Called when daemon loop exits.
+ * @details Removes PID and image files, sends shutdown image, closes
+ * CoolerControl session.
  */
 static void perform_cleanup(const Config *config)
 {
-  // Send shutdown image to LCD - this happens when SIGTERM is received
+  log_message(LOG_INFO, "Daemon shutdown initiated");
   send_shutdown_image_if_needed();
 
   // Close CoolerControl session and free resources
@@ -1068,48 +1058,55 @@ static void perform_cleanup(const Config *config)
   remove_pid_file(config->paths_pid);
   remove_image_file(config->paths_image_coolerdash);
   running = 0;
+  log_message(LOG_INFO, "CoolerDash shutdown complete");
 }
 
+/**
+ * @brief Enhanced main entry point for CoolerDash with comprehensive error
+ * handling.
+ * @details Loads configuration, ensures single instance, initializes all
+ * modules, and starts the main daemon loop.
+ */
 int main(int argc, char **argv)
+{
+  char display_mode_override[16] = {0};
+  const char *config_path = parse_arguments(argc, argv, display_mode_override);
+
+  log_message(LOG_STATUS, "CoolerDash v%s starting up...",
+              read_version_from_file());
+
+  Config config = {0};
+  log_message(LOG_STATUS, "Loading configuration...");
+
+  if (initialize_config_and_instance(config_path, &config) != 0)
   {
-    char display_mode_override[16] = {0};
-    const char *config_path = parse_arguments(argc, argv, display_mode_override);
-
-    log_message(LOG_STATUS, "CoolerDash v%s starting up...",
-                read_version_from_file());
-
-    Config config = {0};
-    log_message(LOG_STATUS, "Loading configuration...");
-
-    if (initialize_config_and_instance(config_path, &config) != 0)
-    {
-      return EXIT_FAILURE;
-    }
-
-    // Apply CLI display mode override if provided
-    if (display_mode_override[0] != '\0')
-    {
-      cc_safe_strcpy(config.display_mode, sizeof(config.display_mode),
-                     display_mode_override);
-      log_message(LOG_INFO, "Display mode overridden by CLI: %s",
-                  config.display_mode);
-    }
-
-    g_config_ptr = &config;
-    setup_enhanced_signal_handlers();
-
-    log_message(LOG_STATUS, "Initializing CoolerControl session...");
-    if (initialize_coolercontrol_services(&config) != 0)
-    {
-      return EXIT_FAILURE;
-    }
-
-    log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
-    initialize_device_info(&config);
-
-    log_message(LOG_STATUS, "Starting daemon");
-    int result = run_daemon(&config);
-
-    perform_cleanup(&config);
-    return result;
+    return EXIT_FAILURE;
   }
+
+  // Apply CLI display mode override if provided
+  if (display_mode_override[0] != '\0')
+  {
+    cc_safe_strcpy(config.display_mode, sizeof(config.display_mode),
+                   display_mode_override);
+    log_message(LOG_INFO, "Display mode overridden by CLI: %s",
+                config.display_mode);
+  }
+
+  g_config_ptr = &config;
+  setup_enhanced_signal_handlers();
+
+  log_message(LOG_STATUS, "Initializing CoolerControl session...");
+  if (initialize_coolercontrol_services(&config) != 0)
+  {
+    return EXIT_FAILURE;
+  }
+
+  log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
+  initialize_device_info(&config);
+
+  log_message(LOG_STATUS, "Starting daemon");
+  int result = run_daemon(&config);
+
+  perform_cleanup(&config);
+  return result;
+}
