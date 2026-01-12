@@ -42,11 +42,11 @@ and troubleshooting.
 Display version information and exit.
 .TP
 .B \-\-dual
-Force dual display mode (CPU and GPU simultaneously). Overrides config.ini setting.
+Force dual display mode (CPU and GPU simultaneously). Overrides config.json setting.
 .TP
 .B \-\-circle
 Force circle display mode (alternating CPU/GPU every 2.5 seconds). Overrides
-config.ini setting.
+config.json setting.
 .TP
 .B \-\-force\-display\-circular
 Force circular display layout (inscribe factor = 0.7071). Overrides automatic
@@ -55,7 +55,7 @@ parameter.
 .SH CONFIGURATION
 .B coolerdash
 is configured through
-.IR /etc/coolercontrol/plugins/coolerdash/config.ini .
+.IR /etc/coolercontrol/plugins/coolerdash/config.json .
 After modifying the configuration file, restart the CoolerControl service:
 .PP
 .RS
@@ -96,13 +96,14 @@ circular high-resolution displays (>240x240px) where larger text and graphics
 provide better visibility.
 .PP
 To enable circle mode, edit
-.I /etc/coolercontrol/plugins/coolerdash/config.ini
+.I /etc/coolercontrol/plugins/coolerdash/config.json
 and set:
 .PP
 .RS
 .nf
-[display]
-mode = circle
+"display": {
+  "mode": "circle"
+}
 .fi
 .RE
 .PP

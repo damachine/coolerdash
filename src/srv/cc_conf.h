@@ -55,9 +55,9 @@ int init_device_cache(const struct Config *config);
 
 /**
  * @brief Update config with device screen dimensions (only if not set in
- * config.ini).
+ * config.json).
  * @details Reads screen dimensions from device cache and updates config ONLY if
- * config.ini values are commented out (= 0).
+ * config.json values are not set (= 0).
  */
 int update_config_from_device(struct Config *config);
 

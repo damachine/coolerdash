@@ -470,14 +470,14 @@ static int update_dimension(uint16_t *config_dim, int device_dim,
     {
         *config_dim = (uint16_t)device_dim;
         log_message(LOG_INFO,
-                    "Display %s set from device: %d (config.ini was commented out)",
+                    "Display %s set from device: %d (config.json not set)",
                     dim_name, *config_dim);
         return 1;
     }
 
     if (original_value != (uint16_t)device_dim)
     {
-        log_message(LOG_INFO, "Display %s from config.ini: %d (device reports %d)",
+        log_message(LOG_INFO, "Display %s from config.json: %d (device reports %d)",
                     dim_name, *config_dim, device_dim);
     }
     else
