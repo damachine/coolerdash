@@ -3,7 +3,7 @@
 
   "daemon": {
     "address": "http://localhost:11987",
-    "password": ""
+    "password": "coolAdmin"
   },
 
   "paths": {
