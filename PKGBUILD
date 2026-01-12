@@ -46,16 +46,16 @@ build() {
     cp -a etc/coolerdash/config.ini "${srcdir}/"
     cp -a images/shutdown.png "${srcdir}/images/"
     cp -a man/coolerdash.1 "${srcdir}/"
-    mkdir -p "$srcdir/plugins/coolercontrol"
-    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "$srcdir/plugins/coolercontrol/manifest.toml"
-    cp -a etc/coolercontrol/plugins/coolerdash/ui.html "$srcdir/plugins/coolercontrol/ui.html"
-    cp -a etc/coolerdash-settings.desktop "$srcdir/coolerdash-settings.desktop"
-    cp -a etc/icons/coolerdash.svg "$srcdir/coolerdash.svg"
+    mkdir -p "${srcdir}/plugins/coolercontrol"
+    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/plugins/coolercontrol/manifest.toml"
+    cp -a etc/coolercontrol/plugins/coolerdash/ui.html "${srcdir}/plugins/coolercontrol/ui.html"
+    cp -a etc/coolerdash-settings.desktop "${srcdir}/coolerdash-settings.desktop"
+    cp -a etc/icons/coolerdash.svg "${srcdir}/coolerdash.svg"
 }
 
 check() {
     # For local build: use current directory directly
-    cd "$startdir"
+    cd "${startdir}"
 
     if [[ -f bin/coolerdash ]]; then
         echo "Build successful - binary created"
@@ -75,11 +75,11 @@ package() {
     install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
     install -Dm644 "${srcdir}/config.ini" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.ini"
     install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
-    install -Dm644 "$srcdir/plugins/coolercontrol/manifest.toml" "$pkgdir/etc/coolercontrol/plugins/coolerdash/manifest.toml"
-    install -Dm644 "$srcdir/plugins/coolercontrol/ui.html" "$pkgdir/etc/coolercontrol/plugins/coolerdash/ui.html"
+    install -Dm644 "${srcdir}/plugins/coolercontrol/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    install -Dm644 "${srcdir}/plugins/coolercontrol/ui.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui.html"
     
     # Substitute VERSION placeholder in manifest.toml
-    sed -i "s/{{VERSION}}/${pkgver}/g" "$pkgdir/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
     
     # Manual page
     install -Dm644 "${srcdir}/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
