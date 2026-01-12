@@ -269,16 +269,16 @@ install: check-deps $(TARGET)
 	fi
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing plugin files to /etc/coolercontrol/plugins/coolerdash/...$(RESET)\n"
-	install -dm775 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
-	install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash"
-	install -Dm644 $(README) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/README.md"
-	install -Dm644 LICENSE "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/LICENSE"
-	install -Dm644 CHANGELOG.md "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
-	install -Dm644 VERSION "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/VERSION"
-	install -Dm644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.ini"
-	install -Dm644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
-	install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
-	install -Dm644 etc/coolercontrol/plugins/coolerdash/ui.html "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui.html"
+	@install -dm775 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
+	@install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash"
+	@install -Dm644 $(README) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/README.md"
+	@install -Dm644 LICENSE "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/LICENSE"
+	@install -Dm644 CHANGELOG.md "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
+	@install -Dm644 VERSION "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/VERSION"
+	@install -Dm644 etc/coolerdash/config.ini "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.ini"
+	@install -Dm644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
+	@install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+	@install -Dm644 etc/coolercontrol/plugins/coolerdash/ui.html "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui.html"
 	@# Substitute VERSION placeholder in manifest.toml during install
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash\n"
@@ -290,19 +290,22 @@ install: check-deps $(TARGET)
 	@printf "$(ICON_INFO) $(CYAN)Note: Plugin binary is available at /etc/coolercontrol/plugins/coolerdash/coolerdash$(RESET)\\n"
 	@printf "\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing documentation...$(RESET)\n"
-	install -Dm644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
+	@install -Dm644 $(MANPAGE) "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
 	@printf "  $(GREEN)Manual:$(RESET)  $(DESTDIR)/usr/share/man/man1/coolerdash.1\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing desktop shortcut...$(RESET)\n"
-	install -Dm644 etc/coolerdash-settings.desktop "$(DESTDIR)/usr/share/applications/coolerdash-settings.desktop"
+	@install -Dm644 etc/applications/coolerdash-settings.desktop "$(DESTDIR)/usr/share/applications/coolerdash-settings.desktop"
 	@printf "  $(GREEN)Shortcut:$(RESET) $(DESTDIR)/usr/share/applications/coolerdash-settings.desktop\n"
 	@printf "$(ICON_SERVICE) $(CYAN)Installing icon...$(RESET)\n"
-	install -Dm644 etc/icons/coolerdash.svg "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
+	@install -Dm644 etc/icons/coolerdash.svg "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 	@printf "  $(GREEN)Icon:$(RESET)     $(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg\n"
 	@printf "\n"
 	@printf "$(ICON_SUCCESS) $(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
+	@$(SUDO) systemctl daemon-reload 2>/dev/null || true
+	@$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true
 	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
+	@printf "  $(PURPLE)Restart CoolerControl:$(RESET) systemctl restart coolercontrold.service\n"
 	@printf "  $(PURPLE)Plugin:$(RESET)         CoolerControl will manage coolerdash automatically\n"
 	@printf "  $(PURPLE)Show manual:$(RESET)    man coolerdash\n"
 	@printf "\n"
@@ -325,10 +328,15 @@ uninstall:
 		fi; \
 	fi
 	@printf "$(ICON_INFO) $(CYAN)Removing all files...$(RESET)\n"
-	$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
-	$(SUDO) rm -rf /opt/coolerdash 2>/dev/null || true
-	$(SUDO) rm -rf /etc/coolerdash 2>/dev/null || true	$(SUDO) rm -f /bin/coolerdash 2>/dev/null || true
-	$(SUDO) rm -f /usr/bin/coolerdash 2>/dev/null || true	@printf "  $(RED)✗$(RESET) Plugin: /etc/coolercontrol/plugins/coolerdash\n"
+	@$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
+	@$(SUDO) rm -rf /opt/coolerdash 2>/dev/null || true
+	@$(SUDO) rm -rf /etc/coolerdash 2>/dev/null || true
+	@$(SUDO) rm -f /bin/coolerdash 2>/dev/null || true
+	@$(SUDO) rm -f /usr/bin/coolerdash 2>/dev/null || true
+	@$(SUDO) rm -f /usr/share/man/man1/coolerdash.1 2>/dev/null || true
+	@$(SUDO) rm -f /usr/share/applications/coolerdash-settings.desktop 2>/dev/null || true
+	@$(SUDO) rm -f /usr/share/icons/hicolor/scalable/apps/coolerdash.svg 2>/dev/null || true
+	@printf "  $(RED)✗$(RESET) Plugin: /etc/coolercontrol/plugins/coolerdash\n"
 	@printf "  $(RED)✗$(RESET) Manual: /usr/share/man/man1/coolerdash.1\n"
 	@printf "  $(RED)✗$(RESET) Legacy: /opt/coolerdash/, /etc/coolerdash/\n"
 	@printf "  $(RED)✗$(RESET) Legacy symlinks: /bin/coolerdash, /usr/bin/coolerdash\\n"
@@ -337,8 +345,9 @@ uninstall:
 	@if id -u coolerdash &>/dev/null; then \
         $(SUDO) userdel -rf coolerdash || true; \
     fi
-	$(SUDO) mandb -q 2>/dev/null || true
-	$(SUDO) systemctl daemon-reload 2>/dev/null || true
+	@$(SUDO) mandb -q 2>/dev/null || true
+	@$(SUDO) systemctl daemon-reload 2>/dev/null || true
+	@$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true
 	@printf "\n"
 	@printf "$(ICON_SUCCESS) $(WHITE)═══ COMPLETE REMOVAL SUCCESSFUL ═══$(RESET)\n"
 	@printf "\n"

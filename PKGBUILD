@@ -40,17 +40,16 @@ build() {
     make || return 1
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
-    mkdir -p "${srcdir}/bin" "${srcdir}/images"
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolerdash" "${srcdir}/etc/applications" "${srcdir}/etc/icons" "${srcdir}/etc/coolercontrol/plugins/coolerdash"
     cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
-    cp -a etc/coolerdash/config.ini "${srcdir}/"
+    cp -a etc/coolerdash/config.ini "${srcdir}/etc/coolerdash/"
     cp -a images/shutdown.png "${srcdir}/images/"
-    cp -a man/coolerdash.1 "${srcdir}/"
-    mkdir -p "${srcdir}/plugins/coolercontrol"
-    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/plugins/coolercontrol/manifest.toml"
-    cp -a etc/coolercontrol/plugins/coolerdash/ui.html "${srcdir}/plugins/coolercontrol/ui.html"
-    cp -a etc/coolerdash-settings.desktop "${srcdir}/coolerdash-settings.desktop"
-    cp -a etc/icons/coolerdash.svg "${srcdir}/coolerdash.svg"
+    cp -a man/coolerdash.1 "${srcdir}/man/"
+    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
+    cp -a etc/coolercontrol/plugins/coolerdash/ui.html "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
+    cp -a etc/applications/coolerdash-settings.desktop "${srcdir}/etc/applications/"
+    cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
 }
 
 check() {
@@ -73,20 +72,20 @@ package() {
     install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
     install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/LICENSE"
     install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
-    install -Dm644 "${srcdir}/config.ini" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.ini"
+    install -Dm644 "${srcdir}/etc/coolerdash/config.ini" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.ini"
     install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
-    install -Dm644 "${srcdir}/plugins/coolercontrol/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
-    install -Dm644 "${srcdir}/plugins/coolercontrol/ui.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui.html"
+    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui.html"
     
     # Substitute VERSION placeholder in manifest.toml
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
     
     # Manual page
-    install -Dm644 "${srcdir}/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
+    install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
     
     # Desktop shortcut for settings UI
-    install -Dm644 "${srcdir}/coolerdash-settings.desktop" "${pkgdir}/usr/share/applications/coolerdash-settings.desktop"
+    install -Dm644 "${srcdir}/etc/applications/coolerdash-settings.desktop" "${pkgdir}/usr/share/applications/coolerdash-settings.desktop"
     
     # Application icon
-    install -Dm644 "${srcdir}/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
+    install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 }
