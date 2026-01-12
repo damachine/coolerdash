@@ -8,7 +8,7 @@ pkgrel=1
 provides=('coolerdash-git')
 replaces=('coolerdash-git')
 conflicts=('coolerdash-git')
-pkgdesc="Extends CoolerControl with a polished LCD dashboard"
+pkgdesc="Monitor telemetry data on an AIO liquid cooler with an integrated LCD display"
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
@@ -33,8 +33,10 @@ build() {
     # Remove all previous tarball builds
     rm -rf coolerdash-*.pkg.* || true
 
-    # Clean any previous builds
-    make clean || true
+    # Clean any previous builds if a Makefile exists
+    if [[ -f Makefile || -f GNUmakefile ]]; then
+        make clean || true
+    fi
 
     # Build with Arch Linux specific optimizations and C99 compliance
     make || return 1
@@ -56,6 +58,7 @@ check() {
     # For local build: use current directory directly
     cd "${startdir}"
 
+    # Verify that the binary was created successfully
     if [[ -f bin/coolerdash ]]; then
         echo "Build successful - binary created"
     else
