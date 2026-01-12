@@ -21,7 +21,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 
 // Basic constants
 #define CC_COOKIE_SIZE 512
@@ -41,7 +41,8 @@ struct curl_slist;
  * @details Structure to hold HTTP response data with dynamic memory management
  * for effiziente Datensammlung.
  */
-typedef struct http_response {
+typedef struct http_response
+{
   char *data;
   size_t size;
   size_t capacity;

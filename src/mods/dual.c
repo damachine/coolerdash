@@ -27,7 +27,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
 #include "../srv/cc_sensor.h"
@@ -44,14 +44,16 @@
 /**
  * @brief Convert color component to cairo format (0-255 to 0.0-1.0)
  */
-static inline double cairo_color_convert(uint8_t color_component) {
+static inline double cairo_color_convert(uint8_t color_component)
+{
   return color_component / 255.0;
 }
 
 /**
  * @brief Set cairo color from Color structure
  */
-static inline void set_cairo_color(cairo_t *cr, const Color *color) {
+static inline void set_cairo_color(cairo_t *cr, const Color *color)
+{
   cairo_set_source_rgb(cr, cairo_color_convert(color->r),
                        cairo_color_convert(color->g),
                        cairo_color_convert(color->b));
@@ -64,7 +66,8 @@ static inline void set_cairo_color(cairo_t *cr, const Color *color) {
  * @param max_temp Maximum temperature from configuration (highest threshold)
  */
 static inline int calculate_temp_fill_width(float temp_value, int max_width,
-                                            float max_temp) {
+                                            float max_temp)
+{
   if (temp_value <= 0.0f)
     return 0;
 
@@ -75,7 +78,8 @@ static inline int calculate_temp_fill_width(float temp_value, int max_width,
 /**
  * @brief Dynamic scaling parameters structure
  */
-typedef struct {
+typedef struct
+{
   double scale_x;
   double scale_y;
   double corner_radius;
@@ -91,7 +95,8 @@ typedef struct {
  */
 static void calculate_scaling_params(const struct Config *config,
                                      ScalingParams *params,
-                                     const char *device_name) {
+                                     const char *device_name)
+{
   const double base_width = 240.0;
   const double base_height = 240.0;
 
@@ -104,13 +109,16 @@ static void calculate_scaling_params(const struct Config *config,
       device_name, config->display_width, config->display_height);
 
   // Check display_shape configuration
-  if (strcmp(config->display_shape, "rectangular") == 0) {
+  if (strcmp(config->display_shape, "rectangular") == 0)
+  {
     // Force rectangular (inscribe_factor = 1.0)
     params->is_circular = 0;
     params->inscribe_factor = 1.0;
     log_message(LOG_INFO, "Display shape forced to rectangular via config "
                           "(inscribe_factor: 1.0)");
-  } else if (strcmp(config->display_shape, "circular") == 0) {
+  }
+  else if (strcmp(config->display_shape, "circular") == 0)
+  {
     // Force circular (inscribe_factor = M_SQRT1_2 ≈ 0.7071)
     params->is_circular = 1;
     double cfg_inscribe;
@@ -126,7 +134,9 @@ static void calculate_scaling_params(const struct Config *config,
         LOG_INFO,
         "Display shape forced to circular via config (inscribe_factor: %.4f)",
         params->inscribe_factor);
-  } else if (config->force_display_circular) {
+  }
+  else if (config->force_display_circular)
+  {
     // Legacy developer override (CLI --develop)
     params->is_circular = 1;
     {
@@ -144,10 +154,13 @@ static void calculate_scaling_params(const struct Config *config,
                 "Developer override active: forcing circular display detection "
                 "(device: %s)",
                 device_name ? device_name : "unknown");
-  } else {
+  }
+  else
+  {
     // Auto-detection based on device database
     params->is_circular = is_circular_by_device;
-    if (params->is_circular) {
+    if (params->is_circular)
+    {
       double cfg_inscribe;
       if (config->display_inscribe_factor == 0.0f)
         cfg_inscribe = M_SQRT1_2;
@@ -157,7 +170,9 @@ static void calculate_scaling_params(const struct Config *config,
       else
         cfg_inscribe = M_SQRT1_2;
       params->inscribe_factor = cfg_inscribe;
-    } else {
+    }
+    else
+    {
       params->inscribe_factor = 1.0;
     }
   }
@@ -216,7 +231,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const ScalingParams *params);
 // Helper to draw degree symbol at calculated position with proper font scaling
 static void draw_degree_symbol(cairo_t *cr, double x, double y,
-                               const struct Config *config) {
+                               const struct Config *config)
+{
   if (!cr || !config)
     return;
   cairo_set_font_size(cr, config->font_size_temp / 1.66);
@@ -229,7 +245,8 @@ static void draw_degree_symbol(cairo_t *cr, double x, double y,
  * @brief Draw rounded rectangle path for temperature bars
  */
 static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
-                                        int height, double radius) {
+                                        int height, double radius)
+{
   cairo_new_sub_path(cr);
   cairo_arc(cr, x + width - radius, y + radius, radius, -DISPLAY_M_PI_2, 0);
   cairo_arc(cr, x + width - radius, y + height - radius, radius, 0,
@@ -244,8 +261,10 @@ static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
 /**
  * @brief Calculate color gradient for temperature bars (green → orange → red)
  */
-static Color get_temperature_bar_color(const struct Config *config, float val) {
-  const struct {
+static Color get_temperature_bar_color(const struct Config *config, float val)
+{
+  const struct
+  {
     float threshold;
     Color color;
   } temp_ranges[] = {{config->temp_threshold_1, config->temp_threshold_1_bar},
@@ -253,7 +272,8 @@ static Color get_temperature_bar_color(const struct Config *config, float val) {
                      {config->temp_threshold_3, config->temp_threshold_3_bar},
                      {INFINITY, config->temp_threshold_4_bar}};
 
-  for (size_t i = 0; i < sizeof(temp_ranges) / sizeof(temp_ranges[0]); i++) {
+  for (size_t i = 0; i < sizeof(temp_ranges) / sizeof(temp_ranges[0]); i++)
+  {
     if (val <= temp_ranges[i].threshold)
       return temp_ranges[i].color;
   }
@@ -267,7 +287,8 @@ static Color get_temperature_bar_color(const struct Config *config, float val) {
 static void draw_temperature_displays(cairo_t *cr,
                                       const monitor_sensor_data_t *data,
                                       const struct Config *config,
-                                      const ScalingParams *params) {
+                                      const ScalingParams *params)
+{
   if (!cr || !data || !config || !params)
     return;
 
@@ -316,7 +337,8 @@ static void draw_temperature_displays(cairo_t *cr,
   double gpu_temp_x = bar_x + (effective_bar_width - gpu_width) / 2.0;
 
   // Default offset for small displays (240x240): +20px to the right
-  if (config->display_width == 240 && config->display_height == 240) {
+  if (config->display_width == 240 && config->display_height == 240)
+  {
     cpu_temp_x += 20;
     gpu_temp_x += 20;
   }
@@ -373,7 +395,8 @@ static void draw_single_temperature_bar(cairo_t *cr,
                                         const struct Config *config,
                                         const ScalingParams *params,
                                         float temp_value, int bar_x, int bar_y,
-                                        int bar_width) {
+                                        int bar_width)
+{
   if (!cr || !config || !params)
     return;
 
@@ -389,7 +412,8 @@ static void draw_single_temperature_bar(cairo_t *cr,
   cairo_fill(cr);
 
   // Fill
-  if (fill_width > 0) {
+  if (fill_width > 0)
+  {
     Color fill_color = get_temperature_bar_color(config, temp_value);
     set_cairo_color(cr, &fill_color);
 
@@ -417,7 +441,8 @@ static void draw_single_temperature_bar(cairo_t *cr,
 static void draw_temperature_bars(cairo_t *cr,
                                   const monitor_sensor_data_t *data,
                                   const struct Config *config,
-                                  const ScalingParams *params) {
+                                  const ScalingParams *params)
+{
   if (!cr || !data || !config || !params)
     return;
 
@@ -444,7 +469,8 @@ static void draw_temperature_bars(cairo_t *cr,
  * @brief Draw CPU/GPU labels (only for displays ≤240×240)
  */
 static void draw_labels(cairo_t *cr, const struct Config *config,
-                        const ScalingParams *params) {
+                        const ScalingParams *params)
+{
   if (!cr || !config || !params)
     return;
 
@@ -467,7 +493,8 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
   double label_x = config->display_width * left_margin_factor;
 
   // Apply user-defined X offset if set
-  if (config->display_label_offset_x != -9999) {
+  if (config->display_label_offset_x != -9999)
+  {
     label_x += config->display_label_offset_x;
   }
 
@@ -489,7 +516,8 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
       gpu_bar_y + config->layout_bar_height + label_spacing + font_ext.ascent;
 
   // Apply user-defined Y offset if set
-  if (config->display_label_offset_y != -9999) {
+  if (config->display_label_offset_y != -9999)
+  {
     cpu_label_y += config->display_label_offset_y;
     gpu_label_y += config->display_label_offset_y;
   }
@@ -505,10 +533,12 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
  * @brief Create cairo context and surface
  */
 static cairo_t *create_cairo_context(const struct Config *config,
-                                     cairo_surface_t **surface) {
+                                     cairo_surface_t **surface)
+{
   *surface = cairo_image_surface_create(
       CAIRO_FORMAT_ARGB32, config->display_width, config->display_height);
-  if (!*surface || cairo_surface_status(*surface) != CAIRO_STATUS_SUCCESS) {
+  if (!*surface || cairo_surface_status(*surface) != CAIRO_STATUS_SUCCESS)
+  {
     log_message(LOG_ERROR, "Failed to create cairo surface");
     if (*surface)
       cairo_surface_destroy(*surface);
@@ -516,7 +546,8 @@ static cairo_t *create_cairo_context(const struct Config *config,
   }
 
   cairo_t *cr = cairo_create(*surface);
-  if (!cr) {
+  if (!cr)
+  {
     log_message(LOG_ERROR, "Failed to create cairo context");
     cairo_surface_destroy(*surface);
     *surface = NULL;
@@ -530,7 +561,8 @@ static cairo_t *create_cairo_context(const struct Config *config,
  */
 static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
-                                   const ScalingParams *params) {
+                                   const ScalingParams *params)
+{
   cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
   cairo_paint(cr);
 
@@ -543,7 +575,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
   draw_temperature_bars(cr, data, config, params);
 
   // Labels only if temp < 99°C
-  if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0) {
+  if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0)
+  {
     cairo_set_font_size(cr, config->font_size_labels);
     set_cairo_color(cr, &config->font_color_label);
     draw_labels(cr, config, params);
@@ -556,8 +589,10 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
  */
 int render_dual_display(const struct Config *config,
                         const monitor_sensor_data_t *data,
-                        const char *device_name) {
-  if (!data || !config) {
+                        const char *device_name)
+{
+  if (!data || !config)
+  {
     log_message(LOG_ERROR, "Invalid parameters for render_display");
     return 0;
   }
@@ -566,12 +601,15 @@ int render_dual_display(const struct Config *config,
   calculate_scaling_params(config, &scaling_params, device_name);
 
   // Log display shape detection
-  if (scaling_params.is_circular) {
+  if (scaling_params.is_circular)
+  {
     log_message(LOG_INFO,
                 "Circular display detected (device: %s, inscribe factor: %.4f)",
                 device_name ? device_name : "unknown",
                 scaling_params.inscribe_factor);
-  } else {
+  }
+  else
+  {
     log_message(
         LOG_INFO,
         "Rectangular display detected (device: %s, inscribe factor: %.4f)",
@@ -586,7 +624,8 @@ int render_dual_display(const struct Config *config,
   render_display_content(cr, config, data, &scaling_params);
 
   cairo_surface_flush(surface);
-  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS) {
+  if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+  {
     log_message(LOG_ERROR, "Cairo drawing error: %s",
                 cairo_status_to_string(cairo_status(cr)));
     cairo_destroy(cr);
@@ -613,15 +652,18 @@ int render_dual_display(const struct Config *config,
  * @details Collects sensor data, renders dual display using
  * render_dual_display(), and sends to LCD device.
  */
-void draw_dual_image(const struct Config *config) {
-  if (!config) {
+void draw_dual_image(const struct Config *config)
+{
+  if (!config)
+  {
     log_message(LOG_ERROR, "Invalid config parameter");
     return;
   }
 
   // Get sensor data
   monitor_sensor_data_t sensor_data = {.temp_cpu = 0.0f, .temp_gpu = 0.0f};
-  if (!get_temperature_monitor_data(config, &sensor_data)) {
+  if (!get_temperature_monitor_data(config, &sensor_data))
+  {
     log_message(LOG_WARNING, "Failed to retrieve temperature data");
     return;
   }
@@ -636,13 +678,15 @@ void draw_dual_image(const struct Config *config) {
                          sizeof(device_name), &screen_width, &screen_height);
 
   // Render dual display with device name for circular display detection
-  if (!render_dual_display(config, &sensor_data, device_name)) {
+  if (!render_dual_display(config, &sensor_data, device_name))
+  {
     log_message(LOG_ERROR, "Dual display rendering failed");
     return;
   }
 
   // Send to LCD if available
-  if (is_session_initialized() && device_available && device_uid[0] != '\0') {
+  if (is_session_initialized() && device_available && device_uid[0] != '\0')
+  {
     const char *name =
         (device_name[0] != '\0') ? device_name : "Unknown Device";
     log_message(LOG_INFO, "Sending dual image to LCD: %s [%s]", name,
@@ -652,7 +696,9 @@ void draw_dual_image(const struct Config *config) {
     send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
 
     log_message(LOG_INFO, "Dual LCD image uploaded successfully");
-  } else {
+  }
+  else
+  {
     log_message(LOG_WARNING, "Skipping dual LCD upload - device not available");
   }
 }

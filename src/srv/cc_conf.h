@@ -21,7 +21,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 
 // Basic constants
 #define CC_NAME_SIZE 128
