@@ -50,9 +50,9 @@ System file and directory locations.
 ### Example Configuration
 ```ini
 [paths]
-images=/opt/coolerdash/images
-image_coolerdash=/tmp/coolerdash.png
-image_shutdown=/opt/coolerdash/images/shutdown.png
+images=/etc/coolercontrol/plugins/coolerdash
+image_coolerdash=/etc/coolercontrol/plugins/coolerdash/coolerdash.png
+image_shutdown=/etc/coolercontrol/plugins/coolerdash/shutdown.png
 pid=/tmp/coolerdash.pid
 ```
 
@@ -521,9 +521,9 @@ address=http://localhost:11987
 password=coolAdmin
 
 [paths]
-images=/opt/coolerdash/images
-image_coolerdash=/tmp/coolerdash.png
-image_shutdown=/opt/coolerdash/images/shutdown.png
+images=/etc/coolercontrol/plugins/coolerdash
+image_coolerdash=/etc/coolercontrol/plugins/coolerdash/coolerdash.png
+image_shutdown=/etc/coolercontrol/plugins/coolerdash/shutdown.png
 pid=/tmp/coolerdash.pid
 
 [display]

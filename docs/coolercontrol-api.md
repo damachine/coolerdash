@@ -1000,7 +1000,7 @@ while (running)
     │   │
     │   ├─→ Cairo rendering
     │   │
-    │   └─→ Write PNG: /tmp/coolerdash.png
+    │   └─→ Write PNG: /etc/coolercontrol/plugins/coolerdash/coolerdash.png
     │
     └─→ send_image_to_lcd(&config, png_path, device_uid)
         │

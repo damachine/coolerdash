@@ -11,8 +11,8 @@
 
 # CoolerDash 🐧
 
-#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.
-
+#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.   
+   
 > Use it successfully myself – maybe it will help you too! ❤️
 
 ---
@@ -36,8 +36,13 @@
 
 ## System Requirements
 
+> [!NOTE]
+> Version 2.0.4+ runs as a CoolerControl plugin. No separate `coolerdash.service` required.
+> The plugin is automatically managed by `coolercontrold.service`.
+> Requires CoolerControl >=3.1.0 with plugin support.
+
 - **OS**: Linux
-- **CoolerControl**: Version >=2.2.2 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
+- **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
@@ -59,9 +64,8 @@
 yay -S coolerdash-git
 #OR any other AUR helper
 
-# STEP 2: Enable/Start CoolerDash sytemd service
-systemctl daemon-reload
-systemctl enable --now coolerdash.service
+# STEP 2: Restart CoolerControl to load the plugin
+sudo systemctl restart coolercontrold
 ```
 
 #### All distributions
@@ -78,9 +82,11 @@ cd coolerdash
 # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
 
-# STEP 3: Enable/Start CoolerDash sytemd service
+# STEP 3: Reload systemd configuration
 systemctl daemon-reload
-systemctl enable --now coolerdash.service
+
+# STEP 4: Restart CoolerControl to load the plugin
+sudo systemctl restart coolercontrold
 ```
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
@@ -89,25 +95,21 @@ systemctl enable --now coolerdash.service
 
 ## Configuration
 
-**Start Service(if not already enabled):**
+**Start CoolerControl Service (if not already enabled):**
 ```bash
-systemctl enable --now coolerdash.service
+systemctl enable --now coolercontrold.service
 ```
 
-**Manual Configuration(optional):**  
-Edit `/etc/coolerdash/config.ini` to your liking. 
-For example, to enable Circle Mode.
-After editing, restart the service to apply changes:
-```bash
-systemctl restart coolerdash.service
-```
+**CoolerDash Configuration (optional):**  
+Edit `/etc/coolercontrol/plugins/coolerdash/config.ini` and adjust settings as needed.
+
+Then restart: `systemctl restart coolercontrold.service` to apply the changes.
 
 **Display Modes:**
 - **Dual (default):** CPU + GPU simultaneously (all displays)
 - **Circle:** Alternates CPU/GPU every 5s (round displays >240x240px)
 
 Enable Circle Mode: Edit config.ini → `[display]` section → `mode=circle`  
-CLI override: `coolerdash --circle` or `coolerdash --dual`
 
 > [!NOTE]
 > See **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** for all options.
@@ -118,23 +120,6 @@ CLI override: `coolerdash --circle` or `coolerdash --dual`
 
 <details>
   <summary>Expand</summary>
-   
-#### Service Management
-
-```bash
-# Service control
-systemctl enable --now coolerdash.service  # Enable and Start!
-systemctl start coolerdash.service         # Start
-systemctl stop coolerdash.service          # Stop
-systemctl restart coolerdash.service       # Restart
-systemctl status coolerdash.service        # Status + recent logs
-
-# Journal log
-journalctl -u coolerdash.service
-
-# Live logs
-journalctl -xeu coolerdash.service -f
-```
 
 #### Build Commands
 
@@ -147,22 +132,6 @@ make debug      # Debug build with AddressSanitizer
 make help       # Show all options
 ```
 
-#### Manual Usage 
-
-```bash
-# Run manually (with minimal status logging)
-coolerdash
-
-# Run with detailed verbose logging
-coolerdash --verbose
-# or short form:
-coolerdash -v
-
-# Force specific display mode
-coolerdash --dual      # Force dual mode (CPU+GPU simultaneously)
-coolerdash --circle    # Force circle mode (alternating CPU/GPU)
-```
-
 #### Debugging Steps
 
 ```bash
@@ -171,27 +140,21 @@ systemctl status coolercontrold
 curl http://localhost:11987/devices
 
 # 2. Test CoolerDash manually (with clean output)
-coolerdash
+/etc/coolercontrol/plugins/coolerdash/coolerdash
 
 # 3. Test CoolerDash with detailed verbose logging
-coolerdash --verbose
+/etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
 # or short form:
-coolerdash -v
+/etc/coolercontrol/plugins/coolerdash/coolerdash -v
 
 # 4. Debug build for detailed information (if needed)
-make debug && coolerdash --verbose
+make debug && /etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
 
-# 5. Check service logs (STATUS messages always visible)
-journalctl -xeu coolerdash.service -f
+# 5. Check plugin logs (STATUS messages always visible)
+journalctl -xeu coolercontrold.service -f
 
 # 6. View recent logs with context
-journalctl -u coolerdash.service -n 50
-```
-
-> The systemd service must be stopped before running manually to avoid conflicts:
-
-```bash
-systemctl stop coolerdash.service
+journalctl -u coolercontrold.service -n 50
 ```
 </details>
 
@@ -207,14 +170,13 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 
 **Solution:**
 ```bash
-sudo systemctl stop coolerdash.service
 sudo make uninstall
 ```
 
-Remove any leftover files:
+Remove any leftover legacy files:
 ```bash
 sudo rm -rf /opt/coolerdash/ \
-            /usr/bin/coolerdash \
+            /etc/coolerdash/ \
             /etc/systemd/system/coolerdash.service
 ```
 

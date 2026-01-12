@@ -1,17 +1,21 @@
+# -----------------------------------------------------------------------------
+# Created by: damachine (damachine3 at proton dot me)
+# Website: https://github.com/damachine/coolerdash
+# -----------------------------------------------------------------------------
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
 provides=('coolerdash-git')
 replaces=('coolerdash-git')
 conflicts=('coolerdash-git')
-pkgdesc="Extends CoolerControl with a polished LCD dashboard"
+pkgdesc="Monitor telemetry data on an AIO liquid cooler with an integrated LCD display"
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
 depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libinih' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config' 'git')
 optdepends=()
-backup=('etc/coolerdash/config.ini')
+backup=('etc/coolercontrol/plugins/coolerdash/config.ini')
 install=coolerdash.install
 source=()
 sha256sums=()
@@ -28,37 +32,33 @@ build() {
 
     # Remove all previous tarball builds
     rm -rf coolerdash-*.pkg.* || true
-    rm -rf build bin || true
-    mkdir -p build bin || true
 
-    # Clean any previous builds
-    make clean || true
+    # Clean any previous builds if a Makefile exists
+    if [[ -f Makefile || -f GNUmakefile ]]; then
+        make clean || true
+    fi
 
     # Build with Arch Linux specific optimizations and C99 compliance
     make || return 1
 
-    # Copy binary to $${srcdir}/bin for packaging
-    mkdir -p "${srcdir}/bin"
-    cp -a bin/coolerdash "$${srcdir}/bin/coolerdash"
-
-    # Copy all required files for packaging to $${srcdir}
-    cp -a README.md "$${srcdir}/README.md"
-    cp -a CHANGELOG.md "${srcdir}/CHANGELOG.md"
-    cp -a VERSION "${srcdir}/VERSION"
-    cp -a LICENSE "${srcdir}/LICENSE"
-    cp -a etc/coolerdash/config.ini "${srcdir}/config.ini"
-    mkdir -p "${srcdir}/images"
-    cp -a images/shutdown.png "${srcdir}/images/shutdown.png"
-    mkdir -p "${srcdir}/systemd"
-    cp -a etc/systemd/coolerdash.service "${srcdir}/systemd/coolerdash.service"
-    mkdir -p "${srcdir}/man"
-    cp -a man/coolerdash.1 "$${srcdir}/man/coolerdash.1"
+    # Copy files to srcdir for packaging (fakeroot cannot access startdir)
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolerdash" "${srcdir}/etc/applications" "${srcdir}/etc/icons" "${srcdir}/etc/coolercontrol/plugins/coolerdash"
+    cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
+    cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
+    cp -a etc/coolerdash/config.ini "${srcdir}/etc/coolerdash/"
+    cp -a images/shutdown.png "${srcdir}/images/"
+    cp -a man/coolerdash.1 "${srcdir}/man/"
+    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
+    cp -a etc/coolercontrol/plugins/coolerdash/ui.html "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
+    cp -a etc/applications/coolerdash-settings.desktop "${srcdir}/etc/applications/"
+    cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
 }
 
 check() {
     # For local build: use current directory directly
-    cd "$startdir"
+    cd "${startdir}"
 
+    # Verify that the binary was created successfully
     if [[ -f bin/coolerdash ]]; then
         echo "Build successful - binary created"
     else
@@ -68,19 +68,27 @@ check() {
 }
 
 package() {
-    # For local build: use current directory directly
-    install -dm755 "${pkgdir}/opt/coolerdash"
-    install -Dm644 "${srcdir}/README.md" "${pkgdir}/opt/coolerdash/README.md"
-    install -Dm644 "${srcdir}/VERSION" "${pkgdir}/opt/coolerdash/VERSION"
-    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/opt/coolerdash/LICENSE"
-    install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/opt/coolerdash/CHANGELOG.md"
-    install -Dm644 "${srcdir}/config.ini" "${pkgdir}/etc/coolerdash/config.ini"
-    install -dm755 "${pkgdir}/opt/coolerdash/bin"
-    install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/opt/coolerdash/bin/coolerdash"
-    install -dm755 "${pkgdir}/opt/coolerdash/images"
-    install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/opt/coolerdash/images/shutdown.png"
-    install -dm755 "${pkgdir}/usr/bin"
-    ln -sf /opt/coolerdash/bin/coolerdash "${pkgdir}/usr/bin/coolerdash"
-    install -Dm644 "${srcdir}/systemd/coolerdash.service" "${pkgdir}/etc/systemd/system/coolerdash.service"
+    # Plugin-mode installation: Everything in /etc/coolercontrol/plugins/coolerdash/
+    install -dm775 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
+    install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/coolerdash"
+    install -Dm644 "${srcdir}/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
+    install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/LICENSE"
+    install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
+    install -Dm644 "${srcdir}/etc/coolerdash/config.ini" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.ini"
+    install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
+    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui.html"
+    
+    # Substitute VERSION placeholder in manifest.toml
+    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    
+    # Manual page
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
+    
+    # Desktop shortcut for settings UI
+    install -Dm644 "${srcdir}/etc/applications/coolerdash-settings.desktop" "${pkgdir}/usr/share/applications/coolerdash-settings.desktop"
+    
+    # Application icon
+    install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 }
