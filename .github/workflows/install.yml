@@ -77,11 +77,11 @@ jobs:
           mkdir -p /tmp/install-test
 
           echo "Running make install with DESTDIR=/tmp/install-test"
-          REALOS=no make install || {
+          SUDO="" REALOS=no make install || {
             echo "❌ make install failed"
             echo "Exit code: $?"
             echo "Checking if binary exists:"
-            ls -la coolerdash || echo "No binary found"
+            ls -la bin/coolerdash || echo "No binary found"
             exit 1
           }
 
@@ -89,29 +89,37 @@ jobs:
           echo "📁 Checking installed files:"
           find /tmp/install-test -type f -name "*coolerdash*" | head -10
 
-          # Check binary
-          if [ -f "/tmp/install-test/opt/coolerdash/bin/coolerdash" ]; then
-            echo "✅ Binary installed correctly"
-            file /tmp/install-test/opt/coolerdash/bin/coolerdash
+          # Check binary (Plugin mode: /etc/coolercontrol/plugins/coolerdash/)
+          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash" ]; then
+            echo "✅ Binary installed correctly (plugin mode)"
+            file /tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash
           else
             echo "❌ Binary not found at expected location"
             find /tmp/install-test -name "coolerdash" -type f
             exit 1
           fi
 
-          # Check config files
-          if [ -f "/tmp/install-test/etc/coolerdash/config.ini" ]; then
-            echo "✅ Config file installed"
+          # Check plugin files
+          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/config.ini" ]; then
+            echo "✅ Config file installed (plugin mode)"
           else
-            echo "⚠️  Config file not found (might be expected)"
+            echo "❌ Config file not found"
+            exit 1
           fi
 
-          # Check systemd service
-          if [ -f "/tmp/install-test/etc/systemd/system/coolerdash.service" ] || [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash.service" ]; then
-            echo "✅ Systemd service file installed"
+          # Check manifest.toml
+          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/manifest.toml" ]; then
+            echo "✅ Plugin manifest installed"
           else
-            echo "⚠️  Systemd service file not found"
-            find /tmp/install-test -name "*.service" -type f
+            echo "❌ Plugin manifest not found"
+            exit 1
+          fi
+
+          # Check documentation
+          if [ -f "/tmp/install-test/usr/share/man/man1/coolerdash.1" ]; then
+            echo "✅ Manual page installed"
+          else
+            echo "⚠️  Manual page not found"
           fi
 
           echo "✅ Installation test completed on ${{ matrix.name }}"
@@ -139,7 +147,17 @@ jobs:
 
           export DESTDIR=/tmp/install-test  
           mkdir -p /tmp/install-test
-          REALOS=no make install
+          SUDO="" REALOS=no make install
+
+          # Verify plugin installation
+          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash" ]; then
+            echo "✅ Plugin binary installed"
+            file /tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash
+          else
+            echo "❌ Plugin binary not found"
+            find /tmp/install-test -name "coolerdash" -type f
+            exit 1
+          fi
 
           echo "✅ Arch Linux installation test completed (reference)"
 
