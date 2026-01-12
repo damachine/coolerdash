@@ -403,23 +403,15 @@ static void load_daemon_from_json(json_t *root, Config *config)
         return;
 
     json_t *address = json_object_get(daemon, "address");
-    if (address && json_is_string(address))
+    if (address && json_is_string(address) && json_string_length(address) > 0)
     {
-        const char *addr = json_string_value(address);
-        if (addr && addr[0] != '\0')
-        {
-            SAFE_STRCPY(config->daemon_address, addr);
-        }
+        SAFE_STRCPY(config->daemon_address, json_string_value(address));
     }
 
     json_t *password = json_object_get(daemon, "password");
-    if (password && json_is_string(password))
+    if (password && json_is_string(password) && json_string_length(password) > 0)
     {
-        const char *pass = json_string_value(password);
-        if (pass)
-        {
-            SAFE_STRCPY(config->daemon_password, pass);
-        }
+        SAFE_STRCPY(config->daemon_password, json_string_value(password));
     }
 }
 
