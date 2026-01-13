@@ -345,10 +345,10 @@ static void draw_temperature_displays(cairo_t *cr,
         gpu_temp_x += 20;
     }
 
-    // Apply user-defined X offsets if set (not -9999)
-    if (config->display_temp_offset_x_cpu != -9999)
+    // Apply user-defined X offsets if set (0 = automatic positioning)
+    if (config->display_temp_offset_x_cpu != 0)
         cpu_temp_x += config->display_temp_offset_x_cpu;
-    if (config->display_temp_offset_x_gpu != -9999)
+    if (config->display_temp_offset_x_gpu != 0)
         gpu_temp_x += config->display_temp_offset_x_gpu;
 
     // Position temperatures 1px outside bars (same calculation as labels)
@@ -360,9 +360,9 @@ static void draw_temperature_displays(cairo_t *cr,
         gpu_bar_y + config->layout_bar_height - 4 + font_ext.ascent;
 
     // Apply user-defined Y offsets if set
-    if (config->display_temp_offset_y_cpu != -9999)
+    if (config->display_temp_offset_y_cpu != 0)
         cpu_temp_y += config->display_temp_offset_y_cpu;
-    if (config->display_temp_offset_y_gpu != -9999)
+    if (config->display_temp_offset_y_gpu != 0)
         gpu_temp_y += config->display_temp_offset_y_gpu;
 
     // Draw CPU temperature number

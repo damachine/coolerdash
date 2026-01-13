@@ -279,8 +279,9 @@ install: check-deps $(TARGET)
 	@install -Dm644 LICENSE "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/LICENSE"
 	@install -Dm644 CHANGELOG.md "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
 	@install -Dm644 VERSION "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/VERSION"
-	@install -Dm644 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json"
-	@install -Dm644 etc/coolercontrol/plugins/coolerdash/index.html "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/index.html"
+	@install -Dm666 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json"
+	@install -Dm644 etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
+	@install -Dm644 etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
 	@install -Dm644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
 	@install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@# Substitute VERSION placeholder in manifest.toml during install
@@ -294,7 +295,8 @@ install: check-deps $(TARGET)
 	fi
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json\n"
-	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/index.html\n"
+	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html\n"
+	@printf "  $(GREEN)Plugin Lib:$(RESET)   $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml\n"
 	@printf "  $(GREEN)Image:$(RESET)        shutdown.png (coolerdash.png)\n"
 	@printf "  $(GREEN)Documentation:$(RESET) README.md, LICENSE, CHANGELOG.md, VERSION\n"

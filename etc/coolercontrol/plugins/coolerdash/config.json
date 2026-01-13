@@ -70,14 +70,14 @@
   },
 
   "positioning": {
-    "temp_offset_x_cpu": -9999,
-    "temp_offset_x_gpu": -9999,
-    "temp_offset_y_cpu": -9999,
-    "temp_offset_y_gpu": -9999,
-    "temp_offset_x_liquid": -9999,
-    "temp_offset_y_liquid": -9999,
+    "temp_offset_x_cpu": 0,
+    "temp_offset_x_gpu": 0,
+    "temp_offset_y_cpu": 0,
+    "temp_offset_y_gpu": 0,
+    "temp_offset_x_liquid": 0,
+    "temp_offset_y_liquid": 0,
     "degree_spacing": 16,
-    "label_offset_x": -9999,
-    "label_offset_y": -9999
+    "label_offset_x": 0,
+    "label_offset_y": 0
   }
 }

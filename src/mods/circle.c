@@ -530,9 +530,9 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         config->display_height - (config->display_height * 0.02);
 
     // Apply user-defined offsets if set
-    if (config->display_label_offset_x != -9999)
+    if (config->display_label_offset_x != 0)
         label_x += config->display_label_offset_x;
-    if (config->display_label_offset_y != -9999)
+    if (config->display_label_offset_y != 0)
         final_label_y += config->display_label_offset_y;
 
     cairo_move_to(cr, label_x, final_label_y);

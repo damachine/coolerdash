@@ -168,24 +168,11 @@ static void set_layout_defaults(Config *config)
  */
 static void set_display_positioning_defaults(Config *config)
 {
-    if (config->display_temp_offset_x_cpu == 0)
-        config->display_temp_offset_x_cpu = -9999;
-    if (config->display_temp_offset_x_gpu == 0)
-        config->display_temp_offset_x_gpu = -9999;
-    if (config->display_temp_offset_y_cpu == 0)
-        config->display_temp_offset_y_cpu = -9999;
-    if (config->display_temp_offset_y_gpu == 0)
-        config->display_temp_offset_y_gpu = -9999;
-    if (config->display_temp_offset_x_liquid == 0)
-        config->display_temp_offset_x_liquid = -9999;
-    if (config->display_temp_offset_y_liquid == 0)
-        config->display_temp_offset_y_liquid = -9999;
+    // 0 = automatic positioning (default behavior)
+    // Note: All offset values default to 0, which means automatic positioning
+
     if (config->display_degree_spacing == 0)
         config->display_degree_spacing = 16;
-    if (config->display_label_offset_x == 0)
-        config->display_label_offset_x = -9999;
-    if (config->display_label_offset_y == 0)
-        config->display_label_offset_y = -9999;
 }
 
 /**
