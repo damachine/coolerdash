@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build and run coolerdash in debug mode (with AddressSanitizer)
 # Usage: ./test_debug.sh [options]
-# Options are passed to coolerdash (e.g., --verbose, --config /path/to/config.ini)
+# Options are passed to coolerdash (e.g., --verbose, --config /path/to/config.json)
 
 set -e  # Exit on error
 

@@ -113,23 +113,19 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-          body: |            
+          body: |
             ## This release contains the package files for the Arch User Repository (AUR).
-            
+
             [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
             ### Changes:
             - Version updated to ${{ steps.version.outputs.version }}
-            
+
             ### Installation:
             ```bash
             # STEP 1: Using an AUR helper and install
             yay -S coolerdash-git
             #OR any other AUR helper
-            
-            # STEP 2: Enable/Start CoolerDash sytemd service
-            systemctl daemon-reload
-            systemctl enable --now coolerdash.service
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

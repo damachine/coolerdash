@@ -1,12 +1,10 @@
 /**
- * @author damachine (christkue79@gmail.com)
- * @Maintainer: damachine <christkue79@gmail.com>
- * @website https://github.com/damachine
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
  * @copyright (c) 2025 damachine
  * @license MIT
- * @version 2.0
- *    This software is provided "as is", without warranty of any kind, express
- * or implied. I do not guarantee that it will work as intended on your system.
+ *    This software is provided "as is", without warranty of any kind...
  */
 
 /**
@@ -24,7 +22,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 #include "circle.h"
 #include "display.h"
 #include "dual.h"
@@ -36,19 +34,24 @@
  * logic and mode-specific rendering.
  * @param config Configuration containing display mode and rendering parameters
  */
-void draw_display_image(const struct Config *config) {
-  if (!config) {
-    log_message(LOG_ERROR, "Invalid config parameter for draw_display_image");
-    return;
-  }
+void draw_display_image(const struct Config *config)
+{
+    if (!config)
+    {
+        log_message(LOG_ERROR, "Invalid config parameter for draw_display_image");
+        return;
+    }
 
-  // Check display mode and dispatch to appropriate renderer
-  if (config->display_mode[0] != '\0' &&
-      strcmp(config->display_mode, "circle") == 0) {
-    // Circle mode: alternating single sensor display
-    draw_circle_image(config);
-  } else {
-    // Dual mode (default): simultaneous CPU+GPU display
-    draw_dual_image(config);
-  }
+    // Check display mode and dispatch to appropriate renderer
+    if (config->display_mode[0] != '\0' &&
+        strcmp(config->display_mode, "circle") == 0)
+    {
+        // Circle mode: alternating single sensor display
+        draw_circle_image(config);
+    }
+    else
+    {
+        // Dual mode (default): simultaneous CPU+GPU display
+        draw_dual_image(config);
+    }
 }

@@ -1,8 +1,10 @@
 /**
- * -----------------------------------------------------------------------------
- * Created by: damachine (damachine3 at proton dot me)
- * Website: https://github.com/damachine/coolerdash
- * -----------------------------------------------------------------------------
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
+ * @copyright (c) 2025 damachine
+ * @license MIT
+ *    This software is provided "as is", without warranty of any kind...
  */
 
 /**
@@ -21,7 +23,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 
 // Basic constants
 #define CC_NAME_SIZE 128
@@ -55,9 +57,9 @@ int init_device_cache(const struct Config *config);
 
 /**
  * @brief Update config with device screen dimensions (only if not set in
- * config.ini).
+ * config.json).
  * @details Reads screen dimensions from device cache and updates config ONLY if
- * config.ini values are commented out (= 0).
+ * config.json values are not set (= 0).
  */
 int update_config_from_device(struct Config *config);
 

@@ -78,12 +78,6 @@ cd coolerdash
 
 # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
-
-# STEP 3: Reload systemd configuration
-systemctl daemon-reload
-
-# STEP 4: Restart CoolerControl to load the plugin
-sudo systemctl restart coolercontrold
 ```
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
@@ -103,7 +97,7 @@ systemctl enable --now coolercontrold.service
 > The web interface is still under development and is not currently functional.
 > Please edit it as follows for the time being:
 
-Edit `/etc/coolercontrol/plugins/coolerdash/config.ini` and adjust settings as needed.
+Edit `/etc/coolercontrol/plugins/coolerdash/config.json` and adjust settings as needed.
 
 Then restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
 
@@ -111,7 +105,7 @@ Then restart: `systemctl restart cc-plugin-coolerdash.service` to apply the chan
 - **Dual (default):** CPU + GPU simultaneously (all displays)
 - **Circle:** Alternates CPU/GPU every 5s (round displays >240x240px)
 
-Enable Circle Mode: Edit config.ini → `[display]` section → `mode=circle`  
+Enable Circle Mode: Edit config.json → `"display"` section → `"mode": "circle"`  
 
 > [!NOTE]
 > See **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** for all options.

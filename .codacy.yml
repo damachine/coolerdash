@@ -1,0 +1,27 @@
+---
+# Codacy Configuration
+# https://docs.codacy.com/repositories-configure/codacy-configuration-file/
+
+engines:
+  # Enable/disable specific analysis tools
+  eslint:
+    enabled: true
+  cppcheck:
+    enabled: true
+
+exclude_paths:
+  # Exclude external/vendor libraries (official CoolerControl plugin library)
+  - 'etc/coolercontrol/plugins/coolerdash/cc-plugin-lib.js'
+
+  # Exclude build artifacts
+  - 'build/**'
+  - 'bin/**'
+  - '**.pkg.tar.zst'
+
+  # Exclude documentation
+  - 'docs/**'
+  - 'man/**'
+  - 'images/**'
+
+  # Exclude test reports
+  - 'reports/**'

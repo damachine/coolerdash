@@ -1,8 +1,10 @@
 /**
- * -----------------------------------------------------------------------------
- * Created by: damachine (damachine3 at proton dot me)
- * Website: https://github.com/damachine/coolerdash
- * -----------------------------------------------------------------------------
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
+ * @copyright (c) 2025 damachine
+ * @license MIT
+ *    This software is provided "as is", without warranty of any kind...
  */
 
 /**
@@ -24,7 +26,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 #include "cc_conf.h"
 #include "cc_main.h"
 
@@ -470,14 +472,14 @@ static int update_dimension(uint16_t *config_dim, int device_dim,
     {
         *config_dim = (uint16_t)device_dim;
         log_message(LOG_INFO,
-                    "Display %s set from device: %d (config.ini was commented out)",
+                    "Display %s set from device: %d (config.json not set)",
                     dim_name, *config_dim);
         return 1;
     }
 
     if (original_value != (uint16_t)device_dim)
     {
-        log_message(LOG_INFO, "Display %s from config.ini: %d (device reports %d)",
+        log_message(LOG_INFO, "Display %s from config.json: %d (device reports %d)",
                     dim_name, *config_dim, device_dim);
     }
     else

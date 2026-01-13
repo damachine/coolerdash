@@ -1,8 +1,10 @@
 /**
- * -----------------------------------------------------------------------------
- * Created by: damachine (damachine3 at proton dot me)
- * Website: https://github.com/damachine/coolerdash
- * -----------------------------------------------------------------------------
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
+ * @copyright (c) 2025 damachine
+ * @license MIT
+ *    This software is provided "as is", without warranty of any kind...
  */
 
 /**
@@ -21,7 +23,7 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
-#include "../device/sys.h"
+#include "../device/config.h"
 
 // Basic constants
 #define CC_COOKIE_SIZE 512
@@ -41,10 +43,11 @@ struct curl_slist;
  * @details Structure to hold HTTP response data with dynamic memory management
  * for effiziente Datensammlung.
  */
-typedef struct http_response {
-  char *data;
-  size_t size;
-  size_t capacity;
+typedef struct http_response
+{
+    char *data;
+    size_t size;
+    size_t capacity;
 } http_response;
 
 /**

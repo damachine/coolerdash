@@ -1,0 +1,26 @@
+# This is the top-most EditorConfig file
+root = true
+
+# For all files
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Source code files
+[*.{c,h,sh}]
+indent_size = 4
+max_line_length = 120
+
+# Makefiles
+[Makefile]
+indent_style = tab
+
+# CMake
+[{CMakeLists.txt,*.cmake,*.cmake.in}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

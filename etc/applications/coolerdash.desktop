@@ -1,10 +1,10 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=CoolerDash Settings
+Name=CoolerDash
 GenericName=LCD Dashboard Configuration
 Comment=Configure CoolerDash LCD temperature display for AIO liquid coolers
-Exec=xdg-open /etc/coolercontrol/plugins/coolerdash/ui.html
+Exec=coolercontrol
 Icon=coolerdash
 Terminal=false
 Categories=Settings;HardwareSettings;
