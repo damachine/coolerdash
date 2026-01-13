@@ -1,10 +1,9 @@
 /**
- * @author damachine (christkue79@gmail.com)
- * @Maintainer: damachine <christkue79@gmail.com>
- * @website https://github.com/damachine
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
  * @copyright (c) 2025 damachine
  * @license MIT
- * @version 2.0
  *    This software is provided "as is", without warranty of any kind...
  */
 
@@ -35,10 +34,10 @@
  */
 typedef struct
 {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
-  uint8_t _pad;
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t _pad;
 } Color;
 
 /**
@@ -48,10 +47,10 @@ typedef struct
  */
 typedef enum
 {
-  LOG_INFO,
-  LOG_STATUS,
-  LOG_WARNING,
-  LOG_ERROR
+    LOG_INFO,
+    LOG_STATUS,
+    LOG_WARNING,
+    LOG_ERROR
 } log_level_t;
 
 /**
@@ -61,75 +60,75 @@ typedef enum
  */
 typedef struct Config
 {
-  // Daemon configuration
-  char daemon_address[CONFIG_MAX_STRING_LEN];
-  char daemon_password[CONFIG_MAX_PASSWORD_LEN];
+    // Daemon configuration
+    char daemon_address[CONFIG_MAX_STRING_LEN];
+    char daemon_password[CONFIG_MAX_PASSWORD_LEN];
 
-  // Paths configuration
-  char paths_images[CONFIG_MAX_PATH_LEN];
-  char paths_image_coolerdash[CONFIG_MAX_PATH_LEN];
-  char paths_image_shutdown[CONFIG_MAX_PATH_LEN];
+    // Paths configuration
+    char paths_images[CONFIG_MAX_PATH_LEN];
+    char paths_image_coolerdash[CONFIG_MAX_PATH_LEN];
+    char paths_image_shutdown[CONFIG_MAX_PATH_LEN];
 
-  // Display configuration
-  uint16_t display_width;
-  uint16_t display_height;
-  float display_refresh_interval;
-  uint8_t lcd_brightness;
-  uint8_t lcd_orientation;
-  int force_display_circular;
-  char display_shape[16];
-  char display_mode[16];
-  uint16_t circle_switch_interval;
-  float display_content_scale_factor;
-  float display_inscribe_factor;
+    // Display configuration
+    uint16_t display_width;
+    uint16_t display_height;
+    float display_refresh_interval;
+    uint8_t lcd_brightness;
+    uint8_t lcd_orientation;
+    int force_display_circular;
+    char display_shape[16];
+    char display_mode[16];
+    uint16_t circle_switch_interval;
+    float display_content_scale_factor;
+    float display_inscribe_factor;
 
-  // Layout configuration
-  uint16_t layout_bar_height;
-  uint16_t layout_bar_gap;
-  float layout_bar_border;
-  uint8_t layout_bar_width;
-  uint8_t layout_label_margin_left;
-  uint8_t layout_label_margin_bar;
-  Color layout_bar_color_background;
-  Color layout_bar_color_border;
+    // Layout configuration
+    uint16_t layout_bar_height;
+    uint16_t layout_bar_gap;
+    float layout_bar_border;
+    uint8_t layout_bar_width;
+    uint8_t layout_label_margin_left;
+    uint8_t layout_label_margin_bar;
+    Color layout_bar_color_background;
+    Color layout_bar_color_border;
 
-  // Font configuration
-  char font_face[CONFIG_MAX_FONT_NAME_LEN];
-  float font_size_temp;
-  float font_size_labels;
-  Color font_color_temp;
-  Color font_color_label;
+    // Font configuration
+    char font_face[CONFIG_MAX_FONT_NAME_LEN];
+    float font_size_temp;
+    float font_size_labels;
+    Color font_color_temp;
+    Color font_color_label;
 
-  // Display positioning overrides
-  int display_temp_offset_x_cpu;
-  int display_temp_offset_x_gpu;
-  int display_temp_offset_y_cpu;
-  int display_temp_offset_y_gpu;
-  int display_temp_offset_x_liquid;
-  int display_temp_offset_y_liquid;
-  int display_degree_spacing;
-  int display_label_offset_x;
-  int display_label_offset_y;
+    // Display positioning overrides
+    int display_temp_offset_x_cpu;
+    int display_temp_offset_x_gpu;
+    int display_temp_offset_y_cpu;
+    int display_temp_offset_y_gpu;
+    int display_temp_offset_x_liquid;
+    int display_temp_offset_y_liquid;
+    int display_degree_spacing;
+    int display_label_offset_x;
+    int display_label_offset_y;
 
-  // Temperature configuration
-  float temp_threshold_1;
-  float temp_threshold_2;
-  float temp_threshold_3;
-  float temp_max_scale;
-  Color temp_threshold_1_bar;
-  Color temp_threshold_2_bar;
-  Color temp_threshold_3_bar;
-  Color temp_threshold_4_bar;
+    // Temperature configuration
+    float temp_threshold_1;
+    float temp_threshold_2;
+    float temp_threshold_3;
+    float temp_max_scale;
+    Color temp_threshold_1_bar;
+    Color temp_threshold_2_bar;
+    Color temp_threshold_3_bar;
+    Color temp_threshold_4_bar;
 
-  // Liquid temperature configuration
-  float temp_liquid_max_scale;
-  float temp_liquid_threshold_1;
-  float temp_liquid_threshold_2;
-  float temp_liquid_threshold_3;
-  Color temp_liquid_threshold_1_bar;
-  Color temp_liquid_threshold_2_bar;
-  Color temp_liquid_threshold_3_bar;
-  Color temp_liquid_threshold_4_bar;
+    // Liquid temperature configuration
+    float temp_liquid_max_scale;
+    float temp_liquid_threshold_1;
+    float temp_liquid_threshold_2;
+    float temp_liquid_threshold_3;
+    Color temp_liquid_threshold_1_bar;
+    Color temp_liquid_threshold_2_bar;
+    Color temp_liquid_threshold_3_bar;
+    Color temp_liquid_threshold_4_bar;
 } Config;
 
 /**
@@ -152,11 +151,11 @@ extern int verbose_logging;
  * @brief Safe string copy macro using project's cc_safe_strcpy.
  * @details Automatically uses sizeof(dest) for bounds checking.
  */
-#define SAFE_STRCPY(dest, src)                   \
-  do                                             \
-  {                                              \
-    cc_safe_strcpy((dest), sizeof(dest), (src)); \
-  } while (0)
+#define SAFE_STRCPY(dest, src)                       \
+    do                                               \
+    {                                                \
+        cc_safe_strcpy((dest), sizeof(dest), (src)); \
+    } while (0)
 
 /**
  * @brief Validate LCD orientation value.
@@ -164,8 +163,8 @@ extern int verbose_logging;
  */
 static inline int is_valid_orientation(int orientation)
 {
-  return (orientation == 0 || orientation == 90 || orientation == 180 ||
-          orientation == 270);
+    return (orientation == 0 || orientation == 90 || orientation == 180 ||
+            orientation == 270);
 }
 
 // ============================================================================

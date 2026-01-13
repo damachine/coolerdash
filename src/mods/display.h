@@ -1,12 +1,10 @@
 /**
- * @author damachine (christkue79@gmail.com)
- * @Maintainer: damachine <christkue79@gmail.com>
- * @website https://github.com/damachine
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
  * @copyright (c) 2025 damachine
  * @license MIT
- * @version 2.0
- *    This software is provided "as is", without warranty of any kind, express
- * or implied. I do not guarantee that it will work as intended on your system.
+ *    This software is provided "as is", without warranty of any kind...
  */
 
 /**

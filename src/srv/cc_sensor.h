@@ -1,8 +1,10 @@
 /**
- * -----------------------------------------------------------------------------
- * Created by: damachine (damachine3 at proton dot me)
- * Website: https://github.com/damachine/coolerdash
- * -----------------------------------------------------------------------------
+ * @author damachine (damachin3 at proton dot me)
+ * @Maintainer: damachine (damachin3 at proton dot me)
+ * @website https://github.com/damachine/coolerdash
+ * @copyright (c) 2025 damachine
+ * @license MIT
+ *    This software is provided "as is", without warranty of any kind...
  */
 
 /**
@@ -29,10 +31,11 @@ struct Config;
  * @details Contains temperature values (CPU, GPU, and Liquid/Coolant)
  * representing temperatures in degrees Celsius.
  */
-typedef struct {
-  float temp_cpu;
-  float temp_gpu;
-  float temp_liquid; // Liquid/Coolant temperature from Liquidctl device
+typedef struct
+{
+    float temp_cpu;
+    float temp_gpu;
+    float temp_liquid; // Liquid/Coolant temperature from Liquidctl device
 } monitor_sensor_data_t;
 
 /**
