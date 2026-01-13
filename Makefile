@@ -285,6 +285,13 @@ install: check-deps $(TARGET)
 	@install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@# Substitute VERSION placeholder in manifest.toml during install
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+	@# Create systemd drop-in for startup delay (allow shutdown.png to display)
+	@if [ "$(REALOS)" = "yes" ]; then \
+		$(SUDO) mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d 2>/dev/null || true; \
+		$(SUDO) sh -c 'printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf' 2>/dev/null || true; \
+		$(SUDO) chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf 2>/dev/null || true; \
+		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"; \
+	fi
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/index.html\n"
@@ -364,6 +371,8 @@ uninstall:
 			LEGACY_FOUND=1; \
 		fi; \
 	fi
+	@# Remove systemd drop-in directory
+	@$(SUDO) rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d >/dev/null 2>&1 || true
 	@$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash >/dev/null 2>&1 || true
 	@$(SUDO) rm -f /usr/share/man/man1/coolerdash.1 >/dev/null 2>&1 || true
 	@$(SUDO) rm -f /usr/share/applications/coolerdash.desktop >/dev/null 2>&1 || true
