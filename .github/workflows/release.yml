@@ -150,9 +150,9 @@ jobs:
 
                       Pre-built packages are available for download below. All packages are **GPG-signed** for security.
 
-                      ### Ubuntu / Debian
+                      ### Ubuntu / Debian / Linux Mint
                       ```bash
-                      # Download DEB package
+                      # Download DEB package (works on all Debian-based distributions)
                       wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/coolerdash_${{ steps.version.outputs.version }}_amd64.deb
 
                       # Verify signature (optional but recommended)
@@ -309,11 +309,7 @@ jobs:
                 include:
                     - distro: ubuntu:24.04
                       type: deb
-                      name: ubuntu-noble
-                      pkg_name: coolerdash_${{ needs.prepare-release.outputs.version }}_amd64.deb
-                    - distro: debian:13
-                      type: deb
-                      name: debian-trixie
+                      name: debian-based
                       pkg_name: coolerdash_${{ needs.prepare-release.outputs.version }}_amd64.deb
                     - distro: fedora:42
                       type: rpm
@@ -586,8 +582,7 @@ jobs:
                   echo "✅ **AUR Push**: Changes pushed to aur.archlinux.org" >> $GITHUB_STEP_SUMMARY
                   echo "" >> $GITHUB_STEP_SUMMARY
                   echo "### 📦 Binary Packages Built:" >> $GITHUB_STEP_SUMMARY
-                  echo "✅ **Ubuntu 24.04**: DEB package" >> $GITHUB_STEP_SUMMARY
-                  echo "✅ **Debian 13**: DEB package" >> $GITHUB_STEP_SUMMARY
+                  echo "✅ **Debian-based (Ubuntu/Debian/Mint)**: Universal DEB package" >> $GITHUB_STEP_SUMMARY
                   echo "✅ **Fedora 42**: RPM package" >> $GITHUB_STEP_SUMMARY
                   echo "✅ **CentOS Stream 9**: RPM package" >> $GITHUB_STEP_SUMMARY
                   echo "✅ **openSUSE Tumbleweed**: RPM package" >> $GITHUB_STEP_SUMMARY
