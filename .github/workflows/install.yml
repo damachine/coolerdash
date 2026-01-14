@@ -71,7 +71,7 @@ jobs:
         run: |
           echo "🚀 Testing 'make install' on ${{ matrix.name }}"
 
-          # Create a safe install simulation 
+          # Create a safe install simulation
           # (since we're in a container, we can't test all systemd services)
           export DESTDIR=/tmp/install-test
           mkdir -p /tmp/install-test
@@ -100,7 +100,7 @@ jobs:
           fi
 
           # Check plugin files
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/config.ini" ]; then
+          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/config.json" ]; then
             echo "✅ Config file installed (plugin mode)"
           else
             echo "❌ Config file not found"
@@ -145,7 +145,7 @@ jobs:
         run: |
           echo "🚀 Testing 'make install' on Arch Linux (reference system)"
 
-          export DESTDIR=/tmp/install-test  
+          export DESTDIR=/tmp/install-test
           mkdir -p /tmp/install-test
           SUDO="" REALOS=no make install
 
