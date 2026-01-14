@@ -10,6 +10,6 @@ git log --oneline --decorate --graph --all
 
 or visit the repository online:
 
-https://github.com/damachine/coolerdash/commits/main
+https://github.com/damachine/coolerdash/commits/master
 
 > This file is kept for compatibility. All release notes and technical details are tracked via Git commits.
