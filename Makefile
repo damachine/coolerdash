@@ -316,8 +316,10 @@ install: check-deps $(TARGET)
 	@printf "$(ICON_SUCCESS) $(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
-	@$(SUDO) systemctl daemon-reload 2>/dev/null || true
-	@$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true
+	@if [ "$(REALOS)" = "yes" ]; then \
+		$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
+		$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true; \
+	fi
 	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
 	@printf "  $(PURPLE)Restart CoolerControl:$(RESET) systemctl restart coolercontrold.service\n"
 	@printf "  $(PURPLE)Plugin:$(RESET)         CoolerControl will manage coolerdash automatically\n"
@@ -374,17 +376,21 @@ uninstall:
 		fi; \
 	fi
 	@# Remove systemd drop-in directory
-	@$(SUDO) rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d >/dev/null 2>&1 || true
-	@$(SUDO) rm -rf /etc/coolercontrol/plugins/coolerdash >/dev/null 2>&1 || true
-	@$(SUDO) rm -f /usr/share/man/man1/coolerdash.1 >/dev/null 2>&1 || true
-	@$(SUDO) rm -f /usr/share/applications/coolerdash.desktop >/dev/null 2>&1 || true
-	@$(SUDO) rm -f /usr/share/icons/hicolor/scalable/apps/coolerdash.svg >/dev/null 2>&1 || true
-	@if id -u coolerdash &>/dev/null; then \
-        $(SUDO) userdel -rf coolerdash >/dev/null 2>&1 || true; \
-    fi
-	@$(SUDO) mandb -q >/dev/null 2>&1 || true
-	@$(SUDO) systemctl daemon-reload >/dev/null 2>&1 || true
-	@$(SUDO) systemctl restart coolercontrold.service >/dev/null 2>&1 || true
+	@if [ "$(REALOS)" = "yes" ]; then \
+		$(SUDO) rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d >/dev/null 2>&1 || true; \
+	fi
+	@$(SUDO) rm -rf "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash" >/dev/null 2>&1 || true
+	@$(SUDO) rm -f "$(DESTDIR)/usr/share/man/man1/coolerdash.1" >/dev/null 2>&1 || true
+	@$(SUDO) rm -f "$(DESTDIR)/usr/share/applications/coolerdash.desktop" >/dev/null 2>&1 || true
+	@$(SUDO) rm -f "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg" >/dev/null 2>&1 || true
+	@if [ "$(REALOS)" = "yes" ]; then \
+		if id -u coolerdash &>/dev/null; then \
+			$(SUDO) userdel -rf coolerdash >/dev/null 2>&1 || true; \
+		fi; \
+		$(SUDO) mandb -q >/dev/null 2>&1 || true; \
+		$(SUDO) systemctl daemon-reload >/dev/null 2>&1 || true; \
+		$(SUDO) systemctl restart coolercontrold.service >/dev/null 2>&1 || true; \
+	fi
 
 # Debug Build
 debug: CFLAGS += -g -DDEBUG -fsanitize=address

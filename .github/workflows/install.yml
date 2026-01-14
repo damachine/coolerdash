@@ -77,11 +77,13 @@ jobs:
           mkdir -p /tmp/install-test
 
           echo "Running make install with DESTDIR=/tmp/install-test"
-          SUDO="" REALOS=no make install || {
+          SUDO="" REALOS=no make install DESTDIR=/tmp/install-test || {
             echo "❌ make install failed"
             echo "Exit code: $?"
             echo "Checking if binary exists:"
             ls -la bin/coolerdash || echo "No binary found"
+            echo "Checking source files:"
+            ls -la etc/coolercontrol/plugins/coolerdash/ || echo "Source files not found"
             exit 1
           }
 
@@ -179,7 +181,7 @@ jobs:
 
           export DESTDIR=/tmp/install-test
           mkdir -p /tmp/install-test
-          SUDO="" REALOS=no make install
+          SUDO="" REALOS=no make install DESTDIR=/tmp/install-test
 
           # Verify plugin installation
           if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash" ]; then

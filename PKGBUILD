@@ -1,7 +1,3 @@
-# -----------------------------------------------------------------------------
-# Created by: damachine (damachine3 at proton dot me)
-# Website: https://github.com/damachine/coolerdash
-# -----------------------------------------------------------------------------
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
