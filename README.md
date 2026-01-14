@@ -93,22 +93,8 @@ systemctl enable --now coolercontrold.service
 
 **CoolerDash Configuration (optional):**
 
-> [!NOTE]
-> The web interface is still under development and is not currently functional.
-> Please edit it as follows for the time being:
-
-Edit `/etc/coolercontrol/plugins/coolerdash/config.json` and adjust settings as needed.
-
-Then restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
-
-**Display Modes:**
-- **Dual (default):** CPU + GPU simultaneously (all displays)
-- **Circle:** Alternates CPU/GPU every 5s (round displays >240x240px)
-
-Enable Circle Mode: Edit config.json → `"display"` section → `"mode": "circle"`  
-
-> [!NOTE]
-> See **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** for all options.
+In the CoolerControl settings menu, under the plugin tab (beta), you can now use the CoolerDash UI to make your custome settings.
+Please restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
 
 ---
 
