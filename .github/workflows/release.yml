@@ -449,22 +449,27 @@ jobs:
               env:
                   COOLERDASH_VERSION: ${{ needs.prepare-release.outputs.version }}
               run: |
-                  # Setup RPM build environment
-                  mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+                  # Setup RPM build environment (distro-specific paths)
+                  if [ "${{ matrix.name }}" = "opensuse-tumbleweed" ]; then
+                    RPMBUILD_DIR="/usr/src/packages"
+                  else
+                    RPMBUILD_DIR="$HOME/rpmbuild"
+                  fi
+                  mkdir -p $RPMBUILD_DIR/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
                   # Create source tarball
                   mkdir -p /tmp/coolerdash-${COOLERDASH_VERSION}
                   cp -r . /tmp/coolerdash-${COOLERDASH_VERSION}/ 2>/dev/null || true
-                  tar czf ~/rpmbuild/SOURCES/coolerdash-${COOLERDASH_VERSION}.tar.gz -C /tmp coolerdash-${COOLERDASH_VERSION}
+                  tar czf $RPMBUILD_DIR/SOURCES/coolerdash-${COOLERDASH_VERSION}.tar.gz -C /tmp coolerdash-${COOLERDASH_VERSION}
 
                   # Spec file already copied by previous step
-                  cp coolerdash.spec ~/rpmbuild/SPECS/ 2>/dev/null || echo "Spec file already in place"
+                  cp coolerdash.spec $RPMBUILD_DIR/SPECS/ 2>/dev/null || echo "Spec file already in place"
 
                   # Build RPM
-                  rpmbuild -bb ~/rpmbuild/SPECS/coolerdash.spec
+                  rpmbuild -bb $RPMBUILD_DIR/SPECS/coolerdash.spec
 
                   # Find and copy built RPM
-                  find ~/rpmbuild/RPMS -name "*.rpm" -exec cp {} ./ \;
+                  find $RPMBUILD_DIR/RPMS -name "*.rpm" -exec cp {} ./ \;
                   ls -lh *.rpm
 
             - name: Import GPG key for signing
