@@ -1,1 +1,4 @@
-etc/coolercontrol/plugins/coolerdash usr/share/man/man1/coolerdash.1 usr/share/applications/coolerdash.desktop usr/share/icons/hicolor/scalable/apps/coolerdash.svg
+etc/coolercontrol/plugins/coolerdash
+usr/share/man/man1/coolerdash.1
+usr/share/applications/coolerdash.desktop
+usr/share/icons/hicolor/scalable/apps/coolerdash.svg
