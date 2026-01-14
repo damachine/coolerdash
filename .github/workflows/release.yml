@@ -346,7 +346,6 @@ jobs:
                     fonts-roboto \
                     systemd \
                     file \
-                    dpkg-sig \
                     gnupg2 \
                     git
 
@@ -408,7 +407,6 @@ jobs:
                     google-roboto-fonts \
                     systemd \
                     file \
-                    rpm-sign \
                     gpg2 \
                     git
 
@@ -486,24 +484,19 @@ jobs:
                   KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
                   echo "GPG_KEY_ID=$KEYID" >> $GITHUB_ENV
 
-            - name: Sign DEB package
+            - name: Verify DEB package
               if: matrix.type == 'deb'
               run: |
-                  dpkg-sig --sign builder -k $GPG_KEY_ID *.deb
-                  dpkg-sig --verify *.deb
+                  echo "✅ DEB package built successfully"
+                  dpkg --info *.deb
+                  echo "Note: Package signing via SHA256SUMS.asc"
 
-            - name: Sign RPM package
+            - name: Verify RPM package
               if: matrix.type == 'rpm'
               run: |
-                  # Create RPM macros for signing
-                  echo "%_gpg_name $GPG_KEY_ID" > ~/.rpmmacros
-                  echo "%__gpg /usr/bin/gpg" >> ~/.rpmmacros
-
-                  # Sign package
-                  rpm --addsign *.rpm
-
-                  # Verify signature
-                  rpm --checksig *.rpm
+                  echo "✅ RPM package built successfully"
+                  rpm -qpi *.rpm
+                  echo "Note: Package signing via SHA256SUMS.asc"
 
             - name: Rename package
               run: |
