@@ -107,6 +107,7 @@ jobs:
                   git config gpg.program gpg
 
             - name: Create and Push signed tag
+              if: github.ref == 'refs/heads/master' # Only create real tags on master
               env:
                   TAG: ${{ steps.version.outputs.tag }}
                   MSG: ${{ steps.version.outputs.release_msg }}
@@ -118,7 +119,14 @@ jobs:
                   git push origin "$TAG"
                   echo "Successfully created and pushed signed tag: $TAG"
 
+            - name: Skip tag creation (test branch)
+              if: github.ref != 'refs/heads/master'
+              run: |
+                  echo "⚠️ Skipping tag creation on test branch: ${{ github.ref_name }}"
+                  echo "Tags are only created on master branch to avoid conflicts"
+
             - name: Create GitHub Release
+              if: github.ref == 'refs/heads/master' # Only create releases on master
               uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
               with:
                   tag_name: ${{ steps.version.outputs.tag }}
@@ -227,6 +235,7 @@ jobs:
         name: Update AUR Repository
         runs-on: ubuntu-latest
         needs: prepare-release
+        if: github.ref == 'refs/heads/master' # Only run on master branch, skip for test branches
         steps:
             - name: Checkout main repository
               uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
@@ -335,6 +344,8 @@ jobs:
                     libcurl4-openssl-dev \
                     libjansson-dev \
                     fonts-roboto \
+                    systemd \
+                    file \
                     dpkg-sig \
                     gnupg2 \
                     git
@@ -352,6 +363,8 @@ jobs:
                     libcurl-devel \
                     jansson-devel \
                     google-roboto-fonts \
+                    systemd \
+                    file \
                     rpm-sign \
                     gnupg2 \
                     git
@@ -359,6 +372,10 @@ jobs:
             - name: Install build dependencies (CentOS Stream)
               if: matrix.name == 'centos-stream9'
               run: |
+                  dnf update -y
+                  dnf install -y epel-release
+                  dnf config-manager --set-enabled crb
+                  dnf makecache
                   dnf install -y \
                     rpm-build \
                     rpmdevtools \
@@ -369,6 +386,8 @@ jobs:
                     libcurl-devel \
                     jansson-devel \
                     google-roboto-fonts \
+                    systemd \
+                    file \
                     rpm-sign \
                     gnupg2 \
                     git
@@ -377,6 +396,7 @@ jobs:
               if: matrix.name == 'opensuse-tumbleweed'
               run: |
                   zypper install -y \
+                    tar \
                     rpm-build \
                     rpmdevtools \
                     gcc \
@@ -386,6 +406,8 @@ jobs:
                     libcurl-devel \
                     libjansson-devel \
                     google-roboto-fonts \
+                    systemd \
+                    file \
                     rpm-sign \
                     gpg2 \
                     git
@@ -535,6 +557,7 @@ jobs:
                   ls -lh SHA256SUMS*
 
             - name: Upload packages to release
+              if: github.ref == 'refs/heads/master' # Only upload to real releases
               uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
               with:
                   tag_name: ${{ needs.prepare-release.outputs.tag }}
