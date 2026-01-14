@@ -1,0 +1,37 @@
+Source: coolerdash
+Section: utils
+Priority: optional
+Maintainer: damachine <damachin3@proton.me>
+Build-Depends: debhelper-compat (= 13),
+               gcc,
+               make,
+               pkg-config,
+               libcairo2-dev,
+               libcurl4-openssl-dev,
+               libjansson-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/damachine/coolerdash
+Vcs-Browser: https://github.com/damachine/coolerdash
+Vcs-Git: https://github.com/damachine/coolerdash.git
+Rules-Requires-Root: no
+
+Package: coolerdash
+Architecture: amd64
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         libcairo2,
+         libcurl4,
+         libjansson4,
+         fonts-roboto,
+         coolercontrol
+Description: LCD temperature display daemon for AIO liquid coolers
+ CoolerDash is a high-performance C99 daemon that displays CPU and GPU
+ temperatures on LCD displays of AIO liquid coolers (NZXT Kraken, etc.)
+ via the CoolerControl REST API.
+ .
+ Features:
+  * Dual mode: CPU+GPU simultaneously
+  * Circle mode: Alternating display
+  * Real-time temperature monitoring
+  * Automatic scaling and color-coded warnings
+  * CoolerControl plugin integration

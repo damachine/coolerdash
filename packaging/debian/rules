@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	$(MAKE) SUDO="" REALOS=no
+
+override_dh_auto_install:
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/coolerdash SUDO="" REALOS=no
+
+override_dh_auto_clean:
+	$(MAKE) clean || true
+
+override_dh_installdocs:
+	dh_installdocs
+	gzip -9nf $(CURDIR)/debian/coolerdash/usr/share/man/man1/coolerdash.1
+
+override_dh_installsystemd:
+	# CoolerControl manages the plugin lifecycle, no standalone service needed
+	:

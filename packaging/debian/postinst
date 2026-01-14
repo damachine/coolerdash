@@ -1,0 +1,22 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        # Set correct permissions for config file
+        if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
+            chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
+        fi
+        
+        # Restart CoolerControl to register new plugin
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl is-active --quiet coolercontrold.service; then
+                systemctl restart coolercontrold.service || true
+            fi
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
