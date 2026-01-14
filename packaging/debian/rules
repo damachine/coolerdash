@@ -9,13 +9,17 @@ override_dh_auto_build:
 	$(MAKE) SUDO="" REALOS=no
 
 override_dh_auto_install:
-	$(MAKE) install DESTDIR=$(CURDIR)/debian/coolerdash SUDO="" REALOS=no
+	$(MAKE) install DESTDIR=$(CURDIR)/debian/tmp SUDO="" REALOS=no
 
 override_dh_auto_clean:
 	$(MAKE) clean || true
 
 override_dh_installdocs:
 	dh_installdocs
+	# Manpage compression handled by dh_installman
+
+override_dh_installman:
+	dh_installman
 	gzip -9nf $(CURDIR)/debian/coolerdash/usr/share/man/man1/coolerdash.1
 
 override_dh_installsystemd:
