@@ -1,3 +1,6 @@
+%global debug_package %{nil}
+%undefine _debugsource_template
+
 Name:           coolerdash
 Version:        %{getenv:COOLERDASH_VERSION}
 Release:        1%{?dist}
@@ -6,12 +9,8 @@ License:        MIT
 URL:            https://github.com/damachine/coolerdash
 Source0:        %{name}-%{version}.tar.gz
 
-BuildRequires:  gcc
-BuildRequires:  make
-BuildRequires:  pkg-config
-BuildRequires:  cairo-devel
-BuildRequires:  libcurl-devel
-BuildRequires:  jansson-devel
+# Build dependencies installed via CI workflow
+# to support multiple distributions with different package names
 
 Requires:       cairo
 Requires:       libcurl
