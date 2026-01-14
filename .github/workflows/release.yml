@@ -457,9 +457,9 @@ jobs:
                   mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
                   # Create source tarball
-                  mkdir -p coolerdash-${COOLERDASH_VERSION}
-                  cp -r * coolerdash-${COOLERDASH_VERSION}/ || true
-                  tar czf ~/rpmbuild/SOURCES/coolerdash-${COOLERDASH_VERSION}.tar.gz coolerdash-${COOLERDASH_VERSION}
+                  mkdir -p /tmp/coolerdash-${COOLERDASH_VERSION}
+                  cp -r . /tmp/coolerdash-${COOLERDASH_VERSION}/ 2>/dev/null || true
+                  tar czf ~/rpmbuild/SOURCES/coolerdash-${COOLERDASH_VERSION}.tar.gz -C /tmp coolerdash-${COOLERDASH_VERSION}
 
                   # Spec file already copied by previous step
                   cp coolerdash.spec ~/rpmbuild/SPECS/ 2>/dev/null || echo "Spec file already in place"

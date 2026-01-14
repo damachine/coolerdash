@@ -79,7 +79,6 @@ fi
 /usr/share/man/man1/coolerdash.1.gz
 /usr/share/applications/coolerdash.desktop
 /usr/share/icons/hicolor/scalable/apps/coolerdash.svg
-/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
 
 %changelog
 * %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1
