@@ -450,30 +450,28 @@ jobs:
           git fetch --tags
           COMMIT_SHA=$(git rev-list -n 1 "$TAG")
 
+          # Calculate pkgver from tag (remove 'v' prefix and format for AUR)
+          PKGVER=$(echo "$TAG" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g')
+          SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
+          PKGVER="${PKGVER}.r0.g${SHORT_SHA}"
+
           echo "✅ Tag: $TAG"
           echo "✅ Commit SHA from tag: $COMMIT_SHA"
           echo "✅ Version: $VERSION"
+          echo "✅ PKGVER: $PKGVER"
 
           # Prepare AUR deployment directory
           mkdir -p $GITHUB_WORKSPACE/aur-deploy
           cp aur/PKGBUILD $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           cp aur/coolerdash.install $GITHUB_WORKSPACE/aur-deploy/coolerdash.install
 
-          # Update PKGBUILD with new commit hash and reset pkgrel
+          # Update PKGBUILD with new commit hash, pkgver and reset pkgrel
+          sed -i "s/^pkgver=.*/pkgver=$PKGVER/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
           echo "✅ Updated PKGBUILD:"
-          grep -E "^_commit=|^pkgrel=|^pkgver=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-
-      - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
-        with:
-          pkgname: coolerdash-git
-          pkgbuild: ./aur-deploy/PKGBUILD
-          assets: |
-            ./aur-deploy/coolerdash.install
-          commit_username: "github-actions[bot]"
+          grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_message: "Update to ${{ needs.prepare-version.outputs.tag }}"
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
@@ -486,7 +484,14 @@ jobs:
   release-summary:
     name: Release Summary
     runs-on: ubuntu-latest
-    needs: [prepare-version, build-packages, create-release, upload-packages, aur-push]
+    needs:
+      [
+        prepare-version,
+        build-packages,
+        create-release,
+        upload-packages,
+        aur-push,
+      ]
     if: always()
     steps:
       - name: Create summary report
