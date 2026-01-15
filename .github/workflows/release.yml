@@ -471,6 +471,15 @@ jobs:
 
           echo "✅ Updated PKGBUILD:"
           grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
+
+      - name: Deploy to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: coolerdash-git
+          pkgbuild: ./aur-deploy/PKGBUILD
+          assets: |
+            ./aur-deploy/coolerdash.install
+          commit_username: "github-actions[bot]"
           commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_message: "Update to ${{ needs.prepare-version.outputs.tag }}"
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
