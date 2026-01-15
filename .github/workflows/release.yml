@@ -251,8 +251,15 @@ jobs:
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
-          echo "$AUR_SSH_KEY" > ~/.ssh/aur
+          # Write key with proper newlines
+          echo "$AUR_SSH_KEY" | tr -d '\r' > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
+          # Validate key format
+          if ! ssh-keygen -l -f ~/.ssh/aur > /dev/null 2>&1; then
+            echo "ERROR: Invalid SSH key format"
+            echo "Key must be in OpenSSH format (BEGIN OPENSSH PRIVATE KEY)"
+            exit 1
+          fi
           # Add known hosts
           ssh-keyscan -t rsa,ecdsa,ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
@@ -261,11 +268,13 @@ jobs:
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur
             User aur
-            StrictHostKeyChecking no
+            StrictHostKeyChecking accept-new
           EOF
           chmod 600 ~/.ssh/config
-          # Test SSH connection
-          ssh-add -l || eval $(ssh-agent -s) && ssh-add ~/.ssh/aur || true
+          # Start ssh-agent and add key
+          eval $(ssh-agent -s)
+          ssh-add ~/.ssh/aur
+          echo "✅ SSH key loaded successfully"
 
       - name: Clone AUR repository
         run: |
