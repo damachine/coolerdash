@@ -450,31 +450,27 @@ jobs:
           git fetch --tags
           COMMIT_SHA=$(git rev-list -n 1 "$TAG")
 
+          # Calculate pkgver from the tag (simulate pkgver() function in PKGBUILD)
+          # This mimics: git describe --tags --long --match "v*" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g'
+          PKGVER=$(git describe --tags --long --match "v*" "$COMMIT_SHA" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g')
+          
           echo "✅ Tag: $TAG"
           echo "✅ Commit SHA from tag: $COMMIT_SHA"
           echo "✅ Version: $VERSION"
-
+          echo "✅ Calculated PKGVER: $PKGVER"
+          
           # Prepare AUR deployment directory
           mkdir -p $GITHUB_WORKSPACE/aur-deploy
           cp aur/PKGBUILD $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           cp aur/coolerdash.install $GITHUB_WORKSPACE/aur-deploy/coolerdash.install
-
-          # Update PKGBUILD with new commit hash and reset pkgrel
-          # Note: pkgver will be calculated automatically by the pkgver() function in PKGBUILD
+          
+          # Update PKGBUILD with new commit hash, pkgver and reset pkgrel
+          sed -i "s/^pkgver=.*/pkgver=$PKGVER/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-
+          
           echo "✅ Updated PKGBUILD:"
-          grep -E "^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-
-      - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
-        with:
-          pkgname: coolerdash-git
-          pkgbuild: ./aur-deploy/PKGBUILD
-          assets: |
-            ./aur-deploy/coolerdash.install
-          commit_username: "github-actions[bot]"
+          grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_message: "Update to ${{ needs.prepare-version.outputs.tag }}"
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
