@@ -316,47 +316,50 @@ jobs:
           prerelease: false
           generate_release_notes: true
           body: |
-            ## 🏛️ Arch Linux (AUR)
+            ### Changes:
+            - Version updated to ${{ needs.prepare-version.outputs.version }}
+
+            ---
+
+            ## AUR Package
 
             [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
+            ### Installation:
             ```bash
+            # Using an AUR helper
             yay -S coolerdash-git
+            # OR any other AUR helper
             ```
 
             ---
 
-            ## 📦 Binary Packages
+            ## Binary Packages
 
             ### Ubuntu / Debian
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
             sudo apt install ./coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
             ```
 
             ### Fedora
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
-            sudo dnf install ./coolerdash-*.rpm
+            sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
             ```
 
             ### CentOS Stream 9
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
-            sudo dnf install ./coolerdash-*.rpm
+            sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
             ```
 
             ### openSUSE
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
-            sudo zypper install ./coolerdash-*.rpm
+            sudo zypper install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
             ```
 
             ---
 
-            ### 🔐 GPG Verification
+            ## 🔐 GPG Verification
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/master/GPG_PUBLIC_KEY.asc | gpg --import
             wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS.asc
             gpg --verify SHA256SUMS.asc
             ```
