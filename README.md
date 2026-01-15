@@ -11,8 +11,8 @@
 
 # CoolerDash 🐧
 
-#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.   
-   
+#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.
+
 > Use it successfully myself – maybe it will help you too! ❤️
 
 ---
@@ -28,7 +28,7 @@
 <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerDash%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
-  <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/> 
+  <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/>
   <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/>
 </div>
 
@@ -68,7 +68,14 @@ yay -S coolerdash-git
 
 [![Download Unified Package Release](https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg)](https://github.com/damachine/coolerdash/releases)
 
-- Manual installation:
+**Download pre-built packages:**
+
+[![Debian/Ubuntu](https://img.shields.io/badge/Debian%2FUbuntu-Download-orange?logo=debian)](https://github.com/damachine/coolerdash/releases/latest)
+[![Fedora](https://img.shields.io/badge/Fedora-Download-blue?logo=fedora)](https://github.com/damachine/coolerdash/releases/latest)
+[![CentOS/RHEL](https://img.shields.io/badge/CentOS%2FRHEL-Download-green?logo=centos)](https://github.com/damachine/coolerdash/releases/latest)
+[![openSUSE](https://img.shields.io/badge/openSUSE-Download-brightgreen?logo=opensuse)](https://github.com/damachine/coolerdash/releases/latest)
+
+**Manual installation:**
 
 ```bash
 # STEP 1: Clone repository
@@ -140,7 +147,7 @@ journalctl -u coolercontrold.service -n 50
 </details>
 
 ---
-   
+
 ## Troubleshooting
 
 <details>
@@ -192,7 +199,7 @@ liquidctl --version
 
 <details>
   <summary>Expand</summary>
-   
+
 - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options
 - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - Confirmed working hardware
 - **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Dual and Circle mode reference
@@ -209,11 +216,11 @@ liquidctl --version
 
 <a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
 
-**Support the project:**  
-• ⭐ Star this repo   
-• 🐛 Report bugs   
-• 🔄 Share with others   
-• 📝 Contribute   
-• [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)   
-   
+**Support the project:**
+• ⭐ Star this repo
+• 🐛 Report bugs
+• 🔄 Share with others
+• 📝 Contribute
+• [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
+
 [![Stargazers over time](https://starchart.cc/damachine/coolerdash.svg?variant=adaptive)](https://starchart.cc/damachine/coolerdash)

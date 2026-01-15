@@ -346,7 +346,7 @@ jobs:
             sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
             ```
 
-            ### CentOS Stream 9
+            ### CentOS / RHEL
             ```bash
             sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
             ```
@@ -362,6 +362,19 @@ jobs:
             ```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS.asc
             gpg --verify SHA256SUMS.asc
+            ```
+
+            ---
+
+            ## Manual Installation
+
+            ```bash
+            # STEP 1: Clone repository
+            git clone https://github.com/damachine/coolerdash.git
+            cd coolerdash
+
+            # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
+            make install
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -473,7 +486,7 @@ jobs:
           grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
       - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        uses: KSXGitHub/github-actions-deploy-aur@5b64840d9f2a800ff39a0e9a69f6e3a9ec4c4525
         with:
           pkgname: coolerdash-git
           pkgbuild: ./aur-deploy/PKGBUILD
