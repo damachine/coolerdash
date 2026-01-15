@@ -253,13 +253,19 @@ jobs:
           chmod 700 ~/.ssh
           echo "$AUR_SSH_KEY" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
+          # Add known hosts
           ssh-keyscan -t rsa,ecdsa,ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          # Configure SSH
           cat > ~/.ssh/config <<EOF
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur
             User aur
+            StrictHostKeyChecking no
           EOF
           chmod 600 ~/.ssh/config
+          # Test SSH connection
+          ssh-add -l || eval $(ssh-agent -s) && ssh-add ~/.ssh/aur || true
 
       - name: Clone AUR repository
         run: |
