@@ -11,8 +11,8 @@
 
 # CoolerDash 🐧
 
-#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.
-
+#### This tool allows you to monitoring (display) real-time telemetry data from sensors on an AIO liquid cooler with an integrated LCD display.   
+   
 > Use it successfully myself – maybe it will help you too! ❤️
 
 ---
@@ -28,7 +28,7 @@
 <a href="https://discord.com/channels/908873022105079848/1395236612677570560"><img src="https://img.shields.io/badge/Discord-Join%20CoolerDash%20Discussion-blue?logo=discord"></a>
 
 <div align="center">
-  <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/>
+  <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/> 
   <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/>
 </div>
 
@@ -52,76 +52,49 @@
 
 ## Installation
 
-### Binary Packages (Recommended)
+#### Arch-based distributions
 
-<a href="https://github.com/damachine/coolerdash/actions/workflows/release.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg"></a>
-
-Pre-built, GPG-signed packages are available for all major distributions. Download the latest release from the [Releases page](https://github.com/damachine/coolerdash/releases/latest).
-
-#### Ubuntu / Debian
-
-```bash
-wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/coolerdash_X.X.X_amd64.deb
-sudo apt install ./coolerdash_*.deb
-```
-
-#### Fedora / RHEL / CentOS Stream
-
-```bash
-wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/coolerdash-X.X.X-1.fc42.x86_64.rpm
-sudo dnf install ./coolerdash-*.rpm
-```
-
-#### openSUSE
-
-```bash
-wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/coolerdash-X.X.X-1.opensuse.x86_64.rpm
-sudo zypper install ./coolerdash-*.rpm
-```
-
-#### GPG Verification (Optional)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/damachine/coolerdash/master/GPG_PUBLIC_KEY.asc | gpg --import
-wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/SHA256SUMS.asc
-gpg --verify SHA256SUMS.asc
-```
-
----
-
-### Arch Linux (AUR)
-
+<a href="https://github.com/damachine/coolerdash/actions/workflows/aur.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg"></a>  
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
+- Using an AUR helper:
+
 ```bash
+# STEP 1: Install
 yay -S coolerdash-git
+#OR any other AUR helper
 ```
 
----
-
-### Manual Installation (All Distributions)
+#### All distributions
 
 <a href="https://github.com/damachine/coolerdash/actions/workflows/install.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg"></a>
 
+- Manual installation:
+
 ```bash
+# STEP 1: Clone repository
 git clone https://github.com/damachine/coolerdash.git
 cd coolerdash
+
+# STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
 make install
 ```
+
+> For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
 
 ---
 
 ## Configuration
 
+**Start CoolerControl Service (if not already enabled):**
 ```bash
 systemctl enable --now coolercontrold.service
 ```
 
-Configure CoolerDash in the CoolerControl settings menu under the plugin tab. Restart the service to apply changes:
+**CoolerDash Configuration (optional):**
 
-```bash
-systemctl restart cc-plugin-coolerdash.service
-```
+In the CoolerControl settings menu, under the plugin tab (beta), you can now use the CoolerDash UI to make your custome settings.
+Please restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
 
 ---
 
@@ -168,7 +141,7 @@ journalctl -u coolercontrold.service -n 50
 </details>
 
 ---
-
+   
 ## Troubleshooting
 
 <details>
@@ -220,7 +193,7 @@ liquidctl --version
 
 <details>
   <summary>Expand</summary>
-
+   
 - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options
 - **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - Confirmed working hardware
 - **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Dual and Circle mode reference
@@ -237,11 +210,11 @@ liquidctl --version
 
 <a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
 
-**Support the project:**
-• ⭐ Star this repo
-• 🐛 Report bugs
-• 🔄 Share with others
-• 📝 Contribute
-• [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
-
+**Support the project:**  
+• ⭐ Star this repo   
+• 🐛 Report bugs   
+• 🔄 Share with others   
+• 📝 Contribute   
+• [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)   
+   
 [![Stargazers over time](https://starchart.cc/damachine/coolerdash.svg?variant=adaptive)](https://starchart.cc/damachine/coolerdash)
