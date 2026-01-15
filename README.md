@@ -54,7 +54,6 @@
 
 #### Arch-based distributions
 
-<a href="https://github.com/damachine/coolerdash/actions/workflows/aur.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/aur.yml/badge.svg"></a>  
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
 - Using an AUR helper:
@@ -65,9 +64,9 @@ yay -S coolerdash-git
 #OR any other AUR helper
 ```
 
-#### All distributions
+#### All Linux distributions
 
-<a href="https://github.com/damachine/coolerdash/actions/workflows/install.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg"></a>
+[![Unified Package Release](https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/release.yml)
 
 - Manual installation:
 
