@@ -245,77 +245,44 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup SSH for AUR
-        env:
-          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+      - name: Prepare PKGBUILD with updated commit hash
+        id: pkgbuild
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          # Write key with proper newlines
-          echo "$AUR_SSH_KEY" | tr -d '\r' > ~/.ssh/aur
-          chmod 600 ~/.ssh/aur
-          # Validate key format
-          if ! ssh-keygen -l -f ~/.ssh/aur > /dev/null 2>&1; then
-            echo "ERROR: Invalid SSH key format"
-            echo "Key must be in OpenSSH format (BEGIN OPENSSH PRIVATE KEY)"
-            exit 1
-          fi
-          # Add known hosts
-          ssh-keyscan -t rsa,ecdsa,ed25519 aur.archlinux.org >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-          # Configure SSH
-          cat > ~/.ssh/config <<EOF
-          Host aur.archlinux.org
-            IdentityFile ~/.ssh/aur
-            User aur
-            StrictHostKeyChecking accept-new
-          EOF
-          chmod 600 ~/.ssh/config
-          # Start ssh-agent and add key
-          eval $(ssh-agent -s)
-          ssh-add ~/.ssh/aur
-          echo "✅ SSH key loaded successfully"
-
-      - name: Clone AUR repository
-        run: |
-          git clone ssh://aur@aur.archlinux.org/coolerdash-git.git aur-repo
-          cd aur-repo
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - name: Update PKGBUILD with new commit
-        run: |
-          cd aur-repo
           COMMIT_SHA="${{ needs.prepare-release.outputs.commit_sha }}"
           VERSION="${{ needs.prepare-release.outputs.version }}"
 
-          echo "Updating PKGBUILD with commit: $COMMIT_SHA"
-          sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" PKGBUILD
+          # Copy the working PKGBUILD from aur/ directory
+          cp aur/PKGBUILD /tmp/PKGBUILD
+          cp aur/coolerdash.install /tmp/coolerdash.install
 
-          # Update pkgrel to 1 for new version
-          sed -i 's/^pkgrel=.*/pkgrel=1/' PKGBUILD
+          # Update the _commit hash to the new release commit
+          sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" /tmp/PKGBUILD
 
-          echo "Updated PKGBUILD:"
-          grep -E "^_commit=|^pkgrel=" PKGBUILD
+          # Reset pkgrel to 1 for new version
+          sed -i "s/^pkgrel=.*/pkgrel=1/" /tmp/PKGBUILD
 
-      - name: Generate .SRCINFO
+          echo "✅ Updated PKGBUILD:"
+          grep -E "^_commit=|^pkgrel=" /tmp/PKGBUILD
+
+          echo "commit=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Deploy to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: coolerdash-git
+          pkgbuild: /tmp/PKGBUILD
+          commit_username: "github-actions[bot]"
+          commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          commit_message: "Update to ${{ needs.prepare-release.outputs.tag }}"
+          ssh_private_key: ${{ secrets.AUR_SSH }}
+          allow_empty_commits: false
+          force_push: false
+
+      - name: Copy install script
         run: |
-          cd aur-repo
-          docker run --rm -v "$PWD:/pkg" archlinux:latest bash -c "
-            pacman -Syu --noconfirm base-devel
-            useradd -m builder
-            chown -R builder:builder /pkg
-            cd /pkg
-            su builder -c 'makepkg --printsrcinfo > .SRCINFO'
-          "
-
-      - name: Commit and push to AUR
-        run: |
-          cd aur-repo
-          git add PKGBUILD .SRCINFO
-          git commit -m "Update to ${{ needs.prepare-release.outputs.tag }}" || echo "No changes to commit"
-          git push origin master
-          echo "✅ AUR repository updated successfully"
+          # The action needs the .install file in the same directory
+          cp /tmp/coolerdash.install /tmp/aur-deploy/coolerdash.install || true
 
   build-packages:
     name: Build ${{ matrix.distro }} Package
