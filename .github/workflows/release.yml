@@ -486,7 +486,7 @@ jobs:
           grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
       - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@5b64840d9f2a800ff39a0e9a69f6e3a9ec4c4525
+        uses: KSXGitHub/github-actions-deploy-aur@v3
         with:
           pkgname: coolerdash-git
           pkgbuild: ./aur-deploy/PKGBUILD
