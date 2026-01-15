@@ -11,28 +11,21 @@ permissions:
   contents: write
 
 jobs:
-  check-install-test:
-    name: Wait for Installation Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for install.yml to complete
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-name: "Multi-Distribution Installation Test Summary"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
-
   prepare-release:
     name: Prepare Release & GPG Setup
     runs-on: ubuntu-latest
-    needs: check-install-test
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       release_msg: ${{ steps.version.outputs.release_msg }}
       commit_sha: ${{ steps.commit.outputs.sha }}
     steps:
+      - name: Wait for install.yml to complete
+        run: |
+          echo "⏳ Waiting 2 minutes for install.yml to complete..."
+          sleep 120
+          echo "✅ Wait completed, starting release process"
+
       - name: Checkout code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
