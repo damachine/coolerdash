@@ -441,11 +441,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install makepkg for .SRCINFO generation
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y pacman
-
       - name: Prepare PKGBUILD with updated commit hash from tag
         run: |
           TAG="${{ needs.prepare-version.outputs.tag }}"
@@ -471,13 +466,6 @@ jobs:
           echo "✅ Updated PKGBUILD:"
           grep -E "^_commit=|^pkgrel=|^pkgver=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
-          # Generate .SRCINFO
-          cd $GITHUB_WORKSPACE/aur-deploy
-          makepkg --printsrcinfo > .SRCINFO
-
-          echo "✅ Generated .SRCINFO:"
-          cat .SRCINFO | head -20
-
       - name: Deploy to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
         with:
@@ -485,7 +473,6 @@ jobs:
           pkgbuild: ./aur-deploy/PKGBUILD
           assets: |
             ./aur-deploy/coolerdash.install
-            ./aur-deploy/.SRCINFO
           commit_username: "github-actions[bot]"
           commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_message: "Update to ${{ needs.prepare-version.outputs.tag }}"
