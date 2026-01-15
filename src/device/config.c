@@ -397,7 +397,6 @@ static void load_daemon_from_json(json_t *root, Config *config)
     json_t *password = json_object_get(daemon, "password");
     if (password && json_is_string(password) && json_string_length(password) > 0)
     {
-        // cppcheck-suppress bufferAccessOutOfBounds
         const char *value = json_string_value(password);
         if (value)
         {
@@ -418,7 +417,6 @@ static void load_paths_from_json(json_t *root, Config *config)
     json_t *images = json_object_get(paths, "images");
     if (images && json_is_string(images))
     {
-        // cppcheck-suppress bufferAccessOutOfBounds
         const char *value = json_string_value(images);
         if (value)
         {
@@ -429,7 +427,6 @@ static void load_paths_from_json(json_t *root, Config *config)
     json_t *image_coolerdash = json_object_get(paths, "image_coolerdash");
     if (image_coolerdash && json_is_string(image_coolerdash))
     {
-        // cppcheck-suppress bufferAccessOutOfBounds
         const char *value = json_string_value(image_coolerdash);
         if (value)
         {
@@ -440,7 +437,6 @@ static void load_paths_from_json(json_t *root, Config *config)
     json_t *image_shutdown = json_object_get(paths, "image_shutdown");
     if (image_shutdown && json_is_string(image_shutdown))
     {
-        // cppcheck-suppress bufferAccessOutOfBounds
         const char *value = json_string_value(image_shutdown);
         if (value)
         {
@@ -461,7 +457,6 @@ static void load_display_from_json(json_t *root, Config *config)
     json_t *mode = json_object_get(display, "mode");
     if (mode && json_is_string(mode))
     {
-        // cppcheck-suppress bufferAccessOutOfBounds
         const char *value = json_string_value(mode);
         if (value)
         {
