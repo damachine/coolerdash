@@ -12,8 +12,11 @@ permissions:
   contents: write
 
 jobs:
-  prepare-release:
-    name: Prepare Release & GPG Setup
+  # ============================================================================
+  # STEP 1: Prepare version info (no tag/release yet)
+  # ============================================================================
+  prepare-version:
+    name: Prepare Version Info
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -21,12 +24,6 @@ jobs:
       release_msg: ${{ steps.version.outputs.release_msg }}
       commit_sha: ${{ steps.commit.outputs.sha }}
     steps:
-      - name: Wait for install.yml to complete
-        run: |
-          echo "⏳ Waiting 2 minutes for install.yml to complete..."
-          sleep 120
-          echo "✅ Wait completed, starting release process"
-
       - name: Checkout code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
@@ -37,26 +34,6 @@ jobs:
         id: commit
         run: |
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Install GPG tools and prepare GNUPGHOME
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y gnupg2 pinentry-curses jq
-          export GNUPGHOME=$(mktemp -d)
-          chmod 700 "$GNUPGHOME"
-          echo "allow-loopback-pinentry" > "$GNUPGHOME/gpg-agent.conf"
-          echo "use-agent" > "$GNUPGHOME/gpg.conf"
-          echo "pinentry-program /usr/bin/pinentry-curses" >> "$GNUPGHOME/gpg-agent.conf"
-          echo "GNUPGHOME=$GNUPGHOME" >> $GITHUB_ENV
-
-      - name: Import GPG key into isolated GNUPGHOME
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          gpgconf --kill gpg-agent || true
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          echo -e "5\ny\n" | gpg --batch --command-fd 0 --expert --edit-key $(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}') trust quit || true
 
       - name: Read version and find next available tag
         id: version
@@ -90,205 +67,13 @@ jobs:
           echo "tag=$final_tag" >> $GITHUB_OUTPUT
           echo "release_msg=CoolerDash $final_tag" >> $GITHUB_OUTPUT
 
-      - name: Get GPG key ID
-        id: gpg
-        run: |
-          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
-          if [ -z "$KEYID" ]; then
-            echo "ERROR: No GPG key found"
-            exit 1
-          fi
-          echo "keyid=$KEYID" >> $GITHUB_OUTPUT
-          echo "Found GPG Key ID: $KEYID"
-
-      - name: Configure git for GPG signing
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.signingkey "${{ steps.gpg.outputs.keyid }}"
-          git config commit.gpgSign true
-          git config tag.gpgSign true
-          git config gpg.program gpg
-
-      - name: Create and Push signed tag
-        if: github.ref == 'refs/heads/master' # Only create real tags on master
-        env:
-          TAG: ${{ steps.version.outputs.tag }}
-          MSG: ${{ steps.version.outputs.release_msg }}
-        run: |
-          set -euo pipefail
-          git fetch origin
-          echo "Creating signed tag: $TAG"
-          git tag -s "$TAG" -m "$MSG" HEAD
-          git push origin "$TAG"
-          echo "Successfully created and pushed signed tag: $TAG"
-
-      - name: Skip tag creation (test branch)
-        if: github.ref != 'refs/heads/master'
-        run: |
-          echo "⚠️ Skipping tag creation on test branch: ${{ github.ref_name }}"
-          echo "Tags are only created on master branch to avoid conflicts"
-
-      - name: Create GitHub Release
-        if: github.ref == 'refs/heads/master' # Only create releases on master
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
-        with:
-          tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.release_msg }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          body: |
-            ## 🏛️ Arch Linux (AUR)
-
-            [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
-
-            **Installation:**
-            ```bash
-            yay -S coolerdash-git
-            ```
-
-            ---
-
-            ## 📦 Binary Packages (DEB/RPM)
-
-            Pre-built packages are available for download below. All packages are **GPG-signed** for security.
-
-            ### Ubuntu / Debian / Linux Mint
-            ```bash
-            # Download DEB package (works on all Debian-based distributions)
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/coolerdash_${{ steps.version.outputs.version }}_amd64.deb
-
-            # Verify signature (optional but recommended)
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/SHA256SUMS.asc
-            gpg --verify SHA256SUMS.asc
-            sha256sum -c SHA256SUMS.asc 2>&1 | grep coolerdash
-
-            # Install
-            sudo apt install ./coolerdash_${{ steps.version.outputs.version }}_amd64.deb
-            ```
-
-            ### Fedora / RHEL / CentOS
-            ```bash
-            # Download RPM package (Fedora)
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/coolerdash-${{ steps.version.outputs.version }}-1.fc42.x86_64.rpm
-
-            # OR CentOS Stream
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/coolerdash-${{ steps.version.outputs.version }}-1.el9.x86_64.rpm
-
-            # Verify signature
-            rpm --checksig coolerdash-*.rpm
-
-            # Install
-            sudo dnf install ./coolerdash-*.rpm
-            ```
-
-            ### openSUSE
-            ```bash
-            # Download RPM package
-            wget https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/coolerdash-${{ steps.version.outputs.version }}-1.opensuse.x86_64.rpm
-
-            # Install
-            sudo zypper install ./coolerdash-*.rpm
-            ```
-
-            ---
-
-            ### 🔐 GPG Verification
-
-            Import public key to verify signatures:
-            ```bash
-            # Import GPG public key
-            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/master/GPG_PUBLIC_KEY.asc | gpg --import
-
-            # Verify release signature
-            gpg --verify SHA256SUMS.asc
-            ```
-
-            ---
-
-            ### Changes in ${{ steps.version.outputs.version }}
-
-            See auto-generated release notes below.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify tag signature
-        run: |
-          echo "Verifying tag signature..."
-          git tag -v "${{ steps.version.outputs.tag }}" || echo "Tag verification completed"
-
-      - name: Cleanup GPG environment
-        if: always()
-        run: |
-          echo "Cleaning up GPG environment..."
-          if [ -n "$GNUPGHOME" ] && [ -d "$GNUPGHOME" ]; then
-            gpgconf --kill gpg-agent || true
-            rm -rf "$GNUPGHOME"
-            echo "Removed GNUPGHOME: $GNUPGHOME"
-          fi
-          for key in $(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '/^sec/ {print $5}'); do
-            gpg --batch --yes --delete-secret-keys "$key" || true
-          done
-          for key in $(gpg --list-keys --with-colons 2>/dev/null | awk -F: '/^pub/ {print $5}'); do
-            gpg --batch --yes --delete-keys "$key" || true
-          done
-          echo "✅ GPG cleanup completed."
-
-  aur-push:
-    name: Update AUR Repository
-    runs-on: ubuntu-latest
-    needs: prepare-release
-    if: github.ref == 'refs/heads/master' # Only run on master branch, skip for test branches
-    steps:
-      - name: Checkout main repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-        with:
-          fetch-depth: 0
-
-      - name: Prepare PKGBUILD with updated commit hash
-        id: pkgbuild
-        run: |
-          COMMIT_SHA="${{ needs.prepare-release.outputs.commit_sha }}"
-          VERSION="${{ needs.prepare-release.outputs.version }}"
-
-          # Create a working directory in the workspace (accessible to Docker)
-          mkdir -p $GITHUB_WORKSPACE/aur-deploy
-
-          # Copy the working PKGBUILD from aur/ directory
-          cp aur/PKGBUILD $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-          cp aur/coolerdash.install $GITHUB_WORKSPACE/aur-deploy/coolerdash.install
-
-          # Update the _commit hash to the new release commit
-          sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-
-          # Reset pkgrel to 1 for new version
-          sed -i "s/^pkgrel=.*/pkgrel=1/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-
-          echo "✅ Updated PKGBUILD:"
-          grep -E "^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-
-          echo "commit=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
-        with:
-          pkgname: coolerdash-git
-          pkgbuild: ./aur-deploy/PKGBUILD
-          assets: |
-            ./aur-deploy/coolerdash.install
-          commit_username: "github-actions[bot]"
-          commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
-          commit_message: "Update to ${{ needs.prepare-release.outputs.tag }}"
-          ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
-          allow_empty_commits: false
-          force_push: false
-
+  # ============================================================================
+  # STEP 2: Build all packages FIRST (before creating tag/release)
+  # ============================================================================
   build-packages:
     name: Build ${{ matrix.distro }} Package
     runs-on: ubuntu-latest
-    needs: prepare-release
+    needs: prepare-version
     strategy:
       fail-fast: false
       matrix:
@@ -296,19 +81,19 @@ jobs:
           - distro: ubuntu:24.04
             type: deb
             name: debian-based
-            pkg_name: coolerdash_${{ needs.prepare-release.outputs.version }}_amd64.deb
+            pkg_name: coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
           - distro: fedora:42
             type: rpm
             name: fedora-42
-            pkg_name: coolerdash-${{ needs.prepare-release.outputs.version }}-1.fc42.x86_64.rpm
+            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
           - distro: quay.io/centos/centos:stream9
             type: rpm
             name: centos-stream9
-            pkg_name: coolerdash-${{ needs.prepare-release.outputs.version }}-1.el9.x86_64.rpm
+            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
           - distro: opensuse/tumbleweed
             type: rpm
             name: opensuse-tumbleweed
-            pkg_name: coolerdash-${{ needs.prepare-release.outputs.version }}-1.opensuse.x86_64.rpm
+            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
 
     container:
       image: ${{ matrix.distro }}
@@ -400,11 +185,9 @@ jobs:
 
       - name: Copy packaging files to root
         run: |
-          # Copy debian/ to root for dpkg-buildpackage
           if [ "${{ matrix.type }}" = "deb" ]; then
             cp -r packaging/debian ./
           fi
-          # Copy spec file for RPM builds
           if [ "${{ matrix.type }}" = "rpm" ]; then
             cp packaging/coolerdash.spec ./
           fi
@@ -412,7 +195,7 @@ jobs:
       - name: Prepare version for changelog
         id: prep
         run: |
-          VERSION="${{ needs.prepare-release.outputs.version }}"
+          VERSION="${{ needs.prepare-version.outputs.version }}"
           DATE=$(date -R)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "date=$DATE" >> $GITHUB_OUTPUT
@@ -420,71 +203,38 @@ jobs:
       - name: Build DEB package
         if: matrix.type == 'deb'
         run: |
-          # Substitute VERSION and DATE in changelog
           sed -i "s/{{VERSION}}/${{ steps.prep.outputs.version }}/g" debian/changelog
           sed -i "s/{{DATE}}/${{ steps.prep.outputs.date }}/g" debian/changelog
-
-          # Build package
           dpkg-buildpackage -us -uc -b
-
-          # Move package to workspace
           mv ../*.deb ./
           ls -lh *.deb
 
       - name: Build RPM package
         if: matrix.type == 'rpm'
         env:
-          COOLERDASH_VERSION: ${{ needs.prepare-release.outputs.version }}
+          COOLERDASH_VERSION: ${{ needs.prepare-version.outputs.version }}
         run: |
-          # Setup RPM build environment (distro-specific paths)
           if [ "${{ matrix.name }}" = "opensuse-tumbleweed" ]; then
             RPMBUILD_DIR="/usr/src/packages"
           else
             RPMBUILD_DIR="$HOME/rpmbuild"
           fi
           mkdir -p $RPMBUILD_DIR/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-
-          # Create source tarball
           mkdir -p /tmp/coolerdash-${COOLERDASH_VERSION}
           cp -r . /tmp/coolerdash-${COOLERDASH_VERSION}/ 2>/dev/null || true
           tar czf $RPMBUILD_DIR/SOURCES/coolerdash-${COOLERDASH_VERSION}.tar.gz -C /tmp coolerdash-${COOLERDASH_VERSION}
-
-          # Spec file already copied by previous step
-          cp coolerdash.spec $RPMBUILD_DIR/SPECS/ 2>/dev/null || echo "Spec file already in place"
-
-          # Build RPM
+          cp coolerdash.spec $RPMBUILD_DIR/SPECS/ 2>/dev/null || true
           rpmbuild -bb $RPMBUILD_DIR/SPECS/coolerdash.spec
-
-          # Find and copy built RPM
           find $RPMBUILD_DIR/RPMS -name "*.rpm" -exec cp {} ./ \;
           ls -lh *.rpm
 
-      - name: Import GPG key for signing
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      - name: Verify package
         run: |
-          export GNUPGHOME=$(mktemp -d)
-          chmod 700 "$GNUPGHOME"
-          echo "allow-loopback-pinentry" > "$GNUPGHOME/gpg-agent.conf"
-          echo "pinentry-program /usr/bin/pinentry-curses" >> "$GNUPGHOME/gpg-agent.conf"
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          echo "GNUPGHOME=$GNUPGHOME" >> $GITHUB_ENV
-          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
-          echo "GPG_KEY_ID=$KEYID" >> $GITHUB_ENV
-
-      - name: Verify DEB package
-        if: matrix.type == 'deb'
-        run: |
-          echo "✅ DEB package built successfully"
-          dpkg --info *.deb
-          echo "Note: Package signing via SHA256SUMS.asc"
-
-      - name: Verify RPM package
-        if: matrix.type == 'rpm'
-        run: |
-          echo "✅ RPM package built successfully"
-          rpm -qpi *.rpm
-          echo "Note: Package signing via SHA256SUMS.asc"
+          if [ "${{ matrix.type }}" = "deb" ]; then
+            dpkg --info *.deb
+          else
+            rpm -qpi *.rpm
+          fi
 
       - name: Rename package
         run: |
@@ -499,10 +249,135 @@ jobs:
           path: ${{ matrix.pkg_name }}
           retention-days: 7
 
+  # ============================================================================
+  # STEP 3: Create Tag & Release ONLY after all builds succeed
+  # ============================================================================
+  create-release:
+    name: Create Tag & Release
+    runs-on: ubuntu-latest
+    needs: [prepare-version, build-packages]
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install GPG tools
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y gnupg2 pinentry-curses
+          export GNUPGHOME=$(mktemp -d)
+          chmod 700 "$GNUPGHOME"
+          echo "allow-loopback-pinentry" > "$GNUPGHOME/gpg-agent.conf"
+          echo "use-agent" > "$GNUPGHOME/gpg.conf"
+          echo "pinentry-program /usr/bin/pinentry-curses" >> "$GNUPGHOME/gpg-agent.conf"
+          echo "GNUPGHOME=$GNUPGHOME" >> $GITHUB_ENV
+
+      - name: Import GPG key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          gpgconf --kill gpg-agent || true
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          echo -e "5\ny\n" | gpg --batch --command-fd 0 --expert --edit-key $(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}') trust quit || true
+
+      - name: Get GPG key ID
+        id: gpg
+        run: |
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5; exit}')
+          echo "keyid=$KEYID" >> $GITHUB_OUTPUT
+
+      - name: Configure git for GPG signing
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.signingkey "${{ steps.gpg.outputs.keyid }}"
+          git config commit.gpgSign true
+          git config tag.gpgSign true
+          git config gpg.program gpg
+
+      - name: Create and Push signed tag
+        env:
+          TAG: ${{ needs.prepare-version.outputs.tag }}
+          MSG: ${{ needs.prepare-version.outputs.release_msg }}
+        run: |
+          echo "✅ All builds succeeded! Creating signed tag: $TAG"
+          git tag -s "$TAG" -m "$MSG" HEAD
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
+        with:
+          tag_name: ${{ needs.prepare-version.outputs.tag }}
+          name: ${{ needs.prepare-version.outputs.release_msg }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ## 🏛️ Arch Linux (AUR)
+
+            [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
+
+            ```bash
+            yay -S coolerdash-git
+            ```
+
+            ---
+
+            ## 📦 Binary Packages
+
+            ### Ubuntu / Debian
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
+            sudo apt install ./coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
+            ```
+
+            ### Fedora
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
+            sudo dnf install ./coolerdash-*.rpm
+            ```
+
+            ### CentOS Stream 9
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
+            sudo dnf install ./coolerdash-*.rpm
+            ```
+
+            ### openSUSE
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
+            sudo zypper install ./coolerdash-*.rpm
+            ```
+
+            ---
+
+            ### 🔐 GPG Verification
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/master/GPG_PUBLIC_KEY.asc | gpg --import
+            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS.asc
+            gpg --verify SHA256SUMS.asc
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup GPG
+        if: always()
+        run: |
+          if [ -n "$GNUPGHOME" ] && [ -d "$GNUPGHOME" ]; then
+            gpgconf --kill gpg-agent || true
+            rm -rf "$GNUPGHOME"
+          fi
+
+  # ============================================================================
+  # STEP 4: Upload packages to the release
+  # ============================================================================
   upload-packages:
     name: Upload Packages to Release
     runs-on: ubuntu-latest
-    needs: [prepare-release, build-packages]
+    needs: [prepare-version, build-packages, create-release]
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -538,10 +413,9 @@ jobs:
           ls -lh SHA256SUMS*
 
       - name: Upload packages to release
-        if: github.ref == 'refs/heads/master' # Only upload to real releases
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844
         with:
-          tag_name: ${{ needs.prepare-release.outputs.tag }}
+          tag_name: ${{ needs.prepare-version.outputs.tag }}
           files: |
             packages/**/*.deb
             packages/**/*.rpm
@@ -550,39 +424,68 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # ============================================================================
+  # STEP 5: Update AUR repository
+  # ============================================================================
+  aur-push:
+    name: Update AUR Repository
+    runs-on: ubuntu-latest
+    needs: [prepare-version, create-release]
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 0
+
+      - name: Prepare PKGBUILD with updated commit hash
+        run: |
+          COMMIT_SHA="${{ needs.prepare-version.outputs.commit_sha }}"
+          mkdir -p $GITHUB_WORKSPACE/aur-deploy
+          cp aur/PKGBUILD $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
+          cp aur/coolerdash.install $GITHUB_WORKSPACE/aur-deploy/coolerdash.install
+          sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
+          echo "✅ Updated PKGBUILD:"
+          grep -E "^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
+
+      - name: Deploy to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: coolerdash-git
+          pkgbuild: ./aur-deploy/PKGBUILD
+          assets: |
+            ./aur-deploy/coolerdash.install
+          commit_username: "github-actions[bot]"
+          commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          commit_message: "Update to ${{ needs.prepare-version.outputs.tag }}"
+          ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
+          allow_empty_commits: false
+          force_push: false
+
+  # ============================================================================
+  # STEP 6: Summary
+  # ============================================================================
   release-summary:
     name: Release Summary
     runs-on: ubuntu-latest
-    needs: [prepare-release, aur-push, build-packages, upload-packages]
+    needs: [prepare-version, build-packages, create-release, upload-packages, aur-push]
     if: always()
     steps:
       - name: Create summary report
         run: |
-          echo "## 🚀 CoolerDash Unified Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 CoolerDash Release Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Release Details:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version**: ${{ needs.prepare-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag**: ${{ needs.prepare-release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Repository**: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ needs.prepare-release.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ needs.prepare-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ needs.prepare-version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ needs.prepare-version.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🏛️ Arch Linux (AUR):" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **PKGBUILD Updated**: Commit SHA updated in coolerdash-git" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **.SRCINFO Generated**: Metadata synchronized" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **AUR Push**: Changes pushed to aur.archlinux.org" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Binary Packages Built:" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Debian-based (Ubuntu/Debian/Mint)**: Universal DEB package" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Fedora 42**: RPM package" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **CentOS Stream 9**: RPM package" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **openSUSE Tumbleweed**: RPM package" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔐 Security:" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **GPG-Signed Tag**: Git tag cryptographically signed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **Package Signatures**: All DEB/RPM packages signed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ **SHA256SUMS.asc**: Checksums file GPG-signed" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Status:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package Builds**: ${{ needs.build-packages.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Creation**: ${{ needs.create-release.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package Upload**: ${{ needs.upload-packages.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **AUR Update**: ${{ needs.aur-push.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📥 Downloads:" >> $GITHUB_STEP_SUMMARY
-          echo "All packages available at: https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare-release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare-version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
