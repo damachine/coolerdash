@@ -6,6 +6,7 @@ on:
       - "VERSION"
     branches:
       - master
+  workflow_dispatch:
 
 permissions:
   contents: write
