@@ -475,6 +475,15 @@ jobs:
           assets: |
             ./aur-deploy/coolerdash.install
           commit_username: "github-actions[bot]"
+          commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
+          commit_message: "Update to ${{ needs.prepare-version.outputs.tag }}"
+          ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
+          allow_empty_commits: false
+          force_push: false
+
+  # ============================================================================
+  # STEP 6: Summary
+  # ============================================================================
   release-summary:
     name: Release Summary
     runs-on: ubuntu-latest
