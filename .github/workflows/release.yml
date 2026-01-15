@@ -395,7 +395,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
         with:
-          ref: ${{ github.ref == 'refs/heads/master' && needs.prepare-release.outputs.tag || needs.prepare-release.outputs.commit_sha }}
+          ref: ${{ needs.prepare-release.outputs.commit_sha }}
 
       - name: Copy packaging files to root
         run: |
