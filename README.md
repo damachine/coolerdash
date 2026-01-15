@@ -66,7 +66,7 @@ yay -S coolerdash-git
 
 #### All Linux distributions
 
-[![Unified Package Release](https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/release.yml)
+[![Download Unified Package Release](https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg)](https://github.com/damachine/coolerdash/releases)
 
 - Manual installation:
 
