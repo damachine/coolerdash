@@ -88,39 +88,6 @@ make install
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
 
-
-**GPG Verification (optional):**
-
-**Verify package integrity (recommended):**
-
-```bash
-# Download checksums and signature
-VERSION="2.1.0"  # Replace with actual version
-wget https://github.com/damachine/coolerdash/releases/download/v${VERSION}/SHA256SUMS
-wget https://github.com/damachine/coolerdash/releases/download/v${VERSION}/SHA256SUMS.asc
-
-# Verify GPG signature
-gpg --verify SHA256SUMS.asc SHA256SUMS
-
-# Verify package checksum
-sha256sum -c SHA256SUMS --ignore-missing
-```
-
-**Import GPG key (first time only):**
-```bash
-# Import from keyserver
-gpg --keyserver keyserver.ubuntu.com --recv-keys 56A3ECA0692EBCA39EFF64833F551E2E201688B6
-
-# Or from GitHub
-curl https://github.com/damachine.gpg | gpg --import
-```
-
-> **Note:** For RPM-based systems (Fedora, RHEL, CentOS), you can additionally verify using:
-> ```bash
-> rpm --checksig coolerdash-*.rpm
-> ```
-> This command only works on RPM-based distributions.
-
 ---
 
 ## Configuration

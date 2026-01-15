@@ -85,11 +85,11 @@ jobs:
           - distro: fedora:42
             type: rpm
             name: fedora-42
-            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm
+            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
           - distro: quay.io/centos/centos:stream9
             type: rpm
             name: centos-stream9
-            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.centos.x86_64.rpm
+            pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
           - distro: opensuse/tumbleweed
             type: rpm
             name: opensuse-tumbleweed
@@ -338,26 +338,30 @@ jobs:
 
             ### Ubuntu / Debian
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
             sudo apt install ./coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
             ```
 
             ### Fedora
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm
-            sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm
+            sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.fc42.x86_64.rpm
             ```
 
             ### CentOS / RHEL
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.centos.x86_64.rpm
-            sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.centos.x86_64.rpm
+            sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.el9.x86_64.rpm
             ```
 
             ### openSUSE
             ```bash
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
             sudo zypper install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
+            ```
+
+            ---
+
+            ## 🔐 GPG Verification
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS.asc
+            gpg --verify SHA256SUMS.asc
             ```
 
             ---
@@ -372,22 +376,6 @@ jobs:
             # STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
             make install
             ```
-
-            ---
-
-            ## GPG Verification (optional):
-            ```bash
-            # Download checksums and signature
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS
-            wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS.asc
-
-            # Verify GPG signature
-            gpg --verify SHA256SUMS.asc SHA256SUMS
-
-            # Verify package checksum
-            sha256sum -c SHA256SUMS --ignore-missing
-            ```
-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -498,7 +486,7 @@ jobs:
           grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
       - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@a97f56a8425a7a7f3b8c58607f769c69b089cadb # v3
+        uses: KSXGitHub/github-actions-deploy-aur@v3
         with:
           pkgname: coolerdash-git
           pkgbuild: ./aur-deploy/PKGBUILD
@@ -544,16 +532,3 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📥 Downloads:" >> $GITHUB_STEP_SUMMARY
           echo "https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare-version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔐 GPG Verification (optional):" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "# Download checksums and signature" >> $GITHUB_STEP_SUMMARY
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS" >> $GITHUB_STEP_SUMMARY
-          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/SHA256SUMS.asc" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Verify GPG signature" >> $GITHUB_STEP_SUMMARY
-          echo "gpg --verify SHA256SUMS.asc SHA256SUMS" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Verify package checksum" >> $GITHUB_STEP_SUMMARY
-          echo "sha256sum -c SHA256SUMS --ignore-missing" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
