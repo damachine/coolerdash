@@ -1,11 +1,7 @@
 name: Multi-Distribution Installation Test
 
 on:
-  push:
-    paths:
-      - "VERSION"
-    branches:
-      - master
+  push: # Triggers on every push to any branch
   workflow_dispatch: # Allows manual execution
 permissions:
   contents: read

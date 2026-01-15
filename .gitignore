@@ -21,6 +21,17 @@ pkg/*
 *.bak
 *.run
 
+# Package build artifacts
+*.deb
+*.rpm
+*.buildinfo
+*.changes
+packaging/debian/.debhelper/
+packaging/debian/coolerdash/
+packaging/debian/files
+packaging/debian/*.substvars
+packaging/debian/*.log
+
 # OS files
 *~
 .directory

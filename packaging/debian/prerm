@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|upgrade|deconfigure)
+        # Stop CoolerControl to ensure clean plugin removal
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl is-active --quiet coolercontrold.service; then
+                systemctl stop coolercontrold.service || true
+            fi
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
