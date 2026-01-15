@@ -251,18 +251,21 @@ jobs:
           COMMIT_SHA="${{ needs.prepare-release.outputs.commit_sha }}"
           VERSION="${{ needs.prepare-release.outputs.version }}"
 
+          # Create a working directory in the workspace (accessible to Docker)
+          mkdir -p $GITHUB_WORKSPACE/aur-deploy
+
           # Copy the working PKGBUILD from aur/ directory
-          cp aur/PKGBUILD /tmp/PKGBUILD
-          cp aur/coolerdash.install /tmp/coolerdash.install
+          cp aur/PKGBUILD $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
+          cp aur/coolerdash.install $GITHUB_WORKSPACE/aur-deploy/coolerdash.install
 
           # Update the _commit hash to the new release commit
-          sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" /tmp/PKGBUILD
+          sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
           # Reset pkgrel to 1 for new version
-          sed -i "s/^pkgrel=.*/pkgrel=1/" /tmp/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
           echo "✅ Updated PKGBUILD:"
-          grep -E "^_commit=|^pkgrel=" /tmp/PKGBUILD
+          grep -E "^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
 
           echo "commit=$COMMIT_SHA" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -271,18 +274,15 @@ jobs:
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
         with:
           pkgname: coolerdash-git
-          pkgbuild: /tmp/PKGBUILD
+          pkgbuild: ./aur-deploy/PKGBUILD
+          assets: |
+            ./aur-deploy/coolerdash.install
           commit_username: "github-actions[bot]"
           commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
           commit_message: "Update to ${{ needs.prepare-release.outputs.tag }}"
           ssh_private_key: ${{ secrets.AUR_SSH_KEY }}
           allow_empty_commits: false
           force_push: false
-
-      - name: Copy install script
-        run: |
-          # The action needs the .install file in the same directory
-          cp /tmp/coolerdash.install /tmp/aur-deploy/coolerdash.install || true
 
   build-packages:
     name: Build ${{ matrix.distro }} Package
