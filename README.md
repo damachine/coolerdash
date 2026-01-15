@@ -52,7 +52,7 @@
 
 ## Installation
 
-### 📦 Binary Packages (Recommended)
+### Binary Packages (Recommended)
 
 <a href="https://github.com/damachine/coolerdash/actions/workflows/release.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg"></a>
 
@@ -61,94 +61,67 @@ Pre-built, GPG-signed packages are available for all major distributions. Downlo
 #### Ubuntu / Debian
 
 ```bash
-# Download DEB package from releases page
 wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/coolerdash_X.X.X_amd64.deb
-
-# Verify signature (optional but recommended)
-wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/SHA256SUMS.asc
-gpg --verify SHA256SUMS.asc
-sha256sum -c SHA256SUMS.asc 2>&1 | grep coolerdash
-
-# Install package
 sudo apt install ./coolerdash_*.deb
 ```
 
 #### Fedora / RHEL / CentOS Stream
 
 ```bash
-# Download RPM package from releases page (Fedora example)
 wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/coolerdash-X.X.X-1.fc42.x86_64.rpm
-
-# Verify signature
-rpm --checksig coolerdash-*.rpm
-
-# Install package
 sudo dnf install ./coolerdash-*.rpm
 ```
 
 #### openSUSE
 
 ```bash
-# Download RPM package from releases page
 wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/coolerdash-X.X.X-1.opensuse.x86_64.rpm
-
-# Install package
 sudo zypper install ./coolerdash-*.rpm
 ```
 
-#### 🔐 GPG Verification (Recommended)
-
-Import the public GPG key to verify package signatures:
+#### GPG Verification (Optional)
 
 ```bash
-# Import GPG public key
 curl -fsSL https://raw.githubusercontent.com/damachine/coolerdash/master/GPG_PUBLIC_KEY.asc | gpg --import
-
-# Verify checksums signature
+wget https://github.com/damachine/coolerdash/releases/download/vX.X.X/SHA256SUMS.asc
 gpg --verify SHA256SUMS.asc
 ```
 
 ---
 
-### 🏛️ Arch Linux (AUR)
+### Arch Linux (AUR)
 
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
 ```bash
-# Using an AUR helper
 yay -S coolerdash-git
 ```
 
 ---
 
-### 🔨 Manual Installation (All Distributions)
+### Manual Installation (All Distributions)
 
 <a href="https://github.com/damachine/coolerdash/actions/workflows/install.yml"><img src="https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg"></a>
 
 ```bash
-# Clone repository
 git clone https://github.com/damachine/coolerdash.git
 cd coolerdash
-
-# Build and install (auto-detects dependencies)
 make install
 ```
-
-> **Note**: Manual installations require manual updates. Binary packages receive automatic updates via system package managers.
 
 ---
 
 ## Configuration
 
-**Start CoolerControl Service (if not already enabled):**
 ```bash
 systemctl enable --now coolercontrold.service
 ```
 
-**CoolerDash Configuration (optional):**
+Configure CoolerDash in the CoolerControl settings menu under the plugin tab. Restart the service to apply changes:
 
-In the CoolerControl settings menu, under the plugin tab (beta), you can now use the CoolerDash UI to make your custome settings.
-Please restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
+```bash
+systemctl restart cc-plugin-coolerdash.service
+```
 
 ---
 
