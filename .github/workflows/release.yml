@@ -453,22 +453,22 @@ jobs:
           # Calculate pkgver from the tag (simulate pkgver() function in PKGBUILD)
           # This mimics: git describe --tags --long --match "v*" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g'
           PKGVER=$(git describe --tags --long --match "v*" "$COMMIT_SHA" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g')
-          
+
           echo "✅ Tag: $TAG"
           echo "✅ Commit SHA from tag: $COMMIT_SHA"
           echo "✅ Version: $VERSION"
           echo "✅ Calculated PKGVER: $PKGVER"
-          
+
           # Prepare AUR deployment directory
           mkdir -p $GITHUB_WORKSPACE/aur-deploy
           cp aur/PKGBUILD $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           cp aur/coolerdash.install $GITHUB_WORKSPACE/aur-deploy/coolerdash.install
-          
+
           # Update PKGBUILD with new commit hash, pkgver and reset pkgrel
           sed -i "s/^pkgver=.*/pkgver=$PKGVER/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           sed -i "s/^_commit=.*/_commit=$COMMIT_SHA/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
-          
+
           echo "✅ Updated PKGBUILD:"
           grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD
           commit_email: "41898282+github-actions[bot]@users.noreply.github.com"
