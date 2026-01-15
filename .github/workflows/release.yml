@@ -337,24 +337,28 @@ jobs:
             ## Binary Packages
 
             ### Ubuntu / Debian
+            [![Debian/Ubuntu](https://img.shields.io/badge/Debian%2FUbuntu-Download-orange?logo=debian)](https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb)
             ```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
             sudo apt install ./coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
             ```
 
             ### Fedora
+            [![Fedora](https://img.shields.io/badge/Fedora-Download-blue?logo=fedora)](https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm)
             ```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm
             sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm
             ```
 
             ### CentOS / RHEL
+            [![CentOS/RHEL](https://img.shields.io/badge/CentOS%2FRHEL-Download-green?logo=centos)](https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.centos.x86_64.rpm)
             ```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.centos.x86_64.rpm
             sudo dnf install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.centos.x86_64.rpm
             ```
 
             ### openSUSE
+            [![openSUSE](https://img.shields.io/badge/openSUSE-Download-brightgreen?logo=opensuse)](https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm)
             ```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ needs.prepare-version.outputs.tag }}/coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
             sudo zypper install ./coolerdash-${{ needs.prepare-version.outputs.version }}-1.opensuse.x86_64.rpm
