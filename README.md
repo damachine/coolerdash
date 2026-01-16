@@ -17,11 +17,12 @@
 
 ---
 ## Features
-- **Extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) with additional features.**
-- **Support for additional sensor values, and a sophisticated, customizable user interface.**
-- **Two display modes:**
+- **Plug-In that extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)**
+- **Support for additional sensor values (CPU/GPU/Liquid)**
+- **Integrated UI interface for customizing all settings**  
+- **Display modes - for now**
   - **Dual Mode (default):** Shows CPU and GPU temperatures simultaneously
-  - **Circle Mode (beta):** Alternates between CPU and GPU every 5 sec. - optimized for round high-resolution displays (>240x240px)
+  - **Circle Mode (beta):** Alternates between CPU and GPU switch every 5 sec
 
 > ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
 
@@ -36,10 +37,9 @@
 
 ## System Requirements
 
-> [!NOTE]
-> Version 2.0.4+ runs as a CoolerControl plugin. No separate `coolerdash.service` required.
-> The plugin is automatically managed by `coolercontrold.service`.
-> Requires CoolerControl >=3.1.0 with plugin support.
+> [!WARNING]
+> Version 2.0.4+ runs as a CoolerControl plugin.
+> This requires CoolerControl >=3.1.0 with plugin support.   
 
 - **OS**: Linux
 - **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
@@ -56,26 +56,22 @@
 
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
-- Using an AUR helper:
-
 ```bash
 # STEP 1: Install
 yay -S coolerdash-git
 #OR any other AUR helper
 ```
 
-#### All Linux distributions
-
-[![Download Unified Package Release](https://github.com/damachine/coolerdash/actions/workflows/release.yml/badge.svg)](https://github.com/damachine/coolerdash/releases)
-
-**Download pre-built packages:**
+**Distributions pre-builted packages:**
 
 [![Debian/Ubuntu](https://img.shields.io/badge/Debian%2FUbuntu-Download-orange?logo=debian)](https://github.com/damachine/coolerdash/releases/latest)
 [![Fedora](https://img.shields.io/badge/Fedora-Download-blue?logo=fedora)](https://github.com/damachine/coolerdash/releases/latest)
 [![CentOS/RHEL](https://img.shields.io/badge/CentOS%2FRHEL-Download-green?logo=centos)](https://github.com/damachine/coolerdash/releases/latest)
 [![openSUSE](https://img.shields.io/badge/openSUSE-Download-brightgreen?logo=opensuse)](https://github.com/damachine/coolerdash/releases/latest)
 
-**Manual installation:**
+#### Manual installation: All distributions
+
+[![Multi-Distribution Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
 
 ```bash
 # STEP 1: Clone repository
@@ -101,6 +97,13 @@ systemctl enable --now coolercontrold.service
 
 In the CoolerControl settings menu, under the plugin tab (beta), you can now use the CoolerDash UI to make your custome settings.
 Please restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
+
+<details>
+  <summary>Screenshots</summary>
+  
+  comming soon...
+
+</details>
 
 ---
 
