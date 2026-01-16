@@ -1,3 +1,5 @@
+# This PKGBUILD is for building the coolerdash package from local source.
+# It assumes the source code is already present in the current directory.
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
@@ -66,16 +68,18 @@ check() {
 
 package() {
     # Plugin-mode installation: Everything in /etc/coolercontrol/plugins/coolerdash/
-    install -dm775 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
+    install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
     install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/coolerdash"
     install -Dm644 "${srcdir}/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
     install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
     install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/LICENSE"
     install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
     install -Dm666 "${srcdir}/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
+
+    # Create ui directory first with correct permissions
     install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui"
-    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
+    install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
+    install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
     install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
     install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 
@@ -84,7 +88,6 @@ package() {
 
     # Manual page
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
-
     # Desktop shortcut for settings UI
     install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
 

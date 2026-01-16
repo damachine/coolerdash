@@ -273,15 +273,17 @@ install: check-deps $(TARGET)
 	fi
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing plugin files to /etc/coolercontrol/plugins/coolerdash/...$(RESET)\n"
-	@install -dm775 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
+	@install -dm755 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
 	@install -Dm755 $(BINDIR)/$(TARGET) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash"
 	@install -Dm644 $(README) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/README.md"
 	@install -Dm644 LICENSE "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/LICENSE"
 	@install -Dm644 CHANGELOG.md "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
 	@install -Dm644 VERSION "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/VERSION"
 	@install -Dm666 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json"
-	@install -Dm644 etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-	@install -Dm644 etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
+	@# Create ui directory first with correct permissions
+	@install -dm755 "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui"
+	@install -m644 etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
+	@install -m644 etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
 	@install -Dm644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
 	@install -Dm644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@# Substitute VERSION placeholder in manifest.toml during install
