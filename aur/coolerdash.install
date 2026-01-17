@@ -81,15 +81,26 @@ post_install() {
     mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d
     printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
     chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
-    echo "Systemd drop-in created: 10s startup/shutdown delay for shutdown.png display"
+    echo "Systemd drop-in created: 10s startup delay"
+
+    # Create/ensure shutdown notifier unit (uses printf to avoid cat heredocs)
+    printf "[Unit]\nDescription=CoolerDash shutdown helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=network-online.target\nWants=network-online-target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/true\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=5\n\n[Install]\nWantedBy=multi-user-target\n" > /etc/systemd/system/coolerdash-helperd.service
+    chmod 644 /etc/systemd/system/coolerdash-helperd.service || true
+    echo "Helper unit created/updated: coolerdash-helperd.service"
 
     # Reload systemd manager configuration
     systemctl daemon-reload
 
-    # Restart CoolerControl to pick up the new plugin
-    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1; then
-        echo "Restarting CoolerControl service to load new plugin..."
-        systemctl restart coolercontrold.service || echo "Note: CoolerControl service restart failed. Please restart manually."
+    # Restart CoolerDash to pick up the updated plugin
+    if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
+        echo "Restarting CoolerDash service to load updated plugin..."
+        systemctl restart cc-plugin-coolerdash.service || echo "Note: CoolerDash service restart failed. Please restart manually."
+    fi
+
+    # Create shutdown notifier unit
+    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service enable/start failed. Please enable/start manually."
+        echo "Systemd helper unit created and enabled: coolerdash-helperd.service"
     fi
 
     echo "================================================================"
@@ -117,7 +128,12 @@ post_upgrade() {
     mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d
     printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
     chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
-    echo "Systemd drop-in created: 10s startup/shutdown delay for shutdown.png display"
+    echo "Systemd drop-in created: 10s startup delay"
+
+    # Create/ensure shutdown notifier unit (uses printf to avoid cat heredocs)
+    printf "[Unit]\nDescription=CoolerDash shutdown helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=network-online.target\nWants=network-online-target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/true\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=5\n\n[Install]\nWantedBy=multi-user-target\n" > /etc/systemd/system/coolerdash-helperd.service
+    chmod 644 /etc/systemd/system/coolerdash-helperd.service || true
+    echo "Helper unit created/updated: coolerdash-helperd.service"
 
     # Reload systemd manager configuration
     systemctl daemon-reload
@@ -126,6 +142,12 @@ post_upgrade() {
     if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
         echo "Restarting CoolerDash service to load updated plugin..."
         systemctl restart cc-plugin-coolerdash.service || echo "Note: CoolerDash service restart failed. Please restart manually."
+    fi
+
+    # Create shutdown notifier unit
+    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service enable/start failed. Please enable/start manually."
+        echo "Systemd helper unit created and enabled: coolerdash-helperd.service"
     fi
 
     echo "================================================================"
@@ -146,6 +168,15 @@ pre_remove() {
     if [ -d /etc/systemd/system/cc-plugin-coolerdash.service.d ]; then
         echo "Removing systemd drop-in directory..."
         rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
+    fi
+
+    # Remove notify unit (stop, disable and remove)
+    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+        echo "Stopping and disabling coolerdash-helperd.service..."
+        systemctl stop --no-block coolerdash-helperd.service 2>/dev/null || true
+        systemctl disable --now coolerdash-helperd.service 2>/dev/null || true
+        rm -f /etc/systemd/system/coolerdash-helperd.service
+        echo "Removed coolerdash-helperd.service"
     fi
 
     # Remove all installed users, files and directories

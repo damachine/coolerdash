@@ -100,4 +100,16 @@ void cleanup_coolercontrol_session(void);
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
 
+/**
+ * @brief Blocking variant of `send_image_to_lcd` with timeout and retries.
+ * @details Used for shutdown path to ensure the image upload completes
+ * synchronously. Sets temporary CURLOPT_TIMEOUT/CURLOPT_CONNECTTIMEOUT for
+ * the duration of the operation and restores defaults afterwards.
+ */
+int send_image_to_lcd_blocking(const struct Config *config,
+                               const char *image_path,
+                               const char *device_uid,
+                               int timeout_seconds,
+                               int retries);
+
 #endif // CC_MAIN_H

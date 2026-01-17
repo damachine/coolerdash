@@ -294,6 +294,12 @@ install: check-deps $(TARGET)
 		$(SUDO) sh -c 'printf "[Service]\nExecStartPre=/bin/sleep 10\nExecStopPre=/bin/sleep 10\nExecStop=/bin/sleep 10\nTimeoutStopSec=10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf' 2>/dev/null || true; \
 		$(SUDO) chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf 2>/dev/null || true; \
 		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"; \
+		$(SUDO) mkdir -p /etc/systemd/system/coolerdash-helperd.service.d 2>/dev/null || true; \
+		$(SUDO) sh -c 'printf "[Unit]\nDescription=CoolerDash shutdown helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=network-online.target\nWants=network-online-target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/true\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=5\n\n[Install]\nWantedBy=multi-user-target\n" > /etc/systemd/system/coolerdash-helperd.service' 2>/dev/null || true; \
+		$(SUDO) chmod 644 /etc/systemd/system/coolerdash-helperd.service.d 2>/dev/null || true; \
+		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/coolerdash-helperd.service.d\n"; \
+		$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
+		$(SUDO) systemctl enable --now coolerdash-helperd.service 2>/dev/null || true; \
 	fi
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json\n"

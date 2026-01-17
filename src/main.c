@@ -72,6 +72,9 @@ int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
 // treated as circular
 int force_display_circular = 0;
 
+// CLI mode: send shutdown image and exit
+int send_shutdown_only = 0;
+
 /**
  * @brief Global pointer to configuration.
  * @details Points to the current configuration used by the daemon. Initialized
@@ -215,7 +218,8 @@ static void show_help(const char *program_name)
     printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 "
            "seconds)\n");
     printf("  --develop         Developer: force display to be treated as "
-           "circular for testing\n\n");
+           "circular for testing\n");
+    printf("  --shutdown         Send shutdown image to device and exit (use with systemd ExecStop)\n\n");
     printf("DISPLAY MODES:\n");
     printf(
         "  dual              Default mode - shows CPU and GPU simultaneously\n");
@@ -231,6 +235,8 @@ static void show_help(const char *program_name)
            program_name);
     printf("  %s --circle                       # Standalone with circle mode "
            "(alternating display)\n",
+           program_name);
+    printf("  %s --shutdown               # Send shutdown image and exit\n",
            program_name);
     printf("  %s --dual --verbose               # Force dual mode with detailed "
            "logging\n",
@@ -330,22 +336,6 @@ static int get_device_uid_for_shutdown(char *device_uid, size_t uid_size)
 }
 
 /**
- * @brief Handle missing shutdown image by turning off LCD.
- * @details Creates temporary config with brightness 0 to turn off display.
- */
-static void handle_missing_shutdown_image(const char *device_uid)
-{
-    Config temp_config = *g_config_ptr;
-    temp_config.lcd_brightness = 0;
-
-    const char *fallback_image = g_config_ptr->paths_image_coolerdash;
-    if (fallback_image && fallback_image[0])
-    {
-        send_image_to_lcd(&temp_config, fallback_image, device_uid);
-    }
-}
-
-/**
  * @brief Send shutdown image if needed or turn off LCD if image is missing.
  * @details Checks if shutdown image should be sent to LCD device and performs
  * the transmission if conditions are met. If shutdown image is missing, sets
@@ -374,11 +364,28 @@ static void send_shutdown_image_if_needed(void)
     if (image_file)
     {
         fclose(image_file);
-        send_image_to_lcd(g_config_ptr, shutdown_image_path, device_uid);
+        // Use blocking upload with timeout and retries to ensure image is sent
+        if (!send_image_to_lcd_blocking(g_config_ptr, shutdown_image_path,
+                                        device_uid, 5, SHUTDOWN_RETRY_COUNT))
+        {
+            log_message(LOG_WARNING, "Shutdown image upload failed after retries");
+        }
     }
     else
     {
-        handle_missing_shutdown_image(device_uid);
+        // Turn off display using blocking upload to ensure it reaches device
+        Config temp_config = *g_config_ptr;
+        temp_config.lcd_brightness = 0;
+
+        const char *fallback_image = g_config_ptr->paths_image_coolerdash;
+        if (fallback_image && fallback_image[0])
+        {
+            if (!send_image_to_lcd_blocking(&temp_config, fallback_image,
+                                            device_uid, 5, SHUTDOWN_RETRY_COUNT))
+            {
+                log_message(LOG_WARNING, "Fallback shutdown action failed after retries");
+            }
+        }
     }
 }
 
@@ -565,6 +572,10 @@ static const char *parse_arguments(int argc, char **argv,
         {
             force_display_circular = 1;
             verbose_logging = 1; // Developer mode implies verbose logging
+        }
+        else if (strcmp(argv[i], "--shutdown") == 0)
+        {
+            send_shutdown_only = 1;
         }
         else if (argv[i][0] != '-')
         {
@@ -790,6 +801,13 @@ int main(int argc, char **argv)
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
     initialize_device_info(&config);
+
+    if (send_shutdown_only)
+    {
+        log_message(LOG_STATUS, "Shutdown mode: performing cleanup (send image) and exiting");
+        perform_cleanup(&config);
+        return EXIT_SUCCESS;
+    }
 
     log_message(LOG_STATUS, "Starting daemon");
     int result = run_daemon(&config);

@@ -1,0 +1,16 @@
+[Unit]
+Description=CoolerDash shutdown helper daemon
+BindsTo=coolercontrold.service
+PartOf=coolercontrold.service
+After=network-online.target
+Wants=network-online-target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user-target
