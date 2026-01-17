@@ -295,7 +295,7 @@ install: check-deps $(TARGET)
 		$(SUDO) chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf 2>/dev/null || true; \
 		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"; \
 		$(SUDO) mkdir -p /etc/systemd/system/coolerdash-helperd.service.d 2>/dev/null || true; \
-		$(SUDO) sh -c 'printf "[Unit]\nDescription=CoolerDash shutdown helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=network-online.target\nWants=network-online-target\n\n[Service]\nType=oneshot\nRemainAfterExit=yes\nExecStart=/bin/true\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=5\n\n[Install]\nWantedBy=multi-user-target\n" > /etc/systemd/system/coolerdash-helperd.service' 2>/dev/null || true; \
+		$(SUDO) sh -c 'printf "[Unit]\nDescription=CoolerDash shutdown helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=network-online.target coolercontrold.service\nWants=network-online.target\n\n[Service]\nType=simple\n# Stay running so systemd considers the unit active and stops it during coolercontrold shutdown\nExecStart=/bin/sleep infinity\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\n# Give the shutdown handler enough time to contact the API during restarts\nTimeoutStopSec=60\nRestart=no\n\n[Install]\nWantedBy=multi-user.target\n" > /etc/systemd/system/coolerdash-helperd.service' 2>/dev/null || true; \\
 		$(SUDO) chmod 644 /etc/systemd/system/coolerdash-helperd.service.d 2>/dev/null || true; \
 		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/coolerdash-helperd.service.d\n"; \
 		$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
@@ -386,6 +386,7 @@ uninstall:
 	@# Remove systemd drop-in directory
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d >/dev/null 2>&1 || true; \
+		$(SUDO) rm -f /etc/systemd/system/coolerdash-helperd.service >/dev/null 2>&1 || true; \
 	fi
 	@$(SUDO) rm -rf "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash" >/dev/null 2>&1 || true
 	@$(SUDO) rm -f "$(DESTDIR)/usr/share/man/man1/coolerdash.1" >/dev/null 2>&1 || true

@@ -2,15 +2,17 @@
 Description=CoolerDash shutdown helper daemon
 BindsTo=coolercontrold.service
 PartOf=coolercontrold.service
-After=network-online.target
-Wants=network-online-target
+After=network-online.target coolercontrold.service
+Wants=network-online.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/bin/true
+Type=simple
+# Stay running so systemd considers the unit active and stops it during coolercontrold shutdown
+ExecStart=/bin/sleep infinity
 ExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown
-TimeoutStopSec=5
+# Give the shutdown handler enough time to contact the API during restarts
+TimeoutStopSec=60
+Restart=no
 
 [Install]
-WantedBy=multi-user-target
+WantedBy=multi-user.target
