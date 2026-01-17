@@ -291,7 +291,7 @@ install: check-deps $(TARGET)
 	@# Create systemd drop-in for startup delay (allow shutdown.png to display)
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d 2>/dev/null || true; \
-		$(SUDO) sh -c 'printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf' 2>/dev/null || true; \
+		$(SUDO) sh -c 'printf "[Service]\nExecStartPre=/bin/sleep 10\nExecStopPre=/bin/sleep 10\nExecStop=/bin/sleep 10\nTimeoutStopSec=10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf' 2>/dev/null || true; \
 		$(SUDO) chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf 2>/dev/null || true; \
 		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"; \
 	fi

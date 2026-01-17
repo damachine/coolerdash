@@ -1,7 +1,5 @@
-# -----------------------------------------------------------------------------
-# Created by: damachin3 (damachine3 at proton dot me)
-# Website: https://github.com/damachine/coolerdash
-# -----------------------------------------------------------------------------
+# This `.install` is for building the coolerdash package from local source.
+# It assumes the source code is already present in the current directory.
 pre_install() {
     echo "Checking for legacy files and performing migration cleanup..." 2>/dev/null
     # Stop and disable service before install or update to prevent conflicts with plugin mode
@@ -64,6 +62,7 @@ pre_install() {
 post_install() {
     # Ensure plugin directory files have correct permissions
     if [ -d /etc/coolercontrol/plugins/coolerdash ]; then
+        chmod 755 /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
         chmod 755 /etc/coolercontrol/plugins/coolerdash/coolerdash 2>/dev/null || true
         chmod 644 /etc/coolercontrol/plugins/coolerdash/*.md 2>/dev/null || true
         chmod 644 /etc/coolercontrol/plugins/coolerdash/VERSION 2>/dev/null || true
@@ -78,9 +77,9 @@ post_install() {
 
     # Create systemd drop-in for startup delay (allow shutdown.png to display)
     mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d
-    printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
+    printf "[Service]\nExecStartPre=/bin/sleep 10\nExecStopPre=/bin/sleep 10\nExecStop=/bin/sleep 10\nTimeoutStopSec=10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
     chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
-    echo "Systemd drop-in created: 10s startup delay for shutdown.png display"
+    echo "Systemd drop-in created: 10s startup/shutdown delay for shutdown.png display"
 
     # Reload systemd manager configuration
     systemctl daemon-reload
@@ -99,6 +98,7 @@ post_install() {
 post_upgrade() {
     # Ensure plugin directory files have correct permissions after upgrade
     if [ -d /etc/coolercontrol/plugins/coolerdash ]; then
+        chmod 755 /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
         chmod 755 /etc/coolercontrol/plugins/coolerdash/coolerdash 2>/dev/null || true
         chmod 644 /etc/coolercontrol/plugins/coolerdash/*.md 2>/dev/null || true
         chmod 644 /etc/coolercontrol/plugins/coolerdash/VERSION 2>/dev/null || true
@@ -113,9 +113,9 @@ post_upgrade() {
 
     # Create systemd drop-in for startup delay (allow shutdown.png to display)
     mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d
-    printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
+    printf "[Service]\nExecStartPre=/bin/sleep 10\nExecStopPre=/bin/sleep 10\nExecStop=/bin/sleep 10\nTimeoutStopSec=10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
     chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
-    echo "Systemd drop-in created: 10s startup delay for shutdown.png display"
+    echo "Systemd drop-in created: 10s startup/shutdown delay for shutdown.png display"
 
     # Reload systemd manager configuration
     systemctl daemon-reload
