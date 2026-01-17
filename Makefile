@@ -296,7 +296,7 @@ install: check-deps $(TARGET)
 		$(SUDO) sh -c 'printf "[Service]\nExecStartPre=/bin/sleep 10\nExecStopPre=/bin/sleep 10\nExecStop=/bin/sleep 10\nTimeoutStopSec=10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf' 2>/dev/null || true; \
 		$(SUDO) chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf 2>/dev/null || true; \
 		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"; \
-		$(SUDO) sh -c 'printf "[Unit]\nDescription=CoolerDash helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=coolercontrold.service\n\n[Service]\nType=simple\nExecStart=/bin/sleep infinity\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=60\nRestart=no\n\n[Install]\nWantedBy=multi-user.target\n" > /etc/systemd/system/coolerdash-helperd.service' 2>/dev/null || true; \\
+		$(SUDO) sh -c 'printf "[Unit]\nDescription=CoolerDash helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=coolercontrold.service\n\n[Service]\nType=simple\nExecStart=/bin/sleep infinity\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=3\nRestart=no\n\n[Install]\nWantedBy=multi-user.target\n" > /etc/systemd/system/coolerdash-helperd.service' 2>/dev/null || true; \\
 		$(SUDO) chmod 644 /etc/systemd/system/coolerdash-helperd.service 2>/dev/null || true; \
 		printf "  $(GREEN)Drop-in:$(RESET)       /etc/systemd/system/coolerdash-helperd.service.d\n"; \
 	fi
