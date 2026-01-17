@@ -1,5 +1,9 @@
+# Created by: damachin3 (damachine3 at proton dot me)
+# Website: https://github.com/damachine/coolerdash
+
 # This PKGBUILD is for building the coolerdash package from local source.
 # It assumes the source code is already present in the current directory.
+
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
