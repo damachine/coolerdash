@@ -1,6 +1,6 @@
 pkgbase = coolerdash
 	pkgdesc = Monitor telemetry data on an AIO liquid cooler with an integrated LCD display
-	pkgver = 2.1.0
+	pkgver = 2.1.1
 	pkgrel = 1
 	url = https://github.com/damachine/coolerdash
 	install = coolerdash.install

@@ -1,0 +1,15 @@
+[Unit]
+Description=CoolerDash helper daemon
+BindsTo=coolercontrold.service
+PartOf=coolercontrold.service
+After=coolercontrold.service
+
+[Service]
+Type=simple
+ExecStart=/bin/sleep infinity
+ExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown
+TimeoutStopSec=3
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -591,3 +591,47 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 
     return success;
 }
+
+/**
+ * @brief Blocking wrapper for `send_image_to_lcd` with timeout and retries.
+ * @details Temporarily sets CURLOPT_TIMEOUT and CURLOPT_CONNECTTIMEOUT on the
+ * global CURL handle, attempts the upload up to `retries` times and restores
+ * timeouts to defaults after completion.
+ */
+int send_image_to_lcd_blocking(const Config *config, const char *image_path,
+                               const char *device_uid, int timeout_seconds,
+                               int retries)
+{
+    if (!validate_upload_params(image_path, device_uid))
+        return 0;
+
+    if (timeout_seconds <= 0)
+        timeout_seconds = 5; // sensible default
+    if (retries <= 0)
+        retries = 1;
+
+    int attempt;
+    int success = 0;
+
+    for (attempt = 0; attempt < retries; attempt++)
+    {
+        // Set conservative timeouts for shutdown path
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
+                         (long)timeout_seconds);
+        curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
+                         (long)(timeout_seconds / 2 > 0 ? timeout_seconds / 2 : 1));
+
+        success = send_image_to_lcd(config, image_path, device_uid);
+        if (success)
+            break;
+
+        log_message(LOG_WARNING, "Shutdown upload attempt %d/%d failed",
+                    attempt + 1, retries);
+    }
+
+    // Restore to no timeout (behaviour prior to explicit shutdown upload)
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 0L);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 0L);
+
+    return success;
+}
