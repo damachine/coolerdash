@@ -93,12 +93,6 @@ post_install() {
     # Reload systemd manager configuration
     systemctl daemon-reload
 
-    # Restart CoolerDash to pick up the updated plugin
-    if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
-        echo "Restarting CoolerDash service to load updated plugin..."
-        systemctl restart cc-plugin-coolerdash.service || echo "Note: CoolerDash service restart failed. Please restart manually."
-    fi
-
     # Create shutdown notifier unit
     if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
         echo "Enabling and starting coolerdash-helperd.service..."
@@ -146,16 +140,16 @@ post_upgrade() {
     # Reload systemd manager configuration
     systemctl daemon-reload
 
-    # Restart CoolerDash to pick up the updated plugin
-    if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
-        echo "Restarting CoolerDash service to load updated plugin..."
-        systemctl restart cc-plugin-coolerdash.service || echo "Note: CoolerDash service restart failed. Please restart manually."
-    fi
-
     # Create shutdown notifier unit
     if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
         echo "Enabling and starting coolerdash-helperd.service..."
         systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service enable/start failed. Please enable/start manually."
+    fi
+
+    # Restart CoolerDash to pick up the updated plugin
+    if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
+        echo "Restarting CoolerDash service to load updated plugin..."
+        systemctl restart cc-plugin-coolerdash.service || echo "Note: CoolerDash service restart failed. Please restart manually."
     fi
 
     echo "================================================================"
@@ -168,8 +162,16 @@ pre_remove() {
     if systemctl is-active --quiet coolerdash.service || systemctl is-enabled --quiet coolerdash.service; then
         echo "Stopping coolerdash service..."
         systemctl stop coolerdash.service
-        echo "Disabling coolerdash service (CoolerControl plugin mode preferred)..."
+        echo "Disabling coolerdash service"
         systemctl disable coolerdash.service
+    fi
+
+    # Stop and disable service before uninstallation
+    if systemctl is-active --quiet cc-plugin-coolerdash.service || systemctl is-enabled --quiet cc-plugin-coolerdash.service; then
+        echo "Stopping cc-plugin-coolerdash service..."
+        systemctl stop cc-plugin-coolerdash.service
+        echo "Disabling cc-plugin-coolerdash service"
+        systemctl disable cc-plugin-coolerdash.service
     fi
 
     # Remove systemd drop-in directory

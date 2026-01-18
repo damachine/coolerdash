@@ -324,8 +324,8 @@ install: check-deps $(TARGET)
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
-		$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true; \
 		$(SUDO) systemctl enable --now coolerdash-helperd.service 2>/dev/null || true; \
+		$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true; \
 	fi
 	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
 	@printf "  $(PURPLE)Restart CoolerControl:$(RESET) systemctl restart coolercontrold.service\n"
@@ -335,6 +335,14 @@ install: check-deps $(TARGET)
 
 # Uninstall Target
 uninstall:
+	@printf "\n"
+	@printf "$(ICON_INSTALL) $(WHITE)═══ COOLERDASH UNINSTALLATION ═══$(RESET)\n"
+	@printf "\n"
+	@if [ "$(REALOS)" = "yes" ]; then \
+		printf "$(ICON_SERVICE) $(CYAN)Stopping and disabling services...$(RESET)\n"; \
+		$(SUDO) systemctl stop cc-plugin-coolerdash.service >/dev/null 2>&1 || true; \
+		$(SUDO) systemctl disable cc-plugin-coolerdash.service >/dev/null 2>&1 || true; \
+	fi
 	@if [ "$(REALOS)" = "yes" ]; then \
 		LEGACY_FOUND=0; \
 		if $(SUDO) systemctl is-active --quiet coolerdash.service 2>/dev/null; then \
@@ -399,6 +407,8 @@ uninstall:
 		$(SUDO) systemctl daemon-reload >/dev/null 2>&1 || true; \
 		$(SUDO) systemctl restart coolercontrold.service >/dev/null 2>&1 || true; \
 	fi
+	@printf "\n$(ICON_SUCCESS) $(GREEN)Uninstallation completed successfully$(RESET)\n"
+	@printf "\n"
 
 # Debug Build
 debug: CFLAGS += -g -DDEBUG -fsanitize=address
