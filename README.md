@@ -138,8 +138,18 @@ curl http://localhost:11987/devices
 # or short form:
 /etc/coolercontrol/plugins/coolerdash/coolerdash -v
 
-# 4. Debug build for detailed information (if needed)
-make debug && /etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
+# 4. Debug build and installation (recommended)
+# Option A — Build and install with ASan in one command (safe):
+sudo make debug install
+
+# Option B — Build as your user and install the debug binary manually (recommended):
+make clean && make debug
+sudo install -Dm755 bin/coolerdash /etc/coolercontrol/plugins/coolerdash/coolerdash
+
+# Notes:
+#  • Avoid running `make debug` followed by `sudo make install` — the separate `sudo make install` may trigger a rebuild without debug flags and cause linker errors (missing ASan symbols).
+#  • If you previously built as root and own files are root-owned, fix ownership before rebuilding:
+#    sudo chown -R $USER:$USER build bin
 
 # 5. Check plugin logs (STATUS messages always visible)
 journalctl -xeu coolercontrold.service -f
