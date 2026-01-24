@@ -714,10 +714,9 @@
         </div>
 
         <!-- Restart Notice -->
-        <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.1); border-left: 3px solid #ff8c00; border-radius: 4px;">
-            <p style="margin: 0; color: var(--text-primary); font-size: 13px;">
-                <strong>Important:</strong> After saving, restart the plugin to apply changes:<br>
-                <code style="background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 3px; font-size: 12px; margin-top: 4px; display: inline-block;">systemctl restart cc-plugin-coolerdash.service</code>
+        <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.05); border-left: 3px solid #ff8c00; border-radius: 4px;">
+            <p style="margin: 0; color: var(--text-dim); font-size: 13px;">
+                <strong>Note:</strong> Changes are applied immediately — the plugin will be restarted automatically after Save or Reset.
             </p>
         </div>
     </div>
@@ -1068,23 +1067,19 @@
                 console.log("Saving config:", config);
 
             try {
-                // 1. Save to CoolerControl plugin system (for UI persistence)
-                await savePluginConfig(config);
-                    console.log("Config saved to CoolerControl");
-
-                // 2. Write to config.json (for daemon consumption)
+                //Write to config.json (for daemon consumption)
                 const writeSuccess = await writeConfigToFile(config);
 
-                // 3. Show success message with restart instructions
-                alert(
-                    "Configuration saved successfully!\n\n" +
-                    "Plugin restart required to apply changes.\n\n" +
-                    "Simply run:\n" +
-                    "systemctl restart cc-plugin-coolerdash.service"
-                );
+                //Arrange restart to happen after plugin confirms config save (short delay to allow file write)
+                requestRestartAfterSave(1000);
 
-                // Close window after successful save
-                setTimeout(() => window.close(), 100);
+                //Save to CoolerControl plugin system (for UI persistence) — this triggers configSaved and the restart callback
+                await savePluginConfig(config);
+
+                alert("Configuration saved successfully!\n\nChanges are applied immediately — the plugin will be restarted automatically after Save or Reset.");
+
+                // Close window after short delay
+                setTimeout(() => window.close(), 300);
 
             } catch (error) {
                 console.error("Save failed:", error);
@@ -1147,10 +1142,41 @@
             }
         }
 
+        // Request a restart shortly after a successful config save.
+        // Uses the plugin API's successfulConfigSaveCallback if available, otherwise listens for a configSaved postMessage.
+        function requestRestartAfterSave(delayMs = 800) {
+            const doRestart = () => {
+                try {
+                    if (typeof restart === 'function') {
+                        // restart() is provided by cc-plugin-lib and posts a message to the parent
+                        restart();
+                    } else {
+                        // fallback: attempt API-based restart
+                        const cfg = buildConfig();
+                        restartPluginDaemon(cfg);
+                    }
+                } catch (e) {
+                    console.warn('Restart attempt failed:', e);
+                }
+            };
+
+            if (typeof successfulConfigSaveCallback === 'function') {
+                successfulConfigSaveCallback(() => setTimeout(doRestart, delayMs));
+            } else {
+                const handler = (event) => {
+                    if (event.data && event.data.type === 'configSaved') {
+                        window.removeEventListener('message', handler);
+                        setTimeout(doRestart, delayMs);
+                    }
+                };
+                window.addEventListener('message', handler);
+            }
+        }
+
         // Write config to config.json via update script
         async function writeConfigToFile(config) {
             try {
-                // Method 1: Try to write via REST API (requires authentication)
+                // Try to write via REST API (requires authentication)
                 const apiAddress = config.daemon?.address || 'http://localhost:11987';
                 const password = config.daemon?.password || '';
 
@@ -1171,7 +1197,7 @@
                     }
                 }
 
-                // Method 2: Fallback - Use local file write
+                // Fallback - Use local file write
                 // Create a JSON file blob and download it as workaround
                 const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -1202,11 +1228,7 @@
         // Reset to defaults
         async function resetConfig() {
                 try {
-                    // 1. Write factory defaults to CoolerControl plugin storage
-                    await savePluginConfig(FACTORY_DEFAULTS);
-                    console.log("Factory defaults saved to CoolerControl");
-
-                    // 2. Write to config.json file
+                    // Write to config.json file (daemon consumption)
                     try {
                         await writeConfigToFile(FACTORY_DEFAULTS);
                         console.log("Factory defaults written to config.json");
@@ -1216,19 +1238,20 @@
                         console.info(JSON.stringify(FACTORY_DEFAULTS, null, 2));
                     }
 
-                    // 3. Update form with factory defaults
+                    // Update form with factory defaults
                     populateForm(FACTORY_DEFAULTS);
 
-                    console.log("Reset to factory defaults - config.json overwritten");
-                    alert(
-                        'Configuration reset to factory defaults!\n\n' +
-                        'Changes saved to CoolerControl.\n\n' +
-                        'Plugin restart required:\n' +
-                        'systemctl restart cc-plugin-coolerdash.service'
-                    );
+                    // Arrange restart to happen after plugin confirms config save (short delay to allow file write)
+                    requestRestartAfterSave(1000);
 
-                    // Close window after successful reset
-                    setTimeout(() => window.close(), 100);
+                    // Save factory defaults to CoolerControl plugin storage (this triggers configSaved)
+                    await savePluginConfig(FACTORY_DEFAULTS);
+                    console.log("Factory defaults saved to CoolerControl");
+
+                    alert('Configuration reset to factory defaults!\n\nChanges are applied immediately — the plugin will be restarted automatically after Save or Reset.');
+
+                    // Close window after short delay
+                    setTimeout(() => window.close(), 300);
                 } catch (error) {
                     console.error("Failed to reset config:", error);
                     alert('Failed to reset configuration:\n\n' + error.message);
@@ -1240,14 +1263,14 @@
             try {
                 console.log("Initializing CoolerDash UI...");
 
-                // 1. Load defaults from config.json
+                // Load defaults from config.json
                 await loadDefaultConfig();
 
-                // 2. Load user config from CoolerControl
+                // Load user config from CoolerControl
                 let config = await getPluginConfig();
                 console.log("User config:", config);
 
-                // 3. Merge with defaults
+                // Merge with defaults
                 if (!config || Object.keys(config).length === 0) {
                     console.log("Using defaults");
                     config = DEFAULT_CONFIG;
@@ -1265,7 +1288,7 @@
                     };
                 }
 
-                // 4. Display in UI
+                // Display in UI
                 populateForm(config);
                 console.log("UI initialized");
             } catch (error) {
