@@ -52,4 +52,3 @@ packaging/debian/*.log
 .github/copilot-instructions.md
 .github/instructions/copilot-instructions.md
 .github/instructions/BEST_PRACTICES.instructions.md
-.github/instructions/codacy.instructions.md
