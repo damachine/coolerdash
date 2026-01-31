@@ -8,7 +8,7 @@ Only the latest version is actively maintained. Please always update to the newe
 If you discover a security vulnerability, please **do not open a public issue**.  
 Instead, contact the project maintainer directly:
 
-- **Email:** [christkue79@gmail.com]  
+- **Email:** [damachin3@proton.me]  
 - or open a **private security advisory** via GitHub (under the "Security" tab of the repository).
 
 Please include as much detail as possible so we can understand and reproduce the issue.  
