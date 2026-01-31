@@ -1,25 +1,40 @@
-# Source files
+!VERSION
+!.md
+!.SRCINFO
+!coolerdash.install
+!PKGBUILD
+!Makefile
+!.github
+!.gitignore
+!.gitattributes
+coolerdash-bin/
+*~
+.*
+*.orig
+*.log
+*.run
+*.tgz
+*.xz
+*.pkg
+*.bak
+*.tar.gz
+*.tar.zst
+*.old
+*.db
+*.files
+src/
+pkg/
 bin/
 build/
 reports/
-.cache/
-.makepkg/
-*/pkg/
-pkg/*
-*.tgz
-*.xz
-*.zip
-*.gz
-*.zst
-*.bz2
-*.7z
-*.rar
-*.pkg
-*.pkg.*
-*.tar.gz
-*.files
-*.bak
-*.run
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+.*.sw?
+*.kate-swp
+gnupg/
 
 # Package build artifacts
 *.deb
@@ -32,44 +47,8 @@ packaging/debian/files
 packaging/debian/*.substvars
 packaging/debian/*.log
 
-# OS files
-*~
-.directory
-.DS_Store
-Thumbs.db
-.Trash-*
-logs/*
-temp/
-gnupg/
-*.orig
-*.old
-*.tmp
-*.log
-*.bak
-*.env
-
-# Editor files
-*.code-workspace
-*.kate-swp
-*.swp
-*.swo
-.vscode/
-.idea/
-.qodo/
-.zencoder/
-.codacy/
-.zenflow/
-
-############################
-
-# Internal files
-coolerdash-bin/
-
-# Git files
-!.github
-!.gitignore
-
-# Ignore vscode AI rules
+# GitHub-specific ignores
+# AI Copilot instructions (only relevant for developers)
 .github/copilot-instructions.md
 .github/instructions/copilot-instructions.md
 .github/instructions/BEST_PRACTICES.instructions.md
