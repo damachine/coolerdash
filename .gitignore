@@ -35,8 +35,9 @@ reports/
 .*.sw?
 *.kate-swp
 gnupg/
-
-# Package build artifacts
+.github/copilot-instructions.md
+.github/instructions/*
+.github/agents/*
 *.deb
 *.rpm
 *.buildinfo
@@ -46,9 +47,3 @@ packaging/debian/coolerdash/
 packaging/debian/files
 packaging/debian/*.substvars
 packaging/debian/*.log
-
-# GitHub-specific ignores
-# AI Copilot instructions (only relevant for developers)
-.github/copilot-instructions.md
-.github/instructions/copilot-instructions.md
-.github/instructions/BEST_PRACTICES.instructions.md
