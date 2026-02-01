@@ -159,8 +159,12 @@ static void set_layout_defaults(Config *config)
         config->layout_bar_height = 24;
     if (config->layout_bar_gap == 0)
         config->layout_bar_gap = 12.0f;
-    if (config->layout_bar_border == 0.0f)
+    // bar_border: -1 = use default (2.0), 0 = explicitly disabled, >0 = custom value
+    if (config->layout_bar_border < 0.0f)
         config->layout_bar_border = 2.0f;
+    // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
+    if (config->layout_bar_border_enabled < 0)
+        config->layout_bar_border_enabled = 1; // Default: enabled
 }
 
 /**
@@ -244,10 +248,11 @@ static void set_temperature_defaults(Config *config)
 
 /**
  * @brief Check if color is unset
+ * @details Uses is_set flag - all RGB values (0,0,0 to 255,255,255) are valid.
  */
 static inline int is_color_unset(const Color *color)
 {
-    return (color->r == 0 && color->g == 0 && color->b == 0);
+    return (color->is_set == 0);
 }
 
 /**
@@ -265,6 +270,7 @@ typedef struct
 static void set_color_defaults(Config *config)
 {
     ColorDefault color_defaults[] = {
+        {&config->display_background_color, 0, 0, 0}, // Main background (black)
         {&config->layout_bar_color_background, 52, 52, 52},
         {&config->layout_bar_color_border, 192, 192, 192},
         {&config->font_color_temp, 255, 255, 255},
@@ -336,6 +342,7 @@ static int read_color_from_json(json_t *color_obj, Color *color)
     color->r = (uint8_t)r_val;
     color->g = (uint8_t)g_val;
     color->b = (uint8_t)b_val;
+    color->is_set = 1; // Mark as user-defined
 
     return 1;
 }
@@ -572,8 +579,18 @@ static void load_layout_from_json(json_t *root, Config *config)
     if (bar_border && json_is_number(bar_border))
     {
         double val = json_number_value(bar_border);
-        if (val >= 0 && val <= 10)
+        if (val >= 0.0 && val <= 10.0)
             config->layout_bar_border = (float)val;
+        // Note: -1 in JSON means "use default" (handled in set_layout_defaults)
+    }
+
+    json_t *bar_border_enabled = json_object_get(layout, "bar_border_enabled");
+    if (bar_border_enabled)
+    {
+        if (json_is_boolean(bar_border_enabled))
+            config->layout_bar_border_enabled = json_is_true(bar_border_enabled) ? 1 : 0;
+        else if (json_is_integer(bar_border_enabled))
+            config->layout_bar_border_enabled = (int)json_integer_value(bar_border_enabled) != 0 ? 1 : 0;
     }
 
     json_t *label_margin_left = json_object_get(layout, "label_margin_left");
@@ -602,6 +619,7 @@ static void load_colors_from_json(json_t *root, Config *config)
     if (!colors || !json_is_object(colors))
         return;
 
+    read_color_from_json(json_object_get(colors, "display_background"), &config->display_background_color);
     read_color_from_json(json_object_get(colors, "bar_background"), &config->layout_bar_color_background);
     read_color_from_json(json_object_get(colors, "bar_border"), &config->layout_bar_color_border);
     read_color_from_json(json_object_get(colors, "font_temp"), &config->font_color_temp);
@@ -796,9 +814,12 @@ int load_plugin_config(Config *config, const char *config_path)
         return 0;
     }
 
-    // Initialize with defaults
+    // Initialize with defaults (memset sets all to 0, including color.is_set = 0)
     memset(config, 0, sizeof(Config));
     config->display_inscribe_factor = -1.0f; // Sentinel for "auto"
+    config->layout_bar_border = -1.0f;       // Sentinel for "use default"
+    config->layout_bar_border_enabled = -1;  // Sentinel for "auto" (enabled)
+    // Note: All colors have is_set=0 after memset, so defaults will be applied
 
     // Try to find and load JSON config
     const char *json_path = find_config_json(config_path);

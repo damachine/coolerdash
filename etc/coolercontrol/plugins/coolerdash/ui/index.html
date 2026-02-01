@@ -438,23 +438,47 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Border Thickness</label>
+                        <span class="form-hint">0 = no border</span>
                         <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Border Enabled</label>
+                        <span class="form-hint">Toggle bar border on/off</span>
+                        <select name="layout.bar_border_enabled" class="form-control">
+                            <option value="1">Enabled</option>
+                            <option value="0">Disabled</option>
+                        </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Label Left Margin</label>
                         <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
                     </div>
+                </div>
 
+                <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Label Bar Margin</label>
                         <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
                     </div>
+
+                    <div class="form-group"></div>
+                    <div class="form-group"></div>
                 </div>
 
                 <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Colors</h3>
 
                 <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Display Background</label>
+                        <span class="form-hint">Main background color</span>
+                        <div class="color-group">
+                            <input type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
+                            <span class="color-rgb" id="rgb_display_background"></span>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Bar Background</label>
                         <div class="color-group">
@@ -751,10 +775,12 @@
                 bar_width: 98,
                 bar_gap: 12,
                 bar_border: 2.0,
+                bar_border_enabled: true,
                 label_margin_left: 1,
                 label_margin_bar: 1
             },
             colors: {
+                display_background: { r: 0, g: 0, b: 0 },
                 bar_background: { r: 52, g: 52, b: 52 },
                 bar_border: { r: 192, g: 192, b: 192 },
                 font_temp: { r: 255, g: 255, b: 255 },
@@ -997,6 +1023,7 @@
             }
 
             // Add colors
+            config.colors.display_background = getColorFromPicker('color_display_background');
             config.colors.bar_background = getColorFromPicker('color_bar_background');
             config.colors.bar_border = getColorFromPicker('color_bar_border');
             config.colors.font_temp = getColorFromPicker('color_font_temp');
@@ -1023,7 +1050,12 @@
                     for (const [field, value] of Object.entries(fields)) {
                         const input = document.querySelector(`[name="${section}.${field}"]`);
                         if (input && typeof value !== 'object') {
-                            input.value = value;
+                            // Handle boolean values for select elements
+                            if (typeof value === 'boolean') {
+                                input.value = value ? "1" : "0";
+                            } else {
+                                input.value = value;
+                            }
 
                             // Update UI
                             if (field === 'brightness') {
@@ -1038,6 +1070,7 @@
 
             // Color pickers
             if (config.colors) {
+                if (config.colors.display_background) setupColorPicker('color_display_background', 'rgb_display_background', config.colors.display_background);
                 if (config.colors.bar_background) setupColorPicker('color_bar_background', 'rgb_bar_background', config.colors.bar_background);
                 if (config.colors.bar_border) setupColorPicker('color_bar_border', 'rgb_bar_border', config.colors.bar_border);
                 if (config.colors.font_temp) setupColorPicker('color_font_temp', 'rgb_font_temp', config.colors.font_temp);
