@@ -429,12 +429,15 @@ static void draw_single_temperature_bar(cairo_t *cr,
         cairo_fill(cr);
     }
 
-    // Border
-    cairo_set_line_width(cr, config->layout_bar_border);
-    set_cairo_color(cr, &config->layout_bar_color_border);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
-                                config->layout_bar_height, params->corner_radius);
-    cairo_stroke(cr);
+    // Border (only if enabled and thickness > 0)
+    if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
+    {
+        cairo_set_line_width(cr, config->layout_bar_border);
+        set_cairo_color(cr, &config->layout_bar_color_border);
+        draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
+                                    config->layout_bar_height, params->corner_radius);
+        cairo_stroke(cr);
+    }
 }
 
 /**
@@ -565,7 +568,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
                                    const ScalingParams *params)
 {
-    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    // Draw main background
+    set_cairo_color(cr, &config->display_background_color);
     cairo_paint(cr);
 
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,

@@ -29,15 +29,15 @@
 
 /**
  * @brief Simple color structure.
- * @details Represents RGB color values with 8-bit components and padding for
- * memory alignment.
+ * @details Represents RGB color values with 8-bit components.
+ *          The is_set flag indicates if color was explicitly configured.
  */
 typedef struct
 {
     uint8_t r;
     uint8_t g;
     uint8_t b;
-    uint8_t _pad;
+    uint8_t is_set; // 0 = use default, 1 = user-defined (allows all RGB values)
 } Color;
 
 /**
@@ -86,9 +86,11 @@ typedef struct Config
     uint16_t layout_bar_height;
     uint16_t layout_bar_gap;
     float layout_bar_border;
+    int layout_bar_border_enabled; // 1=enabled, 0=disabled, -1=auto (use default)
     uint8_t layout_bar_width;
     uint8_t layout_label_margin_left;
     uint8_t layout_label_margin_bar;
+    Color display_background_color; // Main display background color
     Color layout_bar_color_background;
     Color layout_bar_color_border;
 

@@ -395,12 +395,15 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                 params->corner_radius);
     cairo_fill(cr);
 
-    // Bar border
-    set_cairo_color(cr, &config->layout_bar_color_border);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
-                                params->corner_radius);
-    cairo_set_line_width(cr, config->layout_bar_border);
-    cairo_stroke(cr);
+    // Bar border (only if enabled and thickness > 0)
+    if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
+    {
+        set_cairo_color(cr, &config->layout_bar_color_border);
+        draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
+                                    params->corner_radius);
+        cairo_set_line_width(cr, config->layout_bar_border);
+        cairo_stroke(cr);
+    }
 
     // Bar fill (temperature-based)
     const float max_temp = config->temp_max_scale;
@@ -432,12 +435,15 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                     bar_height, params->corner_radius);
         cairo_fill(cr);
 
-        // Liquid bar border
-        set_cairo_color(cr, &config->layout_bar_color_border);
-        draw_rounded_rectangle_path(cr, bar_x, liquid_bar_y, effective_bar_width,
-                                    bar_height, params->corner_radius);
-        cairo_set_line_width(cr, config->layout_bar_border);
-        cairo_stroke(cr);
+        // Liquid bar border (only if enabled and thickness > 0)
+        if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
+        {
+            set_cairo_color(cr, &config->layout_bar_color_border);
+            draw_rounded_rectangle_path(cr, bar_x, liquid_bar_y, effective_bar_width,
+                                        bar_height, params->corner_radius);
+            cairo_set_line_width(cr, config->layout_bar_border);
+            cairo_stroke(cr);
+        }
 
         // Liquid bar fill (0-40°C typical range for AIO coolers)
         const float max_liquid_temp = config->temp_liquid_max_scale;
@@ -574,8 +580,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     if (!cr || !config || !data || !params)
         return;
 
-    // Draw background (black)
-    cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+    // Draw main background
+    set_cairo_color(cr, &config->display_background_color);
     cairo_paint(cr);
 
     // Update sensor mode (check if configured interval elapsed)
