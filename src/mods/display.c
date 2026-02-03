@@ -105,15 +105,28 @@ Color get_slot_bar_color(const struct Config *config, const char *slot_value, fl
             return config->temp_liquid_threshold_4_bar;
     }
 
-    // CPU and GPU use global temperature thresholds
-    if (temperature < config->temp_threshold_1)
-        return config->temp_threshold_1_bar;
-    else if (temperature < config->temp_threshold_2)
-        return config->temp_threshold_2_bar;
-    else if (temperature < config->temp_threshold_3)
-        return config->temp_threshold_3_bar;
+    // GPU uses separate thresholds
+    if (strcmp(slot_value, "gpu") == 0)
+    {
+        if (temperature < config->temp_gpu_threshold_1)
+            return config->temp_gpu_threshold_1_bar;
+        else if (temperature < config->temp_gpu_threshold_2)
+            return config->temp_gpu_threshold_2_bar;
+        else if (temperature < config->temp_gpu_threshold_3)
+            return config->temp_gpu_threshold_3_bar;
+        else
+            return config->temp_gpu_threshold_4_bar;
+    }
+
+    // CPU (default) uses separate thresholds
+    if (temperature < config->temp_cpu_threshold_1)
+        return config->temp_cpu_threshold_1_bar;
+    else if (temperature < config->temp_cpu_threshold_2)
+        return config->temp_cpu_threshold_2_bar;
+    else if (temperature < config->temp_cpu_threshold_3)
+        return config->temp_cpu_threshold_3_bar;
     else
-        return config->temp_threshold_4_bar;
+        return config->temp_cpu_threshold_4_bar;
 }
 
 /**
@@ -128,8 +141,12 @@ float get_slot_max_scale(const struct Config *config, const char *slot_value)
     if (slot_value && strcmp(slot_value, "liquid") == 0)
         return config->temp_liquid_max_scale;
 
-    // CPU and GPU use global max scale
-    return config->temp_max_scale;
+    // GPU has its own max scale
+    if (slot_value && strcmp(slot_value, "gpu") == 0)
+        return config->temp_gpu_max_scale;
+
+    // CPU (default) max scale
+    return config->temp_cpu_max_scale;
 }
 
 /**

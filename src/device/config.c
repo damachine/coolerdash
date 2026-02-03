@@ -243,23 +243,35 @@ static void set_font_defaults(Config *config)
  */
 static void set_temperature_defaults(Config *config)
 {
-    if (config->temp_threshold_1 == 0.0f)
-        config->temp_threshold_1 = 55.0f;
-    if (config->temp_threshold_2 == 0.0f)
-        config->temp_threshold_2 = 65.0f;
-    if (config->temp_threshold_3 == 0.0f)
-        config->temp_threshold_3 = 75.0f;
-    if (config->temp_max_scale == 0.0f)
-        config->temp_max_scale = 115.0f;
+    // CPU temperature defaults
+    if (config->temp_cpu_threshold_1 == 0.0f)
+        config->temp_cpu_threshold_1 = 55.0f;
+    if (config->temp_cpu_threshold_2 == 0.0f)
+        config->temp_cpu_threshold_2 = 65.0f;
+    if (config->temp_cpu_threshold_3 == 0.0f)
+        config->temp_cpu_threshold_3 = 75.0f;
+    if (config->temp_cpu_max_scale == 0.0f)
+        config->temp_cpu_max_scale = 115.0f;
 
-    if (config->temp_liquid_max_scale == 0.0f)
-        config->temp_liquid_max_scale = 50.0f;
+    // GPU temperature defaults (same as CPU)
+    if (config->temp_gpu_threshold_1 == 0.0f)
+        config->temp_gpu_threshold_1 = 55.0f;
+    if (config->temp_gpu_threshold_2 == 0.0f)
+        config->temp_gpu_threshold_2 = 65.0f;
+    if (config->temp_gpu_threshold_3 == 0.0f)
+        config->temp_gpu_threshold_3 = 75.0f;
+    if (config->temp_gpu_max_scale == 0.0f)
+        config->temp_gpu_max_scale = 115.0f;
+
+    // Liquid temperature defaults
     if (config->temp_liquid_threshold_1 == 0.0f)
         config->temp_liquid_threshold_1 = 25.0f;
     if (config->temp_liquid_threshold_2 == 0.0f)
         config->temp_liquid_threshold_2 = 28.0f;
     if (config->temp_liquid_threshold_3 == 0.0f)
         config->temp_liquid_threshold_3 = 31.0f;
+    if (config->temp_liquid_max_scale == 0.0f)
+        config->temp_liquid_max_scale = 50.0f;
 }
 
 /**
@@ -291,10 +303,17 @@ static void set_color_defaults(Config *config)
         {&config->layout_bar_color_border, 192, 192, 192},
         {&config->font_color_temp, 255, 255, 255},
         {&config->font_color_label, 200, 200, 200},
-        {&config->temp_threshold_1_bar, 0, 255, 0},
-        {&config->temp_threshold_2_bar, 255, 140, 0},
-        {&config->temp_threshold_3_bar, 255, 70, 0},
-        {&config->temp_threshold_4_bar, 255, 0, 0},
+        // CPU temperature colors
+        {&config->temp_cpu_threshold_1_bar, 0, 255, 0},
+        {&config->temp_cpu_threshold_2_bar, 255, 140, 0},
+        {&config->temp_cpu_threshold_3_bar, 255, 70, 0},
+        {&config->temp_cpu_threshold_4_bar, 255, 0, 0},
+        // GPU temperature colors (same as CPU)
+        {&config->temp_gpu_threshold_1_bar, 0, 255, 0},
+        {&config->temp_gpu_threshold_2_bar, 255, 140, 0},
+        {&config->temp_gpu_threshold_3_bar, 255, 70, 0},
+        {&config->temp_gpu_threshold_4_bar, 255, 0, 0},
+        // Liquid temperature colors
         {&config->temp_liquid_threshold_1_bar, 0, 255, 0},
         {&config->temp_liquid_threshold_2_bar, 255, 140, 0},
         {&config->temp_liquid_threshold_3_bar, 255, 70, 0},
@@ -477,10 +496,8 @@ static const char *find_config_json(const char *custom_path)
     }
 
     static const char *possible_paths[] = {
+        "~/.config/coolerdash/config.json",
         "/etc/coolercontrol/plugins/coolerdash/config.json",
-        "/etc/coolercontrol/plugins/coolerdash/plugin-config.json",
-        "/etc/coolercontrol/config/plugins/coolerdash.json",
-        "./config.json",
         NULL};
 
     for (int i = 0; possible_paths[i] != NULL; i++)
@@ -823,42 +840,81 @@ static void load_font_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load temperature settings from JSON
+ * @brief Load CPU temperature settings from JSON
  */
-static void load_temperature_from_json(json_t *root, Config *config)
+static void load_cpu_temperature_from_json(json_t *root, Config *config)
 {
-    json_t *temperature = json_object_get(root, "temperature");
-    if (!temperature || !json_is_object(temperature))
+    json_t *cpu = json_object_get(root, "cpu");
+    if (!cpu || !json_is_object(cpu))
         return;
 
-    json_t *threshold_1 = json_object_get(temperature, "threshold_1");
+    json_t *threshold_1 = json_object_get(cpu, "threshold_1");
     if (threshold_1 && json_is_number(threshold_1))
     {
-        config->temp_threshold_1 = (float)json_number_value(threshold_1);
+        config->temp_cpu_threshold_1 = (float)json_number_value(threshold_1);
     }
 
-    json_t *threshold_2 = json_object_get(temperature, "threshold_2");
+    json_t *threshold_2 = json_object_get(cpu, "threshold_2");
     if (threshold_2 && json_is_number(threshold_2))
     {
-        config->temp_threshold_2 = (float)json_number_value(threshold_2);
+        config->temp_cpu_threshold_2 = (float)json_number_value(threshold_2);
     }
 
-    json_t *threshold_3 = json_object_get(temperature, "threshold_3");
+    json_t *threshold_3 = json_object_get(cpu, "threshold_3");
     if (threshold_3 && json_is_number(threshold_3))
     {
-        config->temp_threshold_3 = (float)json_number_value(threshold_3);
+        config->temp_cpu_threshold_3 = (float)json_number_value(threshold_3);
     }
 
-    json_t *max_scale = json_object_get(temperature, "max_scale");
+    json_t *max_scale = json_object_get(cpu, "max_scale");
     if (max_scale && json_is_number(max_scale))
     {
-        config->temp_max_scale = (float)json_number_value(max_scale);
+        config->temp_cpu_max_scale = (float)json_number_value(max_scale);
     }
 
-    read_color_from_json(json_object_get(temperature, "threshold_1_color"), &config->temp_threshold_1_bar);
-    read_color_from_json(json_object_get(temperature, "threshold_2_color"), &config->temp_threshold_2_bar);
-    read_color_from_json(json_object_get(temperature, "threshold_3_color"), &config->temp_threshold_3_bar);
-    read_color_from_json(json_object_get(temperature, "threshold_4_color"), &config->temp_threshold_4_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_1_color"), &config->temp_cpu_threshold_1_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_2_color"), &config->temp_cpu_threshold_2_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_3_color"), &config->temp_cpu_threshold_3_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_4_color"), &config->temp_cpu_threshold_4_bar);
+}
+
+/**
+ * @brief Load GPU temperature settings from JSON
+ */
+static void load_gpu_temperature_from_json(json_t *root, Config *config)
+{
+    json_t *gpu = json_object_get(root, "gpu");
+    if (!gpu || !json_is_object(gpu))
+        return;
+
+    json_t *threshold_1 = json_object_get(gpu, "threshold_1");
+    if (threshold_1 && json_is_number(threshold_1))
+    {
+        config->temp_gpu_threshold_1 = (float)json_number_value(threshold_1);
+    }
+
+    json_t *threshold_2 = json_object_get(gpu, "threshold_2");
+    if (threshold_2 && json_is_number(threshold_2))
+    {
+        config->temp_gpu_threshold_2 = (float)json_number_value(threshold_2);
+    }
+
+    json_t *threshold_3 = json_object_get(gpu, "threshold_3");
+    if (threshold_3 && json_is_number(threshold_3))
+    {
+        config->temp_gpu_threshold_3 = (float)json_number_value(threshold_3);
+    }
+
+    json_t *max_scale = json_object_get(gpu, "max_scale");
+    if (max_scale && json_is_number(max_scale))
+    {
+        config->temp_gpu_max_scale = (float)json_number_value(max_scale);
+    }
+
+    read_color_from_json(json_object_get(gpu, "threshold_1_color"), &config->temp_gpu_threshold_1_bar);
+    read_color_from_json(json_object_get(gpu, "threshold_2_color"), &config->temp_gpu_threshold_2_bar);
+    read_color_from_json(json_object_get(gpu, "threshold_3_color"), &config->temp_gpu_threshold_3_bar);
+    read_color_from_json(json_object_get(gpu, "threshold_4_color"), &config->temp_gpu_threshold_4_bar);
 }
 
 /**
@@ -1004,7 +1060,8 @@ int load_plugin_config(Config *config, const char *config_path)
             load_layout_from_json(root, config);
             load_colors_from_json(root, config);
             load_font_from_json(root, config);
-            load_temperature_from_json(root, config);
+            load_cpu_temperature_from_json(root, config);
+            load_gpu_temperature_from_json(root, config);
             load_liquid_from_json(root, config);
             load_positioning_from_json(root, config);
 

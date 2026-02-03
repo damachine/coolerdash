@@ -61,25 +61,26 @@
         /* Tabs */
         .tabs {
             display: flex;
-            gap: 8px;
+            gap: 4px;
             margin-bottom: 20px;
             background: var(--bg-card);
             padding: 8px;
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             overflow-x: auto;
+            flex-wrap: wrap;
         }
 
         .tab {
             flex: 1;
-            min-width: 100px;
-            padding: 12px 16px;
+            min-width: 80px;
+            padding: 10px 12px;
             background: transparent;
             border: none;
             border-radius: 6px;
             color: var(--text-dim);
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             transition: all 0.2s;
             white-space: nowrap;
@@ -112,6 +113,19 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Section Title */
+        .section-title {
+            margin: 24px 0 16px;
+            font-size: 16px;
+            color: var(--text-dim);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        .section-title:first-child {
+            margin-top: 0;
         }
 
         /* Form Elements */
@@ -166,6 +180,7 @@
 
         .grid-2 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
         .grid-3 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
 
         /* Range Slider */
         .range-group {
@@ -285,6 +300,11 @@
             margin-bottom: 4px;
         }
 
+        .alert-warning {
+            background: rgba(255, 140, 0, 0.15);
+            border-left-color: #ff8c00;
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-secondary); }
@@ -296,9 +316,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>
-                CoolerDash Configuration
-            </h1>
+            <h1>CoolerDash Configuration</h1>
             <p>Customize your LCD temperature dashboard • Changes require plugin restart</p>
         </div>
 
@@ -306,14 +324,17 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab(0)">Connection</button>
             <button class="tab" onclick="switchTab(1)">Display</button>
-            <button class="tab" onclick="switchTab(2)">Design</button>
-            <button class="tab" onclick="switchTab(3)">Temperature</button>
-            <button class="tab" onclick="switchTab(4)">Liquid</button>
-            <button class="tab" onclick="switchTab(5)">Position</button>
+            <button class="tab" onclick="switchTab(2)">Layout</button>
+            <button class="tab" onclick="switchTab(3)">Colors</button>
+            <button class="tab" onclick="switchTab(4)">CPU</button>
+            <button class="tab" onclick="switchTab(5)">GPU</button>
+            <button class="tab" onclick="switchTab(6)">Liquid</button>
+            <button class="tab" onclick="switchTab(7)">Position</button>
+            <button class="tab" onclick="switchTab(8)">Advanced</button>
         </div>
 
         <form id="configForm">
-            <!-- Tab 1: Connection -->
+            <!-- Tab 0: Connection -->
             <div class="panel active">
                 <div class="alert">
                     <strong>CoolerControl API</strong>
@@ -322,7 +343,7 @@
 
                 <div class="form-group">
                     <label class="form-label">API Address</label>
-                    <span class="form-hint">Default: http://localhost:11987</span>
+                    <span class="form-hint">HTTP or HTTPS supported (Default: http://localhost:11987)</span>
                     <input type="text" name="daemon.address" class="form-control" required>
                 </div>
 
@@ -333,32 +354,35 @@
                 </div>
             </div>
 
-            <!-- Tab 2: Display -->
+            <!-- Tab 1: Display -->
             <div class="panel">
-                <div class="form-group">
-                    <label class="form-label">Display Mode</label>
-                    <select name="display.mode" id="display_mode" class="form-control" onchange="toggleCircleInterval()">
-                        <option value="dual">Dual (CPU + GPU simultaneously)</option>
-                        <option value="circle">Circle (Alternating display)</option>
-                    </select>
+                <h3 class="section-title">Display Mode</h3>
+
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Display Mode</label>
+                        <select name="display.mode" id="display_mode" class="form-control" onchange="toggleCircleInterval()">
+                            <option value="dual">Dual (CPU + GPU simultaneously)</option>
+                            <option value="circle">Circle (Alternating display)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="circle_interval_group" style="display: none;">
+                        <label class="form-label">Switch Interval (Seconds)</label>
+                        <span class="form-hint">How long each sensor is shown</span>
+                        <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
+                    </div>
                 </div>
 
-                <div class="form-group" id="circle_interval_group" style="display: none;">
-                    <label class="form-label">Switch Interval (Seconds)</label>
-                    <span class="form-hint">How long each sensor is shown in circle mode</span>
-                    <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
-                </div>
-
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Sensor Slots</h3>
+                <h3 class="section-title">Sensor Slots</h3>
                 <div class="alert">
                     <strong>Sensor Assignment</strong>
-                    Assign sensors to display positions. Use "None" to disable a slot. At least one slot must be active.
+                    Assign sensors to display positions. Use "None" to disable a slot.
                 </div>
 
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Upper Slot</label>
-                        <span class="form-hint">Top position sensor</span>
                         <select name="display.sensor_slot_up" id="sensor_slot_up" class="form-control" onchange="validateSensorSlots()">
                             <option value="cpu">CPU</option>
                             <option value="gpu">GPU</option>
@@ -369,7 +393,7 @@
 
                     <div class="form-group" id="sensor_slot_mid_group">
                         <label class="form-label">Middle Slot</label>
-                        <span class="form-hint">Center position (Circle mode only)</span>
+                        <span class="form-hint">Circle mode only</span>
                         <select name="display.sensor_slot_mid" id="sensor_slot_mid" class="form-control" onchange="validateSensorSlots()">
                             <option value="cpu">CPU</option>
                             <option value="gpu">GPU</option>
@@ -380,7 +404,6 @@
 
                     <div class="form-group">
                         <label class="form-label">Lower Slot</label>
-                        <span class="form-hint">Bottom position sensor</span>
                         <select name="display.sensor_slot_down" id="sensor_slot_down" class="form-control" onchange="validateSensorSlots()">
                             <option value="cpu">CPU</option>
                             <option value="gpu">GPU</option>
@@ -389,11 +412,12 @@
                         </select>
                     </div>
                 </div>
-                <div id="sensor_slot_warning" class="alert" style="display: none; background: rgba(255, 140, 0, 0.15); border-left-color: #ff8c00;">
+                <div id="sensor_slot_warning" class="alert alert-warning" style="display: none;">
                     <strong>Warning</strong>
                     <span id="sensor_slot_warning_text"></span>
                 </div>
 
+                <h3 class="section-title">Timing & Brightness</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Refresh Interval (Seconds)</label>
@@ -403,7 +427,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Brightness (%)</label>
-                        <span class="form-hint">80% recommended (burn-in protection)</span>
+                        <span class="form-hint">80% recommended</span>
                         <div class="range-group">
                             <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
                             <span class="range-value" id="brightness_value">80%</span>
@@ -411,6 +435,7 @@
                     </div>
                 </div>
 
+                <h3 class="section-title">Display Geometry</h3>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Orientation</label>
@@ -446,27 +471,25 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Content Scale Factor</label>
+                        <label class="form-label">Content Scale</label>
                         <span class="form-hint">0.90 - 1.0</span>
                         <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Circle Inscribe Factor</label>
+                        <label class="form-label">Inscribe Factor</label>
                         <span class="form-hint">For circular displays</span>
                         <input type="number" name="display.inscribe_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
             </div>
 
-            <!-- Tab 3: Design -->
+            <!-- Tab 2: Layout -->
             <div class="panel">
-                <h3 style="margin-bottom: 16px; font-size: 16px; color: var(--text-dim);">Layout</h3>
-
+                <h3 class="section-title">Bar Dimensions</h3>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Default Bar Height</label>
-                        <span class="form-hint">Fallback for all slots</span>
                         <input type="number" name="layout.bar_height" class="form-control" min="10" max="100">
                     </div>
 
@@ -481,65 +504,69 @@
                     </div>
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Individual Bar Heights</h3>
+                <h3 class="section-title">Individual Bar Heights</h3>
+                <span class="form-hint" style="margin-bottom: 16px; display: block;">Set to 0 to use default bar height</span>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Upper Slot Height</label>
-                        <span class="form-hint">0 = use default</span>
                         <input type="number" name="layout.bar_height_up" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group" id="bar_height_mid_group">
                         <label class="form-label">Middle Slot Height</label>
-                        <span class="form-hint">0 = use default (Circle only)</span>
                         <input type="number" name="layout.bar_height_mid" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Lower Slot Height</label>
-                        <span class="form-hint">0 = use default</span>
                         <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
                     </div>
                 </div>
 
+                <h3 class="section-title">Border & Margins</h3>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Border Thickness</label>
-                        <span class="form-hint">0 = no border</span>
                         <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Border Enabled</label>
-                        <span class="form-hint">Toggle bar border on/off</span>
-                        <select name="layout.bar_border_enabled" class="form-control">
-                            <option value="1">Enabled</option>
-                            <option value="0">Disabled</option>
-                        </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Label Left Margin</label>
                         <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
                     </div>
-                </div>
 
-                <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Label Bar Margin</label>
                         <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
                     </div>
-
-                    <div class="form-group"></div>
-                    <div class="form-group"></div>
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Colors</h3>
+                <h3 class="section-title">Font</h3>
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Font Face</label>
+                        <span class="form-hint">Default: Roboto Black</span>
+                        <input type="text" name="font.face" class="form-control">
+                    </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Temperature Size</label>
+                        <input type="number" name="font.size_temp" class="form-control" min="50" max="200">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Label Size</label>
+                        <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Colors -->
+            <div class="panel">
+                <h3 class="section-title">Display Colors</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Display Background</label>
-                        <span class="form-hint">Main background color</span>
                         <div class="color-group">
                             <input type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
                             <span class="color-rgb" id="rgb_display_background"></span>
@@ -561,7 +588,10 @@
                             <span class="color-rgb" id="rgb_bar_border"></span>
                         </div>
                     </div>
+                </div>
 
+                <h3 class="section-title">Text Colors</h3>
+                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Temperature Text</label>
                         <div class="color-group">
@@ -578,121 +608,171 @@
                         </div>
                     </div>
                 </div>
-
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Font</h3>
-
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">Font Face</label>
-                        <span class="form-hint">Default: Roboto Black</span>
-                        <input type="text" name="font.face" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Temperature Size</label>
-                        <input type="number" name="font.size_temp" class="form-control" min="50" max="200">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Label Size</label>
-                        <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
-                    </div>
-                </div>
             </div>
 
-            <!-- Tab 4: Temperature -->
+            <!-- Tab 4: CPU Thresholds -->
             <div class="panel">
+                <h3 class="section-title">CPU Temperature Scale</h3>
                 <div class="form-group">
                     <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for scale</span>
-                    <input type="number" name="temperature.max_scale" class="form-control" min="80" max="150">
+                    <span class="form-hint">Maximum temperature for bar scale</span>
+                    <input type="number" name="cpu.max_scale" class="form-control" min="80" max="150">
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Thresholds</h3>
-
+                <h3 class="section-title">CPU Thresholds</h3>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <input type="number" name="temperature.threshold_1" class="form-control" min="0" max="100">
+                        <span class="form-hint">Green → Orange</span>
+                        <input type="number" name="cpu.threshold_1" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <input type="number" name="temperature.threshold_2" class="form-control" min="0" max="100">
+                        <span class="form-hint">Orange → Dark Orange</span>
+                        <input type="number" name="cpu.threshold_2" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <input type="number" name="temperature.threshold_3" class="form-control" min="0" max="100">
+                        <span class="form-hint">Dark Orange → Red</span>
+                        <input type="number" name="cpu.threshold_3" class="form-control" min="0" max="100">
                     </div>
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Colors</h3>
-
+                <h3 class="section-title">CPU Bar Colors</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Color 1 (< Threshold 1)</label>
                         <div class="color-group">
-                            <input type="color" id="color_temp_1" class="color-swatch" onchange="updateColorRGB('color_temp_1', 'rgb_temp_1')">
-                            <span class="color-rgb" id="rgb_temp_1"></span>
+                            <input type="color" id="color_cpu_1" class="color-swatch" onchange="updateColorRGB('color_cpu_1', 'rgb_cpu_1')">
+                            <span class="color-rgb" id="rgb_cpu_1"></span>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Color 2 (Threshold 1-2)</label>
                         <div class="color-group">
-                            <input type="color" id="color_temp_2" class="color-swatch" onchange="updateColorRGB('color_temp_2', 'rgb_temp_2')">
-                            <span class="color-rgb" id="rgb_temp_2"></span>
+                            <input type="color" id="color_cpu_2" class="color-swatch" onchange="updateColorRGB('color_cpu_2', 'rgb_cpu_2')">
+                            <span class="color-rgb" id="rgb_cpu_2"></span>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Color 3 (Threshold 2-3)</label>
                         <div class="color-group">
-                            <input type="color" id="color_temp_3" class="color-swatch" onchange="updateColorRGB('color_temp_3', 'rgb_temp_3')">
-                            <span class="color-rgb" id="rgb_temp_3"></span>
+                            <input type="color" id="color_cpu_3" class="color-swatch" onchange="updateColorRGB('color_cpu_3', 'rgb_cpu_3')">
+                            <span class="color-rgb" id="rgb_cpu_3"></span>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Color 4 (> Threshold 3)</label>
                         <div class="color-group">
-                            <input type="color" id="color_temp_4" class="color-swatch" onchange="updateColorRGB('color_temp_4', 'rgb_temp_4')">
-                            <span class="color-rgb" id="rgb_temp_4"></span>
+                            <input type="color" id="color_cpu_4" class="color-swatch" onchange="updateColorRGB('color_cpu_4', 'rgb_cpu_4')">
+                            <span class="color-rgb" id="rgb_cpu_4"></span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Tab 5: Liquid -->
+            <!-- Tab 5: GPU Thresholds -->
             <div class="panel">
+                <h3 class="section-title">GPU Temperature Scale</h3>
                 <div class="form-group">
                     <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum liquid temperature for scale</span>
-                    <input type="number" name="liquid.max_scale" class="form-control" min="30" max="80">
+                    <span class="form-hint">Maximum temperature for bar scale</span>
+                    <input type="number" name="gpu.max_scale" class="form-control" min="80" max="150">
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Thresholds</h3>
-
+                <h3 class="section-title">GPU Thresholds</h3>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
+                        <span class="form-hint">Green → Orange</span>
+                        <input type="number" name="gpu.threshold_1" class="form-control" min="0" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Threshold 2 (°C)</label>
+                        <span class="form-hint">Orange → Dark Orange</span>
+                        <input type="number" name="gpu.threshold_2" class="form-control" min="0" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Threshold 3 (°C)</label>
+                        <span class="form-hint">Dark Orange → Red</span>
+                        <input type="number" name="gpu.threshold_3" class="form-control" min="0" max="100">
+                    </div>
+                </div>
+
+                <h3 class="section-title">GPU Bar Colors</h3>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Color 1 (< Threshold 1)</label>
+                        <div class="color-group">
+                            <input type="color" id="color_gpu_1" class="color-swatch" onchange="updateColorRGB('color_gpu_1', 'rgb_gpu_1')">
+                            <span class="color-rgb" id="rgb_gpu_1"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Color 2 (Threshold 1-2)</label>
+                        <div class="color-group">
+                            <input type="color" id="color_gpu_2" class="color-swatch" onchange="updateColorRGB('color_gpu_2', 'rgb_gpu_2')">
+                            <span class="color-rgb" id="rgb_gpu_2"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Color 3 (Threshold 2-3)</label>
+                        <div class="color-group">
+                            <input type="color" id="color_gpu_3" class="color-swatch" onchange="updateColorRGB('color_gpu_3', 'rgb_gpu_3')">
+                            <span class="color-rgb" id="rgb_gpu_3"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Color 4 (> Threshold 3)</label>
+                        <div class="color-group">
+                            <input type="color" id="color_gpu_4" class="color-swatch" onchange="updateColorRGB('color_gpu_4', 'rgb_gpu_4')">
+                            <span class="color-rgb" id="rgb_gpu_4"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 6: Liquid Thresholds -->
+            <div class="panel">
+                <h3 class="section-title">Liquid Temperature Scale</h3>
+                <div class="form-group">
+                    <label class="form-label">Maximum Scale (°C)</label>
+                    <span class="form-hint">Maximum temperature for bar scale (typically 50°C)</span>
+                    <input type="number" name="liquid.max_scale" class="form-control" min="30" max="80">
+                </div>
+
+                <h3 class="section-title">Liquid Thresholds</h3>
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Threshold 1 (°C)</label>
+                        <span class="form-hint">Green → Orange</span>
                         <input type="number" name="liquid.threshold_1" class="form-control" min="0" max="50">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
+                        <span class="form-hint">Orange → Dark Orange</span>
                         <input type="number" name="liquid.threshold_2" class="form-control" min="0" max="50">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
+                        <span class="form-hint">Dark Orange → Red</span>
                         <input type="number" name="liquid.threshold_3" class="form-control" min="0" max="50">
                     </div>
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Colors</h3>
-
+                <h3 class="section-title">Liquid Bar Colors</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Color 1 (< Threshold 1)</label>
@@ -728,14 +808,14 @@
                 </div>
             </div>
 
-            <!-- Tab 6: Positioning -->
+            <!-- Tab 7: Positioning -->
             <div class="panel">
                 <div class="alert">
                     <strong>Advanced Positioning</strong>
-                    Value 0 = Automatic positioning
+                    Value 0 = Automatic positioning. Adjust offsets to fine-tune element placement.
                 </div>
 
-                <h3 style="margin-bottom: 16px; font-size: 16px; color: var(--text-dim);">CPU Temperature</h3>
+                <h3 class="section-title">Upper Slot Position</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
@@ -748,20 +828,7 @@
                     </div>
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">GPU Temperature</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">X Offset</label>
-                        <input type="number" name="positioning.temp_offset_x_gpu" class="form-control" step="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Y Offset</label>
-                        <input type="number" name="positioning.temp_offset_y_gpu" class="form-control" step="1">
-                    </div>
-                </div>
-
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Liquid Temperature</h3>
+                <h3 class="section-title">Middle Slot Position</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
@@ -774,7 +841,20 @@
                     </div>
                 </div>
 
-                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Labels</h3>
+                <h3 class="section-title">Lower Slot Position</h3>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">X Offset</label>
+                        <input type="number" name="positioning.temp_offset_x_gpu" class="form-control" step="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Y Offset</label>
+                        <input type="number" name="positioning.temp_offset_y_gpu" class="form-control" step="1">
+                    </div>
+                </div>
+
+                <h3 class="section-title">Labels Position</h3>
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
@@ -792,16 +872,33 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Tab 8: Advanced -->
+            <div class="panel">
+                <h3 class="section-title">Image Paths</h3>
+                <div class="alert">
+                    <strong>Custom Images</strong>
+                    Specify custom paths for plugin images. Leave default for standard installation.
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Images Directory</label>
+                    <span class="form-hint">Base directory for plugin images</span>
+                    <input type="text" name="paths.images" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Shutdown Image</label>
+                    <span class="form-hint">Image displayed when daemon shuts down</span>
+                    <input type="text" name="paths.image_shutdown" class="form-control">
+                </div>
+            </div>
         </form>
 
         <!-- Buttons -->
         <div class="btn-group">
-            <button type="button" class="btn btn-primary" onclick="saveConfig()">
-                Save
-            </button>
-            <button type="button" class="btn btn-secondary" onclick="resetConfig()">
-                Reset
-            </button>
+            <button type="button" class="btn btn-primary" onclick="saveConfig()">Save</button>
+            <button type="button" class="btn btn-secondary" onclick="resetConfig()">Reset</button>
         </div>
 
         <!-- Restart Notice -->
@@ -814,7 +911,6 @@
 
     <script>
         // ===== FACTORY DEFAULT CONFIGURATION =====
-        // These are the built-in defaults for reset functionality
         const FACTORY_DEFAULTS = {
             daemon: {
                 address: "http://localhost:11987",
@@ -845,7 +941,6 @@
                 bar_width: 98,
                 bar_gap: 12,
                 bar_border: 2.0,
-                bar_border_enabled: true,
                 label_margin_left: 1,
                 label_margin_bar: 1,
                 bar_height_up: 0,
@@ -864,7 +959,17 @@
                 size_temp: 100.0,
                 size_labels: 30.0
             },
-            temperature: {
+            cpu: {
+                threshold_1: 55.0,
+                threshold_2: 65.0,
+                threshold_3: 75.0,
+                max_scale: 115.0,
+                threshold_1_color: { r: 0, g: 255, b: 0 },
+                threshold_2_color: { r: 255, g: 140, b: 0 },
+                threshold_3_color: { r: 255, g: 70, b: 0 },
+                threshold_4_color: { r: 255, g: 0, b: 0 }
+            },
+            gpu: {
                 threshold_1: 55.0,
                 threshold_2: 65.0,
                 threshold_3: 75.0,
@@ -900,54 +1005,37 @@
         let DEFAULT_CONFIG = null;
         let currentTab = 0;
 
-        // ===== FALLBACK FUNCTIONS (if cc-plugin-lib.js not loaded) =====
-
-        // Check if we're running inside CoolerControl iframe
+        // ===== FALLBACK FUNCTIONS =====
         const isInCoolerControl = window.parent !== window;
 
-        // Fallback: Save config via postMessage to parent
         if (typeof savePluginConfig === 'undefined') {
             window.savePluginConfig = async function(config) {
                 if (isInCoolerControl) {
-                    // Try postMessage to CoolerControl parent
-                        console.log("Using fallback: postMessage to parent");
                     return new Promise((resolve, reject) => {
                         const messageHandler = (event) => {
                             if (event.data.type === 'configSaved') {
                                 window.removeEventListener('message', messageHandler);
-                                if (event.data.body) {
-                                    resolve(event.data.body);
-                                } else {
-                                    reject(new Error('Config save failed'));
-                                }
+                                if (event.data.body) resolve(event.data.body);
+                                else reject(new Error('Config save failed'));
                             }
                         };
                         window.addEventListener('message', messageHandler);
-                        window.parent.postMessage({
-                            type: 'saveConfig',
-                            body: config
-                        }, document.location.origin);
-
-                        // Timeout after 5 seconds
+                        window.parent.postMessage({ type: 'saveConfig', body: config }, document.location.origin);
                         setTimeout(() => {
                             window.removeEventListener('message', messageHandler);
-                            reject(new Error('Save timeout - CoolerControl not responding'));
+                            reject(new Error('Save timeout'));
                         }, 5000);
                     });
                 } else {
-                    // Not in CoolerControl - just save to localStorage as fallback
-                        console.log("Using fallback: localStorage");
                     localStorage.setItem('coolerdash_config', JSON.stringify(config));
                     return Promise.resolve(config);
                 }
             };
         }
 
-        // Fallback: Load config via postMessage or localStorage
         if (typeof getPluginConfig === 'undefined') {
             window.getPluginConfig = async function() {
                 if (isInCoolerControl) {
-                    console.log("📥 Using fallback: postMessage to parent");
                     return new Promise((resolve) => {
                         const messageHandler = (event) => {
                             if (event.data.type === 'config') {
@@ -956,79 +1044,44 @@
                             }
                         };
                         window.addEventListener('message', messageHandler);
-                        window.parent.postMessage({
-                            type: 'loadConfig'
-                        }, document.location.origin);
-
-                        // Timeout - return empty config
+                        window.parent.postMessage({ type: 'loadConfig' }, document.location.origin);
                         setTimeout(() => {
                             window.removeEventListener('message', messageHandler);
                             resolve({});
                         }, 3000);
                     });
                 } else {
-                        console.log("Using fallback: localStorage");
                     const saved = localStorage.getItem('coolerdash_config');
                     return Promise.resolve(saved ? JSON.parse(saved) : {});
                 }
             };
         }
 
-        // Fallback: runPluginScript wrapper
         if (typeof runPluginScript === 'undefined') {
-            window.runPluginScript = function(mainFunction) {
-                    console.log("Using fallback: direct execution");
-                mainFunction();
-            };
+            window.runPluginScript = function(mainFunction) { mainFunction(); };
         }
 
-        // ===== END FALLBACK FUNCTIONS =====
-
-        // Tab switching
+        // ===== UI FUNCTIONS =====
         function switchTab(index) {
-            const tabs = document.querySelectorAll('.tab');
-            const panels = document.querySelectorAll('.panel');
-
-            tabs.forEach((tab, i) => {
-                tab.classList.toggle('active', i === index);
-            });
-
-            panels.forEach((panel, i) => {
-                panel.classList.toggle('active', i === index);
-            });
-
+            document.querySelectorAll('.tab').forEach((tab, i) => tab.classList.toggle('active', i === index));
+            document.querySelectorAll('.panel').forEach((panel, i) => panel.classList.toggle('active', i === index));
             currentTab = index;
         }
 
-        // Toggle circle interval visibility
         function toggleCircleInterval() {
             const mode = document.getElementById('display_mode').value;
-            const circleGroup = document.getElementById('circle_interval_group');
+            document.getElementById('circle_interval_group').style.display = mode === 'circle' ? 'block' : 'none';
             const midSlotGroup = document.getElementById('sensor_slot_mid_group');
             const midBarHeightGroup = document.getElementById('bar_height_mid_group');
-
-            // Show circle interval only in circle mode
-            circleGroup.style.display = mode === 'circle' ? 'block' : 'none';
-
-            // Show/hide middle slot fields based on mode
-            if (midSlotGroup) {
-                midSlotGroup.style.display = mode === 'circle' ? 'block' : 'none';
-            }
-            if (midBarHeightGroup) {
-                midBarHeightGroup.style.display = mode === 'circle' ? 'block' : 'none';
-            }
-
-            // If switching to dual mode, set mid slot to "none"
+            if (midSlotGroup) midSlotGroup.style.display = mode === 'circle' ? 'block' : 'none';
+            if (midBarHeightGroup) midBarHeightGroup.style.display = mode === 'circle' ? 'block' : 'none';
             if (mode === 'dual') {
                 const midSlot = document.getElementById('sensor_slot_mid');
                 if (midSlot) midSlot.value = 'none';
             }
-
-            // Revalidate slots
             validateSensorSlots();
         }
 
-        // Validate sensor slot assignments
         function validateSensorSlots() {
             const mode = document.getElementById('display_mode').value;
             const slotUp = document.getElementById('sensor_slot_up').value;
@@ -1039,44 +1092,31 @@
             const warningText = document.getElementById('sensor_slot_warning_text');
             let warnings = [];
 
-            // Get active slots (excluding "none")
             const activeSlots = [];
             if (slotUp !== 'none') activeSlots.push({ name: 'Upper', value: slotUp });
             if (mode === 'circle' && slotMid !== 'none') activeSlots.push({ name: 'Middle', value: slotMid });
             if (slotDown !== 'none') activeSlots.push({ name: 'Lower', value: slotDown });
 
-            // Check minimum one active slot
-            if (activeSlots.length === 0) {
-                warnings.push('At least one sensor slot must be active.');
-            }
+            if (activeSlots.length === 0) warnings.push('At least one sensor slot must be active.');
 
-            // Check for duplicates
             const usedSensors = {};
             for (const slot of activeSlots) {
                 if (usedSensors[slot.value]) {
-                    warnings.push(`Duplicate sensor: "${slot.value}" is used in both ${usedSensors[slot.value]} and ${slot.name} slot.`);
+                    warnings.push(`Duplicate: "${slot.value}" used in ${usedSensors[slot.value]} and ${slot.name}.`);
                 } else {
                     usedSensors[slot.value] = slot.name;
                 }
             }
 
-            // Show/hide warnings
-            if (warnings.length > 0) {
-                warningDiv.style.display = 'block';
-                warningText.textContent = warnings.join(' ');
-            } else {
-                warningDiv.style.display = 'none';
-            }
-
+            warningDiv.style.display = warnings.length > 0 ? 'block' : 'none';
+            warningText.textContent = warnings.join(' ');
             return warnings.length === 0;
         }
 
-        // Update range value display
         function updateRangeValue(id, value) {
             document.getElementById(id + '_value').textContent = value + '%';
         }
 
-        // RGB ↔ Hex conversion
         function rgbToHex(rgb) {
             const r = Math.round(rgb.r).toString(16).padStart(2, '0');
             const g = Math.round(rgb.g).toString(16).padStart(2, '0');
@@ -1086,91 +1126,77 @@
 
         function hexToRgb(hex) {
             const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-            return result ? {
-                r: parseInt(result[1], 16),
-                g: parseInt(result[2], 16),
-                b: parseInt(result[3], 16)
-            } : null;
+            return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
         }
 
-        // Update color RGB display
         function updateColorRGB(colorId, rgbId) {
-            const colorInput = document.getElementById(colorId);
-            const rgb = hexToRgb(colorInput.value);
-            if (rgb) {
-                document.getElementById(rgbId).textContent = `RGB(${rgb.r}, ${rgb.g}, ${rgb.b})`;
-            }
+            const rgb = hexToRgb(document.getElementById(colorId).value);
+            if (rgb) document.getElementById(rgbId).textContent = `RGB(${rgb.r}, ${rgb.g}, ${rgb.b})`;
         }
 
-        // Setup color picker
         function setupColorPicker(colorId, rgbId, rgbObj) {
             const colorInput = document.getElementById(colorId);
-            if (rgbObj) {
+            if (rgbObj && colorInput) {
                 colorInput.value = rgbToHex(rgbObj);
-                document.getElementById(rgbId).textContent = `RGB(${Math.round(rgbObj.r)}, ${Math.round(rgbObj.g)}, ${Math.round(rgbObj.b)})`;
+                const rgbEl = document.getElementById(rgbId);
+                if (rgbEl) rgbEl.textContent = `RGB(${Math.round(rgbObj.r)}, ${Math.round(rgbObj.g)}, ${Math.round(rgbObj.b)})`;
             }
         }
 
-        // Get color from picker
         function getColorFromPicker(colorId) {
-            return hexToRgb(document.getElementById(colorId).value);
+            const el = document.getElementById(colorId);
+            return el ? hexToRgb(el.value) : null;
         }
 
-        // Load default config from config.json
         async function loadDefaultConfig() {
             try {
                 const response = await fetch('config.json');
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 DEFAULT_CONFIG = await response.json();
-                    console.log("Defaults loaded:", DEFAULT_CONFIG);
                 return DEFAULT_CONFIG;
             } catch (error) {
                 console.error("Failed to load config.json:", error);
-                DEFAULT_CONFIG = {
-                    daemon: { address: "http://localhost:11987", password: "" },
-                    display: { mode: "dual", refresh_interval: 2.5, brightness: 80 }
-                };
+                DEFAULT_CONFIG = FACTORY_DEFAULTS;
                 return DEFAULT_CONFIG;
             }
         }
 
-        // Build config from form
         function buildConfig() {
             const form = document.getElementById('configForm');
             const formData = new FormData(form);
             const config = {
-                daemon: {},
-                paths: { config: "/etc/coolercontrol/plugins/coolerdash/config.json" },
-                display: {},
-                layout: {},
-                colors: {},
-                font: {},
-                temperature: {},
-                liquid: {},
-                positioning: {}
+                daemon: {}, paths: {}, display: {}, layout: {}, colors: {},
+                font: {}, cpu: {}, gpu: {}, liquid: {}, positioning: {}
             };
 
-            // Parse form fields
             for (const [key, value] of formData.entries()) {
                 const [section, field] = key.split('.');
-                if (section && field) {
+                if (section && field && config[section]) {
                     const numValue = parseFloat(value);
                     config[section][field] = isNaN(numValue) ? value : numValue;
                 }
             }
 
-            // Add colors
+            // Colors
             config.colors.display_background = getColorFromPicker('color_display_background');
             config.colors.bar_background = getColorFromPicker('color_bar_background');
             config.colors.bar_border = getColorFromPicker('color_bar_border');
             config.colors.font_temp = getColorFromPicker('color_font_temp');
             config.colors.font_label = getColorFromPicker('color_font_label');
 
-            config.temperature.threshold_1_color = getColorFromPicker('color_temp_1');
-            config.temperature.threshold_2_color = getColorFromPicker('color_temp_2');
-            config.temperature.threshold_3_color = getColorFromPicker('color_temp_3');
-            config.temperature.threshold_4_color = getColorFromPicker('color_temp_4');
+            // CPU colors
+            config.cpu.threshold_1_color = getColorFromPicker('color_cpu_1');
+            config.cpu.threshold_2_color = getColorFromPicker('color_cpu_2');
+            config.cpu.threshold_3_color = getColorFromPicker('color_cpu_3');
+            config.cpu.threshold_4_color = getColorFromPicker('color_cpu_4');
 
+            // GPU colors
+            config.gpu.threshold_1_color = getColorFromPicker('color_gpu_1');
+            config.gpu.threshold_2_color = getColorFromPicker('color_gpu_2');
+            config.gpu.threshold_3_color = getColorFromPicker('color_gpu_3');
+            config.gpu.threshold_4_color = getColorFromPicker('color_gpu_4');
+
+            // Liquid colors
             config.liquid.threshold_1_color = getColorFromPicker('color_liquid_1');
             config.liquid.threshold_2_color = getColorFromPicker('color_liquid_2');
             config.liquid.threshold_3_color = getColorFromPicker('color_liquid_3');
@@ -1179,170 +1205,102 @@
             return config;
         }
 
-        // Populate form with config
         function populateForm(config) {
-            // Simple fields
             for (const [section, fields] of Object.entries(config)) {
                 if (typeof fields === 'object' && fields !== null) {
                     for (const [field, value] of Object.entries(fields)) {
                         const input = document.querySelector(`[name="${section}.${field}"]`);
                         if (input && typeof value !== 'object') {
-                            // Handle boolean values for select elements
-                            if (typeof value === 'boolean') {
-                                input.value = value ? "1" : "0";
-                            } else {
-                                input.value = value;
-                            }
-
-                            // Update UI
-                            if (field === 'brightness') {
-                                updateRangeValue('brightness', value);
-                            }
+                            input.value = typeof value === 'boolean' ? (value ? "1" : "0") : value;
+                            if (field === 'brightness') updateRangeValue('brightness', value);
                         }
                     }
                 }
             }
 
-            // Color pickers
+            // Colors
             if (config.colors) {
-                if (config.colors.display_background) setupColorPicker('color_display_background', 'rgb_display_background', config.colors.display_background);
-                if (config.colors.bar_background) setupColorPicker('color_bar_background', 'rgb_bar_background', config.colors.bar_background);
-                if (config.colors.bar_border) setupColorPicker('color_bar_border', 'rgb_bar_border', config.colors.bar_border);
-                if (config.colors.font_temp) setupColorPicker('color_font_temp', 'rgb_font_temp', config.colors.font_temp);
-                if (config.colors.font_label) setupColorPicker('color_font_label', 'rgb_font_label', config.colors.font_label);
+                setupColorPicker('color_display_background', 'rgb_display_background', config.colors.display_background);
+                setupColorPicker('color_bar_background', 'rgb_bar_background', config.colors.bar_background);
+                setupColorPicker('color_bar_border', 'rgb_bar_border', config.colors.bar_border);
+                setupColorPicker('color_font_temp', 'rgb_font_temp', config.colors.font_temp);
+                setupColorPicker('color_font_label', 'rgb_font_label', config.colors.font_label);
             }
 
-            if (config.temperature) {
-                if (config.temperature.threshold_1_color) setupColorPicker('color_temp_1', 'rgb_temp_1', config.temperature.threshold_1_color);
-                if (config.temperature.threshold_2_color) setupColorPicker('color_temp_2', 'rgb_temp_2', config.temperature.threshold_2_color);
-                if (config.temperature.threshold_3_color) setupColorPicker('color_temp_3', 'rgb_temp_3', config.temperature.threshold_3_color);
-                if (config.temperature.threshold_4_color) setupColorPicker('color_temp_4', 'rgb_temp_4', config.temperature.threshold_4_color);
+            // CPU colors
+            if (config.cpu) {
+                setupColorPicker('color_cpu_1', 'rgb_cpu_1', config.cpu.threshold_1_color);
+                setupColorPicker('color_cpu_2', 'rgb_cpu_2', config.cpu.threshold_2_color);
+                setupColorPicker('color_cpu_3', 'rgb_cpu_3', config.cpu.threshold_3_color);
+                setupColorPicker('color_cpu_4', 'rgb_cpu_4', config.cpu.threshold_4_color);
             }
 
+            // GPU colors
+            if (config.gpu) {
+                setupColorPicker('color_gpu_1', 'rgb_gpu_1', config.gpu.threshold_1_color);
+                setupColorPicker('color_gpu_2', 'rgb_gpu_2', config.gpu.threshold_2_color);
+                setupColorPicker('color_gpu_3', 'rgb_gpu_3', config.gpu.threshold_3_color);
+                setupColorPicker('color_gpu_4', 'rgb_gpu_4', config.gpu.threshold_4_color);
+            }
+
+            // Liquid colors
             if (config.liquid) {
-                if (config.liquid.threshold_1_color) setupColorPicker('color_liquid_1', 'rgb_liquid_1', config.liquid.threshold_1_color);
-                if (config.liquid.threshold_2_color) setupColorPicker('color_liquid_2', 'rgb_liquid_2', config.liquid.threshold_2_color);
-                if (config.liquid.threshold_3_color) setupColorPicker('color_liquid_3', 'rgb_liquid_3', config.liquid.threshold_3_color);
-                if (config.liquid.threshold_4_color) setupColorPicker('color_liquid_4', 'rgb_liquid_4', config.liquid.threshold_4_color);
+                setupColorPicker('color_liquid_1', 'rgb_liquid_1', config.liquid.threshold_1_color);
+                setupColorPicker('color_liquid_2', 'rgb_liquid_2', config.liquid.threshold_2_color);
+                setupColorPicker('color_liquid_3', 'rgb_liquid_3', config.liquid.threshold_3_color);
+                setupColorPicker('color_liquid_4', 'rgb_liquid_4', config.liquid.threshold_4_color);
             }
 
-            // Update mode-dependent UI elements after form is populated
             toggleCircleInterval();
             validateSensorSlots();
-
-            console.log("Form populated with config");
         }
 
-        // Save config
         async function saveConfig() {
-            // Validate sensor slots before saving
             if (!validateSensorSlots()) {
-                alert("Configuration has validation errors.\n\nPlease fix the sensor slot warnings before saving.");
+                alert("Please fix sensor slot warnings before saving.");
                 return;
             }
 
             const config = buildConfig();
-                console.log("Saving config:", config);
-
             try {
-                //Write to config.json (for daemon consumption)
-                const writeSuccess = await writeConfigToFile(config);
-
-                //Arrange restart to happen after plugin confirms config save (short delay to allow file write)
+                await writeConfigToFile(config);
                 requestRestartAfterSave(1000);
-
-                //Save to CoolerControl plugin system (for UI persistence) — this triggers configSaved and the restart callback
                 await savePluginConfig(config);
-
-                alert("Configuration saved successfully!\n\nChanges are applied immediately — the plugin will be restarted automatically after Save or Reset.");
-
-                // Close window after short delay
+                alert("Configuration saved! Plugin will restart.");
                 setTimeout(() => window.close(), 300);
-
             } catch (error) {
                 console.error("Save failed:", error);
-
-                // More user-friendly error message
-                let errorMsg = "Configuration save failed\n\n";
-
-                if (error.message.includes('timeout')) {
-                    errorMsg += "CoolerControl is not responding.\n\n";
-                    errorMsg += "Please try:\n";
-                    errorMsg += "1. Restart CoolerControl\n";
-                    errorMsg += "2. Check if plugin is enabled\n";
-                    errorMsg += "3. Save config.json manually (see console)";
-                } else if (error.message.includes('not defined')) {
-                    errorMsg += "Plugin library not loaded.\n\n";
-                    errorMsg += "Config saved to browser storage.\n";
-                    errorMsg += "Copy config.json manually (see console)";
-                } else {
-                    errorMsg += error.message;
-                }
-
-
-                alert(errorMsg);
-
-                // Fallback: Show config in console for manual copy
-                console.info("Manual fallback - Copy this config:");
-                console.info(JSON.stringify(config, null, 2));
+                alert("Save failed: " + error.message);
             }
         }
-        // Restart the plugin daemon via CoolerControl API
+
         async function restartPluginDaemon(config) {
             try {
                 const apiAddress = config.daemon?.address || 'http://localhost:11987';
                 const password = config.daemon?.password || '';
+                const headers = { 'Content-Type': 'application/json' };
+                if (password) headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
 
-                // Restart plugin via CoolerControl API
-                const headers = {
-                    'Content-Type': 'application/json'
-                };
-
-                if (password) {
-                    headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
-                }
-
-                const response = await fetch(`${apiAddress}/plugins/coolerdash/restart`, {
-                    method: 'POST',
-                    headers: headers
-                });
-
-                if (response.ok) {
-                    console.log("Plugin daemon restarted");
-                    alert("Plugin restarted successfully!");
-                } else {
-                    console.warn("Could not restart plugin automatically");
-                    alert("Please restart plugin manually:\nSettings → Plugins → CoolerDash → Restart");
-                }
+                const response = await fetch(`${apiAddress}/plugins/coolerdash/restart`, { method: 'POST', headers });
+                if (!response.ok) console.warn("Could not restart plugin automatically");
             } catch (error) {
                 console.error("Plugin restart failed:", error);
-                alert("Automatic restart failed.\nPlease restart plugin manually:\nSettings → Plugins → CoolerDash → Restart");
             }
         }
 
-        // Request a restart shortly after a successful config save.
-        // Uses the plugin API's successfulConfigSaveCallback if available, otherwise listens for a configSaved postMessage.
         function requestRestartAfterSave(delayMs = 800) {
             const doRestart = () => {
                 try {
-                    if (typeof restart === 'function') {
-                        // restart() is provided by cc-plugin-lib and posts a message to the parent
-                        restart();
-                    } else {
-                        // fallback: attempt API-based restart
-                        const cfg = buildConfig();
-                        restartPluginDaemon(cfg);
-                    }
-                } catch (e) {
-                    console.warn('Restart attempt failed:', e);
-                }
+                    if (typeof restart === 'function') restart();
+                    else restartPluginDaemon(buildConfig());
+                } catch (e) { console.warn('Restart failed:', e); }
             };
 
             if (typeof successfulConfigSaveCallback === 'function') {
                 successfulConfigSaveCallback(() => setTimeout(doRestart, delayMs));
             } else {
                 const handler = (event) => {
-                    if (event.data && event.data.type === 'configSaved') {
+                    if (event.data?.type === 'configSaved') {
                         window.removeEventListener('message', handler);
                         setTimeout(doRestart, delayMs);
                     }
@@ -1351,106 +1309,54 @@
             }
         }
 
-        // Write config to config.json via update script
         async function writeConfigToFile(config) {
             try {
-                // Try to write via REST API (requires authentication)
                 const apiAddress = config.daemon?.address || 'http://localhost:11987';
                 const password = config.daemon?.password || '';
 
-                // Try authenticated write (if password is set)
                 if (password) {
                     const response = await fetch(`${apiAddress}/plugins/coolerdash/config`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Basic ${btoa(`admin:${password}`)}`
-                        },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${btoa(`admin:${password}`)}` },
                         body: JSON.stringify(config, null, 2)
                     });
-
-                    if (response.ok) {
-                        console.log("Config written via REST API");
-                        return true;
-                    }
+                    if (response.ok) return true;
                 }
 
-                // Fallback - Use local file write
-                // Create a JSON file blob and download it as workaround
                 const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = URL.createObjectURL(blob);
                 a.download = 'config.json';
-
-                // Show instructions
-                console.info("Please save config.json to: /etc/coolercontrol/plugins/coolerdash/");
-                console.info("Manual step required: sudo cp ~/Downloads/config.json /etc/coolercontrol/plugins/coolerdash/");
-
-                // Auto-download
                 a.click();
-                URL.revokeObjectURL(url);
-
-                return false; // Indicate manual step needed
+                URL.revokeObjectURL(a.href);
+                return false;
             } catch (error) {
-                console.warn("Config file write failed:", error);
-
-                // Final fallback: Show config in console
-                console.info("Copy this config to /etc/coolercontrol/plugins/coolerdash/config.json:");
-                console.info(JSON.stringify(config, null, 2));
-
+                console.warn("Config write failed:", error);
                 return false;
             }
         }
 
-        // Reset to defaults
         async function resetConfig() {
-                try {
-                    // Write to config.json file (daemon consumption)
-                    try {
-                        await writeConfigToFile(FACTORY_DEFAULTS);
-                        console.log("Factory defaults written to config.json");
-                    } catch (writeError) {
-                        console.warn("Could not write to config.json directly:", writeError.message);
-                        console.info("Factory defaults (copy to /etc/coolercontrol/plugins/coolerdash/config.json):");
-                        console.info(JSON.stringify(FACTORY_DEFAULTS, null, 2));
-                    }
-
-                    // Update form with factory defaults
-                    populateForm(FACTORY_DEFAULTS);
-
-                    // Arrange restart to happen after plugin confirms config save (short delay to allow file write)
-                    requestRestartAfterSave(1000);
-
-                    // Save factory defaults to CoolerControl plugin storage (this triggers configSaved)
-                    await savePluginConfig(FACTORY_DEFAULTS);
-                    console.log("Factory defaults saved to CoolerControl");
-
-                    alert('Configuration reset to factory defaults!\n\nChanges are applied immediately — the plugin will be restarted automatically after Save or Reset.');
-
-                    // Close window after short delay
-                    setTimeout(() => window.close(), 300);
-                } catch (error) {
-                    console.error("Failed to reset config:", error);
-                    alert('Failed to reset configuration:\n\n' + error.message);
-                }
+            try {
+                await writeConfigToFile(FACTORY_DEFAULTS);
+                populateForm(FACTORY_DEFAULTS);
+                requestRestartAfterSave(1000);
+                await savePluginConfig(FACTORY_DEFAULTS);
+                alert('Reset to factory defaults! Plugin will restart.');
+                setTimeout(() => window.close(), 300);
+            } catch (error) {
+                console.error("Reset failed:", error);
+                alert('Reset failed: ' + error.message);
             }
+        }
 
         // Initialize
         runPluginScript(async () => {
             try {
-                console.log("Initializing CoolerDash UI...");
-
-                // Load defaults from config.json
                 await loadDefaultConfig();
-
-                // Load user config from CoolerControl
                 let config = await getPluginConfig();
-                console.log("User config:", config);
 
-                // Merge with defaults
                 if (!config || Object.keys(config).length === 0) {
-                    console.log("Using defaults");
                     config = DEFAULT_CONFIG;
                 } else {
                     config = {
@@ -1460,20 +1366,17 @@
                         layout: { ...DEFAULT_CONFIG.layout, ...(config.layout || {}) },
                         colors: { ...DEFAULT_CONFIG.colors, ...(config.colors || {}) },
                         font: { ...DEFAULT_CONFIG.font, ...(config.font || {}) },
-                        temperature: { ...DEFAULT_CONFIG.temperature, ...(config.temperature || {}) },
+                        cpu: { ...DEFAULT_CONFIG.cpu, ...(config.cpu || {}) },
+                        gpu: { ...DEFAULT_CONFIG.gpu, ...(config.gpu || {}) },
                         liquid: { ...DEFAULT_CONFIG.liquid, ...(config.liquid || {}) },
                         positioning: { ...DEFAULT_CONFIG.positioning, ...(config.positioning || {}) }
                     };
                 }
 
-                // Display in UI
                 populateForm(config);
-                console.log("UI initialized");
             } catch (error) {
                 console.error("Init failed:", error);
-                if (DEFAULT_CONFIG) {
-                    populateForm(DEFAULT_CONFIG);
-                }
+                if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);
             }
         });
     </script>

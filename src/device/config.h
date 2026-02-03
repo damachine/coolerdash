@@ -121,21 +121,31 @@ typedef struct Config
     int display_label_offset_x;
     int display_label_offset_y;
 
-    // Temperature configuration
-    float temp_threshold_1;
-    float temp_threshold_2;
-    float temp_threshold_3;
-    float temp_max_scale;
-    Color temp_threshold_1_bar;
-    Color temp_threshold_2_bar;
-    Color temp_threshold_3_bar;
-    Color temp_threshold_4_bar;
+    // CPU temperature configuration
+    float temp_cpu_threshold_1;
+    float temp_cpu_threshold_2;
+    float temp_cpu_threshold_3;
+    float temp_cpu_max_scale;
+    Color temp_cpu_threshold_1_bar;
+    Color temp_cpu_threshold_2_bar;
+    Color temp_cpu_threshold_3_bar;
+    Color temp_cpu_threshold_4_bar;
+
+    // GPU temperature configuration
+    float temp_gpu_threshold_1;
+    float temp_gpu_threshold_2;
+    float temp_gpu_threshold_3;
+    float temp_gpu_max_scale;
+    Color temp_gpu_threshold_1_bar;
+    Color temp_gpu_threshold_2_bar;
+    Color temp_gpu_threshold_3_bar;
+    Color temp_gpu_threshold_4_bar;
 
     // Liquid temperature configuration
-    float temp_liquid_max_scale;
     float temp_liquid_threshold_1;
     float temp_liquid_threshold_2;
     float temp_liquid_threshold_3;
+    float temp_liquid_max_scale;
     Color temp_liquid_threshold_1_bar;
     Color temp_liquid_threshold_2_bar;
     Color temp_liquid_threshold_3_bar;
