@@ -202,6 +202,11 @@
         .grid {
             display: grid;
             gap: 20px 28px;
+            margin-bottom: 20px;
+        }
+
+        .grid:last-child {
+            margin-bottom: 0;
         }
 
         .grid-2 { grid-template-columns: repeat(2, 1fr); }
@@ -398,7 +403,7 @@
                     <span class="form-hint">HTTP or HTTPS supported (Default: http://localhost:11987)</span>
                     <input type="text" name="daemon.address" class="form-control" required>
                 </div>
-
+                <br />
                 <div class="form-group">
                     <label class="form-label">API Password</label>
                     <span class="form-hint">Leave empty if authentication is disabled (Default: coolAdmin)</span>
@@ -488,9 +493,10 @@
                 </div>
 
                 <h3 class="section-title">Display Geometry</h3>
-                <div class="grid grid-3">
+                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Orientation</label>
+                        <span class="form-hint">Default: 0°</span>
                         <select name="display.orientation" class="form-control">
                             <option value="0">0° (Default)</option>
                             <option value="90">90° (Clockwise)</option>
@@ -499,6 +505,18 @@
                         </select>
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Shape</label>
+                        <span class="form-hint">Default: Automatic</span>
+                        <select name="display.shape" class="form-control">
+                            <option value="auto">Automatic</option>
+                            <option value="square">Square</option>
+                            <option value="circle">Circle</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Width (Pixels)</label>
                         <span class="form-hint">0 = automatic</span>
@@ -512,25 +530,16 @@
                     </div>
                 </div>
 
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">Shape</label>
-                        <select name="display.shape" class="form-control">
-                            <option value="auto">Automatic</option>
-                            <option value="square">Square</option>
-                            <option value="circle">Circle</option>
-                        </select>
-                    </div>
-
+                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Content Scale</label>
-                        <span class="form-hint">0.90 - 1.0 (Default: 0.98)</span>
+                        <span class="form-hint">Default: 0.98</span>
                         <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Inscribe Factor</label>
-                        <span class="form-hint">For circular displays (Default: 0.707)</span>
+                        <span class="form-hint">Default: 0.707</span>
                         <input type="number" name="display.inscribe_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
@@ -587,8 +596,8 @@
                         <label class="form-label">Show Border</label>
                         <span class="form-hint">Default: On</span>
                         <select name="layout.bar_border_enabled" class="form-control">
-                            <option value="true">On</option>
-                            <option value="false">Off</option>
+                            <option value="1">On</option>
+                            <option value="0">Off</option>
                         </select>
                     </div>
 
@@ -684,36 +693,35 @@
 
             <!-- Tab 4: CPU Thresholds -->
             <div class="panel">
-                <h3 class="section-title">CPU Temperature Scale</h3>
-                <div class="form-group">
-                    <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for bar scale (Default: 115)</span>
-                    <input type="number" name="cpu.max_scale" class="form-control" min="80" max="150">
-                </div>
-
                 <h3 class="section-title">CPU Thresholds</h3>
-                <div class="grid grid-3">
+                <div class="grid grid-4">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Green → Orange (Default: 55)</span>
+                        <span class="form-hint">Default: 55</span>
                         <input type="number" name="cpu.threshold_1" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Orange → Dark Orange (Default: 65)</span>
+                        <span class="form-hint">Default: 65</span>
                         <input type="number" name="cpu.threshold_2" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Dark Orange → Red (Default: 75)</span>
+                        <span class="form-hint">Default: 75</span>
                         <input type="number" name="cpu.threshold_3" class="form-control" min="0" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Max Scale (°C)</label>
+                        <span class="form-hint">Default: 115</span>
+                        <input type="number" name="cpu.max_scale" class="form-control" min="80" max="150">
                     </div>
                 </div>
 
                 <h3 class="section-title">CPU Bar Colors</h3>
-                <div class="grid grid-2">
+                <div class="grid grid-4">
                     <div class="form-group">
                         <label class="form-label">Color 1 (< Threshold 1)</label>
                         <div class="color-group">
@@ -750,36 +758,35 @@
 
             <!-- Tab 5: GPU Thresholds -->
             <div class="panel">
-                <h3 class="section-title">GPU Temperature Scale</h3>
-                <div class="form-group">
-                    <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for bar scale (Default: 115)</span>
-                    <input type="number" name="gpu.max_scale" class="form-control" min="80" max="150">
-                </div>
-
                 <h3 class="section-title">GPU Thresholds</h3>
-                <div class="grid grid-3">
+                <div class="grid grid-4">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Green → Orange (Default: 55)</span>
+                        <span class="form-hint">Default: 55</span>
                         <input type="number" name="gpu.threshold_1" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Orange → Dark Orange (Default: 65)</span>
+                        <span class="form-hint">Default: 65</span>
                         <input type="number" name="gpu.threshold_2" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Dark Orange → Red (Default: 75)</span>
+                        <span class="form-hint">Default: 75</span>
                         <input type="number" name="gpu.threshold_3" class="form-control" min="0" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Max Scale (°C)</label>
+                        <span class="form-hint">Default: 115</span>
+                        <input type="number" name="gpu.max_scale" class="form-control" min="80" max="150">
                     </div>
                 </div>
 
                 <h3 class="section-title">GPU Bar Colors</h3>
-                <div class="grid grid-2">
+                <div class="grid grid-4">
                     <div class="form-group">
                         <label class="form-label">Color 1 (< Threshold 1)</label>
                         <div class="color-group">
@@ -816,36 +823,35 @@
 
             <!-- Tab 6: Liquid Thresholds -->
             <div class="panel">
-                <h3 class="section-title">Liquid Temperature Scale</h3>
-                <div class="form-group">
-                    <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for bar scale (Default: 50)</span>
-                    <input type="number" name="liquid.max_scale" class="form-control" min="30" max="80">
-                </div>
-
                 <h3 class="section-title">Liquid Thresholds</h3>
-                <div class="grid grid-3">
+                <div class="grid grid-4">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Green → Orange (Default: 25)</span>
+                        <span class="form-hint">Default: 25</span>
                         <input type="number" name="liquid.threshold_1" class="form-control" min="0" max="50">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Orange → Dark Orange (Default: 28)</span>
+                        <span class="form-hint">Default: 28</span>
                         <input type="number" name="liquid.threshold_2" class="form-control" min="0" max="50">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Dark Orange → Red (Default: 31)</span>
+                        <span class="form-hint">Default: 31</span>
                         <input type="number" name="liquid.threshold_3" class="form-control" min="0" max="50">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Max Scale (°C)</label>
+                        <span class="form-hint">Default: 50</span>
+                        <input type="number" name="liquid.max_scale" class="form-control" min="30" max="80">
                     </div>
                 </div>
 
                 <h3 class="section-title">Liquid Bar Colors</h3>
-                <div class="grid grid-2">
+                <div class="grid grid-4">
                     <div class="form-group">
                         <label class="form-label">Color 1 (< Threshold 1)</label>
                         <div class="color-group">
@@ -1019,7 +1025,7 @@
                 bar_width: 98,
                 bar_gap: 12,
                 bar_border: 2.0,
-                bar_border_enabled: true,
+                bar_border_enabled: 1,
                 label_margin_left: 1,
                 label_margin_bar: 1,
                 bar_height_up: 0,
