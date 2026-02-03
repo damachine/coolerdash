@@ -12,26 +12,33 @@
             --bg-primary: rgb(26, 26, 46);
             --bg-secondary: rgb(22, 33, 62);
             --bg-card: rgb(30, 35, 55);
+            --bg-input: rgb(20, 28, 48);
             --border: rgb(45, 66, 99);
+            --border-light: rgb(55, 76, 109);
             --text: rgb(234, 234, 234);
-            --text-dim: rgb(160, 160, 180);
+            --text-dim: rgb(140, 145, 165);
+            --text-muted: rgb(100, 105, 125);
             --accent: rgb(233, 69, 96);
             --accent-hover: rgb(255, 89, 116);
+            --accent-glow: rgba(233, 69, 96, 0.15);
             --success: rgb(34, 197, 94);
-            --radius: 8px;
-            --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            --radius: 10px;
+            --radius-sm: 6px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-secondary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
             color: var(--text);
             line-height: 1.6;
-            padding: 20px;
+            padding: 24px;
+            min-height: 100vh;
         }
 
         .container {
-            max-width: 900px;
+            max-width: 920px;
             margin: 0 auto;
         }
 
@@ -39,18 +46,23 @@
         .header {
             background: var(--bg-card);
             border-radius: var(--radius);
-            padding: 24px;
+            padding: 28px 32px;
             margin-bottom: 20px;
             box-shadow: var(--shadow);
+            border: 1px solid var(--border);
         }
 
         .header h1 {
-            font-size: 24px;
+            font-size: 26px;
             font-weight: 700;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
             gap: 12px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
         .header p {
@@ -61,39 +73,41 @@
         /* Tabs */
         .tabs {
             display: flex;
-            gap: 4px;
+            gap: 6px;
             margin-bottom: 20px;
             background: var(--bg-card);
-            padding: 8px;
+            padding: 10px;
             border-radius: var(--radius);
-            box-shadow: var(--shadow);
+            box-shadow: var(--shadow-sm);
             overflow-x: auto;
             flex-wrap: wrap;
+            border: 1px solid var(--border);
         }
 
         .tab {
             flex: 1;
-            min-width: 80px;
-            padding: 10px 12px;
+            min-width: 85px;
+            padding: 11px 14px;
             background: transparent;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             color: var(--text-dim);
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             white-space: nowrap;
         }
 
         .tab:hover {
-            background: rgba(233, 69, 96, 0.1);
+            background: var(--accent-glow);
             color: var(--text);
         }
 
         .tab.active {
             background: var(--accent);
             color: white;
+            box-shadow: 0 2px 8px rgba(233, 69, 96, 0.4);
         }
 
         /* Panel */
@@ -101,9 +115,10 @@
             display: none;
             background: var(--bg-card);
             border-radius: var(--radius);
-            padding: 24px;
+            padding: 28px 32px;
             box-shadow: var(--shadow);
-            animation: fadeIn 0.3s;
+            animation: fadeIn 0.3s ease;
+            border: 1px solid var(--border);
         }
 
         .panel.active {
@@ -111,17 +126,20 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
         /* Section Title */
         .section-title {
-            margin: 24px 0 16px;
-            font-size: 16px;
-            color: var(--text-dim);
+            margin: 32px 0 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
             border-bottom: 1px solid var(--border);
-            padding-bottom: 8px;
+            padding-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .section-title:first-child {
@@ -130,134 +148,163 @@
 
         /* Form Elements */
         .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group:last-child {
             margin-bottom: 0;
         }
 
         .form-label {
             display: block;
             font-weight: 500;
-            margin-bottom: 6px;
-            font-size: 14px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--text);
         }
 
         .form-hint {
             display: block;
-            font-size: 12px;
-            color: var(--text-dim);
+            font-size: 11px;
+            color: var(--text-muted);
             margin-bottom: 8px;
         }
 
         .form-control {
             width: 100%;
-            padding: 10px 12px;
-            background: var(--bg-secondary);
+            padding: 11px 14px;
+            background: var(--bg-input);
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             color: var(--text);
             font-size: 14px;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:hover {
+            border-color: var(--border-light);
         }
 
         .form-control:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(233, 69, 96, 0.1);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+            background: var(--bg-secondary);
         }
 
         .form-control[type="number"] {
-            max-width: 150px;
+            width: 100%;
+            font-variant-numeric: tabular-nums;
+        }
+
+        select.form-control {
+            width: 100%;
+            cursor: pointer;
         }
 
         /* Grid Layout */
         .grid {
             display: grid;
-            gap: 20px;
+            gap: 20px 28px;
         }
 
-        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-        .grid-3 { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-        .grid-4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+        .grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+        @media (max-width: 768px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+            .panel { padding: 20px; }
+            .header { padding: 20px; }
+        }
+
+        @media (min-width: 769px) and (max-width: 900px) {
+            .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
 
         /* Range Slider */
         .range-group {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
         }
 
         .range-input {
             flex: 1;
             height: 6px;
-            background: var(--bg-secondary);
+            background: var(--bg-input);
             border-radius: 3px;
             outline: none;
             -webkit-appearance: none;
+            border: 1px solid var(--border);
         }
 
         .range-input::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             background: var(--accent);
             border-radius: 50%;
             cursor: pointer;
+            box-shadow: 0 2px 6px rgba(233, 69, 96, 0.4);
+            transition: transform 0.15s ease;
+        }
+
+        .range-input::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
         }
 
         .range-value {
-            min-width: 50px;
+            min-width: 55px;
             text-align: right;
             font-weight: 600;
             color: var(--accent);
+            font-size: 14px;
+            font-variant-numeric: tabular-nums;
         }
 
         /* Color Picker */
         .color-group {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
 
         .color-swatch {
-            width: 50px;
-            height: 40px;
-            border-radius: 6px;
+            width: 52px;
+            height: 42px;
+            border-radius: var(--radius-sm);
             border: 2px solid var(--border);
             cursor: pointer;
-            transition: transform 0.2s;
+            transition: all 0.2s ease;
         }
 
         .color-swatch:hover {
             transform: scale(1.05);
+            border-color: var(--border-light);
         }
 
         .color-rgb {
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            color: var(--text-dim);
+            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 0.3px;
         }
 
         /* Buttons */
         .btn-group {
             display: flex;
-            gap: 12px;
-            margin-top: 24px;
-            padding-top: 24px;
+            gap: 14px;
+            margin-top: 28px;
+            padding-top: 28px;
             border-top: 1px solid var(--border);
         }
 
         .btn {
             flex: 1;
-            padding: 12px 24px;
+            padding: 13px 28px;
             border: none;
-            border-radius: 6px;
+            border-radius: var(--radius-sm);
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -265,49 +312,51 @@
         }
 
         .btn-primary {
-            background: var(--accent);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
             color: white;
+            box-shadow: 0 4px 14px rgba(233, 69, 96, 0.35);
         }
 
         .btn-primary:hover {
-            background: var(--accent-hover);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(233, 69, 96, 0.3);
+            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.45);
         }
 
         .btn-secondary {
-            background: var(--bg-secondary);
+            background: var(--bg-input);
             color: var(--text);
             border: 1px solid var(--border);
         }
 
         .btn-secondary:hover {
-            background: var(--bg-primary);
+            background: var(--bg-secondary);
+            border-color: var(--border-light);
         }
 
         /* Alert */
         .alert {
-            background: rgba(233, 69, 96, 0.1);
+            background: var(--accent-glow);
             border-left: 4px solid var(--accent);
-            padding: 12px 16px;
-            border-radius: 6px;
-            margin-bottom: 20px;
+            padding: 14px 18px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 24px;
             font-size: 13px;
         }
 
         .alert strong {
             display: block;
-            margin-bottom: 4px;
+            margin-bottom: 6px;
+            color: var(--text);
         }
 
         .alert-warning {
-            background: rgba(255, 140, 0, 0.15);
+            background: rgba(255, 140, 0, 0.12);
             border-left-color: #ff8c00;
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); border-radius: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
     </style>
@@ -318,6 +367,9 @@
         <div class="header">
             <h1>CoolerDash Configuration</h1>
             <p>Customize your LCD temperature dashboard • Changes require plugin restart</p>
+            <p style="margin-top: 8px; font-size: 12px; color: var(--text-dim); opacity: 0.8;">
+                💡 <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values added by the developer.
+            </p>
         </div>
 
         <!-- Tabs -->
@@ -349,7 +401,7 @@
 
                 <div class="form-group">
                     <label class="form-label">API Password</label>
-                    <span class="form-hint">Leave empty if authentication is disabled</span>
+                    <span class="form-hint">Leave empty if authentication is disabled (Default: coolAdmin)</span>
                     <input type="password" name="daemon.password" class="form-control">
                 </div>
             </div>
@@ -369,7 +421,7 @@
 
                     <div class="form-group" id="circle_interval_group" style="display: none;">
                         <label class="form-label">Switch Interval (Seconds)</label>
-                        <span class="form-hint">How long each sensor is shown</span>
+                        <span class="form-hint">How long each sensor is shown (Default: 5)</span>
                         <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
                     </div>
                 </div>
@@ -421,13 +473,13 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Refresh Interval (Seconds)</label>
-                        <span class="form-hint">0.2 - 60 seconds</span>
+                        <span class="form-hint">0.2 - 60 seconds (Default: 2.5)</span>
                         <input type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Brightness (%)</label>
-                        <span class="form-hint">80% recommended</span>
+                        <span class="form-hint">Default: 80%</span>
                         <div class="range-group">
                             <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
                             <span class="range-value" id="brightness_value">80%</span>
@@ -472,13 +524,13 @@
 
                     <div class="form-group">
                         <label class="form-label">Content Scale</label>
-                        <span class="form-hint">0.90 - 1.0</span>
+                        <span class="form-hint">0.90 - 1.0 (Default: 0.98)</span>
                         <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Inscribe Factor</label>
-                        <span class="form-hint">For circular displays</span>
+                        <span class="form-hint">For circular displays (Default: 0.707)</span>
                         <input type="number" name="display.inscribe_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
@@ -490,16 +542,19 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Default Bar Height</label>
+                        <span class="form-hint">Default: 24</span>
                         <input type="number" name="layout.bar_height" class="form-control" min="10" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Bar Width (%)</label>
+                        <span class="form-hint">Default: 98</span>
                         <input type="number" name="layout.bar_width" class="form-control" min="50" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Bar Gap</label>
+                        <span class="form-hint">Default: 12</span>
                         <input type="number" name="layout.bar_gap" class="form-control" min="0" max="50">
                     </div>
                 </div>
@@ -509,34 +564,49 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Upper Slot Height</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="layout.bar_height_up" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group" id="bar_height_mid_group">
                         <label class="form-label">Middle Slot Height</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="layout.bar_height_mid" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Lower Slot Height</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
                     </div>
                 </div>
 
                 <h3 class="section-title">Border & Margins</h3>
-                <div class="grid grid-3">
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Show Border</label>
+                        <span class="form-hint">Default: On</span>
+                        <select name="layout.bar_border_enabled" class="form-control">
+                            <option value="true">On</option>
+                            <option value="false">Off</option>
+                        </select>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Border Thickness</label>
+                        <span class="form-hint">Default: 2.0</span>
                         <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Label Left Margin</label>
+                        <span class="form-hint">Default: 1</span>
                         <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Label Bar Margin</label>
+                        <span class="form-hint">Default: 1</span>
                         <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
                     </div>
                 </div>
@@ -551,11 +621,13 @@
 
                     <div class="form-group">
                         <label class="form-label">Temperature Size</label>
+                        <span class="form-hint">Default: 100</span>
                         <input type="number" name="font.size_temp" class="form-control" min="50" max="200">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Label Size</label>
+                        <span class="form-hint">Default: 30</span>
                         <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
                     </div>
                 </div>
@@ -615,7 +687,7 @@
                 <h3 class="section-title">CPU Temperature Scale</h3>
                 <div class="form-group">
                     <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for bar scale</span>
+                    <span class="form-hint">Maximum temperature for bar scale (Default: 115)</span>
                     <input type="number" name="cpu.max_scale" class="form-control" min="80" max="150">
                 </div>
 
@@ -623,19 +695,19 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Green → Orange</span>
+                        <span class="form-hint">Green → Orange (Default: 55)</span>
                         <input type="number" name="cpu.threshold_1" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Orange → Dark Orange</span>
+                        <span class="form-hint">Orange → Dark Orange (Default: 65)</span>
                         <input type="number" name="cpu.threshold_2" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Dark Orange → Red</span>
+                        <span class="form-hint">Dark Orange → Red (Default: 75)</span>
                         <input type="number" name="cpu.threshold_3" class="form-control" min="0" max="100">
                     </div>
                 </div>
@@ -681,7 +753,7 @@
                 <h3 class="section-title">GPU Temperature Scale</h3>
                 <div class="form-group">
                     <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for bar scale</span>
+                    <span class="form-hint">Maximum temperature for bar scale (Default: 115)</span>
                     <input type="number" name="gpu.max_scale" class="form-control" min="80" max="150">
                 </div>
 
@@ -689,19 +761,19 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Green → Orange</span>
+                        <span class="form-hint">Green → Orange (Default: 55)</span>
                         <input type="number" name="gpu.threshold_1" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Orange → Dark Orange</span>
+                        <span class="form-hint">Orange → Dark Orange (Default: 65)</span>
                         <input type="number" name="gpu.threshold_2" class="form-control" min="0" max="100">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Dark Orange → Red</span>
+                        <span class="form-hint">Dark Orange → Red (Default: 75)</span>
                         <input type="number" name="gpu.threshold_3" class="form-control" min="0" max="100">
                     </div>
                 </div>
@@ -747,7 +819,7 @@
                 <h3 class="section-title">Liquid Temperature Scale</h3>
                 <div class="form-group">
                     <label class="form-label">Maximum Scale (°C)</label>
-                    <span class="form-hint">Maximum temperature for bar scale (typically 50°C)</span>
+                    <span class="form-hint">Maximum temperature for bar scale (Default: 50)</span>
                     <input type="number" name="liquid.max_scale" class="form-control" min="30" max="80">
                 </div>
 
@@ -755,19 +827,19 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Green → Orange</span>
+                        <span class="form-hint">Green → Orange (Default: 25)</span>
                         <input type="number" name="liquid.threshold_1" class="form-control" min="0" max="50">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Orange → Dark Orange</span>
+                        <span class="form-hint">Orange → Dark Orange (Default: 28)</span>
                         <input type="number" name="liquid.threshold_2" class="form-control" min="0" max="50">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Dark Orange → Red</span>
+                        <span class="form-hint">Dark Orange → Red (Default: 31)</span>
                         <input type="number" name="liquid.threshold_3" class="form-control" min="0" max="50">
                     </div>
                 </div>
@@ -819,11 +891,13 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.temp_offset_x_cpu" class="form-control" step="1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Y Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.temp_offset_y_cpu" class="form-control" step="1">
                     </div>
                 </div>
@@ -832,11 +906,13 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.temp_offset_x_liquid" class="form-control" step="1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Y Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.temp_offset_y_liquid" class="form-control" step="1">
                     </div>
                 </div>
@@ -845,11 +921,13 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.temp_offset_x_gpu" class="form-control" step="1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Y Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.temp_offset_y_gpu" class="form-control" step="1">
                     </div>
                 </div>
@@ -858,16 +936,19 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">X Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.label_offset_x" class="form-control" step="1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Y Offset</label>
+                        <span class="form-hint">Default: 0</span>
                         <input type="number" name="positioning.label_offset_y" class="form-control" step="1">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Degree Symbol Spacing</label>
+                        <span class="form-hint">Default: 16</span>
                         <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="50">
                     </div>
                 </div>
@@ -876,22 +957,21 @@
             <!-- Tab 8: Advanced -->
             <div class="panel">
                 <h3 class="section-title">Image Paths</h3>
-                <div class="alert">
-                    <strong>Custom Images</strong>
-                    Specify custom paths for plugin images. Leave default for standard installation.
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Images Directory</label>
-                    <span class="form-hint">Base directory for plugin images</span>
-                    <input type="text" name="paths.images" class="form-control">
-                </div>
 
                 <div class="form-group">
                     <label class="form-label">Shutdown Image</label>
-                    <span class="form-hint">Image displayed when daemon shuts down</span>
+                    <span class="form-hint">Image displayed when daemon stops (Default: /etc/coolercontrol/plugins/coolerdash/shutdown.png)</span>
                     <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
+
+                <h3 class="section-title">Backup & Restore</h3>
+                <div class="alert">
+                    <strong>Configuration Backup</strong>
+                    Export your current settings as a JSON file for backup or migration.
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="exportConfig()" style="width: auto; padding: 10px 20px;">
+                    💾 Export Configuration
+                </button>
             </div>
         </form>
 
@@ -917,8 +997,6 @@
                 password: "coolAdmin"
             },
             paths: {
-                images: "/etc/coolercontrol/plugins/coolerdash",
-                image_coolerdash: "/etc/coolercontrol/plugins/coolerdash/coolerdash.png",
                 image_shutdown: "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
             },
             display: {
@@ -941,6 +1019,7 @@
                 bar_width: 98,
                 bar_gap: 12,
                 bar_border: 2.0,
+                bar_border_enabled: true,
                 label_margin_left: 1,
                 label_margin_bar: 1,
                 bar_height_up: 0,
@@ -1271,6 +1350,26 @@
             } catch (error) {
                 console.error("Save failed:", error);
                 alert("Save failed: " + error.message);
+            }
+        }
+
+        function exportConfig() {
+            try {
+                const config = buildConfig();
+                const jsonStr = JSON.stringify(config, null, 2);
+                const blob = new Blob([jsonStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const date = new Date().toISOString().slice(0, 10);
+                a.download = `coolerdash-config-backup-${date}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error("Export failed:", error);
+                alert("Export failed: " + error.message);
             }
         }
 
