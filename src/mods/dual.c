@@ -33,6 +33,7 @@
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
 #include "../srv/cc_sensor.h"
+#include "display.h"
 #include "dual.h"
 
 // Circle inscribe factor for circular displays (1/√2 ≈ 0.7071)
@@ -216,14 +217,15 @@ static void draw_temperature_bars(cairo_t *cr,
                                   const monitor_sensor_data_t *data,
                                   const struct Config *config,
                                   const ScalingParams *params);
-static void draw_single_temperature_bar(cairo_t *cr,
-                                        const struct Config *config,
-                                        const ScalingParams *params,
-                                        float temp_value, int bar_x, int bar_y,
-                                        int bar_width);
+static void draw_single_temperature_bar_slot(cairo_t *cr,
+                                             const struct Config *config,
+                                             const ScalingParams *params,
+                                             const char *slot_value,
+                                             float temp_value, int bar_x, int bar_y,
+                                             int bar_width, int bar_height);
 static void draw_labels(cairo_t *cr, const struct Config *config,
+                        const monitor_sensor_data_t *data,
                         const ScalingParams *params);
-static Color get_temperature_bar_color(const struct Config *config, float val);
 static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
                                         int height, double radius);
 static cairo_t *create_cairo_context(const struct Config *config,
@@ -261,30 +263,7 @@ static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
 }
 
 /**
- * @brief Calculate color gradient for temperature bars (green → orange → red)
- */
-static Color get_temperature_bar_color(const struct Config *config, float val)
-{
-    const struct
-    {
-        float threshold;
-        Color color;
-    } temp_ranges[] = {{config->temp_threshold_1, config->temp_threshold_1_bar},
-                       {config->temp_threshold_2, config->temp_threshold_2_bar},
-                       {config->temp_threshold_3, config->temp_threshold_3_bar},
-                       {INFINITY, config->temp_threshold_4_bar}};
-
-    for (size_t i = 0; i < sizeof(temp_ranges) / sizeof(temp_ranges[0]); i++)
-    {
-        if (val <= temp_ranges[i].threshold)
-            return temp_ranges[i].color;
-    }
-
-    return config->temp_threshold_4_bar;
-}
-
-/**
- * @brief Draw temperature displays for CPU and GPU
+ * @brief Draw temperature displays for up and down slots
  */
 static void draw_temperature_displays(cairo_t *cr,
                                       const monitor_sensor_data_t *data,
@@ -297,21 +276,38 @@ static void draw_temperature_displays(cairo_t *cr,
     const int effective_bar_width = params->safe_bar_width;
     const int bar_x = (config->display_width - effective_bar_width) / 2;
 
-    // Calculate bar positions (same as in draw_temperature_bars)
-    const int total_height =
-        2 * config->layout_bar_height + config->layout_bar_gap;
+    // Get slot configurations
+    const char *slot_up = config->sensor_slot_up;
+    const char *slot_down = config->sensor_slot_down;
+    const int up_active = slot_is_active(slot_up);
+    const int down_active = slot_is_active(slot_down);
+
+    // Get temperatures from configured slots
+    float temp_up = get_slot_temperature(data, slot_up);
+    float temp_down = get_slot_temperature(data, slot_down);
+
+    // Get bar heights
+    const uint16_t bar_height_up = get_slot_bar_height(config, "up");
+    const uint16_t bar_height_down = get_slot_bar_height(config, "down");
+
+    // Calculate bar positions based on active slots
+    int total_height = 0;
+    if (up_active && down_active)
+        total_height = bar_height_up + config->layout_bar_gap + bar_height_down;
+    else if (up_active)
+        total_height = bar_height_up;
+    else if (down_active)
+        total_height = bar_height_down;
+    else
+        return; // No active slots
+
     const int start_y = (config->display_height - total_height) / 2;
-    const int cpu_bar_y = start_y;
-    const int gpu_bar_y =
-        start_y + config->layout_bar_height + config->layout_bar_gap;
+    int up_bar_y = start_y;
+    int down_bar_y = start_y + bar_height_up + config->layout_bar_gap;
 
-    char cpu_num_str[16], gpu_num_str[16];
-    snprintf(cpu_num_str, sizeof(cpu_num_str), "%d", (int)data->temp_cpu);
-    snprintf(gpu_num_str, sizeof(gpu_num_str), "%d", (int)data->temp_gpu);
-
-    cairo_text_extents_t cpu_num_ext, gpu_num_ext;
-    cairo_text_extents(cr, cpu_num_str, &cpu_num_ext);
-    cairo_text_extents(cr, gpu_num_str, &gpu_num_ext);
+    // If only down slot is active, center it
+    if (!up_active && down_active)
+        down_bar_y = start_y;
 
     cairo_font_extents_t font_ext;
     cairo_font_extents(cr, &font_ext);
@@ -320,111 +316,109 @@ static void draw_temperature_displays(cairo_t *cr,
     cairo_text_extents_t ref_width_ext;
     cairo_text_extents(cr, "88", &ref_width_ext);
 
-    // Use actual text extents for positioning to handle 3-digit temperatures
-    // correctly For values ≥100, use actual width; for <100, use fixed width of
-    // "88" for stability
-    double cpu_width =
-        (data->temp_cpu >= 100.0f) ? cpu_num_ext.width : ref_width_ext.width;
-    double gpu_width =
-        (data->temp_gpu >= 100.0f) ? gpu_num_ext.width : ref_width_ext.width;
-
-    // Use reference width for values <100 to keep position stable
-    if (data->temp_cpu < 100.0f)
-        cpu_width = ref_width_ext.width;
-    if (data->temp_gpu < 100.0f)
-        gpu_width = ref_width_ext.width;
-
-    // Center-align based on actual or reference width
-    double cpu_temp_x = bar_x + (effective_bar_width - cpu_width) / 2.0;
-    double gpu_temp_x = bar_x + (effective_bar_width - gpu_width) / 2.0;
-
-    // Default offset for small displays (240x240): +20px to the right
-    if (config->display_width == 240 && config->display_height == 240)
+    // Draw upper slot temperature
+    if (up_active)
     {
-        cpu_temp_x += 20;
-        gpu_temp_x += 20;
+        char up_num_str[16];
+        snprintf(up_num_str, sizeof(up_num_str), "%d", (int)temp_up);
+
+        cairo_text_extents_t up_num_ext;
+        cairo_text_extents(cr, up_num_str, &up_num_ext);
+
+        double up_width = (temp_up >= 100.0f) ? up_num_ext.width : ref_width_ext.width;
+        double up_temp_x = bar_x + (effective_bar_width - up_width) / 2.0;
+
+        if (config->display_width == 240 && config->display_height == 240)
+            up_temp_x += 20;
+
+        if (config->display_temp_offset_x_cpu != 0)
+            up_temp_x += config->display_temp_offset_x_cpu;
+
+        double up_temp_y = up_bar_y + 8 - font_ext.descent;
+        if (config->display_temp_offset_y_cpu != 0)
+            up_temp_y += config->display_temp_offset_y_cpu;
+
+        cairo_move_to(cr, up_temp_x, up_temp_y);
+        cairo_show_text(cr, up_num_str);
+
+        // Degree symbol
+        const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
+        double degree_up_x = up_temp_x + up_width + degree_spacing;
+        double degree_up_y = up_temp_y - up_num_ext.height * 0.40;
+        draw_degree_symbol(cr, degree_up_x, degree_up_y, config);
     }
 
-    // Apply user-defined X offsets if set (0 = automatic positioning)
-    if (config->display_temp_offset_x_cpu != 0)
-        cpu_temp_x += config->display_temp_offset_x_cpu;
-    if (config->display_temp_offset_x_gpu != 0)
-        gpu_temp_x += config->display_temp_offset_x_gpu;
+    // Draw lower slot temperature
+    if (down_active)
+    {
+        char down_num_str[16];
+        snprintf(down_num_str, sizeof(down_num_str), "%d", (int)temp_down);
 
-    // Position temperatures 1px outside bars (same calculation as labels)
-    // CPU temperature - above bar (same as CPU label)
-    double cpu_temp_y = cpu_bar_y + 8 - font_ext.descent;
+        cairo_text_extents_t down_num_ext;
+        cairo_text_extents(cr, down_num_str, &down_num_ext);
 
-    // GPU temperature - below bar (same as GPU label)
-    double gpu_temp_y =
-        gpu_bar_y + config->layout_bar_height - 4 + font_ext.ascent;
+        double down_width = (temp_down >= 100.0f) ? down_num_ext.width : ref_width_ext.width;
+        double down_temp_x = bar_x + (effective_bar_width - down_width) / 2.0;
 
-    // Apply user-defined Y offsets if set
-    if (config->display_temp_offset_y_cpu != 0)
-        cpu_temp_y += config->display_temp_offset_y_cpu;
-    if (config->display_temp_offset_y_gpu != 0)
-        gpu_temp_y += config->display_temp_offset_y_gpu;
+        if (config->display_width == 240 && config->display_height == 240)
+            down_temp_x += 20;
 
-    // Draw CPU temperature number
-    cairo_move_to(cr, cpu_temp_x, cpu_temp_y);
-    cairo_show_text(cr, cpu_num_str);
+        if (config->display_temp_offset_x_gpu != 0)
+            down_temp_x += config->display_temp_offset_x_gpu;
 
-    // Draw GPU temperature number
-    cairo_move_to(cr, gpu_temp_x, gpu_temp_y);
-    cairo_show_text(cr, gpu_num_str);
+        // Use the actual bar height for positioning
+        uint16_t effective_down_height = down_active ? bar_height_down : 0;
+        double down_temp_y = down_bar_y + effective_down_height - 4 + font_ext.ascent;
+        if (config->display_temp_offset_y_gpu != 0)
+            down_temp_y += config->display_temp_offset_y_gpu;
 
-    // Draw degree symbols at configurable offset (default: 16px right, bound to
-    // temperature position)
-    cairo_set_font_size(cr, config->font_size_temp / 1.66);
+        cairo_move_to(cr, down_temp_x, down_temp_y);
+        cairo_show_text(cr, down_num_str);
 
-    // Position degree symbols using configured spacing (default: 16px)
-    const int degree_spacing = (config->display_degree_spacing > 0)
-                                   ? config->display_degree_spacing
-                                   : 16;
-    double degree_cpu_x = cpu_temp_x + cpu_width + degree_spacing;
-    double degree_gpu_x = gpu_temp_x + gpu_width + degree_spacing;
-    double degree_cpu_y = cpu_temp_y - cpu_num_ext.height * 0.40;
-    double degree_gpu_y = gpu_temp_y - gpu_num_ext.height * 0.40;
-
-    draw_degree_symbol(cr, degree_cpu_x, degree_cpu_y, config);
-    draw_degree_symbol(cr, degree_gpu_x, degree_gpu_y, config);
+        // Degree symbol
+        const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
+        double degree_down_x = down_temp_x + down_width + degree_spacing;
+        double degree_down_y = down_temp_y - down_num_ext.height * 0.40;
+        draw_degree_symbol(cr, degree_down_x, degree_down_y, config);
+    }
 }
 
 /**
  * @brief Draw a single temperature bar with background, fill, and border
  */
-static void draw_single_temperature_bar(cairo_t *cr,
-                                        const struct Config *config,
-                                        const ScalingParams *params,
-                                        float temp_value, int bar_x, int bar_y,
-                                        int bar_width)
+static void draw_single_temperature_bar_slot(cairo_t *cr,
+                                             const struct Config *config,
+                                             const ScalingParams *params,
+                                             const char *slot_value,
+                                             float temp_value, int bar_x, int bar_y,
+                                             int bar_width, int bar_height)
 {
     if (!cr || !config || !params)
         return;
 
-    // Use configured maximum temperature for bar scaling (default: 115°C)
-    const float max_temp = config->temp_max_scale;
+    // Use slot-specific max scale and color
+    const float max_temp = get_slot_max_scale(config, slot_value);
     const int fill_width =
         calculate_temp_fill_width(temp_value, bar_width, max_temp);
 
     // Background
     set_cairo_color(cr, &config->layout_bar_color_background);
     draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
-                                config->layout_bar_height, params->corner_radius);
+                                bar_height, params->corner_radius);
     cairo_fill(cr);
 
     // Fill
     if (fill_width > 0)
     {
-        Color fill_color = get_temperature_bar_color(config, temp_value);
+        Color fill_color = get_slot_bar_color(config, slot_value, temp_value);
         set_cairo_color(cr, &fill_color);
 
         if (fill_width >= 16)
             draw_rounded_rectangle_path(cr, bar_x, bar_y, fill_width,
-                                        config->layout_bar_height,
+                                        bar_height,
                                         params->corner_radius);
         else
-            cairo_rectangle(cr, bar_x, bar_y, fill_width, config->layout_bar_height);
+            cairo_rectangle(cr, bar_x, bar_y, fill_width, bar_height);
 
         cairo_fill(cr);
     }
@@ -435,13 +429,13 @@ static void draw_single_temperature_bar(cairo_t *cr,
         cairo_set_line_width(cr, config->layout_bar_border);
         set_cairo_color(cr, &config->layout_bar_color_border);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
-                                    config->layout_bar_height, params->corner_radius);
+                                    bar_height, params->corner_radius);
         cairo_stroke(cr);
     }
 }
 
 /**
- * @brief Draw temperature bars for CPU and GPU
+ * @brief Draw temperature bars for up and down slots
  */
 static void draw_temperature_bars(cairo_t *cr,
                                   const monitor_sensor_data_t *data,
@@ -456,39 +450,96 @@ static void draw_temperature_bars(cairo_t *cr,
         params->safe_bar_width - (int)(2 * bar_side_margin);
     const int bar_x = (config->display_width - effective_bar_width) / 2;
 
-    const int total_height =
-        2 * config->layout_bar_height + config->layout_bar_gap;
+    // Get slot configurations
+    const char *slot_up = config->sensor_slot_up;
+    const char *slot_down = config->sensor_slot_down;
+    const int up_active = slot_is_active(slot_up);
+    const int down_active = slot_is_active(slot_down);
+
+    // Get bar heights
+    const uint16_t bar_height_up = get_slot_bar_height(config, "up");
+    const uint16_t bar_height_down = get_slot_bar_height(config, "down");
+
+    // Calculate positions based on active slots
+    int total_height = 0;
+    if (up_active && down_active)
+        total_height = bar_height_up + config->layout_bar_gap + bar_height_down;
+    else if (up_active)
+        total_height = bar_height_up;
+    else if (down_active)
+        total_height = bar_height_down;
+    else
+        return;
+
     const int start_y = (config->display_height - total_height) / 2;
+    int up_bar_y = start_y;
+    int down_bar_y = start_y + bar_height_up + config->layout_bar_gap;
 
-    const int cpu_bar_y = start_y;
-    const int gpu_bar_y =
-        start_y + config->layout_bar_height + config->layout_bar_gap;
+    // If only down slot is active, center it
+    if (!up_active && down_active)
+        down_bar_y = start_y;
 
-    draw_single_temperature_bar(cr, config, params, data->temp_cpu, bar_x,
-                                cpu_bar_y, effective_bar_width);
-    draw_single_temperature_bar(cr, config, params, data->temp_gpu, bar_x,
-                                gpu_bar_y, effective_bar_width);
+    // Draw upper slot bar
+    if (up_active)
+    {
+        float temp_up = get_slot_temperature(data, slot_up);
+        draw_single_temperature_bar_slot(cr, config, params, slot_up, temp_up,
+                                         bar_x, up_bar_y, effective_bar_width, bar_height_up);
+    }
+
+    // Draw lower slot bar
+    if (down_active)
+    {
+        float temp_down = get_slot_temperature(data, slot_down);
+        draw_single_temperature_bar_slot(cr, config, params, slot_down, temp_down,
+                                         bar_x, down_bar_y, effective_bar_width, bar_height_down);
+    }
 }
 
 /**
- * @brief Draw CPU/GPU labels (only for displays ≤240×240)
+ * @brief Draw labels for up and down slots
  */
 static void draw_labels(cairo_t *cr, const struct Config *config,
+                        const monitor_sensor_data_t *data,
                         const ScalingParams *params)
 {
+    (void)data; // Reserved for future use (e.g., dynamic labels based on values)
+
     if (!cr || !config || !params)
         return;
 
-    // Only show labels on small displays
-    // if (config->display_width > 240 || config->display_height > 240)
-    //    return;
+    // Get slot configurations
+    const char *slot_up = config->sensor_slot_up;
+    const char *slot_down = config->sensor_slot_down;
+    const int up_active = slot_is_active(slot_up);
+    const int down_active = slot_is_active(slot_down);
 
-    const int total_height =
-        2 * config->layout_bar_height + config->layout_bar_gap;
+    // Get labels from slots (NULL if "none")
+    const char *label_up = get_slot_label(slot_up);
+    const char *label_down = get_slot_label(slot_down);
+
+    // Get bar heights
+    const uint16_t bar_height_up = get_slot_bar_height(config, "up");
+    const uint16_t bar_height_down = get_slot_bar_height(config, "down");
+
+    // Calculate total height based on active slots
+    int total_height = 0;
+    if (up_active && down_active)
+        total_height = bar_height_up + config->layout_bar_gap + bar_height_down;
+    else if (up_active)
+        total_height = bar_height_up;
+    else if (down_active)
+        total_height = bar_height_down;
+    else
+        return;
+
     const int start_y = (config->display_height - total_height) / 2;
-    const int cpu_bar_y = start_y;
-    const int gpu_bar_y =
-        start_y + config->layout_bar_height + config->layout_bar_gap;
+    int up_bar_y = start_y;
+    int down_bar_y = start_y + bar_height_up + config->layout_bar_gap;
+
+    // If only down slot is active, center it
+    if (!up_active && down_active)
+        down_bar_y = start_y;
 
     // Labels: Configurable distance from left screen edge (default: 1%)
     const double left_margin_factor =
@@ -513,25 +564,27 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
             : 0.01;
     const double label_spacing = config->display_height * bar_margin_factor;
 
-    // CPU label - 1% above CPU bar
-    double cpu_label_y = cpu_bar_y - label_spacing - font_ext.descent;
-
-    // GPU label - 1% below GPU bar
-    double gpu_label_y =
-        gpu_bar_y + config->layout_bar_height + label_spacing + font_ext.ascent;
-
-    // Apply user-defined Y offset if set
-    if (config->display_label_offset_y != -9999)
+    // Draw upper slot label (if active and has label)
+    if (up_active && label_up)
     {
-        cpu_label_y += config->display_label_offset_y;
-        gpu_label_y += config->display_label_offset_y;
+        double up_label_y = up_bar_y - label_spacing - font_ext.descent;
+        if (config->display_label_offset_y != -9999)
+            up_label_y += config->display_label_offset_y;
+
+        cairo_move_to(cr, label_x, up_label_y);
+        cairo_show_text(cr, label_up);
     }
 
-    cairo_move_to(cr, label_x, cpu_label_y);
-    cairo_show_text(cr, "CPU");
+    // Draw lower slot label (if active and has label)
+    if (down_active && label_down)
+    {
+        double down_label_y = down_bar_y + bar_height_down + label_spacing + font_ext.ascent;
+        if (config->display_label_offset_y != -9999)
+            down_label_y += config->display_label_offset_y;
 
-    cairo_move_to(cr, label_x, gpu_label_y);
-    cairo_show_text(cr, "GPU");
+        cairo_move_to(cr, label_x, down_label_y);
+        cairo_show_text(cr, label_down);
+    }
 }
 
 /**
@@ -580,12 +633,16 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     draw_temperature_displays(cr, data, config, params);
     draw_temperature_bars(cr, data, config, params);
 
-    // Labels only if temp < 99°C
-    if (data->temp_cpu < 99.0 && data->temp_gpu < 99.0)
+    // Get temperatures from active slots for label visibility check
+    float temp_up = get_slot_temperature(data, config->sensor_slot_up);
+    float temp_down = get_slot_temperature(data, config->sensor_slot_down);
+
+    // Labels only if both temps < 99°C (to avoid overlap with large numbers)
+    if (temp_up < 99.0f && temp_down < 99.0f)
     {
         cairo_set_font_size(cr, config->font_size_labels);
         set_cairo_color(cr, &config->font_color_label);
-        draw_labels(cr, config, params);
+        draw_labels(cr, config, data, params);
     }
 }
 

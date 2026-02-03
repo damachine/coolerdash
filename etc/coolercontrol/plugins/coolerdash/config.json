@@ -22,7 +22,10 @@
     "height": 0,
     "shape": "auto",
     "content_scale_factor": 0.98,
-    "inscribe_factor": 0.70710678
+    "inscribe_factor": 0.70710678,
+    "sensor_slot_up": "cpu",
+    "sensor_slot_mid": "liquid",
+    "sensor_slot_down": "gpu"
   },
 
   "layout": {
@@ -31,7 +34,10 @@
     "bar_gap": 12,
     "bar_border": 2.0,
     "label_margin_left": 1,
-    "label_margin_bar": 1
+    "label_margin_bar": 1,
+    "bar_height_up": 0,
+    "bar_height_mid": 0,
+    "bar_height_down": 0
   },
 
   "colors": {

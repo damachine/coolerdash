@@ -349,11 +349,56 @@
                     <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
                 </div>
 
+                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Sensor Slots</h3>
+                <div class="alert">
+                    <strong>Sensor Assignment</strong>
+                    Assign sensors to display positions. Use "None" to disable a slot. At least one slot must be active.
+                </div>
+
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Upper Slot</label>
+                        <span class="form-hint">Top position sensor</span>
+                        <select name="display.sensor_slot_up" id="sensor_slot_up" class="form-control" onchange="validateSensorSlots()">
+                            <option value="cpu">CPU</option>
+                            <option value="gpu">GPU</option>
+                            <option value="liquid">Liquid</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="sensor_slot_mid_group">
+                        <label class="form-label">Middle Slot</label>
+                        <span class="form-hint">Center position (Circle mode only)</span>
+                        <select name="display.sensor_slot_mid" id="sensor_slot_mid" class="form-control" onchange="validateSensorSlots()">
+                            <option value="cpu">CPU</option>
+                            <option value="gpu">GPU</option>
+                            <option value="liquid">Liquid</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Lower Slot</label>
+                        <span class="form-hint">Bottom position sensor</span>
+                        <select name="display.sensor_slot_down" id="sensor_slot_down" class="form-control" onchange="validateSensorSlots()">
+                            <option value="cpu">CPU</option>
+                            <option value="gpu">GPU</option>
+                            <option value="liquid">Liquid</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="sensor_slot_warning" class="alert" style="display: none; background: rgba(255, 140, 0, 0.15); border-left-color: #ff8c00;">
+                    <strong>Warning</strong>
+                    <span id="sensor_slot_warning_text"></span>
+                </div>
+
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Refresh Interval (Seconds)</label>
-                        <span class="form-hint">0.5 - 60 seconds</span>
-                        <input type="number" name="display.refresh_interval" class="form-control" min="0.5" max="60" step="0.1">
+                        <span class="form-hint">0.2 - 60 seconds</span>
+                        <input type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
                     </div>
 
                     <div class="form-group">
@@ -420,7 +465,8 @@
 
                 <div class="grid grid-3">
                     <div class="form-group">
-                        <label class="form-label">Bar Height</label>
+                        <label class="form-label">Default Bar Height</label>
+                        <span class="form-hint">Fallback for all slots</span>
                         <input type="number" name="layout.bar_height" class="form-control" min="10" max="100">
                     </div>
 
@@ -432,6 +478,27 @@
                     <div class="form-group">
                         <label class="form-label">Bar Gap</label>
                         <input type="number" name="layout.bar_gap" class="form-control" min="0" max="50">
+                    </div>
+                </div>
+
+                <h3 style="margin: 24px 0 16px; font-size: 16px; color: var(--text-dim);">Individual Bar Heights</h3>
+                <div class="grid grid-3">
+                    <div class="form-group">
+                        <label class="form-label">Upper Slot Height</label>
+                        <span class="form-hint">0 = use default</span>
+                        <input type="number" name="layout.bar_height_up" class="form-control" min="0" max="100">
+                    </div>
+
+                    <div class="form-group" id="bar_height_mid_group">
+                        <label class="form-label">Middle Slot Height</label>
+                        <span class="form-hint">0 = use default (Circle only)</span>
+                        <input type="number" name="layout.bar_height_mid" class="form-control" min="0" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Lower Slot Height</label>
+                        <span class="form-hint">0 = use default</span>
+                        <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
                     </div>
                 </div>
 
@@ -768,7 +835,10 @@
                 height: 0,
                 shape: "auto",
                 content_scale_factor: 0.98,
-                inscribe_factor: 0.70710678
+                inscribe_factor: 0.70710678,
+                sensor_slot_up: "cpu",
+                sensor_slot_mid: "liquid",
+                sensor_slot_down: "gpu"
             },
             layout: {
                 bar_height: 24,
@@ -777,7 +847,10 @@
                 bar_border: 2.0,
                 bar_border_enabled: true,
                 label_margin_left: 1,
-                label_margin_bar: 1
+                label_margin_bar: 1,
+                bar_height_up: 0,
+                bar_height_mid: 0,
+                bar_height_down: 0
             },
             colors: {
                 display_background: { r: 0, g: 0, b: 0 },
@@ -930,8 +1003,72 @@
         // Toggle circle interval visibility
         function toggleCircleInterval() {
             const mode = document.getElementById('display_mode').value;
-            const group = document.getElementById('circle_interval_group');
-            group.style.display = mode === 'circle' ? 'block' : 'none';
+            const circleGroup = document.getElementById('circle_interval_group');
+            const midSlotGroup = document.getElementById('sensor_slot_mid_group');
+            const midBarHeightGroup = document.getElementById('bar_height_mid_group');
+
+            // Show circle interval only in circle mode
+            circleGroup.style.display = mode === 'circle' ? 'block' : 'none';
+
+            // Show/hide middle slot fields based on mode
+            if (midSlotGroup) {
+                midSlotGroup.style.display = mode === 'circle' ? 'block' : 'none';
+            }
+            if (midBarHeightGroup) {
+                midBarHeightGroup.style.display = mode === 'circle' ? 'block' : 'none';
+            }
+
+            // If switching to dual mode, set mid slot to "none"
+            if (mode === 'dual') {
+                const midSlot = document.getElementById('sensor_slot_mid');
+                if (midSlot) midSlot.value = 'none';
+            }
+
+            // Revalidate slots
+            validateSensorSlots();
+        }
+
+        // Validate sensor slot assignments
+        function validateSensorSlots() {
+            const mode = document.getElementById('display_mode').value;
+            const slotUp = document.getElementById('sensor_slot_up').value;
+            const slotMid = document.getElementById('sensor_slot_mid').value;
+            const slotDown = document.getElementById('sensor_slot_down').value;
+
+            const warningDiv = document.getElementById('sensor_slot_warning');
+            const warningText = document.getElementById('sensor_slot_warning_text');
+            let warnings = [];
+
+            // Get active slots (excluding "none")
+            const activeSlots = [];
+            if (slotUp !== 'none') activeSlots.push({ name: 'Upper', value: slotUp });
+            if (mode === 'circle' && slotMid !== 'none') activeSlots.push({ name: 'Middle', value: slotMid });
+            if (slotDown !== 'none') activeSlots.push({ name: 'Lower', value: slotDown });
+
+            // Check minimum one active slot
+            if (activeSlots.length === 0) {
+                warnings.push('At least one sensor slot must be active.');
+            }
+
+            // Check for duplicates
+            const usedSensors = {};
+            for (const slot of activeSlots) {
+                if (usedSensors[slot.value]) {
+                    warnings.push(`Duplicate sensor: "${slot.value}" is used in both ${usedSensors[slot.value]} and ${slot.name} slot.`);
+                } else {
+                    usedSensors[slot.value] = slot.name;
+                }
+            }
+
+            // Show/hide warnings
+            if (warnings.length > 0) {
+                warningDiv.style.display = 'block';
+                warningText.textContent = warnings.join(' ');
+            } else {
+                warningDiv.style.display = 'none';
+            }
+
+            return warnings.length === 0;
         }
 
         // Update range value display
@@ -1060,8 +1197,6 @@
                             // Update UI
                             if (field === 'brightness') {
                                 updateRangeValue('brightness', value);
-                            } else if (field === 'mode') {
-                                toggleCircleInterval();
                             }
                         }
                     }
@@ -1091,11 +1226,21 @@
                 if (config.liquid.threshold_4_color) setupColorPicker('color_liquid_4', 'rgb_liquid_4', config.liquid.threshold_4_color);
             }
 
+            // Update mode-dependent UI elements after form is populated
+            toggleCircleInterval();
+            validateSensorSlots();
+
             console.log("Form populated with config");
         }
 
         // Save config
         async function saveConfig() {
+            // Validate sensor slots before saving
+            if (!validateSensorSlots()) {
+                alert("Configuration has validation errors.\n\nPlease fix the sensor slot warnings before saving.");
+                return;
+            }
+
             const config = buildConfig();
                 console.log("Saving config:", config);
 

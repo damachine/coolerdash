@@ -26,6 +26,7 @@
 #define CONFIG_MAX_PASSWORD_LEN 128
 #define CONFIG_MAX_PATH_LEN 512
 #define CONFIG_MAX_FONT_NAME_LEN 64
+#define CONFIG_MAX_SENSOR_SLOT_LEN 32
 
 /**
  * @brief Simple color structure.
@@ -82,8 +83,16 @@ typedef struct Config
     float display_content_scale_factor;
     float display_inscribe_factor;
 
+    // Sensor slot configuration (flexible sensor assignment)
+    char sensor_slot_up[CONFIG_MAX_SENSOR_SLOT_LEN];   // "cpu", "gpu", "liquid", "none"
+    char sensor_slot_mid[CONFIG_MAX_SENSOR_SLOT_LEN];  // "cpu", "gpu", "liquid", "none"
+    char sensor_slot_down[CONFIG_MAX_SENSOR_SLOT_LEN]; // "cpu", "gpu", "liquid", "none"
+
     // Layout configuration
     uint16_t layout_bar_height;
+    uint16_t layout_bar_height_up;   // Individual bar height for upper slot
+    uint16_t layout_bar_height_mid;  // Individual bar height for middle slot
+    uint16_t layout_bar_height_down; // Individual bar height for lower slot
     uint16_t layout_bar_gap;
     float layout_bar_border;
     int layout_bar_border_enabled; // 1=enabled, 0=disabled, -1=auto (use default)
