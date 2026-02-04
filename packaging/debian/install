@@ -11,3 +11,4 @@ etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js
 usr/share/man/man1/coolerdash.1
 usr/share/applications/coolerdash.desktop
 usr/share/icons/hicolor/scalable/apps/coolerdash.svg
+usr/lib/udev/rules.d/99-coolerdash.rules
