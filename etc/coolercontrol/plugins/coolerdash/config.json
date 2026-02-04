@@ -32,7 +32,7 @@
     "bar_height": 24,
     "bar_width": 98,
     "bar_gap": 12,
-    "bar_border": 2.0,
+    "bar_border": 1.0,
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,

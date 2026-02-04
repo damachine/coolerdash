@@ -167,9 +167,9 @@ static void set_layout_defaults(Config *config)
         config->layout_bar_height = 24;
     if (config->layout_bar_gap == 0)
         config->layout_bar_gap = 12.0f;
-    // bar_border: -1 = use default (2.0), 0 = explicitly disabled, >0 = custom value
+    // bar_border: -1 = use default (1.0), 0 = explicitly disabled, >0 = custom value
     if (config->layout_bar_border < 0.0f)
-        config->layout_bar_border = 2.0f;
+        config->layout_bar_border = 1.0f;
     // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
     if (config->layout_bar_border_enabled < 0)
         config->layout_bar_border_enabled = 1; // Default: enabled
