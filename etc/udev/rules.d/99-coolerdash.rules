@@ -1,0 +1,13 @@
+# CoolerDash - USB Device Power Management
+# https://github.com/damachine/coolerdash
+
+# NZXT Vendor ID: 1e71
+# Disable autosuspend and enable persist for all NZXT devices (Kraken, etc.)
+# Disable USB autosuspend for NZXT devices to prevent "bucket switch" errors
+ACTION=="add|bind|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1e71", ATTR{power/control}="on"
+ACTION=="add|bind|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1e71", ATTR{power/autosuspend_delay_ms}="-1"
+ACTION=="add|bind|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1e71", ATTR{power/persist}="1"
+ACTION=="add|bind|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1e71", ATTR{power/wakeup}="disabled"
+ACTION=="add|bind|change", SUBSYSTEM=="usb", ATTR{idVendor}=="1e71", ATTR{avoid_reset_quirk}="1"
+
+# Placeholder for additional rules if needed in the future

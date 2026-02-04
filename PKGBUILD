@@ -44,7 +44,7 @@ build() {
     make || return 1
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
-    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons"
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons" "${srcdir}/etc/udev/rules.d"
     cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
     cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
@@ -55,6 +55,7 @@ build() {
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
     cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
+    cp -a etc/udev/rules.d/99-coolerdash.rules "${srcdir}/etc/udev/rules.d/"
 }
 
 check() {
@@ -94,6 +95,9 @@ package() {
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
     # Desktop shortcut for settings UI
     install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
+
+    # USB power management udev rule for
+    install -Dm644 "${srcdir}/etc/udev/rules.d/99-coolerdash.rules" "${pkgdir}/usr/lib/udev/rules.d/99-coolerdash.rules"
 
     # Application icon
     install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"

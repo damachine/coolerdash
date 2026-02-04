@@ -151,6 +151,11 @@
             margin-bottom: 0;
         }
 
+        /* Spacing between form-groups outside of grids */
+        .panel > .form-group + .form-group {
+            margin-top: 20px;
+        }
+
         .form-label {
             display: block;
             font-weight: 500;
@@ -403,7 +408,6 @@
                     <span class="form-hint">HTTP or HTTPS supported (Default: http://localhost:11987)</span>
                     <input type="text" name="daemon.address" class="form-control" required>
                 </div>
-                <br />
                 <div class="form-group">
                     <label class="form-label">API Password</label>
                     <span class="form-hint">Leave empty if authentication is disabled (Default: coolAdmin)</span>

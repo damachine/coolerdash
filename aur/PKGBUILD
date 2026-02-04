@@ -1,85 +1,224 @@
 # Created by: damachin3 (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
 
-pkgname=coolerdash-git
-pkgver=
-pkgrel=1
-provides=('coolerdash')
-replaces=('coolerdash')
-conflicts=('coolerdash')
-pkgdesc="Monitor telemetry data on an AIO liquid cooler with an integrated LCD display"
-arch=('x86_64')
-url="https://github.com/damachine/coolerdash"
-license=('MIT')
-depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
-makedepends=('gcc' 'make' 'pkg-config' 'git')
-backup=('etc/coolercontrol/plugins/coolerdash/config.json')
-install=coolerdash.install
-_commit=
-source=("git+https://github.com/damachine/coolerdash.git#commit=${_commit}")
-sha256sums=('SKIP') # SKIP for git repo source builds
-
-pkgver() {
-    cd "${srcdir}/coolerdash"
-    git fetch --tags
-    git describe --tags --long --match "v*" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g'
-}
-
-build() {
-    # Build inside the checked-out repository
-    cd "${srcdir}/coolerdash" || return 1
-
-    # Remove all previous tarball builds
-    rm -rf coolerdash-*.pkg.* || true
-
-    # Clean any previous builds if a Makefile exists
-    if [[ -f Makefile || -f GNUmakefile ]]; then
-        make clean || true
+pre_install() {
+    echo "Checking for legacy files and performing migration cleanup..." 2>/dev/null
+    # Stop and disable service before install or update to prevent conflicts with plugin mode
+    if systemctl list-unit-files coolerdash.service 2>/dev/null || systemctl list-unit-files coolerdash.service 2>/dev/null; then
+        echo "Stopping coolerdash service..." 2>/dev/null
+        systemctl stop coolerdash.service 2>/dev/null
+        echo "Disabling coolerdash service (CoolerControl plugin mode preferred)..." 2>/dev/null
+        systemctl disable coolerdash.service 2>/dev/null
     fi
 
-    # Build
-    make || return 1
-}
+    # Remove old systemd service file if it exists (migration from standalone to plugin mode)
+    if [ -f /etc/systemd/system/coolerdash.service ]; then
+        echo "Removing deprecated systemd service file..." 2>/dev/null
+        rm -f /etc/systemd/system/coolerdash.service 2>/dev/null
+    fi
 
-check() {
-    # Check in the checked-out repository
-    cd "${srcdir}/coolerdash" || return 1
+    # Remove legacy installation directories if they exist
+    if [ -d /opt/coolerdash ]; then
+        echo "Removing legacy installation: /opt/coolerdash/" 2>/dev/null
+        rm -rf /opt/coolerdash 2>/dev/null
+    fi
 
-    # Verify that the binary was created successfully
-    if [[ -f bin/coolerdash ]]; then
-        echo "Build successful - binary created"
-    else
-        echo "ERROR: Binary not found"
-        return 1
+    # Remove legacy config directory if it exists
+    if [ -d /etc/coolerdash ]; then
+        echo "Removing legacy config: /etc/coolerdash/" 2>/dev/null
+        rm -rf /etc/coolerdash 2>/dev/null
+    fi
+
+    # Remove legacy config.ini and ui.html if they exist in plugin directory
+    if [ -f /etc/coolercontrol/plugins/coolerdash/config.ini ]; then
+        echo "Removing legacy config.ini..." 2>/dev/null
+        rm -f /etc/coolercontrol/plugins/coolerdash/config.ini 2>/dev/null
+    fi
+    if [ -f /etc/coolercontrol/plugins/coolerdash/ui.html ]; then
+        echo "Removing legacy ui.html..." 2>/dev/null
+        rm -f /etc/coolercontrol/plugins/coolerdash/ui.html 2>/dev/null
+    fi
+    if [ -f /usr/share/applications/coolerdash-settings.desktop ]; then
+        echo "Removing legacy coolerdash-settings.desktop..." 2>/dev/null
+        rm -f /usr/share/applications/coolerdash-settings.desktop 2>/dev/null
+    fi
+
+    # Remove legacy user if it exists
+    if id -u coolerdash &>/dev/null; then
+        echo "Removing legacy coolerdash user..." 2>/dev/null
+        userdel -rf coolerdash 2>/dev/null || true
+    fi
+
+    # Remove legacy symlinks in /bin/ and /usr/bin/ if they exist (migration from standalone)
+    if [ -L /bin/coolerdash ] || [ -f /bin/coolerdash ]; then
+        echo "Removing legacy symlink: /bin/coolerdash"
+        rm -f /bin/coolerdash
+    fi
+    if [ -L /usr/bin/coolerdash ] || [ -f /usr/bin/coolerdash ]; then
+        echo "Removing legacy symlink: /usr/bin/coolerdash"
+        rm -f /usr/bin/coolerdash
     fi
 }
 
-package() {
-    # Plugin-mode installation: Everything in /etc/coolercontrol/plugins/coolerdash/
-    install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
-    install -m755 "${srcdir}/coolerdash/bin/coolerdash" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/coolerdash"
-    install -m644 "${srcdir}/coolerdash/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
-    install -m644 "${srcdir}/coolerdash/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
-    install -m644 "${srcdir}/coolerdash/LICENSE" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/LICENSE"
-    install -m644 "${srcdir}/coolerdash/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
-    install -m666 "${srcdir}/coolerdash/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
+post_install() {
+    # Ensure plugin directory files have correct permissions
+    if [ -d /etc/coolercontrol/plugins/coolerdash ]; then
+        echo "Plugin directory permissions configured"
+        chmod 755 /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
+        chmod 755 /etc/coolercontrol/plugins/coolerdash/coolerdash 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/*.md 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/VERSION 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/LICENSE 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/*.toml 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/*.png 2>/dev/null || true
+        chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json 2>/dev/null || true
+        chmod 755 /etc/coolercontrol/plugins/coolerdash/ui 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/ui/* 2>/dev/null || true
+    fi
 
-    # Create ui directory first with correct permissions
-    install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui"
-    install -m644 "${srcdir}/coolerdash/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-    install -m644 "${srcdir}/coolerdash/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
-    install -m644 "${srcdir}/coolerdash/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
-    install -m644 "${srcdir}/coolerdash/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    # Reload udev rules for USB power management
+    if [ -f /usr/lib/udev/rules.d/99-coolerdash.rules ]; then
+        echo "Reloading udev rules..."
+        udevadm control --reload-rules 2>/dev/null || true
+        udevadm trigger --subsystem-match=usb 2>/dev/null || true
+    fi
 
-    # Substitute VERSION placeholder in manifest.toml
-    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    # Create systemd drop-in for startup delay (allow shutdown.png to display)
+    mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d
+    printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
+    chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
+    echo "Systemd drop-in created: 10s startup delay"
 
-    # Manual page
-    install -Dm644 "${srcdir}/coolerdash/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
+    # Create/ensure shutdown notifier unit (uses printf to avoid cat heredocs)
+    printf "[Unit]\nDescription=CoolerDash helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=coolercontrold.service\n\n[Service]\nType=simple\nExecStart=/bin/sleep infinity\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=3\nRestart=no\n\n[Install]\nWantedBy=multi-user.target\n" > /etc/systemd/system/coolerdash-helperd.service
+    chmod 644 /etc/systemd/system/coolerdash-helperd.service || true
+    echo "Helper unit created: coolerdash-helperd.service"
 
-    # Desktop shortcut for settings UI
-    install -Dm644 "${srcdir}/coolerdash/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
+    # Reload systemd manager configuration
+    systemctl daemon-reload
 
-    # Application icon
-    install -Dm644 "${srcdir}/coolerdash/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
+    # Create shutdown notifier unit
+    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+        echo "Enabling and starting coolerdash-helperd.service..."
+        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service enable/start failed. Please enable/start manually."
+    fi
+
+    # Restart CoolerControl to pick up the new plugin
+    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1; then
+        echo "Restarting CoolerControl service to load new plugin..."
+        systemctl restart coolercontrold.service || echo "Note: CoolerControl service restart failed. Please restart manually."
+    fi
+
+    echo "================================================================"
+    echo "CoolerDash has been installed successfully!"
+    echo "================================================================"
+}
+
+post_upgrade() {
+    # Ensure plugin directory files have correct permissions after upgrade
+    if [ -d /etc/coolercontrol/plugins/coolerdash ]; then
+        echo "Plugin directory permissions configured"
+        chmod 755 /etc/coolercontrol/plugins/coolerdash 2>/dev/null || true
+        chmod 755 /etc/coolercontrol/plugins/coolerdash/coolerdash 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/*.md 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/VERSION 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/LICENSE 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/*.toml 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/*.png 2>/dev/null || true
+        chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json 2>/dev/null || true
+        chmod 755 /etc/coolercontrol/plugins/coolerdash/ui 2>/dev/null || true
+        chmod 644 /etc/coolercontrol/plugins/coolerdash/ui/* 2>/dev/null || true
+    fi
+
+    # Create systemd drop-in for startup delay (allow shutdown.png to display)
+    mkdir -p /etc/systemd/system/cc-plugin-coolerdash.service.d
+    printf "[Service]\nExecStartPre=/bin/sleep 10\n" > /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
+    chmod 644 /etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
+    echo "Systemd drop-in updated: 10s startup delay"
+
+    # Create/ensure shutdown notifier unit (uses printf to avoid cat heredocs)
+    printf "[Unit]\nDescription=CoolerDash helper daemon\nBindsTo=coolercontrold.service\nPartOf=coolercontrold.service\nAfter=coolercontrold.service\n\n[Service]\nType=simple\nExecStart=/bin/sleep infinity\nExecStop=/etc/coolercontrol/plugins/coolerdash/coolerdash --shutdown\nTimeoutStopSec=3\nRestart=no\n\n[Install]\nWantedBy=multi-user.target\n" > /etc/systemd/system/coolerdash-helperd.service
+    chmod 644 /etc/systemd/system/coolerdash-helperd.service || true
+    echo "Helper unit updated: coolerdash-helperd.service"
+
+    # Reload systemd manager configuration
+    systemctl daemon-reload
+
+    # Create shutdown notifier unit
+    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+        echo "Enabling and starting coolerdash-helperd.service..."
+        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service enable/start failed. Please enable/start manually."
+    fi
+
+    # Restart CoolerDash to pick up the updated plugin
+    if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
+        echo "Restarting CoolerDash service to load updated plugin..."
+        systemctl restart cc-plugin-coolerdash.service || echo "Note: CoolerDash service restart failed. Please restart manually."
+    fi
+
+    echo "================================================================"
+    echo "CoolerDash has been upgraded successfully!"
+    echo "================================================================"
+}
+
+pre_remove() {
+    # Stop and disable service before uninstallation
+    if systemctl is-active --quiet coolerdash.service || systemctl is-enabled --quiet coolerdash.service; then
+        echo "Stopping coolerdash service..."
+        systemctl stop coolerdash.service
+        echo "Disabling coolerdash service"
+        systemctl disable coolerdash.service
+    fi
+
+    # Stop and disable service before uninstallation
+    if systemctl is-active --quiet cc-plugin-coolerdash.service || systemctl is-enabled --quiet cc-plugin-coolerdash.service; then
+        echo "Stopping cc-plugin-coolerdash service..."
+        systemctl stop cc-plugin-coolerdash.service
+        echo "Disabling cc-plugin-coolerdash service"
+        systemctl disable cc-plugin-coolerdash.service
+    fi
+
+    # Remove systemd drop-in directory
+    if [ -d /etc/systemd/system/cc-plugin-coolerdash.service.d ]; then
+        echo "Removing systemd drop-in directory..."
+        rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d || echo "Note: Failed to remove systemd drop-in directory. Please remove manually."
+    fi
+
+    # Remove notify unit (stop, disable and remove)
+    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+        echo "Stopping, disabling and removing coolerdash-helperd.service..."
+        systemctl stop --no-block coolerdash-helperd.service 2>/dev/null || true
+        systemctl disable --now coolerdash-helperd.service 2>/dev/null || true
+        rm -f /etc/systemd/system/coolerdash-helperd.service || echo "Note: Failed to remove coolerdash-helperd.service file. Please remove manually."
+    fi
+
+    # Remove all installed users, files and directories
+    if id -u coolerdash &>/dev/null; then
+        echo "Removing legacy coolerdash user..." 2>/dev/null
+        userdel -rf coolerdash || true
+    fi
+
+    # Remove old systemd service file if it exists (migration from standalone to plugin mode)
+    if [ -f /etc/systemd/system/coolerdash.service ]; then
+        echo "Removing deprecated systemd service file..."
+        rm -f /etc/systemd/system/coolerdash.service || echo "Note: Failed to remove coolerdash.service file. Please remove manually."
+    fi
+
+    # Remove legacy installation directories if they exist
+    rm -f /usr/share/applications/coolerdash-settings.desktop
+    rm -f /bin/coolerdash
+    rm -f /usr/bin/coolerdash
+    rm -rf /opt/coolerdash
+    rm -rf /etc/coolerdash
+
+    systemctl daemon-reload
+
+    # Restart CoolerControl to remove the plugin
+    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1; then
+        echo "Restarting CoolerControl service to unload plugin..."
+        systemctl restart coolercontrold.service || echo "Note: CoolerControl service restart failed. Please restart manually."
+    fi
+    echo "================================================================"
+    echo "CoolerDash and all related files have been removed."
+    echo "================================================================"
 }
