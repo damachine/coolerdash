@@ -318,13 +318,13 @@ install: check-deps $(TARGET)
 	@printf "$(ICON_SERVICE) $(CYAN)Installing icon...$(RESET)\n"
 	@install -Dm644 etc/icons/coolerdash.svg "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 	@printf "  $(GREEN)Icon:$(RESET)     $(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg\n"
-	@printf "$(ICON_SERVICE) $(CYAN)Installing udev rule for NZXT devices...$(RESET)\n"
+	@printf "$(ICON_SERVICE) $(CYAN)Installing udev rules for USB power management...$(RESET)\n"
 	@install -Dm644 etc/udev/rules.d/99-coolerdash.rules "$(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules"
 	@printf "  $(GREEN)udev rule:$(RESET) $(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules\n"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) udevadm control --reload-rules 2>/dev/null || true; \
 		$(SUDO) udevadm trigger --subsystem-match=usb --attr-match=idVendor=1e71 2>/dev/null || true; \
-		printf "  $(GREEN)✓$(RESET) udev rules reloaded and applied to NZXT devices\n"; \
+		printf "  $(GREEN)✓$(RESET) USB power management configured\n"; \
 	fi
 	@printf "\n"
 	@printf "$(ICON_SUCCESS) $(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
