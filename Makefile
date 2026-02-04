@@ -323,7 +323,7 @@ install: check-deps $(TARGET)
 	@printf "  $(GREEN)udev rule:$(RESET) $(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules\n"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) udevadm control --reload-rules 2>/dev/null || true; \
-		$(SUDO) udevadm trigger --subsystem-match=usb --attr-match=idVendor=1e71 2>/dev/null || true; \
+		$(SUDO) udevadm trigger --subsystem-match=usb 2>/dev/null || true; \
 		printf "  $(GREEN)✓$(RESET) USB power management configured\n"; \
 	fi
 	@printf "\n"
@@ -410,7 +410,7 @@ uninstall:
 	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules" 2>/dev/null || true
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) udevadm control --reload-rules 2>/dev/null || true; \
-		$(SUDO) udevadm trigger --subsystem-match=usb --attr-match=idVendor=1e71 2>/dev/null || true; \
+		$(SUDO) udevadm trigger --subsystem-match=usb 2>/dev/null || true; \
 		printf "  $(GREEN)✓$(RESET) udev rules reloaded\n"; \
 	fi
 	@$(SUDO) rm -f "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg" >/dev/null 2>&1 || true

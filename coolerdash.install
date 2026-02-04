@@ -83,7 +83,7 @@ post_install() {
     if [ -f /usr/lib/udev/rules.d/99-coolerdash.rules ]; then
         echo "Reloading udev rules..."
         udevadm control --reload-rules 2>/dev/null || true
-        udevadm trigger --subsystem-match=usb --attr-match=idVendor=1e71 2>/dev/null || true
+        udevadm trigger --subsystem-match=usb 2>/dev/null || true
     fi
 
     # Create systemd drop-in for startup delay (allow shutdown.png to display)
