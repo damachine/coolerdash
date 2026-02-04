@@ -78,6 +78,7 @@ fi
 /usr/share/man/man1/coolerdash.1.gz
 /usr/share/applications/coolerdash.desktop
 /usr/share/icons/hicolor/scalable/apps/coolerdash.svg
+/usr/lib/udev/rules.d/99-coolerdash.rules
 
 %changelog
 * %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1
