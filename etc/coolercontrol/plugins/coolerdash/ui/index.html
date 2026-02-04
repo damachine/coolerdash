@@ -440,6 +440,7 @@
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Upper Slot</label>
+                        <span class="form-hint">Default: CPU</span>
                         <select name="display.sensor_slot_up" id="sensor_slot_up" class="form-control" onchange="validateSensorSlots()">
                             <option value="cpu">CPU</option>
                             <option value="gpu">GPU</option>
@@ -450,7 +451,7 @@
 
                     <div class="form-group" id="sensor_slot_mid_group">
                         <label class="form-label">Middle Slot</label>
-                        <span class="form-hint">Circle mode only</span>
+                        <span class="form-hint">Default: None (Circle only)</span>
                         <select name="display.sensor_slot_mid" id="sensor_slot_mid" class="form-control" onchange="validateSensorSlots()">
                             <option value="cpu">CPU</option>
                             <option value="gpu">GPU</option>
@@ -461,6 +462,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Lower Slot</label>
+                        <span class="form-hint">Default: GPU</span>
                         <select name="display.sensor_slot_down" id="sensor_slot_down" class="form-control" onchange="validateSensorSlots()">
                             <option value="cpu">CPU</option>
                             <option value="gpu">GPU</option>
