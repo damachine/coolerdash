@@ -80,6 +80,9 @@ package() {
     # Desktop shortcut for settings UI
     install -Dm644 "${srcdir}/coolerdash/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
 
+    # udev rule for NZXT USB power management
+    install -Dm644 "${srcdir}/coolerdash/etc/udev/rules.d/99-coolerdash.rules" "${pkgdir}/usr/lib/udev/rules.d/99-coolerdash.rules"
+
     # Application icon
     install -Dm644 "${srcdir}/coolerdash/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 }

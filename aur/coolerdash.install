@@ -1,6 +1,9 @@
 # Created by: damachin3 (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
 
+# This `coolerdash.install` script is for building the coolerdash package from local source.
+# It assumes the source code is already present in the current directory.
+
 pre_install() {
     echo "Checking for legacy files and performing migration cleanup..." 2>/dev/null
     # Stop and disable service before install or update to prevent conflicts with plugin mode
@@ -74,6 +77,14 @@ post_install() {
         chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json 2>/dev/null || true
         chmod 755 /etc/coolercontrol/plugins/coolerdash/ui 2>/dev/null || true
         chmod 644 /etc/coolercontrol/plugins/coolerdash/ui/* 2>/dev/null || true
+    fi
+
+    # Reload udev rules for NZXT USB power management
+    if [ -f /usr/lib/udev/rules.d/99-coolerdash.rules ]; then
+        echo "Reloading udev rules for NZXT devices..."
+        udevadm control --reload-rules 2>/dev/null || true
+        udevadm trigger --subsystem-match=usb --attr-match=idVendor=1e71 2>/dev/null || true
+        echo "✓ USB autosuspend disabled for NZXT devices"
     fi
 
     # Create systemd drop-in for startup delay (allow shutdown.png to display)
