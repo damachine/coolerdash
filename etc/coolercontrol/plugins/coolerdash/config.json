@@ -22,16 +22,23 @@
     "height": 0,
     "shape": "auto",
     "content_scale_factor": 0.98,
-    "inscribe_factor": 0.70710678
+    "inscribe_factor": 0.70710678,
+    "sensor_slot_up": "cpu",
+    "sensor_slot_mid": "liquid",
+    "sensor_slot_down": "gpu"
   },
 
   "layout": {
     "bar_height": 24,
     "bar_width": 98,
     "bar_gap": 12,
-    "bar_border": 2.0,
+    "bar_border": 1.0,
+    "bar_border_enabled": 1,
     "label_margin_left": 1,
-    "label_margin_bar": 1
+    "label_margin_bar": 1,
+    "bar_height_up": 0,
+    "bar_height_mid": 0,
+    "bar_height_down": 0
   },
 
   "colors": {
@@ -47,7 +54,18 @@
     "size_labels": 30.0
   },
 
-  "temperature": {
+  "cpu": {
+    "threshold_1": 55.0,
+    "threshold_2": 65.0,
+    "threshold_3": 75.0,
+    "max_scale": 115.0,
+    "threshold_1_color": { "r": 0, "g": 255, "b": 0 },
+    "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
+    "threshold_3_color": { "r": 255, "g": 70, "b": 0 },
+    "threshold_4_color": { "r": 255, "g": 0, "b": 0 }
+  },
+
+  "gpu": {
     "threshold_1": 55.0,
     "threshold_2": 65.0,
     "threshold_3": 75.0,

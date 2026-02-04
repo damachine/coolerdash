@@ -34,6 +34,7 @@
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
 #include "../srv/cc_sensor.h"
+#include "display.h"
 #include "circle.h"
 
 // Circle inscribe factor for circular displays (1/√2 ≈ 0.7071)
@@ -42,18 +43,9 @@
 #endif
 
 /**
- * @brief Sensor display mode enumeration
+ * @brief Global state for sensor alternation (slot-based cycling)
  */
-typedef enum
-{
-    SENSOR_CPU = 0,
-    SENSOR_GPU = 1
-} SensorMode;
-
-/**
- * @brief Global state for sensor alternation
- */
-static SensorMode current_sensor = SENSOR_CPU;
+static int current_slot_index = 0; // 0=up, 1=mid, 2=down
 static time_t last_switch_time = 0;
 
 /**
@@ -210,6 +202,66 @@ static void calculate_scaling_params(const struct Config *config,
 }
 
 /**
+ * @brief Get the slot value for a given slot index
+ * @param config Configuration
+ * @param slot_index 0=up, 1=mid, 2=down
+ * @return Slot value string ("cpu", "gpu", "liquid", "none")
+ */
+static const char *get_slot_value_by_index(const struct Config *config, int slot_index)
+{
+    if (!config)
+        return "none";
+
+    switch (slot_index)
+    {
+    case 0:
+        return config->sensor_slot_up;
+    case 1:
+        return config->sensor_slot_mid;
+    case 2:
+        return config->sensor_slot_down;
+    default:
+        return "none";
+    }
+}
+
+/**
+ * @brief Get slot name for a given slot index
+ */
+static const char *get_slot_name_by_index(int slot_index)
+{
+    switch (slot_index)
+    {
+    case 0:
+        return "up";
+    case 1:
+        return "mid";
+    case 2:
+        return "down";
+    default:
+        return "up";
+    }
+}
+
+/**
+ * @brief Find next active slot index (wrapping around)
+ * @param config Configuration
+ * @param start_index Starting slot index
+ * @return Next active slot index, or -1 if none found
+ */
+static int find_next_active_slot(const struct Config *config, int start_index)
+{
+    for (int i = 0; i < 3; i++)
+    {
+        int idx = (start_index + i) % 3;
+        const char *slot_value = get_slot_value_by_index(config, idx);
+        if (slot_is_active(slot_value))
+            return idx;
+    }
+    return -1; // No active slots
+}
+
+/**
  * @brief Check if sensor should switch based on configured interval
  */
 static void update_sensor_mode(const struct Config *config)
@@ -218,6 +270,10 @@ static void update_sensor_mode(const struct Config *config)
 
     if (last_switch_time == 0)
     {
+        // Initialize to first active slot
+        current_slot_index = find_next_active_slot(config, 0);
+        if (current_slot_index < 0)
+            current_slot_index = 0; // Fallback
         last_switch_time = current_time;
         return;
     }
@@ -229,52 +285,24 @@ static void update_sensor_mode(const struct Config *config)
 
     if (difftime(current_time, last_switch_time) >= interval)
     {
-        // Toggle sensor
-        current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
+        // Find next active slot
+        int next_slot = find_next_active_slot(config, (current_slot_index + 1) % 3);
+        if (next_slot >= 0)
+            current_slot_index = next_slot;
         last_switch_time = current_time;
 
         // Verbose logging only
         if (verbose_logging)
         {
+            const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+            const char *label = get_slot_label(slot_value);
             log_message(LOG_INFO,
-                        "Circle mode: switched to %s display (interval: %.0fs)",
-                        current_sensor == SENSOR_CPU ? "CPU" : "GPU", interval);
+                        "Circle mode: switched to %s display (slot: %s, interval: %.0fs)",
+                        label ? label : "unknown",
+                        get_slot_name_by_index(current_slot_index),
+                        interval);
         }
     }
-}
-
-/**
- * @brief Get temperature bar color based on thresholds
- */
-static Color get_temperature_bar_color(const struct Config *config, float val,
-                                       SensorMode sensor)
-{
-    // Use unified temperature thresholds (same for CPU/GPU)
-    (void)sensor; // Unused parameter - keeping for API consistency
-
-    if (val < config->temp_threshold_1)
-        return config->temp_threshold_1_bar;
-    else if (val < config->temp_threshold_2)
-        return config->temp_threshold_2_bar;
-    else if (val < config->temp_threshold_3)
-        return config->temp_threshold_3_bar;
-    else
-        return config->temp_threshold_4_bar;
-}
-
-/**
- * @brief Get liquid temperature bar color based on thresholds
- */
-static Color get_liquid_bar_color(const struct Config *config, float val)
-{
-    if (val < config->temp_liquid_threshold_1)
-        return config->temp_liquid_threshold_1_bar;
-    else if (val < config->temp_liquid_threshold_2)
-        return config->temp_liquid_threshold_2_bar;
-    else if (val < config->temp_liquid_threshold_3)
-        return config->temp_liquid_threshold_3_bar;
-    else
-        return config->temp_liquid_threshold_4_bar;
 }
 
 /**
@@ -308,35 +336,51 @@ static void draw_degree_symbol(cairo_t *cr, double x, double y,
 }
 
 /**
- * @brief Draw single sensor display (CPU or GPU) with optional liquid
- * temperature
+ * @brief Draw single sensor display based on current slot
+ * @param cr Cairo context
+ * @param config Configuration
+ * @param params Scaling parameters
+ * @param data Sensor data
+ * @param slot_value Current slot sensor value ("cpu", "gpu", "liquid")
  */
 static void draw_single_sensor(cairo_t *cr, const struct Config *config,
-                               const ScalingParams *params, float temp_value,
-                               float temp_liquid, SensorMode sensor)
+                               const ScalingParams *params,
+                               const monitor_sensor_data_t *data,
+                               const char *slot_value)
 {
-    if (!cr || !config || !params)
+    if (!cr || !config || !params || !data || !slot_value)
         return;
 
-    const int effective_bar_width = params->safe_bar_width;
-    const int bar_height = config->layout_bar_height;
-    const int bar_gap = config->layout_bar_gap;
+    // Skip if slot is not active
+    if (!slot_is_active(slot_value))
+        return;
 
-    // Calculate vertical layout - BAR is centered (like original)
-    // For CPU: Extra liquid bar below CPU bar
-    // For GPU: Single bar (original behavior)
-    const int bar_y =
-        (config->display_height - bar_height) / 2; // Bar centered vertically
-    const int bar_x = (config->display_width - effective_bar_width) /
-                      2; // Bar centered horizontally
+    // Get temperature and label for current slot
+    const float temp_value = get_slot_temperature(data, slot_value);
+    const char *label_text = get_slot_label(slot_value);
+    const float max_temp = get_slot_max_scale(config, slot_value);
+
+    const int effective_bar_width = params->safe_bar_width;
+
+    // Get bar height for current slot (use "up" slot as reference since circle shows one at a time)
+    const int bar_height = get_slot_bar_height(config, get_slot_name_by_index(current_slot_index));
+
+    // Calculate vertical layout - BAR is centered
+    const int bar_y = (config->display_height - bar_height) / 2;
+    const int bar_x = (config->display_width - effective_bar_width) / 2;
 
     // Temperature above the bar (10% of display height above bar)
-    const int temp_spacing = (int)(config->display_height * 0.10); // 10% spacing
+    const int temp_spacing = (int)(config->display_height * 0.10);
     const int temp_y = bar_y - temp_spacing;
 
     // Draw temperature value (centered horizontally INCLUDING degree symbol)
     char temp_str[16];
-    snprintf(temp_str, sizeof(temp_str), "%d", (int)temp_value);
+
+    // Use 1 decimal for liquid, integer for CPU/GPU
+    if (strcmp(slot_value, "liquid") == 0)
+        snprintf(temp_str, sizeof(temp_str), "%.1f", temp_value);
+    else
+        snprintf(temp_str, sizeof(temp_str), "%d", (int)temp_value);
 
     const Color *value_color = &config->font_color_temp;
 
@@ -352,33 +396,40 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     cairo_set_font_size(cr, config->font_size_temp / 1.66);
     cairo_text_extents_t degree_ext;
     cairo_text_extents(cr, "°", &degree_ext);
-    cairo_set_font_size(cr, config->font_size_temp); // Restore temp font size
+    cairo_set_font_size(cr, config->font_size_temp);
 
     // Center temperature + degree symbol as a unit
     const double total_width = temp_ext.width - 4 + degree_ext.width;
     double temp_x = (config->display_width - total_width) / 2.0;
     double final_temp_y = temp_y;
 
-    // Apply user-defined offsets for CPU/GPU
-    if (sensor == SENSOR_CPU)
+    // Apply user-defined offsets based on sensor type
+    if (strcmp(slot_value, "cpu") == 0)
     {
         if (config->display_temp_offset_x_cpu != -9999)
             temp_x += config->display_temp_offset_x_cpu;
         if (config->display_temp_offset_y_cpu != -9999)
             final_temp_y += config->display_temp_offset_y_cpu;
     }
-    else // SENSOR_GPU
+    else if (strcmp(slot_value, "gpu") == 0)
     {
         if (config->display_temp_offset_x_gpu != -9999)
             temp_x += config->display_temp_offset_x_gpu;
         if (config->display_temp_offset_y_gpu != -9999)
             final_temp_y += config->display_temp_offset_y_gpu;
     }
+    else if (strcmp(slot_value, "liquid") == 0)
+    {
+        if (config->display_temp_offset_x_liquid != -9999)
+            temp_x += config->display_temp_offset_x_liquid;
+        if (config->display_temp_offset_y_liquid != -9999)
+            final_temp_y += config->display_temp_offset_y_liquid;
+    }
 
     cairo_move_to(cr, temp_x, final_temp_y);
     cairo_show_text(cr, temp_str);
 
-    // Draw degree symbol (next to temperature, always bound to temp position)
+    // Draw degree symbol
     const int degree_spacing = (config->display_degree_spacing > 0)
                                    ? config->display_degree_spacing
                                    : 16;
@@ -406,13 +457,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     }
 
     // Bar fill (temperature-based)
-    const float max_temp = config->temp_max_scale;
-    const int fill_width =
-        calculate_temp_fill_width(temp_value, effective_bar_width, max_temp);
+    const int fill_width = calculate_temp_fill_width(temp_value, effective_bar_width, max_temp);
 
     if (fill_width > 0)
     {
-        Color bar_color = get_temperature_bar_color(config, temp_value, sensor);
+        Color bar_color = get_slot_bar_color(config, slot_value, temp_value);
         set_cairo_color(cr, &bar_color);
 
         cairo_save(cr);
@@ -424,125 +473,34 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         cairo_restore(cr);
     }
 
-    // --- Liquid Bar and Temperature (only for CPU mode) ---
-    if (sensor == SENSOR_CPU)
+    // Draw label (CPU, GPU, or LIQ) - centered horizontally, close to bottom
+    if (label_text)
     {
-        const int liquid_bar_y = bar_y + bar_height + bar_gap;
+        const Color *label_color = &config->font_color_label;
 
-        // Liquid bar background
-        set_cairo_color(cr, &config->layout_bar_color_background);
-        draw_rounded_rectangle_path(cr, bar_x, liquid_bar_y, effective_bar_width,
-                                    bar_height, params->corner_radius);
-        cairo_fill(cr);
+        cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
+                               CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, config->font_size_labels);
+        set_cairo_color(cr, label_color);
 
-        // Liquid bar border (only if enabled and thickness > 0)
-        if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
-        {
-            set_cairo_color(cr, &config->layout_bar_color_border);
-            draw_rounded_rectangle_path(cr, bar_x, liquid_bar_y, effective_bar_width,
-                                        bar_height, params->corner_radius);
-            cairo_set_line_width(cr, config->layout_bar_border);
-            cairo_stroke(cr);
-        }
+        cairo_text_extents_t label_text_ext;
+        cairo_text_extents(cr, label_text, &label_text_ext);
 
-        // Liquid bar fill (0-40°C typical range for AIO coolers)
-        const float max_liquid_temp = config->temp_liquid_max_scale;
-        const int liquid_fill_width = calculate_temp_fill_width(
-            temp_liquid, effective_bar_width, max_liquid_temp);
+        // Center label horizontally
+        double label_x = (config->display_width - label_text_ext.width) / 2.0;
 
-        if (liquid_fill_width > 0)
-        {
-            Color liquid_bar_color = get_liquid_bar_color(config, temp_liquid);
-            set_cairo_color(cr, &liquid_bar_color);
+        // Position label 2% from bottom
+        double final_label_y = config->display_height - (config->display_height * 0.02);
 
-            cairo_save(cr);
-            draw_rounded_rectangle_path(cr, bar_x, liquid_bar_y, effective_bar_width,
-                                        bar_height, params->corner_radius);
-            cairo_clip(cr);
-            cairo_rectangle(cr, bar_x, liquid_bar_y, liquid_fill_width, bar_height);
-            cairo_fill(cr);
-            cairo_restore(cr);
-        }
+        // Apply user-defined offsets
+        if (config->display_label_offset_x != 0)
+            label_x += config->display_label_offset_x;
+        if (config->display_label_offset_y != 0)
+            final_label_y += config->display_label_offset_y;
 
-        // Liquid temperature text (under liquid bar with 1 decimal, half size, 10%
-        // spacing)
-        char liquid_temp_str[16];
-        snprintf(liquid_temp_str, sizeof(liquid_temp_str), "%.1f", temp_liquid);
-
-        const float liquid_font_size =
-            config->font_size_temp / 2.0f; // Half size of normal temp
-        cairo_set_font_size(cr, liquid_font_size);
-        set_cairo_color(cr, &config->font_color_temp);
-
-        cairo_text_extents_t liquid_temp_ext;
-        cairo_text_extents(cr, liquid_temp_str, &liquid_temp_ext);
-
-        // Calculate degree symbol width for liquid temp
-        cairo_set_font_size(cr, liquid_font_size / 1.66);
-        cairo_text_extents_t liquid_degree_ext;
-        cairo_text_extents(cr, "°", &liquid_degree_ext);
-        cairo_set_font_size(cr, liquid_font_size);
-
-        const double liquid_total_width =
-            liquid_temp_ext.width - 4 + liquid_degree_ext.width;
-        double liquid_temp_x = (config->display_width - liquid_total_width) / 2.0;
-
-        // Position directly under liquid bar (minimal spacing)
-        cairo_font_extents_t liquid_font_ext;
-        cairo_font_extents(cr, &liquid_font_ext);
-        int liquid_temp_y = liquid_bar_y + bar_height + (int)liquid_font_ext.ascent;
-
-        // Apply user-defined offsets for liquid temperature
-        if (config->display_temp_offset_x_liquid != -9999)
-            liquid_temp_x += config->display_temp_offset_x_liquid;
-        if (config->display_temp_offset_y_liquid != -9999)
-            liquid_temp_y += config->display_temp_offset_y_liquid;
-
-        cairo_move_to(cr, liquid_temp_x, liquid_temp_y);
-        cairo_show_text(cr, liquid_temp_str);
-
-        // Liquid degree symbol (half size like liquid temp)
-        const double liquid_degree_x =
-            liquid_temp_x + liquid_temp_ext.width + degree_spacing / 2.0;
-        const double liquid_degree_y = liquid_temp_y - liquid_font_size * 0.25;
-        cairo_set_font_size(cr,
-                            liquid_font_size / 1.66); // Match liquid temp sizing
-        cairo_move_to(cr, liquid_degree_x, liquid_degree_y);
-        cairo_show_text(cr, "°");
+        cairo_move_to(cr, label_x, final_label_y);
+        cairo_show_text(cr, label_text);
     }
-
-    // Draw label (CPU or GPU) - centered horizontally, close to bar
-    const char *label_text = (sensor == SENSOR_CPU) ? "CPU" : "GPU";
-    const Color *label_color = &config->font_color_label;
-
-    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
-                           CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, config->font_size_labels);
-    set_cairo_color(cr, label_color);
-
-    // Get text extents for centering
-    cairo_text_extents_t label_text_ext;
-    cairo_text_extents(cr, label_text, &label_text_ext);
-
-    // Get font extents for baseline positioning
-    cairo_font_extents_t label_font_ext;
-    cairo_font_extents(cr, &label_font_ext);
-
-    // Center label horizontally
-    double label_x = (config->display_width - label_text_ext.width) / 2.0;
-
-    // Position label 2% from bottom (baseline position, not adding ascent again)
-    double final_label_y =
-        config->display_height - (config->display_height * 0.02);
-
-    // Apply user-defined offsets if set
-    if (config->display_label_offset_x != 0)
-        label_x += config->display_label_offset_x;
-    if (config->display_label_offset_y != 0)
-        final_label_y += config->display_label_offset_y;
-
-    cairo_move_to(cr, label_x, final_label_y);
-    cairo_show_text(cr, label_text);
 }
 
 /**
@@ -587,11 +545,9 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     // Update sensor mode (check if configured interval elapsed)
     update_sensor_mode(config);
 
-    // Draw current sensor
-    float temp_value =
-        (current_sensor == SENSOR_CPU) ? data->temp_cpu : data->temp_gpu;
-    draw_single_sensor(cr, config, params, temp_value, data->temp_liquid,
-                       current_sensor);
+    // Get current slot value and draw sensor
+    const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+    draw_single_sensor(cr, config, params, data, slot_value);
 }
 
 /**
@@ -613,9 +569,11 @@ int render_circle_display(const struct Config *config,
     // Verbose logging only
     if (verbose_logging)
     {
+        const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+        const char *label = get_slot_label(slot_value);
+        float temp = get_slot_temperature(data, slot_value);
         log_message(LOG_INFO, "Circle mode: rendering %s (%.1f°C)",
-                    current_sensor == SENSOR_CPU ? "CPU" : "GPU",
-                    current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
+                    label ? label : "unknown", temp);
     }
 
     cairo_surface_t *surface = NULL;
@@ -661,9 +619,11 @@ int render_circle_display(const struct Config *config,
     // Verbose logging only
     if (verbose_logging)
     {
+        const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+        const char *label = get_slot_label(slot_value);
+        float temp = get_slot_temperature(data, slot_value);
         log_message(LOG_STATUS, "Circle mode: %s display updated (%.1f°C)",
-                    current_sensor == SENSOR_CPU ? "CPU" : "GPU",
-                    current_sensor == SENSOR_CPU ? data->temp_cpu : data->temp_gpu);
+                    label ? label : "unknown", temp);
     }
 
     return 1;

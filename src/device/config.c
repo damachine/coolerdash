@@ -142,6 +142,14 @@ static void set_display_defaults(Config *config)
         config->display_content_scale_factor = 0.98f;
     if (config->display_inscribe_factor < 0.0f)
         config->display_inscribe_factor = 0.70710678f;
+
+    // Sensor slot defaults (flexible sensor assignment)
+    if (config->sensor_slot_up[0] == '\0')
+        cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), "cpu");
+    if (config->sensor_slot_mid[0] == '\0')
+        cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), "liquid");
+    if (config->sensor_slot_down[0] == '\0')
+        cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), "gpu");
 }
 
 /**
@@ -159,12 +167,20 @@ static void set_layout_defaults(Config *config)
         config->layout_bar_height = 24;
     if (config->layout_bar_gap == 0)
         config->layout_bar_gap = 12.0f;
-    // bar_border: -1 = use default (2.0), 0 = explicitly disabled, >0 = custom value
+    // bar_border: -1 = use default (1.0), 0 = explicitly disabled, >0 = custom value
     if (config->layout_bar_border < 0.0f)
-        config->layout_bar_border = 2.0f;
+        config->layout_bar_border = 1.0f;
     // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
     if (config->layout_bar_border_enabled < 0)
         config->layout_bar_border_enabled = 1; // Default: enabled
+
+    // Individual bar heights per slot (default to main bar_height)
+    if (config->layout_bar_height_up == 0)
+        config->layout_bar_height_up = config->layout_bar_height;
+    if (config->layout_bar_height_mid == 0)
+        config->layout_bar_height_mid = config->layout_bar_height;
+    if (config->layout_bar_height_down == 0)
+        config->layout_bar_height_down = config->layout_bar_height;
 }
 
 /**
@@ -227,23 +243,35 @@ static void set_font_defaults(Config *config)
  */
 static void set_temperature_defaults(Config *config)
 {
-    if (config->temp_threshold_1 == 0.0f)
-        config->temp_threshold_1 = 55.0f;
-    if (config->temp_threshold_2 == 0.0f)
-        config->temp_threshold_2 = 65.0f;
-    if (config->temp_threshold_3 == 0.0f)
-        config->temp_threshold_3 = 75.0f;
-    if (config->temp_max_scale == 0.0f)
-        config->temp_max_scale = 115.0f;
+    // CPU temperature defaults
+    if (config->temp_cpu_threshold_1 == 0.0f)
+        config->temp_cpu_threshold_1 = 55.0f;
+    if (config->temp_cpu_threshold_2 == 0.0f)
+        config->temp_cpu_threshold_2 = 65.0f;
+    if (config->temp_cpu_threshold_3 == 0.0f)
+        config->temp_cpu_threshold_3 = 75.0f;
+    if (config->temp_cpu_max_scale == 0.0f)
+        config->temp_cpu_max_scale = 115.0f;
 
-    if (config->temp_liquid_max_scale == 0.0f)
-        config->temp_liquid_max_scale = 50.0f;
+    // GPU temperature defaults (same as CPU)
+    if (config->temp_gpu_threshold_1 == 0.0f)
+        config->temp_gpu_threshold_1 = 55.0f;
+    if (config->temp_gpu_threshold_2 == 0.0f)
+        config->temp_gpu_threshold_2 = 65.0f;
+    if (config->temp_gpu_threshold_3 == 0.0f)
+        config->temp_gpu_threshold_3 = 75.0f;
+    if (config->temp_gpu_max_scale == 0.0f)
+        config->temp_gpu_max_scale = 115.0f;
+
+    // Liquid temperature defaults
     if (config->temp_liquid_threshold_1 == 0.0f)
         config->temp_liquid_threshold_1 = 25.0f;
     if (config->temp_liquid_threshold_2 == 0.0f)
         config->temp_liquid_threshold_2 = 28.0f;
     if (config->temp_liquid_threshold_3 == 0.0f)
         config->temp_liquid_threshold_3 = 31.0f;
+    if (config->temp_liquid_max_scale == 0.0f)
+        config->temp_liquid_max_scale = 50.0f;
 }
 
 /**
@@ -275,10 +303,17 @@ static void set_color_defaults(Config *config)
         {&config->layout_bar_color_border, 192, 192, 192},
         {&config->font_color_temp, 255, 255, 255},
         {&config->font_color_label, 200, 200, 200},
-        {&config->temp_threshold_1_bar, 0, 255, 0},
-        {&config->temp_threshold_2_bar, 255, 140, 0},
-        {&config->temp_threshold_3_bar, 255, 70, 0},
-        {&config->temp_threshold_4_bar, 255, 0, 0},
+        // CPU temperature colors
+        {&config->temp_cpu_threshold_1_bar, 0, 255, 0},
+        {&config->temp_cpu_threshold_2_bar, 255, 140, 0},
+        {&config->temp_cpu_threshold_3_bar, 255, 70, 0},
+        {&config->temp_cpu_threshold_4_bar, 255, 0, 0},
+        // GPU temperature colors (same as CPU)
+        {&config->temp_gpu_threshold_1_bar, 0, 255, 0},
+        {&config->temp_gpu_threshold_2_bar, 255, 140, 0},
+        {&config->temp_gpu_threshold_3_bar, 255, 70, 0},
+        {&config->temp_gpu_threshold_4_bar, 255, 0, 0},
+        // Liquid temperature colors
         {&config->temp_liquid_threshold_1_bar, 0, 255, 0},
         {&config->temp_liquid_threshold_2_bar, 255, 140, 0},
         {&config->temp_liquid_threshold_3_bar, 255, 70, 0},
@@ -297,6 +332,103 @@ static void set_color_defaults(Config *config)
 }
 
 /**
+ * @brief Check if a sensor slot value is valid
+ */
+static int is_valid_sensor_slot(const char *slot)
+{
+    if (!slot || slot[0] == '\0')
+        return 0;
+    return (strcmp(slot, "cpu") == 0 ||
+            strcmp(slot, "gpu") == 0 ||
+            strcmp(slot, "liquid") == 0 ||
+            strcmp(slot, "none") == 0);
+}
+
+/**
+ * @brief Check if a sensor slot is active (not "none")
+ */
+static int slot_is_active_str(const char *slot)
+{
+    if (!slot || slot[0] == '\0')
+        return 0;
+    return strcmp(slot, "none") != 0;
+}
+
+/**
+ * @brief Validate sensor slot configuration
+ * @details Checks for duplicates (excluding "none"), ensures at least one active slot,
+ *          and validates slot values. Resets to defaults on critical errors.
+ */
+static void validate_sensor_slots(Config *config)
+{
+    if (!config)
+        return;
+
+    int reset_needed = 0;
+
+    // Validate slot values (must be cpu/gpu/liquid/none)
+    if (!is_valid_sensor_slot(config->sensor_slot_up))
+    {
+        log_message(LOG_WARNING, "Invalid sensor_slot_up value, using 'cpu'");
+        cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), "cpu");
+    }
+    if (!is_valid_sensor_slot(config->sensor_slot_mid))
+    {
+        log_message(LOG_WARNING, "Invalid sensor_slot_mid value, using 'liquid'");
+        cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), "liquid");
+    }
+    if (!is_valid_sensor_slot(config->sensor_slot_down))
+    {
+        log_message(LOG_WARNING, "Invalid sensor_slot_down value, using 'gpu'");
+        cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), "gpu");
+    }
+
+    // Check for duplicates (only among active slots, "none" can appear multiple times)
+    const char *slots[] = {config->sensor_slot_up, config->sensor_slot_mid, config->sensor_slot_down};
+    const char *slot_names[] = {"sensor_slot_up", "sensor_slot_mid", "sensor_slot_down"};
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (!slot_is_active_str(slots[i]))
+            continue; // Skip "none" slots
+
+        for (int j = i + 1; j < 3; j++)
+        {
+            if (!slot_is_active_str(slots[j]))
+                continue; // Skip "none" slots
+
+            if (strcmp(slots[i], slots[j]) == 0)
+            {
+                log_message(LOG_WARNING, "Duplicate sensor in %s and %s: '%s'. Resetting to defaults.",
+                            slot_names[i], slot_names[j], slots[i]);
+                reset_needed = 1;
+                break;
+            }
+        }
+        if (reset_needed)
+            break;
+    }
+
+    // Check that at least one slot is active
+    if (!slot_is_active_str(config->sensor_slot_up) &&
+        !slot_is_active_str(config->sensor_slot_mid) &&
+        !slot_is_active_str(config->sensor_slot_down))
+    {
+        log_message(LOG_ERROR, "All sensor slots are 'none'. At least one sensor must be active. Resetting to defaults.");
+        reset_needed = 1;
+    }
+
+    // Reset to defaults if validation failed
+    if (reset_needed)
+    {
+        cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), "cpu");
+        cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), "liquid");
+        cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), "gpu");
+        log_message(LOG_STATUS, "Sensor slots reset to defaults: up=cpu, mid=liquid, down=gpu");
+    }
+}
+
+/**
  * @brief Apply all system default values for missing fields
  */
 static void apply_system_defaults(Config *config)
@@ -311,6 +443,7 @@ static void apply_system_defaults(Config *config)
     set_font_defaults(config);
     set_temperature_defaults(config);
     set_color_defaults(config);
+    validate_sensor_slots(config);
 }
 
 // ============================================================================
@@ -363,10 +496,8 @@ static const char *find_config_json(const char *custom_path)
     }
 
     static const char *possible_paths[] = {
+        "~/.config/coolerdash/config.json",
         "/etc/coolercontrol/plugins/coolerdash/config.json",
-        "/etc/coolercontrol/plugins/coolerdash/plugin-config.json",
-        "/etc/coolercontrol/config/plugins/coolerdash.json",
-        "./config.json",
         NULL};
 
     for (int i = 0; possible_paths[i] != NULL; i++)
@@ -483,7 +614,7 @@ static void load_display_from_json(json_t *root, Config *config)
     if (refresh && json_is_number(refresh))
     {
         double val = json_number_value(refresh);
-        if (val >= 0.01 && val <= 60.0)
+        if (val >= 0.2 && val <= 60.0)
             config->display_refresh_interval = (float)val;
     }
 
@@ -539,6 +670,31 @@ static void load_display_from_json(json_t *root, Config *config)
         double val = json_number_value(inscribe);
         if (val >= 0.0 && val <= 1.0)
             config->display_inscribe_factor = (float)val;
+    }
+
+    // Sensor slot configuration
+    json_t *slot_up = json_object_get(display, "sensor_slot_up");
+    if (slot_up && json_is_string(slot_up))
+    {
+        const char *value = json_string_value(slot_up);
+        if (value)
+            cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), value);
+    }
+
+    json_t *slot_mid = json_object_get(display, "sensor_slot_mid");
+    if (slot_mid && json_is_string(slot_mid))
+    {
+        const char *value = json_string_value(slot_mid);
+        if (value)
+            cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), value);
+    }
+
+    json_t *slot_down = json_object_get(display, "sensor_slot_down");
+    if (slot_down && json_is_string(slot_down))
+    {
+        const char *value = json_string_value(slot_down);
+        if (value)
+            cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), value);
     }
 }
 
@@ -608,6 +764,31 @@ static void load_layout_from_json(json_t *root, Config *config)
         if (val >= 1 && val <= 20)
             config->layout_label_margin_bar = (uint8_t)val;
     }
+
+    // Individual bar heights per slot
+    json_t *bar_height_up = json_object_get(layout, "bar_height_up");
+    if (bar_height_up && json_is_integer(bar_height_up))
+    {
+        int val = (int)json_integer_value(bar_height_up);
+        if (val > 0 && val <= 100)
+            config->layout_bar_height_up = (uint16_t)val;
+    }
+
+    json_t *bar_height_mid = json_object_get(layout, "bar_height_mid");
+    if (bar_height_mid && json_is_integer(bar_height_mid))
+    {
+        int val = (int)json_integer_value(bar_height_mid);
+        if (val > 0 && val <= 100)
+            config->layout_bar_height_mid = (uint16_t)val;
+    }
+
+    json_t *bar_height_down = json_object_get(layout, "bar_height_down");
+    if (bar_height_down && json_is_integer(bar_height_down))
+    {
+        int val = (int)json_integer_value(bar_height_down);
+        if (val > 0 && val <= 100)
+            config->layout_bar_height_down = (uint16_t)val;
+    }
 }
 
 /**
@@ -659,42 +840,81 @@ static void load_font_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load temperature settings from JSON
+ * @brief Load CPU temperature settings from JSON
  */
-static void load_temperature_from_json(json_t *root, Config *config)
+static void load_cpu_temperature_from_json(json_t *root, Config *config)
 {
-    json_t *temperature = json_object_get(root, "temperature");
-    if (!temperature || !json_is_object(temperature))
+    json_t *cpu = json_object_get(root, "cpu");
+    if (!cpu || !json_is_object(cpu))
         return;
 
-    json_t *threshold_1 = json_object_get(temperature, "threshold_1");
+    json_t *threshold_1 = json_object_get(cpu, "threshold_1");
     if (threshold_1 && json_is_number(threshold_1))
     {
-        config->temp_threshold_1 = (float)json_number_value(threshold_1);
+        config->temp_cpu_threshold_1 = (float)json_number_value(threshold_1);
     }
 
-    json_t *threshold_2 = json_object_get(temperature, "threshold_2");
+    json_t *threshold_2 = json_object_get(cpu, "threshold_2");
     if (threshold_2 && json_is_number(threshold_2))
     {
-        config->temp_threshold_2 = (float)json_number_value(threshold_2);
+        config->temp_cpu_threshold_2 = (float)json_number_value(threshold_2);
     }
 
-    json_t *threshold_3 = json_object_get(temperature, "threshold_3");
+    json_t *threshold_3 = json_object_get(cpu, "threshold_3");
     if (threshold_3 && json_is_number(threshold_3))
     {
-        config->temp_threshold_3 = (float)json_number_value(threshold_3);
+        config->temp_cpu_threshold_3 = (float)json_number_value(threshold_3);
     }
 
-    json_t *max_scale = json_object_get(temperature, "max_scale");
+    json_t *max_scale = json_object_get(cpu, "max_scale");
     if (max_scale && json_is_number(max_scale))
     {
-        config->temp_max_scale = (float)json_number_value(max_scale);
+        config->temp_cpu_max_scale = (float)json_number_value(max_scale);
     }
 
-    read_color_from_json(json_object_get(temperature, "threshold_1_color"), &config->temp_threshold_1_bar);
-    read_color_from_json(json_object_get(temperature, "threshold_2_color"), &config->temp_threshold_2_bar);
-    read_color_from_json(json_object_get(temperature, "threshold_3_color"), &config->temp_threshold_3_bar);
-    read_color_from_json(json_object_get(temperature, "threshold_4_color"), &config->temp_threshold_4_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_1_color"), &config->temp_cpu_threshold_1_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_2_color"), &config->temp_cpu_threshold_2_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_3_color"), &config->temp_cpu_threshold_3_bar);
+    read_color_from_json(json_object_get(cpu, "threshold_4_color"), &config->temp_cpu_threshold_4_bar);
+}
+
+/**
+ * @brief Load GPU temperature settings from JSON
+ */
+static void load_gpu_temperature_from_json(json_t *root, Config *config)
+{
+    json_t *gpu = json_object_get(root, "gpu");
+    if (!gpu || !json_is_object(gpu))
+        return;
+
+    json_t *threshold_1 = json_object_get(gpu, "threshold_1");
+    if (threshold_1 && json_is_number(threshold_1))
+    {
+        config->temp_gpu_threshold_1 = (float)json_number_value(threshold_1);
+    }
+
+    json_t *threshold_2 = json_object_get(gpu, "threshold_2");
+    if (threshold_2 && json_is_number(threshold_2))
+    {
+        config->temp_gpu_threshold_2 = (float)json_number_value(threshold_2);
+    }
+
+    json_t *threshold_3 = json_object_get(gpu, "threshold_3");
+    if (threshold_3 && json_is_number(threshold_3))
+    {
+        config->temp_gpu_threshold_3 = (float)json_number_value(threshold_3);
+    }
+
+    json_t *max_scale = json_object_get(gpu, "max_scale");
+    if (max_scale && json_is_number(max_scale))
+    {
+        config->temp_gpu_max_scale = (float)json_number_value(max_scale);
+    }
+
+    read_color_from_json(json_object_get(gpu, "threshold_1_color"), &config->temp_gpu_threshold_1_bar);
+    read_color_from_json(json_object_get(gpu, "threshold_2_color"), &config->temp_gpu_threshold_2_bar);
+    read_color_from_json(json_object_get(gpu, "threshold_3_color"), &config->temp_gpu_threshold_3_bar);
+    read_color_from_json(json_object_get(gpu, "threshold_4_color"), &config->temp_gpu_threshold_4_bar);
 }
 
 /**
@@ -840,7 +1060,8 @@ int load_plugin_config(Config *config, const char *config_path)
             load_layout_from_json(root, config);
             load_colors_from_json(root, config);
             load_font_from_json(root, config);
-            load_temperature_from_json(root, config);
+            load_cpu_temperature_from_json(root, config);
+            load_gpu_temperature_from_json(root, config);
             load_liquid_from_json(root, config);
             load_positioning_from_json(root, config);
 
