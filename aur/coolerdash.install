@@ -76,23 +76,11 @@ post_install() {
         chmod 644 /etc/coolercontrol/plugins/coolerdash/ui/* 2>/dev/null || true
     fi
 
-    # Reload udev rules for NZXT USB power management
+    # Reload udev rules for USB power management
     if [ -f /usr/lib/udev/rules.d/99-coolerdash.rules ]; then
-        echo "Reloading udev rules for NZXT devices..."
+        echo "Reloading udev rules..."
         udevadm control --reload-rules 2>/dev/null || true
-        udevadm trigger --subsystem-match=usb --attr-match=idVendor=1e71 2>/dev/null || true
-
-        # Apply settings to already connected NZXT devices (udev rules only trigger on add/bind)
-        for device in /sys/bus/usb/devices/*/idVendor; do
-            if [ -f "$device" ] && [ "$(cat $device 2>/dev/null)" = "1e71" ]; then
-                device_path=$(dirname "$device")
-                if [ -f "$device_path/power/autosuspend_delay_ms" ]; then
-                    echo -1 > "$device_path/power/autosuspend_delay_ms" 2>/dev/null || true
-                    echo on > "$device_path/power/control" 2>/dev/null || true
-                    echo "Configured USB autosuspend delay for $(basename $device_path)"
-                fi
-            fi
-        done
+        udevadm trigger --subsystem-match=usb 2>/dev/null || true
     fi
 
     # Create systemd drop-in for startup delay (allow shutdown.png to display)
