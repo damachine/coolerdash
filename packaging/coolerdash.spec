@@ -9,14 +9,17 @@ License:        MIT
 URL:            https://github.com/damachine/coolerdash
 Source0:        %{name}-%{version}.tar.gz
 
-# Build dependencies installed via CI workflow
-# to support multiple distributions with different package names
+# pkgconfig() resolves to correct -devel packages on Fedora and openSUSE
+BuildRequires:  gcc
+BuildRequires:  make
+BuildRequires:  pkgconfig
+BuildRequires:  pkgconfig(cairo)
+BuildRequires:  pkgconfig(jansson)
+BuildRequires:  pkgconfig(libcurl)
 
-Requires:       cairo
-Requires:       libcurl
-Requires:       jansson
+# Shared lib deps (libcairo, libjansson, libcurl) are auto-detected by rpmbuild
 Requires:       google-roboto-fonts
-Requires:       coolercontrol
+Recommends:     coolercontrol
 
 %description
 CoolerDash is a high-performance C99 daemon that displays CPU and GPU
@@ -38,47 +41,61 @@ make SUDO="" REALOS=no %{?_smp_mflags}
 
 %install
 make install DESTDIR=%{buildroot} SUDO="" REALOS=no
-# Compress manpage for RPM standards
 gzip -9 %{buildroot}/usr/share/man/man1/coolerdash.1
 
 %post
-# Set correct permissions for config file
 if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
     chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
 fi
-
-# Restart CoolerControl to register new plugin
+# Migration: remove old helperd from /etc (now shipped in /usr/lib)
+rm -f /etc/systemd/system/coolerdash-helperd.service
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl enable --now coolerdash-helperd.service 2>/dev/null || true
     if systemctl is-active --quiet coolercontrold.service 2>/dev/null; then
         systemctl restart coolercontrold.service || true
     fi
 fi
 
 %preun
-# Stop CoolerControl to ensure clean plugin removal
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl stop --no-block coolerdash-helperd.service 2>/dev/null || true
+    systemctl disable coolerdash-helperd.service 2>/dev/null || true
+    systemctl stop cc-plugin-coolerdash.service 2>/dev/null || true
     if systemctl is-active --quiet coolercontrold.service 2>/dev/null; then
         systemctl stop coolercontrold.service || true
     fi
 fi
 
+%postun
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload
+    systemctl restart coolercontrold.service 2>/dev/null || true
+fi
+
 %files
-%license LICENSE
 %doc README.md CHANGELOG.md
-/etc/coolercontrol/plugins/coolerdash/coolerdash
-/etc/coolercontrol/plugins/coolerdash/config.json
+%dir /usr/share/licenses/%{name}
+%license /usr/share/licenses/%{name}/LICENSE
+%dir /usr/libexec/coolerdash
+/usr/libexec/coolerdash/coolerdash
+%dir /etc/coolercontrol/plugins/coolerdash
+%config(noreplace) /etc/coolercontrol/plugins/coolerdash/config.json
 /etc/coolercontrol/plugins/coolerdash/manifest.toml
+%dir /etc/coolercontrol/plugins/coolerdash/ui
 /etc/coolercontrol/plugins/coolerdash/ui/index.html
 /etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js
 /etc/coolercontrol/plugins/coolerdash/shutdown.png
 /etc/coolercontrol/plugins/coolerdash/README.md
-/etc/coolercontrol/plugins/coolerdash/LICENSE
 /etc/coolercontrol/plugins/coolerdash/CHANGELOG.md
 /etc/coolercontrol/plugins/coolerdash/VERSION
 /usr/share/man/man1/coolerdash.1.gz
 /usr/share/applications/coolerdash.desktop
 /usr/share/icons/hicolor/scalable/apps/coolerdash.svg
 /usr/lib/udev/rules.d/99-coolerdash.rules
+/usr/lib/systemd/system/coolerdash-helperd.service
+%dir /etc/systemd/system/cc-plugin-coolerdash.service.d
+/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
 
 %changelog
 * %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1

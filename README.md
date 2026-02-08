@@ -130,12 +130,12 @@ systemctl status coolercontrold
 curl http://localhost:11987/devices
 
 # 2. Test CoolerDash manually (with clean output)
-/etc/coolercontrol/plugins/coolerdash/coolerdash
+/usr/libexec/coolerdash/coolerdash
 
 # 3. Test CoolerDash with detailed verbose logging
-/etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
+/usr/libexec/coolerdash/coolerdash --verbose
 # or short form:
-/etc/coolercontrol/plugins/coolerdash/coolerdash -v
+/usr/libexec/coolerdash/coolerdash -v
 
 # 4. Debug build and installation (recommended)
 # Option A — Build and install with ASan in one command (safe):
@@ -143,7 +143,7 @@ sudo make debug install
 
 # Option B — Build as your user and install the debug binary manually (recommended):
 make clean && make debug
-sudo install -Dm755 bin/coolerdash /etc/coolercontrol/plugins/coolerdash/coolerdash
+sudo install -Dm755 bin/coolerdash /usr/libexec/coolerdash/coolerdash
 
 # Notes:
 #  • Avoid running `make debug` followed by `sudo make install` — the separate `sudo make install` may trigger a rebuild without debug flags and cause linker errors (missing ASan symbols).

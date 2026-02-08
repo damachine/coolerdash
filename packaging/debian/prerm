@@ -3,12 +3,18 @@ set -e
 
 case "$1" in
     remove|upgrade|deconfigure)
-        # Stop CoolerControl to ensure clean plugin removal
+        # Stop and disable services (files removed by dpkg)
         if command -v systemctl >/dev/null 2>&1; then
+            systemctl stop --no-block coolerdash-helperd.service 2>/dev/null || true
+            systemctl disable coolerdash-helperd.service 2>/dev/null || true
+            systemctl stop cc-plugin-coolerdash.service 2>/dev/null || true
             if systemctl is-active --quiet coolercontrold.service; then
                 systemctl stop coolercontrold.service || true
             fi
+            systemctl daemon-reload
         fi
+        # Migration: remove old helperd from /etc
+        rm -f /etc/systemd/system/coolerdash-helperd.service
         ;;
 esac
 

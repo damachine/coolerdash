@@ -56,6 +56,9 @@ build() {
     cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
     cp -a etc/udev/rules.d/99-coolerdash.rules "${srcdir}/etc/udev/rules.d/"
+    mkdir -p "${srcdir}/etc/systemd/cc-plugin-coolerdash.service.d"
+    cp -a etc/systemd/coolerdash-helperd.service "${srcdir}/etc/systemd/"
+    cp -a etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf "${srcdir}/etc/systemd/cc-plugin-coolerdash.service.d/"
 }
 
 check() {
@@ -72,33 +75,28 @@ check() {
 }
 
 package() {
-    # Plugin-mode installation: Everything in /etc/coolercontrol/plugins/coolerdash/
+    # Binary to /usr/libexec, plugin data stays in /etc/coolercontrol/plugins/
     install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
-    install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/coolerdash"
+    install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/usr/libexec/coolerdash/coolerdash"
     install -Dm644 "${srcdir}/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
     install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
-    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/LICENSE"
     install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
     install -Dm666 "${srcdir}/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
 
-    # Create ui directory first with correct permissions
     install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui"
     install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
     install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
     install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
     install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 
-    # Substitute VERSION placeholder in manifest.toml
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 
-    # Manual page
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
-    # Desktop shortcut for settings UI
     install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
-
-    # USB power management udev rule for
     install -Dm644 "${srcdir}/etc/udev/rules.d/99-coolerdash.rules" "${pkgdir}/usr/lib/udev/rules.d/99-coolerdash.rules"
-
-    # Application icon
     install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
+    install -Dm644 "${srcdir}/etc/systemd/coolerdash-helperd.service" "${pkgdir}/usr/lib/systemd/system/coolerdash-helperd.service"
+    install -Dm644 "${srcdir}/etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf" "${pkgdir}/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf"
+
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

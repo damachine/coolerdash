@@ -3,13 +3,18 @@ set -e
 
 case "$1" in
     configure)
-        # Set correct permissions for config file
+        # Set config permissions
         if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
             chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
         fi
-        
-        # Restart CoolerControl to register new plugin
+
+        # Migration: remove old helperd from /etc (now shipped in /usr/lib)
+        rm -f /etc/systemd/system/coolerdash-helperd.service
+
+        # Reload and enable services
         if command -v systemctl >/dev/null 2>&1; then
+            systemctl daemon-reload
+            systemctl enable --now coolerdash-helperd.service 2>/dev/null || true
             if systemctl is-active --quiet coolercontrold.service; then
                 systemctl restart coolercontrold.service || true
             fi

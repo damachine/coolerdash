@@ -132,7 +132,7 @@ Checked against internal device database.
 Rectangular (safer fallback for unknown devices).
 .SS Manual Override
 You can manually override automatic detection in
-.IR /etc/coolercontrol/plugins/coolerdash/config.ini :
+.IR /etc/coolercontrol/plugins/coolerdash/config.json :
 .PP
 .RS
 .nf
@@ -228,21 +228,21 @@ The plugin is managed by CoolerControl:
 .PP
 .RS
 .nf
-.B /etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
+.B /usr/libexec/coolerdash/coolerdash --verbose
 .fi
 .RE
 .SS Force dual mode temporarily
 .PP
 .RS
 .nf
-.B /etc/coolercontrol/plugins/coolerdash/coolerdash --dual --verbose
+.B /usr/libexec/coolerdash/coolerdash --dual --verbose
 .fi
 .RE
 .SS Force circle mode temporarily
 .PP
 .RS
 .nf
-.B /etc/coolercontrol/plugins/coolerdash/coolerdash --circle --verbose
+.B /usr/libexec/coolerdash/coolerdash --circle --verbose
 .fi
 .RE
 .SS Check CoolerControl device information
@@ -285,7 +285,7 @@ The content appears cut off at the edges. Override display shape detection:
 .PP
 .RS
 .nf
-Edit /etc/coolercontrol/plugins/coolerdash/config.ini:
+Edit /etc/coolercontrol/plugins/coolerdash/config.json:
 [display]
 shape = circular
 .fi
@@ -297,7 +297,7 @@ Content appears too small with large margins. Override display shape:
 .PP
 .RS
 .nf
-Edit /etc/coolercontrol/plugins/coolerdash/config.ini:
+Edit /etc/coolercontrol/plugins/coolerdash/config.json:
 [display]
 shape = rectangular
 .fi
@@ -308,16 +308,16 @@ shape = rectangular
 .nf
 .B cd /path/to/coolerdash
 .B make debug
-.B /etc/coolercontrol/plugins/coolerdash/coolerdash --verbose
+.B /usr/libexec/coolerdash/coolerdash --verbose
 .fi
 .RE
 .SH FILES
 .TP
-.I /etc/coolercontrol/plugins/coolerdash/config.ini
+.I /etc/coolercontrol/plugins/coolerdash/config.json
 Main configuration file. Contains all settings for daemon connection, display
 properties, layout, colors, fonts, and temperature thresholds.
 .TP
-.I /etc/coolercontrol/plugins/coolerdash/coolerdash
+.I /usr/libexec/coolerdash/coolerdash
 Installed plugin binary executable.
 .TP
 .I /etc/coolercontrol/plugins/coolerdash/manifest.toml
@@ -360,7 +360,7 @@ Documentation directory containing detailed guides:
 .SH ENVIRONMENT
 .B coolerdash
 does not use environment variables. All configuration is managed through
-.IR /etc/coolercontrol/plugins/coolerdash/config.ini .
+.IR /etc/coolercontrol/plugins/coolerdash/config.json .
 .SH EXIT STATUS
 .TP
 .B 0
@@ -379,7 +379,7 @@ stops (during shutdown or reboot), it automatically displays the shutdown.png
 image because sensor data is no longer available.
 .IP \(bu 3
 The CoolerControl service must be restarted after modifying
-.I /etc/coolercontrol/plugins/coolerdash/config.ini
+.I /etc/coolercontrol/plugins/coolerdash/config.json
 for changes to take effect.
 .IP \(bu 3
 Verbose logging (
@@ -450,10 +450,10 @@ Report bugs and feature requests at:
 When reporting bugs, please include:
 .IP \(bu 3
 Output of
-.B /etc/coolercontrol/plugins/coolerdash/coolerdash \-\-verbose
+.B /usr/libexec/coolerdash/coolerdash \-\-verbose
 .IP \(bu 3
 Content of
-.I /etc/coolercontrol/plugins/coolerdash/config.ini
+.I /etc/coolercontrol/plugins/coolerdash/config.json
 .IP \(bu 3
 Output of
 .B "systemctl status coolercontrold"

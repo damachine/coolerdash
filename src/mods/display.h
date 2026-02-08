@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief Display mode dispatcher for CoolerDash.
- * @details Provides mode-agnostic dispatcher that routes to appropriate
- * rendering modules (dual or circle mode).
+ * @brief Display mode dispatcher.
+ * @details Routes to dual or circle rendering module.
  */
 
 #ifndef DISPLAY_DISPATCHER_H

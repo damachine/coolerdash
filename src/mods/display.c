@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief Display mode dispatcher implementation.
- * @details Routes rendering requests to appropriate mode-specific modules based
- * on configuration. Also provides shared helper functions for sensor slot handling.
+ * @brief Display mode dispatcher.
+ * @details Routes to dual or circle rendering module, shared sensor helpers.
  */
 
 // Define POSIX constants

@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief CoolerControl main API - Session management and HTTP communication.
- * @details Provides functions for session initialization, authentication, and
- * LCD image upload.
+ * @brief Session management, authentication, LCD image upload.
+ * @details HTTP client for CoolerControl REST API.
  */
 
 // Define POSIX constants

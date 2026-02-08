@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief LCD rendering and image upload implementation for CoolerDash.
- * @details Provides functions for rendering the LCD display based on sensor
- * data and configuration.
+ * @brief Dual mode rendering (CPU+GPU side by side).
+ * @details Cairo-based LCD image generation for dual sensor display.
  */
 
 // Include necessary headers

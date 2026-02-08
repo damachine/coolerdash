@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief CoolerControl Plugin Configuration System
- * @details Complete JSON-based configuration with hardcoded defaults.
- *          Replaces config.ini + sys.c + usr.c with unified plugin.c/h
+ * @brief JSON configuration loader with hardcoded defaults.
+ * @details Parses config.json, applies defaults for missing values.
  */
 
 #define _POSIX_C_SOURCE 200112L

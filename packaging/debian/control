@@ -19,11 +19,8 @@ Package: coolerdash
 Architecture: amd64
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         libcairo2,
-         libcurl4,
-         libjansson4,
-         fonts-roboto,
-         coolercontrol
+         fonts-roboto
+Recommends: coolercontrol
 Description: LCD temperature display daemon for AIO liquid coolers
  CoolerDash is a high-performance C99 daemon that displays CPU and GPU
  temperatures on LCD displays of AIO liquid coolers (NZXT Kraken, etc.)

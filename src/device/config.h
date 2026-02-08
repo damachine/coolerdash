@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief CoolerControl Plugin Configuration System
- * @details Loads all configuration from config.json with hardcoded defaults as fallback.
- *          Replaces the old config.ini + sys.c system with a unified JSON-based approach.
+ * @brief JSON configuration loader with hardcoded defaults.
+ * @details Config struct, load/save functions, default values.
  */
 
 #ifndef PLUGIN_H
