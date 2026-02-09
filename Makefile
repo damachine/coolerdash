@@ -233,6 +233,14 @@ install: check-deps $(TARGET)
 			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/ui.html; \
 			LEGACY_FOUND=1; \
 		fi; \
+		if [ -f /etc/coolercontrol/plugins/coolerdash/LICENSE ]; then \
+			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/LICENSE; \
+			LEGACY_FOUND=1; \
+		fi; \
+		if [ -f /etc/coolercontrol/plugins/coolerdash/coolerdash ]; then \
+			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash; \
+			LEGACY_FOUND=1; \
+		fi; \
 		if [ -f /usr/share/applications/coolerdash-settings.desktop ]; then \
 			$(SUDO) rm -f /usr/share/applications/coolerdash-settings.desktop; \
 			LEGACY_FOUND=1; \
@@ -250,26 +258,26 @@ install: check-deps $(TARGET)
 			LEGACY_FOUND=1; \
 		fi; \
 		if [ "$$LEGACY_FOUND" -eq 1 ]; then \
-			printf "  $(GREEN)✓$(RESET) Legacy cleanup complete\n" >/dev/null 2>&1; \
+			printf "  $(GREEN)✓$(RESET) Legacy cleanup complete\n"; \
 		else \
-			printf "  $(BLUE)→$(RESET) No legacy files found (clean install)\n" >/dev/null 2>&1; \
+			printf "  $(BLUE)→$(RESET) No legacy files found (clean install)\n"; \
 		fi; \
-		printf "\n" >/dev/null 2>&1; \
+		printf "\n"; \
 		COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 		if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
-			printf "$(ICON_SERVICE) $(CYAN)Terminating running coolerdash process(es)...$(RESET)\n" >/dev/null 2>&1; \
+			printf "$(ICON_SERVICE) $(CYAN)Terminating running coolerdash process(es)...$(RESET)\n"; \
 			$(SUDO) killall -TERM coolerdash 2>/dev/null || true; \
 			sleep 2; \
 			REMAINING_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 			if [ "$$REMAINING_COUNT" -gt 0 ]; then \
-				printf "  $(YELLOW)→$(RESET) Force killing $$REMAINING_COUNT remaining process(es)...\n" >/dev/null 2>&1; \
+				printf "  $(YELLOW)→$(RESET) Force killing $$REMAINING_COUNT remaining process(es)...\n"; \
 				$(SUDO) killall -KILL coolerdash 2>/dev/null || true; \
 			fi; \
-			printf "  $(GREEN)→$(RESET) Processes terminated\n" >/dev/null 2>&1; \
-			printf "\n" >/dev/null 2>&1; \
+			printf "  $(GREEN)→$(RESET) Processes terminated\n"; \
+			printf "\n"; \
 		fi; \
 	else \
-		printf "$(ICON_INFO) $(YELLOW)Migration skipped (CI environment).$(RESET)\n" >/dev/null 2>&1; \
+		printf "$(ICON_INFO) $(YELLOW)Migration skipped (CI environment).$(RESET)\n"; \
 	fi
 	@printf "\n"
 	@printf "$(ICON_INFO) $(CYAN)Installing plugin files...$(RESET)\n"
@@ -374,6 +382,14 @@ uninstall:
 			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/ui.html; \
 			LEGACY_FOUND=1; \
 		fi; \
+		if [ -f /etc/coolercontrol/plugins/coolerdash/LICENSE ]; then \
+			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/LICENSE; \
+			LEGACY_FOUND=1; \
+		fi; \
+		if [ -f /etc/coolercontrol/plugins/coolerdash/coolerdash ]; then \
+			$(SUDO) rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash; \
+			LEGACY_FOUND=1; \
+		fi; \
 		if [ -f /usr/share/applications/coolerdash-settings.desktop ]; then \
 			$(SUDO) rm -f /usr/share/applications/coolerdash-settings.desktop; \
 			LEGACY_FOUND=1; \
@@ -394,21 +410,21 @@ uninstall:
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) rm -f /etc/systemd/system/coolerdash-helperd.service; \
 	fi
-	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service" || true
-	@$(SUDO) rm -rf "$(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d" || true
-	@$(SUDO) rm -rf "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash" || true
-	@$(SUDO) rm -rf "$(DESTDIR)/usr/libexec/coolerdash" || true
-	@$(SUDO) rm -rf "$(DESTDIR)/usr/share/licenses/coolerdash" || true
-	@$(SUDO) rm -f "$(DESTDIR)/usr/share/man/man1/coolerdash.1" || true
-	@$(SUDO) rm -f "$(DESTDIR)/usr/share/applications/coolerdash.desktop" || true
+	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service"
+	@$(SUDO) rm -rf "$(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d"
+	@$(SUDO) rm -rf "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
+	@$(SUDO) rm -rf "$(DESTDIR)/usr/libexec/coolerdash"
+	@$(SUDO) rm -rf "$(DESTDIR)/usr/share/licenses/coolerdash"
+	@$(SUDO) rm -f "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
+	@$(SUDO) rm -f "$(DESTDIR)/usr/share/applications/coolerdash.desktop"
 	@printf "$(ICON_CLEAN) $(CYAN)Removing udev rule...$(RESET)\n"
-	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules" || true
+	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) udevadm control --reload-rules 2>/dev/null || true; \
 		$(SUDO) udevadm trigger --subsystem-match=usb 2>/dev/null || true; \
 		printf "  $(GREEN)✓$(RESET) udev rules reloaded\n"; \
 	fi
-	@$(SUDO) rm -f "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg" || true
+	@$(SUDO) rm -f "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		if id -u coolerdash >/dev/null 2>&1; then \
 			$(SUDO) userdel -rf coolerdash; \
