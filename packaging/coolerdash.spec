@@ -73,7 +73,8 @@ fi
 if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
     chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
 fi
-# Remove old helperd from /etc
+# Migrate helperd from /etc to /usr/lib
+rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
 rm -f /etc/systemd/system/coolerdash-helperd.service
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
