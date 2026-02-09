@@ -3,11 +3,39 @@ set -e
 
 case "$1" in
     remove|upgrade|deconfigure)
-        # Stop CoolerControl to ensure clean plugin removal
+        # Stop services
         if command -v systemctl >/dev/null 2>&1; then
-            if systemctl is-active --quiet coolercontrold.service; then
-                systemctl stop coolercontrold.service || true
+            if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
+                systemctl stop --no-block coolerdash-helperd.service
+                systemctl disable coolerdash-helperd.service
             fi
+            if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
+                systemctl stop cc-plugin-coolerdash.service
+                systemctl disable cc-plugin-coolerdash.service
+            fi
+            if systemctl is-active --quiet coolercontrold.service; then
+                systemctl stop coolercontrold.service
+            fi
+            systemctl daemon-reload
+        fi
+        # Remove old helperd from /etc
+        rm -f /etc/systemd/system/coolerdash-helperd.service
+
+        # Remove legacy files
+        rm -f /etc/systemd/system/coolerdash.service
+        rm -f /etc/coolercontrol/plugins/coolerdash/config.ini
+        rm -f /etc/coolercontrol/plugins/coolerdash/ui.html
+        rm -f /etc/coolercontrol/plugins/coolerdash/LICENSE
+        rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash
+        rm -f /usr/share/applications/coolerdash-settings.desktop
+        rm -f /bin/coolerdash
+        rm -f /usr/bin/coolerdash
+        rm -rf /opt/coolerdash
+        rm -rf /etc/coolerdash
+
+        # Remove legacy user
+        if id -u coolerdash >/dev/null 2>&1; then
+            userdel -rf coolerdash
         fi
         ;;
 esac

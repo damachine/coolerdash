@@ -1,0 +1,35 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    install|upgrade)
+        # Stop legacy service
+        if command -v systemctl >/dev/null 2>&1; then
+            if systemctl list-unit-files coolerdash.service | grep -q coolerdash; then
+                systemctl stop coolerdash.service
+                systemctl disable coolerdash.service
+            fi
+        fi
+
+        # Remove legacy files
+        rm -f /etc/systemd/system/coolerdash.service
+        rm -rf /opt/coolerdash
+        rm -rf /etc/coolerdash
+        rm -f /etc/coolercontrol/plugins/coolerdash/config.ini
+        rm -f /etc/coolercontrol/plugins/coolerdash/ui.html
+        rm -f /etc/coolercontrol/plugins/coolerdash/LICENSE
+        rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash
+        rm -f /usr/share/applications/coolerdash-settings.desktop
+        rm -f /bin/coolerdash
+        rm -f /usr/bin/coolerdash
+
+        # Remove legacy user
+        if id -u coolerdash >/dev/null 2>&1; then
+            userdel -rf coolerdash
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

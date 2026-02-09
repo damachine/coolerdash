@@ -14,18 +14,18 @@ jobs:
   sync:
     name: Synchronize with GitLab
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
       with:
         fetch-depth: 0  # Fetch complete history for proper sync
-        
+
     - name: Configure Git
       run: |
         git config --global user.name "GitHub Actions"
         git config --global user.email "actions@github.com"
-        
+
     - name: Add GitLab remote and selective sync
       env:
         GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
@@ -35,15 +35,15 @@ jobs:
           echo "Please add your GitLab Personal Access Token to GitHub Secrets as 'GITLAB_TOKEN'"
           exit 1
         fi
-        
+
         # Add GitLab remote with token authentication
         git remote add gitlab https://oauth2:${GITLAB_TOKEN}@gitlab.com/damachine/coolerdash.git
-        
+
         echo "🔄 Creating selective sync (with GitLab-specific README)..."
-        
+
         # Create temporary branch for selective sync
         git checkout -b gitlab-sync
-        
+
         # Create GitLab-specific README.md
         cat > README.md << 'EOF'
         # CoolerDash - GitLab Mirror
@@ -52,7 +52,7 @@ jobs:
 
         ## 📍 Main Repository
 
-        **Primary development happens on GitHub:**  
+        **Primary development happens on GitHub:**
         🔗 **[https://github.com/damachine/coolerdash](https://github.com/damachine/coolerdash)**
 
         ## 🔄 Synchronization Info
@@ -73,7 +73,7 @@ jobs:
         **CoolerDash** is a real-time sensor monitoring tool for AIO liquid coolers with integrated LCD displays.
 
         - Enhances your liquid-cooling display with extra features
-        - Support for additional sensor values  
+        - Support for additional sensor values
         - Polished, customizable LCD dashboard
         - Add-on wrapper for [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)
 
@@ -85,14 +85,14 @@ jobs:
 
         ---
 
-        **🔗 Visit the main repository for the latest updates and full documentation:**  
+        **🔗 Visit the main repository for the latest updates and full documentation:**
         **[github.com/damachine/coolerdash](https://github.com/damachine/coolerdash)**
         EOF
 
         # Stage and commit the new README
         git add README.md
         git commit -m "INFO: this is a GitLab mirror - see GitHub for main repo: https://github.com/damachine/coolerdash"
-        
+
         echo "🔄 Synchronizing to GitLab (with GitLab README)..."
         # Try normal push first, fallback to sync branch if main is protected
         if ! git push gitlab gitlab-sync:main --force; then
@@ -100,16 +100,16 @@ jobs:
           git push gitlab gitlab-sync:github-sync --force
           echo "📝 Created 'github-sync' branch on GitLab"
         fi
-        
+
         # Clean up temporary branch
-        git checkout main
+        git checkout master
         git branch -D gitlab-sync
-        
+
         echo "🏷️ Synchronizing tags to GitLab..."
         git push gitlab --tags --force
-        
+
         echo "✅ Synchronization completed (GitLab README created)"
-        
+
     - name: Create sync summary
       if: success()
       run: |
@@ -124,7 +124,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "📝 **Note**: GitLab README explains this is a mirror and directs users to GitHub" >> $GITHUB_STEP_SUMMARY
         echo "🎯 **GitLab repository is now synchronized with GitHub (selective sync)**" >> $GITHUB_STEP_SUMMARY
-        
+
     - name: Error summary
       if: failure()
       run: |

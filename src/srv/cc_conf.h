@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief CoolerControl configuration - Device cache and display detection.
- * @details Provides functions for device information caching and circular
- * display detection.
+ * @brief Device cache and display detection.
+ * @details Caches device UID, detects LCD type (circular vs rectangular).
  */
 
 #ifndef CC_CONF_H

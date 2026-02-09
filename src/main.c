@@ -8,11 +8,8 @@
  */
 
 /**
- * @brief Enhanced main entry point for CoolerDash daemon with security and
- * performance optimizations.
- * @details Implements the main daemon logic with improved error handling,
- * secure PID management, and optimized signal processing. Enhanced with input
- * validation, dynamic version loading, and modern C practices.
+ * @brief Main entry point and daemon lifecycle.
+ * @details Signal handling, PID management, version loading, main loop.
  */
 
 // Define POSIX constants
@@ -245,8 +242,8 @@ static void show_help(const char *program_name)
            "configuration\n\n",
            program_name);
     printf("FILES:\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/    # Installation directory\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/coolerdash # Main executable\n");
+    printf("  /usr/libexec/coolerdash/coolerdash            # Main executable\n");
+    printf("  /etc/coolercontrol/plugins/coolerdash/         # Plugin data directory\n");
     printf("  /etc/coolercontrol/plugins/coolerdash/config.json # Configuration "
            "file\n");
     printf("  /etc/coolercontrol/plugins/coolerdash/index.html # Web UI settings\n");

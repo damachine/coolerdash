@@ -8,10 +8,8 @@
  */
 
 /**
- * @brief Circle mode LCD rendering - Single sensor alternating display
- * implementation.
- * @details Provides functions for rendering single CPU or GPU sensor with
- * automatic 2.5s switching.
+ * @brief Circle mode rendering (alternating CPU/GPU).
+ * @details Single sensor display with automatic 2.5s switching.
  */
 
 // Include necessary headers

@@ -8,9 +8,8 @@
  */
 
 /**
- * @brief LCD rendering and image upload interface for CoolerDash.
- * @details Provides functions for rendering temperature data to LCD displays,
- * including Cairo-based image generation and upload to CoolerControl devices.
+ * @brief Dual mode rendering (CPU+GPU side by side).
+ * @details Cairo-based LCD image generation for dual sensor display.
  */
 
 // Include necessary headers

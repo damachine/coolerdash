@@ -8,11 +8,8 @@
  */
 
 /**
- * @brief Monitor API for reading CPU and GPU temperatures via CoolerControl
- * OpenAPI.
- * @details Provides functions to initialize the monitor subsystem and read
- * CPU/GPU temperature values from the API. Liquidctl device handling is in
- * coolercontrol.c.
+ * @brief CPU/GPU temperature monitoring via CoolerControl API.
+ * @details Reads sensor data from /status endpoint.
  */
 
 // Include necessary headers

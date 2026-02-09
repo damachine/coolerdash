@@ -1,9 +1,9 @@
-etc/coolercontrol/plugins/coolerdash/coolerdash
+usr/libexec/coolerdash/coolerdash
+usr/share/licenses/coolerdash/LICENSE
 etc/coolercontrol/plugins/coolerdash/config.json
 etc/coolercontrol/plugins/coolerdash/manifest.toml
 etc/coolercontrol/plugins/coolerdash/shutdown.png
 etc/coolercontrol/plugins/coolerdash/README.md
-etc/coolercontrol/plugins/coolerdash/LICENSE
 etc/coolercontrol/plugins/coolerdash/VERSION
 etc/coolercontrol/plugins/coolerdash/CHANGELOG.md
 etc/coolercontrol/plugins/coolerdash/ui/index.html
@@ -12,3 +12,5 @@ usr/share/man/man1/coolerdash.1
 usr/share/applications/coolerdash.desktop
 usr/share/icons/hicolor/scalable/apps/coolerdash.svg
 usr/lib/udev/rules.d/99-coolerdash.rules
+usr/lib/systemd/system/coolerdash-helperd.service
+etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf

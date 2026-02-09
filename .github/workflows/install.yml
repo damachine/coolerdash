@@ -4,8 +4,6 @@ on:
   push:
     paths:
       - "VERSION"
-    branches:
-      - master
   workflow_dispatch:
 
 permissions:
@@ -92,10 +90,10 @@ jobs:
           echo "📁 Checking installed files:"
           find /tmp/install-test -type f -name "*coolerdash*" | head -10
 
-          # Check binary (Plugin mode: /etc/coolercontrol/plugins/coolerdash/)
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash" ]; then
-            echo "✅ Binary installed correctly (plugin mode)"
-            file /tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash
+          # Check binary
+          if [ -f "/tmp/install-test/usr/libexec/coolerdash/coolerdash" ]; then
+            echo "✅ Binary installed correctly"
+            file /tmp/install-test/usr/libexec/coolerdash/coolerdash
           else
             echo "❌ Binary not found at expected location"
             find /tmp/install-test -name "coolerdash" -type f
@@ -157,6 +155,38 @@ jobs:
             echo "⚠️  Manual page not found"
           fi
 
+          # Check systemd helperd service
+          if [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash-helperd.service" ]; then
+            echo "✅ Systemd helperd service installed"
+          else
+            echo "❌ Systemd helperd service not found"
+            exit 1
+          fi
+
+          # Check systemd startup-delay drop-in
+          if [ -f "/tmp/install-test/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf" ]; then
+            echo "✅ Systemd startup-delay drop-in installed"
+          else
+            echo "❌ Systemd startup-delay drop-in not found"
+            exit 1
+          fi
+
+          # Check udev rules
+          if [ -f "/tmp/install-test/usr/lib/udev/rules.d/99-coolerdash.rules" ]; then
+            echo "✅ Udev rules installed"
+          else
+            echo "❌ Udev rules not found"
+            exit 1
+          fi
+
+          # Check license file (Linux packaging standard)
+          if [ -f "/tmp/install-test/usr/share/licenses/coolerdash/LICENSE" ]; then
+            echo "✅ License file installed (/usr/share/licenses/)"
+          else
+            echo "❌ License file not found at /usr/share/licenses/coolerdash/"
+            exit 1
+          fi
+
           echo "✅ Installation test completed on ${{ matrix.name }}"
 
   # Additional test for Arch Linux (your development system)
@@ -174,7 +204,7 @@ jobs:
       - name: Setup Arch Linux
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm cairo libcurl-gnutls libinih gcc make pkg-config jansson ttf-roboto sudo systemd
+          pacman -S --noconfirm cairo libcurl-gnutls gcc make pkg-config jansson ttf-roboto sudo systemd file
 
       - name: Test make install on Arch
         run: |
@@ -184,13 +214,53 @@ jobs:
           mkdir -p /tmp/install-test
           SUDO="" REALOS=no make install DESTDIR=/tmp/install-test
 
-          # Verify plugin installation
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash" ]; then
-            echo "✅ Plugin binary installed"
-            file /tmp/install-test/etc/coolercontrol/plugins/coolerdash/coolerdash
+          # Verify binary installation
+          if [ -f "/tmp/install-test/usr/libexec/coolerdash/coolerdash" ]; then
+            echo "✅ Binary installed"
+            file /tmp/install-test/usr/libexec/coolerdash/coolerdash
           else
-            echo "❌ Plugin binary not found"
+            echo "❌ Binary not found"
             find /tmp/install-test -name "coolerdash" -type f
+            exit 1
+          fi
+
+          # Check plugin config
+          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/config.json" ]; then
+            echo "✅ Config file installed"
+          else
+            echo "❌ Config file not found"
+            exit 1
+          fi
+
+          # Check systemd helperd service
+          if [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash-helperd.service" ]; then
+            echo "✅ Systemd helperd service installed"
+          else
+            echo "❌ Systemd helperd service not found"
+            exit 1
+          fi
+
+          # Check systemd startup-delay drop-in
+          if [ -f "/tmp/install-test/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf" ]; then
+            echo "✅ Systemd startup-delay drop-in installed"
+          else
+            echo "❌ Systemd startup-delay drop-in not found"
+            exit 1
+          fi
+
+          # Check udev rules
+          if [ -f "/tmp/install-test/usr/lib/udev/rules.d/99-coolerdash.rules" ]; then
+            echo "✅ Udev rules installed"
+          else
+            echo "❌ Udev rules not found"
+            exit 1
+          fi
+
+          # Check license file (Arch packaging guideline)
+          if [ -f "/tmp/install-test/usr/share/licenses/coolerdash/LICENSE" ]; then
+            echo "✅ License file installed (/usr/share/licenses/)"
+          else
+            echo "❌ License file not found at /usr/share/licenses/coolerdash/"
             exit 1
           fi
 
