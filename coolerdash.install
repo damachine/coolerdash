@@ -1,11 +1,11 @@
 # Created by: damachin3 (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
 
-# Pacman install hooks for local PKGBUILD
+# Pacman install hooks
 
 pre_install() {
-    # Stop legacy standalone service
-    if systemctl list-unit-files coolerdash.service >/dev/null 2>&1; then
+    # Stop legacy service
+    if systemctl list-unit-files coolerdash.service | grep -q coolerdash; then
         systemctl stop coolerdash.service
         systemctl disable coolerdash.service
     fi
@@ -30,23 +30,23 @@ pre_install() {
 
 post_install() {
     # Reload udev rules
-    if [ -f /usr/lib/udev/rules.d/99-coolerdash.rules ]; then
-        udevadm control --reload-rules 2>/dev/null || true
-        udevadm trigger --subsystem-match=usb 2>/dev/null || true
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules
+        udevadm trigger --subsystem-match=usb
     fi
 
-    # Migration: remove old helperd from /etc (now in /usr/lib)
+    # Remove old helperd from /etc
     rm -f /etc/systemd/system/coolerdash-helperd.service
 
     systemctl daemon-reload
 
     # Enable helperd
-    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
         systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
     fi
 
     # Restart CoolerControl
-    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1; then
+    if systemctl list-unit-files coolercontrold.service | grep -q coolercontrold; then
         systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
     fi
 
@@ -56,18 +56,18 @@ post_install() {
 }
 
 post_upgrade() {
-    # Migration: remove old helperd from /etc (now in /usr/lib)
+    # Remove old helperd from /etc
     rm -f /etc/systemd/system/coolerdash-helperd.service
 
     systemctl daemon-reload
 
     # Enable helperd
-    if systemctl list-unit-files coolerdash-helperd.service >/dev/null 2>&1; then
+    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
         systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
     fi
 
-    # Restart plugin service
-    if systemctl list-unit-files cc-plugin-coolerdash.service >/dev/null 2>&1; then
+    # Restart plugin
+    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
         systemctl restart cc-plugin-coolerdash.service || echo "Note: Plugin restart failed."
     fi
 
@@ -77,21 +77,23 @@ post_upgrade() {
 }
 
 pre_remove() {
-    # Stop legacy standalone service
-    if systemctl is-active --quiet coolerdash.service || systemctl is-enabled --quiet coolerdash.service; then
+    # Stop legacy service
+    if systemctl list-unit-files coolerdash.service | grep -q coolerdash; then
         systemctl stop coolerdash.service
         systemctl disable coolerdash.service
     fi
 
-    # Stop plugin service
-    if systemctl is-active --quiet cc-plugin-coolerdash.service || systemctl is-enabled --quiet cc-plugin-coolerdash.service; then
+    # Stop plugin
+    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
         systemctl stop cc-plugin-coolerdash.service
         systemctl disable cc-plugin-coolerdash.service
     fi
 
-    # Stop and disable helperd (unit file removed by pacman)
-    systemctl stop --no-block coolerdash-helperd.service 2>/dev/null || true
-    systemctl disable coolerdash-helperd.service 2>/dev/null || true
+    # Stop helperd
+    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
+        systemctl stop --no-block coolerdash-helperd.service
+        systemctl disable coolerdash-helperd.service
+    fi
 
     # Remove legacy files
     rm -f /etc/systemd/system/coolerdash-helperd.service
@@ -114,7 +116,7 @@ pre_remove() {
     systemctl daemon-reload
 
     # Restart CoolerControl
-    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1; then
+    if systemctl list-unit-files coolercontrold.service | grep -q coolercontrold; then
         systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
     fi
 

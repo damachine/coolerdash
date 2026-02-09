@@ -43,34 +43,88 @@ make SUDO="" REALOS=no %{?_smp_mflags}
 make install DESTDIR=%{buildroot} SUDO="" REALOS=no
 gzip -9 %{buildroot}/usr/share/man/man1/coolerdash.1
 
+%pre
+# Stop legacy service
+if command -v systemctl >/dev/null 2>&1; then
+    if systemctl list-unit-files coolerdash.service | grep -q coolerdash; then
+        systemctl stop coolerdash.service
+        systemctl disable coolerdash.service
+    fi
+fi
+
+# Remove legacy files
+rm -f /etc/systemd/system/coolerdash.service
+rm -rf /opt/coolerdash
+rm -rf /etc/coolerdash
+rm -f /etc/coolercontrol/plugins/coolerdash/config.ini
+rm -f /etc/coolercontrol/plugins/coolerdash/ui.html
+rm -f /etc/coolercontrol/plugins/coolerdash/LICENSE
+rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash
+rm -f /usr/share/applications/coolerdash-settings.desktop
+rm -f /bin/coolerdash
+rm -f /usr/bin/coolerdash
+
+# Remove legacy user
+if id -u coolerdash >/dev/null 2>&1; then
+    userdel -rf coolerdash
+fi
+
 %post
 if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
     chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
 fi
-# Migration: remove old helperd from /etc (now shipped in /usr/lib)
+# Remove old helperd from /etc
 rm -f /etc/systemd/system/coolerdash-helperd.service
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
-    systemctl enable --now coolerdash-helperd.service 2>/dev/null || true
-    if systemctl is-active --quiet coolercontrold.service 2>/dev/null; then
-        systemctl restart coolercontrold.service || true
+    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
+        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
+    fi
+    if systemctl is-active --quiet coolercontrold.service; then
+        systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
     fi
 fi
 
 %preun
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl stop --no-block coolerdash-helperd.service 2>/dev/null || true
-    systemctl disable coolerdash-helperd.service 2>/dev/null || true
-    systemctl stop cc-plugin-coolerdash.service 2>/dev/null || true
-    if systemctl is-active --quiet coolercontrold.service 2>/dev/null; then
-        systemctl stop coolercontrold.service || true
+    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
+        systemctl stop --no-block coolerdash-helperd.service
+        systemctl disable coolerdash-helperd.service
+    fi
+    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
+        systemctl stop cc-plugin-coolerdash.service
+        systemctl disable cc-plugin-coolerdash.service
+    fi
+    if systemctl is-active --quiet coolercontrold.service; then
+        systemctl stop coolercontrold.service
+    fi
+fi
+
+# Remove legacy files
+if [ "$1" = "0" ]; then
+    rm -f /etc/systemd/system/coolerdash-helperd.service
+    rm -f /etc/systemd/system/coolerdash.service
+    rm -f /etc/coolercontrol/plugins/coolerdash/config.ini
+    rm -f /etc/coolercontrol/plugins/coolerdash/ui.html
+    rm -f /etc/coolercontrol/plugins/coolerdash/LICENSE
+    rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash
+    rm -f /usr/share/applications/coolerdash-settings.desktop
+    rm -f /bin/coolerdash
+    rm -f /usr/bin/coolerdash
+    rm -rf /opt/coolerdash
+    rm -rf /etc/coolerdash
+    # Remove legacy user
+    if id -u coolerdash >/dev/null 2>&1; then
+        userdel -rf coolerdash
     fi
 fi
 
 %postun
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
-    systemctl restart coolercontrold.service 2>/dev/null || true
+    if systemctl is-active --quiet coolercontrold.service; then
+        systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
+    fi
 fi
 
 %files
