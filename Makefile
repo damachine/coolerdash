@@ -283,6 +283,9 @@ install: check-deps $(TARGET)
 	@install -m644 images/shutdown.png "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/shutdown.png"
 	@install -m644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
+	@OS_RELEASE=$$(grep -m1 '^PRETTY_NAME=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"' || echo "Linux"); \
+	 sed -i "s/{{OS_RELEASE}}/$$OS_RELEASE/g" "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
 	@install -Dm644 etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf "$(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf"
 	@install -Dm644 etc/systemd/coolerdash-helperd.service "$(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service"
 	@printf "  $(GREEN)Drop-in:$(RESET)       $(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"

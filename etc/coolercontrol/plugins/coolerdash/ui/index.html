@@ -474,7 +474,7 @@
             <h1>CoolerDash Configuration</h1>
             <p>Customize your LCD temperature dashboard • Changes require plugin restart</p>
             <p style="margin-top: 8px; font-size: 12px; color: var(--text-dim); opacity: 0.8;">
-                💡 <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values added by the developer.
+                💡 <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values. Feedback &amp; bug reports are welcome — see the <em>Info</em> tab for links.
             </p>
         </div>
 
@@ -1118,6 +1118,14 @@
                             <span class="device-info-label">Display Shape</span>
                             <span class="device-info-value" id="device-shape">—</span>
                         </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Firmware</span>
+                            <span class="device-info-value mono" id="device-firmware">—</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Liquidctl Version</span>
+                            <span class="device-info-value mono" id="device-liquidctl">—</span>
+                        </div>
                     </div>
 
                     <button type="button" class="btn btn-secondary" onclick="refreshDeviceInfo()" style="width: auto; padding: 10px 20px; margin-top: 8px;">
@@ -1138,7 +1146,7 @@
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Plugin</div>
-                        <div class="info-item-value">CoolerDash — LCD Temperature Dashboard</div>
+                        <div class="info-item-value">CoolerDash v{{VERSION}} — LCD Temperature Dashboard</div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Description</div>
@@ -1159,6 +1167,36 @@
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Language / Platform</div>
                         <div class="info-item-value">C99 / Linux (systemd)</div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Community &amp; Feedback</h3>
+
+                <div class="device-info-card">
+                    <div class="info-item">
+                        <div class="info-item-label">Bug Reports &amp; Feature Requests</div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener">GitHub Issues</a></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Discussions</div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener">GitHub Discussions</a></div>
+                    </div>
+                    <div class="info-item" style="margin-bottom: 0;">
+                        <div class="info-item-label">Discord</div>
+                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener">CoolerControl Discord — #coolerdash</a></div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">System Environment</h3>
+
+                <div class="device-info-card">
+                    <div class="device-info-row">
+                        <span class="device-info-label">Kernel</span>
+                        <span class="device-info-value mono" id="sys-kernel">—</span>
+                    </div>
+                    <div class="device-info-row">
+                        <span class="device-info-label">CoolerControl Version</span>
+                        <span class="device-info-value mono" id="sys-cc-version">—</span>
                     </div>
                 </div>
             </div>
@@ -1372,6 +1410,14 @@
                     document.getElementById('device-name').textContent = name;
                     document.getElementById('device-uid').textContent = uid;
 
+                    // Firmware from lc_info
+                    const firmware = found.lc_info?.firmware_version || '—';
+                    document.getElementById('device-firmware').textContent = firmware;
+
+                    // Liquidctl version from driver_info
+                    const liquidctlVer = found.info?.driver_info?.version || '—';
+                    document.getElementById('device-liquidctl').textContent = liquidctlVer;
+
                     // LCD info path: info.channels.<channel>.lcd_info
                     let width = 0, height = 0;
                     const channels = found.info?.channels;
@@ -1404,6 +1450,8 @@
                     document.getElementById('device-uid').textContent = '—';
                     document.getElementById('device-resolution').textContent = '—';
                     document.getElementById('device-shape').textContent = '—';
+                    document.getElementById('device-firmware').textContent = '—';
+                    document.getElementById('device-liquidctl').textContent = '—';
                     document.getElementById('device-status').innerHTML =
                         '<span class="device-status disconnected"><span class="device-status-dot"></span> No LCD device found</span>';
                     contentEl.style.display = 'block';
@@ -1422,6 +1470,44 @@
 
         function refreshDeviceInfo() {
             fetchDeviceInfo(lastApiAddress, lastApiPassword);
+        }
+
+        async function fetchSystemInfo(apiAddress, password) {
+            try {
+                const headers = {};
+                if (password) {
+                    headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
+                }
+
+                // Fetch /health for CC version
+                const healthRes = await fetch(`${apiAddress}/health`, { headers });
+                if (healthRes.ok) {
+                    const health = await healthRes.json();
+                    const ccVersion = health.details?.version || '—';
+                    document.getElementById('sys-cc-version').textContent = ccVersion;
+                }
+
+                // Fetch /devices to extract kernel from driver_info (drv_type 'Kernel')
+                const devRes = await fetch(`${apiAddress}/devices`, { headers });
+                if (devRes.ok) {
+                    const data = await devRes.json();
+                    const devices = data.devices || [];
+                    let kernel = '';
+                    for (const dev of devices) {
+                        const drvType = dev.info?.driver_info?.drv_type;
+                        const ver = dev.info?.driver_info?.version;
+                        if (drvType === 'Kernel' && ver) {
+                            kernel = ver;
+                            break;
+                        }
+                    }
+                    if (kernel) {
+                        document.getElementById('sys-kernel').textContent = kernel;
+                    }
+                }
+            } catch (error) {
+                console.warn('System info fetch failed:', error);
+            }
         }
 
         // ===== UI FUNCTIONS =====
@@ -1762,6 +1848,7 @@
                 const apiAddr = config.daemon?.address || 'http://localhost:11987';
                 const apiPass = config.daemon?.password || '';
                 fetchDeviceInfo(apiAddr, apiPass);
+                fetchSystemInfo(apiAddr, apiPass);
             } catch (error) {
                 console.error("Init failed:", error);
                 if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);
