@@ -58,7 +58,7 @@ jobs:
 
     steps:
       - name: Checkout CoolerDash code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
 
       - name: Update package manager
         run: ${{ matrix.pre_install }}
@@ -199,7 +199,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v4
 
       - name: Setup Arch Linux
         run: |

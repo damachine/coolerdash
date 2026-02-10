@@ -33,4 +33,6 @@ LICENSE text eol=lf
 .gitignore export-ignore
 .github export-ignore
 docs export-ignore
-*.md export-ignore
+CONTRIBUTING.md export-ignore
+CODE_OF_CONDUCT.md export-ignore
+SECURITY.md export-ignore
