@@ -29,19 +29,19 @@ build() {
     # Fetch latest tags if in git repo
     if git rev-parse --git-dir >/dev/null 2>&1; then
         echo "Fetching latest tags..."
-        git fetch --tags 2>/dev/null || true
+        git fetch --tags
     fi
 
     # Remove all previous tarball builds
-    rm -rf coolerdash-*.pkg.* || true
+    rm -rf coolerdash-*.pkg.*
 
     # Clean any previous builds if a Makefile exists
     if [[ -f Makefile || -f GNUmakefile ]]; then
-        make clean || true
+        make clean
     fi
 
-    # Build with Arch Linux specific optimizations and C99 compliance
-    make || return 1
+    # Build the project
+    make
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
     mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons" "${srcdir}/etc/udev/rules.d"
@@ -67,9 +67,9 @@ check() {
 
     # Verify that the binary was created successfully
     if [[ -f bin/coolerdash ]]; then
-        echo "Build successful - binary created"
+        msg "Build successful - binary created"
     else
-        echo "ERROR: Binary not found"
+        error "Build failed - binary not found"
         return 1
     fi
 }
