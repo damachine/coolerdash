@@ -28,12 +28,12 @@
 #include "cc_sensor.h"
 
 /**
- * @brief Extract device type from JSON object
- * @details Helper function to extract device type from JSON object
+ * @brief Extract device type from JSON object.
+ * @details Helper function to extract device type from JSON object.
  */
 extern const char *extract_device_type_from_json(const json_t *dev);
 
-/** @brief Cached CURL handle for reuse across polling cycles */
+/** @brief Cached CURL handle for reuse across polling cycles. */
 static CURL *sensor_curl_handle = NULL;
 
 /**
@@ -65,8 +65,8 @@ void cleanup_sensor_curl_handle(void)
 }
 
 /**
- * @brief Extract temperature from device status history
- * @details Helper function to get temperature from the latest status entry
+ * @brief Extract temperature from device status history.
+ * @details Helper function to get temperature from the latest status entry.
  */
 static float extract_device_temperature(const json_t *device,
                                         const char *device_type)
@@ -225,8 +225,8 @@ static int parse_temperature_data(const char *json, float *temp_cpu,
 }
 
 /**
- * @brief Configure CURL for status API request
- * @details Helper function to set up CURL options for temperature data request
+ * @brief Configure CURL for status API request.
+ * @details Helper function to set up CURL options for temperature data request.
  */
 static void configure_status_request(CURL *curl, const char *url,
                                      struct http_response *response)

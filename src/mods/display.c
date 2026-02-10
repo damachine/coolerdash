@@ -37,12 +37,8 @@
 #define M_SQRT1_2 0.7071067811865476
 #endif
 
-// ============================================================================
-// Shared Cairo Rendering Helpers
-// ============================================================================
-
 /**
- * @brief Convert color component from 0-255 to cairo 0.0-1.0 range.
+ * @brief Convert color component into a 0.0-1.0 range.
  */
 double cairo_color_convert(uint8_t color_component)
 {
@@ -104,8 +100,7 @@ void draw_degree_symbol(cairo_t *cr, double x, double y,
 
 /**
  * @brief Create cairo surface and context for display rendering.
- * @details Creates ARGB32 surface with dimensions from config. Caller must
- * destroy both context and surface after use.
+ * @details Creates ARGB32 surface with dimensions from config.
  */
 cairo_t *create_cairo_context(const struct Config *config,
                               cairo_surface_t **surface)
@@ -229,7 +224,7 @@ void calculate_scaling_params(const struct Config *config,
                                  config->display_content_scale_factor <= 1.0f)
                                     ? config->display_content_scale_factor
                                     : 0.98f; // Fallback: 98%
-    // Apply bar_width percentage (default 98% = 1% margin left+right)
+    // Apply bar_width percentage
     const double bar_width_factor = (config->layout_bar_width > 0)
                                         ? (config->layout_bar_width / 100.0)
                                         : 0.98;
@@ -240,7 +235,7 @@ void calculate_scaling_params(const struct Config *config,
 
     params->corner_radius = 8.0 * scale_avg;
 
-    // Log detailed scaling calculations (verbose only)
+    // Log detailed scaling calculations
     log_message(
         LOG_INFO,
         "Scaling: safe_area=%.0fpx, bar_width=%dpx (%.0f%%), margin=%.1fpx",
@@ -249,7 +244,7 @@ void calculate_scaling_params(const struct Config *config,
 }
 
 /**
- * @brief Check if a sensor slot is active (not "none")
+ * @brief Check if a sensor slot is active.
  */
 int slot_is_active(const char *slot_value)
 {
@@ -259,7 +254,7 @@ int slot_is_active(const char *slot_value)
 }
 
 /**
- * @brief Get temperature value for a sensor slot
+ * @brief Get temperature value for a sensor slot.
  */
 float get_slot_temperature(const monitor_sensor_data_t *data, const char *slot_value)
 {
@@ -277,7 +272,7 @@ float get_slot_temperature(const monitor_sensor_data_t *data, const char *slot_v
 }
 
 /**
- * @brief Get display label for a sensor slot
+ * @brief Get display label for a sensor slot.
  */
 const char *get_slot_label(const char *slot_value)
 {
@@ -297,7 +292,7 @@ const char *get_slot_label(const char *slot_value)
 }
 
 /**
- * @brief Get bar color for a sensor slot based on temperature
+ * @brief Get bar color for a sensor slot based on temperature.
  */
 Color get_slot_bar_color(const struct Config *config, const char *slot_value, float temperature)
 {
@@ -346,7 +341,7 @@ Color get_slot_bar_color(const struct Config *config, const char *slot_value, fl
 }
 
 /**
- * @brief Get maximum scale for a sensor slot
+ * @brief Get maximum scale for a sensor slot.
  */
 float get_slot_max_scale(const struct Config *config, const char *slot_value)
 {
@@ -366,7 +361,7 @@ float get_slot_max_scale(const struct Config *config, const char *slot_value)
 }
 
 /**
- * @brief Get bar height for a specific slot
+ * @brief Get bar height for a specific slot.
  */
 uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name)
 {

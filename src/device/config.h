@@ -152,13 +152,13 @@ typedef struct Config
 } Config;
 
 /**
- * @brief Global logging function for all modules except main.c
+ * @brief Global logging function for all modules except main.c.
  * @details Provides unified log output for info, status, warning and error messages.
  */
 void log_message(log_level_t level, const char *format, ...);
 
 /**
- * @brief Global logging control from main.c
+ * @brief Global logging control from main.c.
  * @details External variable controlling verbose logging behavior across all modules.
  */
 extern int verbose_logging;
@@ -192,7 +192,7 @@ static inline int is_valid_orientation(int orientation)
 // ============================================================================
 
 /**
- * @brief Load complete configuration from config.json with hardcoded defaults
+ * @brief Load complete configuration from config.json with hardcoded defaults.
  * @param config Pointer to Config struct to populate
  * @param config_path Optional path to config.json (NULL = use default location)
  * @return 1 on success (config loaded), 0 if using defaults only

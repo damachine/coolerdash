@@ -30,13 +30,13 @@
 #include "circle.h"
 
 /**
- * @brief Global state for sensor alternation (slot-based cycling)
+ * @brief Global state for sensor alternation (slot-based cycling).
  */
 static int current_slot_index = 0; // 0=up, 1=mid, 2=down
 static time_t last_switch_time = 0;
 
 /**
- * @brief Get the slot value for a given slot index
+ * @brief Get the slot value for a given slot index.
  * @param config Configuration
  * @param slot_index 0=up, 1=mid, 2=down
  * @return Slot value string ("cpu", "gpu", "liquid", "none")
@@ -60,7 +60,7 @@ static const char *get_slot_value_by_index(const struct Config *config, int slot
 }
 
 /**
- * @brief Get slot name for a given slot index
+ * @brief Get slot name for a given slot index.
  */
 static const char *get_slot_name_by_index(int slot_index)
 {
@@ -78,7 +78,7 @@ static const char *get_slot_name_by_index(int slot_index)
 }
 
 /**
- * @brief Find next active slot index (wrapping around)
+ * @brief Find next active slot index (wrapping around).
  * @param config Configuration
  * @param start_index Starting slot index
  * @return Next active slot index, or -1 if none found
@@ -96,7 +96,7 @@ static int find_next_active_slot(const struct Config *config, int start_index)
 }
 
 /**
- * @brief Check if sensor should switch based on configured interval
+ * @brief Check if sensor should switch based on configured interval.
  */
 static void update_sensor_mode(const struct Config *config)
 {
@@ -140,7 +140,7 @@ static void update_sensor_mode(const struct Config *config)
 }
 
 /**
- * @brief Draw single sensor display based on current slot
+ * @brief Draw single sensor display based on current slot.
  * @param cr Cairo context
  * @param config Configuration
  * @param params Scaling parameters
@@ -308,7 +308,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 }
 
 /**
- * @brief Render complete circle mode display
+ * @brief Render complete circle mode display.
  */
 static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
@@ -390,7 +390,7 @@ static int render_circle_display(const struct Config *config,
 }
 
 /**
- * @brief High-level entry point for circle mode rendering
+ * @brief High-level entry point for circle mode rendering.
  * @details Collects sensor data, renders circle display using
  * render_circle_display(), and sends to LCD device.
  */

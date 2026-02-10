@@ -30,7 +30,7 @@
 // ============================================================================
 
 /**
- * @brief Global logging implementation for all modules except main.c
+ * @brief Global logging implementation for all modules except main.c.
  */
 void log_message(log_level_t level, const char *format, ...)
 {
@@ -62,7 +62,7 @@ void log_message(log_level_t level, const char *format, ...)
 // ============================================================================
 
 /**
- * @brief Set daemon default values
+ * @brief Set daemon default values.
  */
 static void set_daemon_defaults(Config *config)
 {
@@ -77,7 +77,7 @@ static void set_daemon_defaults(Config *config)
 }
 
 /**
- * @brief Set paths default values
+ * @brief Set paths default values.
  */
 static void set_paths_defaults(Config *config)
 {
@@ -97,7 +97,7 @@ static void set_paths_defaults(Config *config)
 }
 
 /**
- * @brief Try to set display dimensions from LCD device
+ * @brief Try to set display dimensions from LCD device.
  */
 static void try_set_lcd_dimensions(Config *config)
 {
@@ -118,7 +118,7 @@ static void try_set_lcd_dimensions(Config *config)
 }
 
 /**
- * @brief Set display default values with LCD device fallback
+ * @brief Set display default values with LCD device fallback.
  */
 static void set_display_defaults(Config *config)
 {
@@ -151,7 +151,7 @@ static void set_display_defaults(Config *config)
 }
 
 /**
- * @brief Set layout default values
+ * @brief Set layout default values.
  */
 static void set_layout_defaults(Config *config)
 {
@@ -182,7 +182,7 @@ static void set_layout_defaults(Config *config)
 }
 
 /**
- * @brief Set display positioning default values
+ * @brief Set display positioning default values.
  */
 static void set_display_positioning_defaults(Config *config)
 {
@@ -194,7 +194,7 @@ static void set_display_positioning_defaults(Config *config)
 }
 
 /**
- * @brief Set font default values with dynamic scaling
+ * @brief Set font default values with dynamic scaling.
  */
 static void set_font_defaults(Config *config)
 {
@@ -237,7 +237,7 @@ static void set_font_defaults(Config *config)
 }
 
 /**
- * @brief Set temperature defaults
+ * @brief Set temperature defaults.
  */
 static void set_temperature_defaults(Config *config)
 {
@@ -273,7 +273,7 @@ static void set_temperature_defaults(Config *config)
 }
 
 /**
- * @brief Check if color is unset
+ * @brief Check if color is unset.
  * @details Uses is_set flag - all RGB values (0,0,0 to 255,255,255) are valid.
  */
 static inline int is_color_unset(const Color *color)
@@ -282,7 +282,7 @@ static inline int is_color_unset(const Color *color)
 }
 
 /**
- * @brief Color default configuration entry
+ * @brief Color default configuration entry.
  */
 typedef struct
 {
@@ -291,7 +291,7 @@ typedef struct
 } ColorDefault;
 
 /**
- * @brief Set color default values
+ * @brief Set color default values.
  */
 static void set_color_defaults(Config *config)
 {
@@ -330,7 +330,7 @@ static void set_color_defaults(Config *config)
 }
 
 /**
- * @brief Check if a sensor slot value is valid
+ * @brief Check if a sensor slot value is valid.
  */
 static int is_valid_sensor_slot(const char *slot)
 {
@@ -343,7 +343,7 @@ static int is_valid_sensor_slot(const char *slot)
 }
 
 /**
- * @brief Check if a sensor slot is active (not "none")
+ * @brief Check if a sensor slot is active (not "none").
  */
 static int slot_is_active_str(const char *slot)
 {
@@ -353,7 +353,7 @@ static int slot_is_active_str(const char *slot)
 }
 
 /**
- * @brief Validate sensor slot configuration
+ * @brief Validate sensor slot configuration.
  * @details Checks for duplicates (excluding "none"), ensures at least one active slot,
  *          and validates slot values. Resets to defaults on critical errors.
  */
@@ -427,7 +427,7 @@ static void validate_sensor_slots(Config *config)
 }
 
 /**
- * @brief Apply all system default values for missing fields
+ * @brief Apply all system default values for missing fields.
  */
 static void apply_system_defaults(Config *config)
 {
@@ -449,7 +449,7 @@ static void apply_system_defaults(Config *config)
 // ============================================================================
 
 /**
- * @brief Read color from JSON object
+ * @brief Read color from JSON object.
  */
 static int read_color_from_json(json_t *color_obj, Color *color)
 {
@@ -479,7 +479,7 @@ static int read_color_from_json(json_t *color_obj, Color *color)
 }
 
 /**
- * @brief Try to locate config.json
+ * @brief Try to locate config.json.
  */
 static const char *find_config_json(const char *custom_path)
 {
@@ -511,7 +511,7 @@ static const char *find_config_json(const char *custom_path)
 }
 
 /**
- * @brief Load daemon settings from JSON
+ * @brief Load daemon settings from JSON.
  */
 static void load_daemon_from_json(json_t *root, Config *config)
 {
@@ -541,7 +541,7 @@ static void load_daemon_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load paths from JSON
+ * @brief Load paths from JSON.
  */
 static void load_paths_from_json(json_t *root, Config *config)
 {
@@ -581,7 +581,7 @@ static void load_paths_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load display settings from JSON
+ * @brief Load display settings from JSON.
  */
 static void load_display_from_json(json_t *root, Config *config)
 {
@@ -696,7 +696,7 @@ static void load_display_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load layout settings from JSON
+ * @brief Load layout settings from JSON.
  */
 static void load_layout_from_json(json_t *root, Config *config)
 {
@@ -789,7 +789,7 @@ static void load_layout_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load colors from JSON
+ * @brief Load colors from JSON.
  */
 static void load_colors_from_json(json_t *root, Config *config)
 {
@@ -805,7 +805,7 @@ static void load_colors_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load font settings from JSON
+ * @brief Load font settings from JSON.
  */
 static void load_font_from_json(json_t *root, Config *config)
 {
@@ -837,7 +837,7 @@ static void load_font_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load CPU temperature settings from JSON
+ * @brief Load CPU temperature settings from JSON.
  */
 static void load_cpu_temperature_from_json(json_t *root, Config *config)
 {
@@ -876,7 +876,7 @@ static void load_cpu_temperature_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load GPU temperature settings from JSON
+ * @brief Load GPU temperature settings from JSON.
  */
 static void load_gpu_temperature_from_json(json_t *root, Config *config)
 {
@@ -915,7 +915,7 @@ static void load_gpu_temperature_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load liquid temperature settings from JSON
+ * @brief Load liquid temperature settings from JSON.
  */
 static void load_liquid_from_json(json_t *root, Config *config)
 {
@@ -954,7 +954,7 @@ static void load_liquid_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load positioning settings from JSON
+ * @brief Load positioning settings from JSON.
  */
 static void load_positioning_from_json(json_t *root, Config *config)
 {
@@ -1022,7 +1022,7 @@ static void load_positioning_from_json(json_t *root, Config *config)
 // ============================================================================
 
 /**
- * @brief Load complete configuration from config.json with hardcoded defaults
+ * @brief Load complete configuration from config.json with hardcoded defaults.
  */
 int load_plugin_config(Config *config, const char *config_path)
 {

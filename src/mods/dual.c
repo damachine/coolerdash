@@ -30,7 +30,7 @@
 #include "dual.h"
 
 /**
- * @brief Forward declarations for internal display rendering functions
+ * @brief Forward declarations for internal display rendering functions.
  */
 static void draw_temperature_displays(cairo_t *cr,
                                       const monitor_sensor_data_t *data,
@@ -54,7 +54,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const ScalingParams *params);
 
 /**
- * @brief Draw temperature displays for up and down slots
+ * @brief Draw temperature displays for up and down slots.
  */
 static void draw_temperature_displays(cairo_t *cr,
                                       const monitor_sensor_data_t *data,
@@ -175,7 +175,7 @@ static void draw_temperature_displays(cairo_t *cr,
 }
 
 /**
- * @brief Draw a single temperature bar with background, fill, and border
+ * @brief Draw a single temperature bar with background, fill, and border.
  */
 static void draw_single_temperature_bar_slot(cairo_t *cr,
                                              const struct Config *config,
@@ -226,7 +226,7 @@ static void draw_single_temperature_bar_slot(cairo_t *cr,
 }
 
 /**
- * @brief Draw temperature bars for up and down slots
+ * @brief Draw temperature bars for up and down slots.
  */
 static void draw_temperature_bars(cairo_t *cr,
                                   const monitor_sensor_data_t *data,
@@ -288,7 +288,7 @@ static void draw_temperature_bars(cairo_t *cr,
 }
 
 /**
- * @brief Draw labels for up and down slots
+ * @brief Draw labels for up and down slots.
  */
 static void draw_labels(cairo_t *cr, const struct Config *config,
                         const monitor_sensor_data_t *data,
@@ -379,7 +379,7 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
 }
 
 /**
- * @brief Render display content to cairo context
+ * @brief Render display content to cairo context.
  */
 static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
@@ -412,7 +412,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
 
 /**
  * @brief Display rendering - creates surface, renders content, saves PNG (Dual
- * mode - CPU+GPU)
+ * mode - CPU+GPU).
  */
 static int render_dual_display(const struct Config *config,
                                const monitor_sensor_data_t *data,

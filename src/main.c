@@ -601,7 +601,7 @@ static int verify_plugin_dir_permissions(const char *plugin_dir)
 }
 
 /**
- * @brief Initialize configuration from plugin config.json
+ * @brief Initialize configuration from plugin config.json.
  * @details Loads config using unified plugin.c system:
  *          1. Initialize defaults (hardcoded)
  *          2. Try to load config.json (overrides defaults)
