@@ -13,8 +13,8 @@
  */
 
 // Include necessary headers
-#ifndef DISPLAY_H
-#define DISPLAY_H
+#ifndef DUAL_H
+#define DUAL_H
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
@@ -28,28 +28,6 @@
 // Forward declarations
 struct Config;
 
-// Mathematical constants for Cairo graphics operations
-#ifndef M_PI
-#define DISPLAY_M_PI 3.14159265358979323846
-#else
-#define DISPLAY_M_PI M_PI
-#endif
-#ifndef M_PI_2
-#define DISPLAY_M_PI_2 1.57079632679489661923
-#else
-#define DISPLAY_M_PI_2 M_PI_2
-#endif
-
-/**
- * @brief Render dual-sensor display (CPU+GPU simultaneously).
- * @details Low-level function that creates PNG image using Cairo graphics
- * library based on temperature sensor data and configuration settings, then
- * uploads to LCD device. Shows both sensors at once.
- */
-int render_dual_display(const struct Config *config,
-                        const monitor_sensor_data_t *data,
-                        const char *device_name);
-
 /**
  * @brief Main dual mode entry point.
  * @details Collects sensor data, renders dual display using
@@ -58,4 +36,4 @@ int render_dual_display(const struct Config *config,
  */
 void draw_dual_image(const struct Config *config);
 
-#endif // DISPLAY_H
+#endif // DUAL_H

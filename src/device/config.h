@@ -12,8 +12,8 @@
  * @details Config struct, load/save functions, default values.
  */
 
-#ifndef PLUGIN_H
-#define PLUGIN_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
@@ -208,4 +208,4 @@ static inline int is_valid_orientation(int orientation)
  */
 int load_plugin_config(Config *config, const char *config_path);
 
-#endif // PLUGIN_H
+#endif // CONFIG_H

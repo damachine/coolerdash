@@ -19,8 +19,6 @@
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -28,7 +26,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
@@ -42,16 +39,8 @@
 
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
-#define MAX_ERROR_MSG_LEN 512
-#define MAX_PID_STR_LEN 32
-#define PID_READ_BUFFER_SIZE 64
 #define SHUTDOWN_RETRY_COUNT 2
 #define VERSION_BUFFER_SIZE 32
-
-// Define O_NOFOLLOW if not defined (for portability)
-#ifndef O_NOFOLLOW
-#define O_NOFOLLOW 0
-#endif
 
 /**
  * @brief Global variables for daemon management.
@@ -750,6 +739,7 @@ static void perform_cleanup(const Config *config)
 
     // Close CoolerControl session and free resources
     cleanup_coolercontrol_session();
+    cleanup_sensor_curl_handle();
 
     remove_image_file(config->paths_image_coolerdash);
     running = 0;

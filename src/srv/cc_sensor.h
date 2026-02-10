@@ -44,4 +44,10 @@ typedef struct
 int get_temperature_monitor_data(const struct Config *config,
                                  monitor_sensor_data_t *data);
 
+/**
+ * @brief Cleanup cached sensor CURL handle.
+ * @details Called during daemon shutdown to free resources.
+ */
+void cleanup_sensor_curl_handle(void);
+
 #endif // CC_SENSOR_H

@@ -24,7 +24,6 @@
 
 #include "config.h"
 #include "../srv/cc_conf.h"
-#include "../srv/cc_main.h"
 
 // ============================================================================
 // Global Logging Implementation
@@ -495,7 +494,6 @@ static const char *find_config_json(const char *custom_path)
     }
 
     static const char *possible_paths[] = {
-        "~/.config/coolerdash/config.json",
         "/etc/coolercontrol/plugins/coolerdash/config.json",
         NULL};
 

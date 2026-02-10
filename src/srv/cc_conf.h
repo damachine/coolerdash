@@ -17,7 +17,6 @@
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
-#include <jansson.h>
 #include <stddef.h>
 // cppcheck-suppress-end missingIncludeSystem
 
@@ -61,13 +60,6 @@ int init_device_cache(const struct Config *config);
  * config.json values are not set (= 0).
  */
 int update_config_from_device(struct Config *config);
-
-/**
- * @brief Extract device type from JSON device object.
- * @details Common helper function to extract device type string from JSON
- * device object.
- */
-const char *extract_device_type_from_json(const json_t *dev);
 
 /**
  * @brief Check if a device has a circular display based on device name/type.

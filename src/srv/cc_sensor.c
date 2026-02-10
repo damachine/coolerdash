@@ -16,7 +16,6 @@
 // cppcheck-suppress-begin missingIncludeSystem
 #include <curl/curl.h>
 #include <jansson.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +26,43 @@
 #include "cc_conf.h"
 #include "cc_main.h"
 #include "cc_sensor.h"
+
+/**
+ * @brief Extract device type from JSON object
+ * @details Helper function to extract device type from JSON object
+ */
+extern const char *extract_device_type_from_json(const json_t *dev);
+
+/** @brief Cached CURL handle for reuse across polling cycles */
+static CURL *sensor_curl_handle = NULL;
+
+/**
+ * @brief Initialize or retrieve cached CURL handle for sensor polling.
+ * @return Cached CURL handle, or NULL on failure
+ */
+static CURL *get_sensor_curl_handle(void)
+{
+    if (!sensor_curl_handle)
+    {
+        sensor_curl_handle = curl_easy_init();
+        if (!sensor_curl_handle)
+            log_message(LOG_ERROR, "Failed to initialize sensor CURL handle");
+    }
+    return sensor_curl_handle;
+}
+
+/**
+ * @brief Cleanup cached sensor CURL handle.
+ * @details Called during daemon shutdown to free resources.
+ */
+void cleanup_sensor_curl_handle(void)
+{
+    if (sensor_curl_handle)
+    {
+        curl_easy_cleanup(sensor_curl_handle);
+        sensor_curl_handle = NULL;
+    }
+}
 
 /**
  * @brief Extract temperature from device status history
@@ -231,29 +267,25 @@ static int get_temperature_data(const Config *config, float *temp_cpu,
         return 0;
     }
 
-    // Initialize CURL
-    CURL *curl = curl_easy_init();
+    // Get cached CURL handle for sensor polling
+    CURL *curl = get_sensor_curl_handle();
     if (!curl)
-    {
-        log_message(LOG_ERROR, "Failed to initialize CURL");
         return 0;
-    }
+
+    // Reset handle state for clean request
+    curl_easy_reset(curl);
 
     // Build URL
     char url[256];
     int url_len = snprintf(url, sizeof(url), "%s/status", config->daemon_address);
     if (url_len < 0 || url_len >= (int)sizeof(url))
-    {
-        curl_easy_cleanup(curl);
         return 0;
-    }
 
     // Initialize response buffer
     struct http_response response = {0};
     if (!cc_init_response_buffer(&response, 8192))
     {
         log_message(LOG_ERROR, "Failed to allocate response buffer");
-        curl_easy_cleanup(curl);
         return 0;
     }
 
@@ -297,11 +329,10 @@ static int get_temperature_data(const Config *config, float *temp_cpu,
         log_message(LOG_ERROR, "CURL error: %s", curl_easy_strerror(curl_result));
     }
 
-    // Cleanup
+    // Cleanup request-specific resources
     cc_cleanup_response_buffer(&response);
     if (headers)
         curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
 
     return result;
 }
