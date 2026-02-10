@@ -1,12 +1,3 @@
-!VERSION
-!.md
-!.SRCINFO
-!coolerdash.install
-!PKGBUILD
-!Makefile
-!.github
-!.gitignore
-!.gitattributes
 coolerdash-bin/
 *~
 .*
@@ -47,3 +38,12 @@ packaging/debian/coolerdash/
 packaging/debian/files
 packaging/debian/*.substvars
 packaging/debian/*.log
+!VERSION
+!.md
+!.SRCINFO
+!coolerdash.install
+!PKGBUILD
+!Makefile
+!.github
+!.gitignore
+!.gitattributes

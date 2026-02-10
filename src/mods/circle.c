@@ -15,16 +15,10 @@
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <cairo/cairo.h>
-#include <errno.h>
 #include <math.h>
-#include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <time.h>
-#include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
@@ -35,172 +29,14 @@
 #include "display.h"
 #include "circle.h"
 
-// Circle inscribe factor for circular displays (1/√2 ≈ 0.7071)
-#ifndef M_SQRT1_2
-#define M_SQRT1_2 0.7071067811865476
-#endif
-
 /**
- * @brief Global state for sensor alternation (slot-based cycling)
+ * @brief Global state for sensor alternation (slot-based cycling).
  */
 static int current_slot_index = 0; // 0=up, 1=mid, 2=down
 static time_t last_switch_time = 0;
 
 /**
- * @brief Convert color component to cairo format (0-255 to 0.0-1.0)
- */
-static inline double cairo_color_convert(uint8_t color_component)
-{
-    return color_component / 255.0;
-}
-
-/**
- * @brief Set cairo color from Color structure
- */
-static inline void set_cairo_color(cairo_t *cr, const Color *color)
-{
-    cairo_set_source_rgb(cr, cairo_color_convert(color->r),
-                         cairo_color_convert(color->g),
-                         cairo_color_convert(color->b));
-}
-
-/**
- * @brief Calculate temperature fill width with bounds checking
- */
-static inline int calculate_temp_fill_width(float temp_value, int max_width,
-                                            float max_temp)
-{
-    if (temp_value <= 0.0f)
-        return 0;
-
-    const float ratio = fminf(temp_value / max_temp, 1.0f);
-    return (int)(ratio * max_width);
-}
-
-/**
- * @brief Dynamic scaling parameters structure
- */
-typedef struct
-{
-    double scale_x;
-    double scale_y;
-    double corner_radius;
-    double inscribe_factor;     // 1.0 for rectangular, M_SQRT1_2 for circular
-    int safe_bar_width;         // Safe bar width for circular displays
-    double safe_content_margin; // Horizontal margin for safe content area
-    int is_circular;            // 1 if circular display, 0 if rectangular
-} ScalingParams;
-
-/**
- * @brief Calculate dynamic scaling parameters based on display dimensions
- */
-static void calculate_scaling_params(const struct Config *config,
-                                     ScalingParams *params,
-                                     const char *device_name)
-{
-    const double base_width = 240.0;
-    const double base_height = 240.0;
-
-    params->scale_x = config->display_width / base_width;
-    params->scale_y = config->display_height / base_height;
-    const double scale_avg = (params->scale_x + params->scale_y) / 2.0;
-
-    // Detect circular displays
-    int is_circular_by_device = is_circular_display_device(
-        device_name, config->display_width, config->display_height);
-
-    // Check display_shape configuration
-    if (strcmp(config->display_shape, "rectangular") == 0)
-    {
-        // Force rectangular (inscribe_factor = 1.0)
-        params->is_circular = 0;
-        params->inscribe_factor = 1.0;
-        log_message(LOG_INFO, "Circle mode: Display shape forced to rectangular "
-                              "via config (inscribe_factor: 1.0)");
-    }
-    else if (strcmp(config->display_shape, "circular") == 0)
-    {
-        // Force circular (inscribe_factor = M_SQRT1_2 ≈ 0.7071)
-        params->is_circular = 1;
-        double cfg_inscribe;
-        if (config->display_inscribe_factor == 0.0f)
-            cfg_inscribe = M_SQRT1_2; // user 'auto'
-        else if (config->display_inscribe_factor > 0.0f &&
-                 config->display_inscribe_factor <= 1.0f)
-            cfg_inscribe = (double)config->display_inscribe_factor;
-        else
-            cfg_inscribe = M_SQRT1_2; // fallback
-        params->inscribe_factor = cfg_inscribe;
-        log_message(LOG_INFO,
-                    "Circle mode: Display shape forced to circular via config "
-                    "(inscribe_factor: %.4f)",
-                    params->inscribe_factor);
-    }
-    else if (config->force_display_circular)
-    {
-        // Legacy developer override (CLI --develop)
-        params->is_circular = 1;
-        {
-            double cfg_inscribe;
-            if (config->display_inscribe_factor == 0.0f)
-                cfg_inscribe = M_SQRT1_2;
-            else if (config->display_inscribe_factor > 0.0f &&
-                     config->display_inscribe_factor <= 1.0f)
-                cfg_inscribe = (double)config->display_inscribe_factor;
-            else
-                cfg_inscribe = M_SQRT1_2;
-            params->inscribe_factor = cfg_inscribe;
-        }
-    }
-    else
-    {
-        // Auto-detection based on device database
-        params->is_circular = is_circular_by_device;
-        if (params->is_circular)
-        {
-            double cfg_inscribe;
-            if (config->display_inscribe_factor == 0.0f)
-                cfg_inscribe = M_SQRT1_2;
-            else if (config->display_inscribe_factor > 0.0f &&
-                     config->display_inscribe_factor <= 1.0f)
-                cfg_inscribe = (double)config->display_inscribe_factor;
-            else
-                cfg_inscribe = M_SQRT1_2;
-            params->inscribe_factor = cfg_inscribe;
-        }
-        else
-        {
-            params->inscribe_factor = 1.0;
-        }
-    }
-
-    // Calculate safe area width
-    const double safe_area_width =
-        config->display_width * params->inscribe_factor;
-    const float content_scale = (config->display_content_scale_factor > 0.0f &&
-                                 config->display_content_scale_factor <= 1.0f)
-                                    ? config->display_content_scale_factor
-                                    : 0.98f; // Fallback: 98%
-    // Apply bar_width percentage (default 98% = 1% margin left+right)
-    const double bar_width_factor = (config->layout_bar_width > 0)
-                                        ? (config->layout_bar_width / 100.0)
-                                        : 0.98;
-    params->safe_bar_width =
-        (int)(safe_area_width * content_scale * bar_width_factor);
-    params->safe_content_margin =
-        (config->display_width - params->safe_bar_width) / 2.0;
-
-    params->corner_radius = 8.0 * scale_avg;
-
-    log_message(LOG_INFO,
-                "Circle mode scaling: safe_area=%.0fpx, bar_width=%dpx (%.0f%%), "
-                "margin=%.1fpx",
-                safe_area_width, params->safe_bar_width, bar_width_factor * 100.0,
-                params->safe_content_margin);
-}
-
-/**
- * @brief Get the slot value for a given slot index
+ * @brief Get the slot value for a given slot index.
  * @param config Configuration
  * @param slot_index 0=up, 1=mid, 2=down
  * @return Slot value string ("cpu", "gpu", "liquid", "none")
@@ -224,7 +60,7 @@ static const char *get_slot_value_by_index(const struct Config *config, int slot
 }
 
 /**
- * @brief Get slot name for a given slot index
+ * @brief Get slot name for a given slot index.
  */
 static const char *get_slot_name_by_index(int slot_index)
 {
@@ -242,7 +78,7 @@ static const char *get_slot_name_by_index(int slot_index)
 }
 
 /**
- * @brief Find next active slot index (wrapping around)
+ * @brief Find next active slot index (wrapping around).
  * @param config Configuration
  * @param start_index Starting slot index
  * @return Next active slot index, or -1 if none found
@@ -260,7 +96,7 @@ static int find_next_active_slot(const struct Config *config, int start_index)
 }
 
 /**
- * @brief Check if sensor should switch based on configured interval
+ * @brief Check if sensor should switch based on configured interval.
  */
 static void update_sensor_mode(const struct Config *config)
 {
@@ -304,37 +140,7 @@ static void update_sensor_mode(const struct Config *config)
 }
 
 /**
- * @brief Draw rounded rectangle path
- */
-static void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
-                                        int height, double radius)
-{
-    cairo_new_sub_path(cr);
-    cairo_arc(cr, x + width - radius, y + radius, radius, -CIRCLE_M_PI_2, 0);
-    cairo_arc(cr, x + width - radius, y + height - radius, radius, 0,
-              CIRCLE_M_PI_2);
-    cairo_arc(cr, x + radius, y + height - radius, radius, CIRCLE_M_PI_2,
-              CIRCLE_M_PI);
-    cairo_arc(cr, x + radius, y + radius, radius, CIRCLE_M_PI, 1.5 * CIRCLE_M_PI);
-    cairo_close_path(cr);
-}
-
-/**
- * @brief Draw degree symbol at calculated position
- */
-static void draw_degree_symbol(cairo_t *cr, double x, double y,
-                               const struct Config *config)
-{
-    if (!cr || !config)
-        return;
-    cairo_set_font_size(cr, config->font_size_temp / 1.66);
-    cairo_move_to(cr, x, y);
-    cairo_show_text(cr, "°");
-    cairo_set_font_size(cr, config->font_size_temp);
-}
-
-/**
- * @brief Draw single sensor display based on current slot
+ * @brief Draw single sensor display based on current slot.
  * @param cr Cairo context
  * @param config Configuration
  * @param params Scaling parameters
@@ -502,32 +308,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 }
 
 /**
- * @brief Create cairo context and surface
- */
-static cairo_t *create_cairo_context(const struct Config *config,
-                                     cairo_surface_t **surface)
-{
-    *surface = cairo_image_surface_create(
-        CAIRO_FORMAT_ARGB32, config->display_width, config->display_height);
-    if (cairo_surface_status(*surface) != CAIRO_STATUS_SUCCESS)
-    {
-        log_message(LOG_ERROR, "Failed to create Cairo surface");
-        return NULL;
-    }
-
-    cairo_t *cr = cairo_create(*surface);
-    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
-    {
-        log_message(LOG_ERROR, "Failed to create Cairo context");
-        cairo_surface_destroy(*surface);
-        return NULL;
-    }
-
-    return cr;
-}
-
-/**
- * @brief Render complete circle mode display
+ * @brief Render complete circle mode display.
  */
 static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
@@ -549,11 +330,12 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
 }
 
 /**
- * @brief Render circle mode display and upload to LCD
+ * @brief Render circle mode display to PNG file.
+ * @details Creates PNG image with single sensor, does NOT upload.
  */
-int render_circle_display(const struct Config *config,
-                          const monitor_sensor_data_t *data,
-                          const char *device_name)
+static int render_circle_display(const struct Config *config,
+                                 const monitor_sensor_data_t *data,
+                                 const char *device_name)
 {
     if (!config || !data)
     {
@@ -581,6 +363,16 @@ int render_circle_display(const struct Config *config,
 
     render_display_content(cr, config, data, &params);
 
+    cairo_surface_flush(surface);
+    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+    {
+        log_message(LOG_ERROR, "Cairo drawing error: %s",
+                    cairo_status_to_string(cairo_status(cr)));
+        cairo_destroy(cr);
+        cairo_surface_destroy(surface);
+        return 0;
+    }
+
     // Write PNG to file
     cairo_status_t write_status =
         cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
@@ -594,41 +386,13 @@ int render_circle_display(const struct Config *config,
         return 0;
     }
 
-    // Get device UID for upload
-    char device_uid[128] = {0};
-    char device_name_buf[128] = {0};
-    int screen_width = 0, screen_height = 0;
-
-    if (!get_liquidctl_data(config, device_uid, sizeof(device_uid),
-                            device_name_buf, sizeof(device_name_buf),
-                            &screen_width, &screen_height))
-    {
-        log_message(LOG_ERROR, "Failed to get device information");
-        return 0;
-    }
-
-    // Upload to LCD
-    if (!send_image_to_lcd(config, config->paths_image_coolerdash, device_uid))
-    {
-        log_message(LOG_ERROR, "Failed to upload circle mode image to LCD");
-        return 0;
-    }
-
-    // Verbose logging only
-    if (verbose_logging)
-    {
-        const char *slot_value = get_slot_value_by_index(config, current_slot_index);
-        const char *label = get_slot_label(slot_value);
-        float temp = get_slot_temperature(data, slot_value);
-        log_message(LOG_STATUS, "Circle mode: %s display updated (%.1f°C)",
-                    label ? label : "unknown", temp);
-    }
-
     return 1;
 }
 
 /**
- * @brief High-level entry point for circle mode rendering
+ * @brief High-level entry point for circle mode rendering.
+ * @details Collects sensor data, renders circle display using
+ * render_circle_display(), and sends to LCD device.
  */
 void draw_circle_image(const struct Config *config)
 {
@@ -643,12 +407,9 @@ void draw_circle_image(const struct Config *config)
     char device_name[128] = {0};
     int screen_width = 0, screen_height = 0;
 
-    if (!get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
-                            sizeof(device_name), &screen_width, &screen_height))
-    {
-        log_message(LOG_ERROR, "Circle mode: Failed to get device data");
-        return;
-    }
+    const int device_available =
+        get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
+                           sizeof(device_name), &screen_width, &screen_height);
 
     // Get temperature data
     monitor_sensor_data_t data = {0};
@@ -658,6 +419,27 @@ void draw_circle_image(const struct Config *config)
         return;
     }
 
-    // Render and upload
-    render_circle_display(config, &data, device_name);
+    // Render circle display with device name for circular display detection
+    if (!render_circle_display(config, &data, device_name))
+    {
+        log_message(LOG_ERROR, "Circle display rendering failed");
+        return;
+    }
+
+    // Send to LCD if available
+    if (is_session_initialized() && device_available && device_uid[0] != '\0')
+    {
+        const char *name =
+            (device_name[0] != '\0') ? device_name : "Unknown Device";
+        log_message(LOG_INFO, "Sending circle image to LCD: %s [%s]", name,
+                    device_uid);
+
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
+
+        log_message(LOG_INFO, "Circle LCD image uploaded successfully");
+    }
+    else
+    {
+        log_message(LOG_WARNING, "Skipping circle LCD upload - device not available");
+    }
 }

@@ -70,6 +70,102 @@
             font-size: 14px;
         }
 
+        /* Device Tab */
+        .device-info-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 16px;
+        }
+
+        .device-info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(45, 66, 99, 0.4);
+        }
+
+        .device-info-row:last-child {
+            border-bottom: none;
+        }
+
+        .device-info-label {
+            font-size: 13px;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .device-info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .device-info-value.mono {
+            font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+        }
+
+        .device-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .device-status.connected {
+            background: rgba(34, 197, 94, 0.12);
+            color: var(--success);
+        }
+
+        .device-status.disconnected {
+            background: rgba(255, 140, 0, 0.12);
+            color: #ff8c00;
+        }
+
+        .device-status.error {
+            background: rgba(233, 69, 96, 0.12);
+            color: var(--accent);
+        }
+
+        .device-status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .info-item {
+            margin-bottom: 20px;
+        }
+
+        .info-item-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 4px;
+        }
+
+        .info-item-value {
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .info-item-value a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .info-item-value a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
         /* Tabs */
         .tabs {
             display: flex;
@@ -378,7 +474,7 @@
             <h1>CoolerDash Configuration</h1>
             <p>Customize your LCD temperature dashboard • Changes require plugin restart</p>
             <p style="margin-top: 8px; font-size: 12px; color: var(--text-dim); opacity: 0.8;">
-                💡 <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values added by the developer.
+                💡 <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values. Feedback &amp; bug reports are welcome — see the <em>Info</em> tab for links.
             </p>
         </div>
 
@@ -393,6 +489,8 @@
             <button class="tab" onclick="switchTab(6)">Liquid</button>
             <button class="tab" onclick="switchTab(7)">Position</button>
             <button class="tab" onclick="switchTab(8)">Advanced</button>
+            <button class="tab" onclick="switchTab(9)">Device</button>
+            <button class="tab" onclick="switchTab(10)">Info</button>
         </div>
 
         <form id="configForm">
@@ -985,6 +1083,123 @@
                     💾 Export Configuration
                 </button>
             </div>
+
+            <!-- Tab 9: Device -->
+            <div class="panel">
+                <h3 class="section-title">Detected LCD Device</h3>
+
+                <div id="device-loading" class="alert" style="opacity: 0.7;">
+                    Detecting device from CoolerControl API...
+                </div>
+
+                <div id="device-panel-content" style="display: none;">
+                    <div class="device-info-card">
+                        <div class="device-info-row">
+                            <span class="device-info-label">Status</span>
+                            <span class="device-info-value" id="device-status">
+                                <span class="device-status disconnected">
+                                    <span class="device-status-dot"></span> Waiting
+                                </span>
+                            </span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Device Name</span>
+                            <span class="device-info-value" id="device-name">—</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Device UID</span>
+                            <span class="device-info-value mono" id="device-uid">—</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">LCD Resolution</span>
+                            <span class="device-info-value mono" id="device-resolution">—</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Display Shape</span>
+                            <span class="device-info-value" id="device-shape">—</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Firmware</span>
+                            <span class="device-info-value mono" id="device-firmware">—</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Liquidctl Version</span>
+                            <span class="device-info-value mono" id="device-liquidctl">—</span>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn-secondary" onclick="refreshDeviceInfo()" style="width: auto; padding: 10px 20px; margin-top: 8px;">
+                        🔄 Refresh Device Info
+                    </button>
+                </div>
+
+                <div id="device-error" class="alert alert-warning" style="display: none;">
+                    <strong>Detection Failed</strong>
+                    <span id="device-error-text">Could not connect to CoolerControl API.</span>
+                </div>
+            </div>
+
+            <!-- Tab 10: Info -->
+            <div class="panel">
+                <h3 class="section-title">About CoolerDash</h3>
+
+                <div class="device-info-card">
+                    <div class="info-item">
+                        <div class="info-item-label">Plugin</div>
+                        <div class="info-item-value">CoolerDash v{{VERSION}} — LCD Temperature Dashboard</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Description</div>
+                        <div class="info-item-value" style="color: var(--text-dim);">Displays CPU, GPU, and Liquid temperatures on AIO liquid cooler LCD screens (NZXT Kraken, etc.)</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Author</div>
+                        <div class="info-item-value">damachine</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Website</div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener">github.com/damachine/coolerdash</a></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">License</div>
+                        <div class="info-item-value">MIT</div>
+                    </div>
+                    <div class="info-item" style="margin-bottom: 0;">
+                        <div class="info-item-label">Language / Platform</div>
+                        <div class="info-item-value">C99 / Linux (systemd)</div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">Community &amp; Feedback</h3>
+
+                <div class="device-info-card">
+                    <div class="info-item">
+                        <div class="info-item-label">Bug Reports &amp; Feature Requests</div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener">GitHub Issues</a></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Discussions</div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener">GitHub Discussions</a></div>
+                    </div>
+                    <div class="info-item" style="margin-bottom: 0;">
+                        <div class="info-item-label">Discord</div>
+                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener">CoolerControl Discord — #coolerdash</a></div>
+                    </div>
+                </div>
+
+                <h3 class="section-title">System Environment</h3>
+
+                <div class="device-info-card">
+                    <div class="device-info-row">
+                        <span class="device-info-label">Kernel</span>
+                        <span class="device-info-value mono" id="sys-kernel">—</span>
+                    </div>
+                    <div class="device-info-row">
+                        <span class="device-info-label">CoolerControl Version</span>
+                        <span class="device-info-value mono" id="sys-cc-version">—</span>
+                    </div>
+                </div>
+            </div>
         </form>
 
         <!-- Buttons -->
@@ -1150,6 +1365,149 @@
 
         if (typeof runPluginScript === 'undefined') {
             window.runPluginScript = function(mainFunction) { mainFunction(); };
+        }
+
+        // ===== DEVICE DETECTION =====
+        let lastApiAddress = '';
+        let lastApiPassword = '';
+
+        async function fetchDeviceInfo(apiAddress, password) {
+            lastApiAddress = apiAddress;
+            lastApiPassword = password;
+
+            const loadingEl = document.getElementById('device-loading');
+            const contentEl = document.getElementById('device-panel-content');
+            const errorEl = document.getElementById('device-error');
+
+            loadingEl.style.display = 'block';
+            contentEl.style.display = 'none';
+            errorEl.style.display = 'none';
+
+            try {
+                const headers = {};
+                if (password) {
+                    headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
+                }
+                const response = await fetch(`${apiAddress}/devices`, { headers });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+
+                const devices = data.devices || [];
+                let found = null;
+                for (const dev of devices) {
+                    const dtype = dev.type || '';
+                    if (dtype === 'Liquidctl') {
+                        found = dev;
+                        break;
+                    }
+                }
+
+                loadingEl.style.display = 'none';
+
+                if (found) {
+                    const name = found.name || 'Unknown Device';
+                    const uid = found.uid || '—';
+                    document.getElementById('device-name').textContent = name;
+                    document.getElementById('device-uid').textContent = uid;
+
+                    // Firmware from lc_info
+                    const firmware = found.lc_info?.firmware_version || '—';
+                    document.getElementById('device-firmware').textContent = firmware;
+
+                    // Liquidctl version from driver_info
+                    const liquidctlVer = found.info?.driver_info?.version || '—';
+                    document.getElementById('device-liquidctl').textContent = liquidctlVer;
+
+                    // LCD info path: info.channels.<channel>.lcd_info
+                    let width = 0, height = 0;
+                    const channels = found.info?.channels;
+                    if (channels) {
+                        for (const ch of Object.values(channels)) {
+                            if (ch.lcd_info) {
+                                width = ch.lcd_info.screen_width || 0;
+                                height = ch.lcd_info.screen_height || 0;
+                                break;
+                            }
+                        }
+                    }
+
+                    const resEl = document.getElementById('device-resolution');
+                    const shapeEl = document.getElementById('device-shape');
+                    if (width > 0 && height > 0) {
+                        resEl.textContent = `${width} × ${height} px`;
+                        const isCircular = name.includes('Kraken') && (width > 240 || height > 240);
+                        shapeEl.textContent = isCircular ? 'Circular' : 'Rectangular';
+                    } else {
+                        resEl.textContent = 'Not available';
+                        shapeEl.textContent = 'Unknown';
+                    }
+
+                    document.getElementById('device-status').innerHTML =
+                        '<span class="device-status connected"><span class="device-status-dot"></span> Connected</span>';
+                    contentEl.style.display = 'block';
+                } else {
+                    document.getElementById('device-name').textContent = '—';
+                    document.getElementById('device-uid').textContent = '—';
+                    document.getElementById('device-resolution').textContent = '—';
+                    document.getElementById('device-shape').textContent = '—';
+                    document.getElementById('device-firmware').textContent = '—';
+                    document.getElementById('device-liquidctl').textContent = '—';
+                    document.getElementById('device-status').innerHTML =
+                        '<span class="device-status disconnected"><span class="device-status-dot"></span> No LCD device found</span>';
+                    contentEl.style.display = 'block';
+                }
+            } catch (error) {
+                console.warn('Device detection failed:', error);
+                loadingEl.style.display = 'none';
+                document.getElementById('device-status').innerHTML =
+                    '<span class="device-status error"><span class="device-status-dot"></span> Detection failed</span>';
+                document.getElementById('device-error-text').textContent =
+                    `Could not connect to CoolerControl API (${error.message}).`;
+                contentEl.style.display = 'block';
+                errorEl.style.display = 'block';
+            }
+        }
+
+        function refreshDeviceInfo() {
+            fetchDeviceInfo(lastApiAddress, lastApiPassword);
+        }
+
+        async function fetchSystemInfo(apiAddress, password) {
+            try {
+                const headers = {};
+                if (password) {
+                    headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
+                }
+
+                // Fetch /health for CC version
+                const healthRes = await fetch(`${apiAddress}/health`, { headers });
+                if (healthRes.ok) {
+                    const health = await healthRes.json();
+                    const ccVersion = health.details?.version || '—';
+                    document.getElementById('sys-cc-version').textContent = ccVersion;
+                }
+
+                // Fetch /devices to extract kernel from driver_info (drv_type 'Kernel')
+                const devRes = await fetch(`${apiAddress}/devices`, { headers });
+                if (devRes.ok) {
+                    const data = await devRes.json();
+                    const devices = data.devices || [];
+                    let kernel = '';
+                    for (const dev of devices) {
+                        const drvType = dev.info?.driver_info?.drv_type;
+                        const ver = dev.info?.driver_info?.version;
+                        if (drvType === 'Kernel' && ver) {
+                            kernel = ver;
+                            break;
+                        }
+                    }
+                    if (kernel) {
+                        document.getElementById('sys-kernel').textContent = kernel;
+                    }
+                }
+            } catch (error) {
+                console.warn('System info fetch failed:', error);
+            }
         }
 
         // ===== UI FUNCTIONS =====
@@ -1485,6 +1843,12 @@
                 }
 
                 populateForm(config);
+
+                // Detect device from CoolerControl API
+                const apiAddr = config.daemon?.address || 'http://localhost:11987';
+                const apiPass = config.daemon?.password || '';
+                fetchDeviceInfo(apiAddr, apiPass);
+                fetchSystemInfo(apiAddr, apiPass);
             } catch (error) {
                 console.error("Init failed:", error);
                 if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);

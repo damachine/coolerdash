@@ -9,7 +9,7 @@
 #include <math.h>
 // cppcheck-suppress-end missingIncludeSystem
 
-#include "../src/device/sys.h"
+#include "../src/device/config.h"
 
 // Use same constant
 #ifndef M_SQRT1_2

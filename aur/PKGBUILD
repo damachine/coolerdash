@@ -1,5 +1,4 @@
-
-# Created by: damachin3 (damachine3 at proton dot me)
+# Maintainer: damachin3 (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
 
 pkgname=coolerdash-git
@@ -22,35 +21,36 @@ sha256sums=('SKIP') # SKIP for git repo source builds
 
 pkgver() {
     cd "${srcdir}/coolerdash"
+    # Fetch latest tags in git repo
     git fetch --tags
     git describe --tags --long --match "v*" | sed -E 's/^v//; s/-([0-9]+)-g/\.r\1.g/; s/-/./g'
 }
 
 build() {
     # Build inside the checked-out repository
-    cd "${srcdir}/coolerdash" || return 1
+    cd "${srcdir}/coolerdash"
 
     # Remove all previous tarball builds
-    rm -rf coolerdash-*.pkg.* || true
+    rm -rf coolerdash-*.pkg.*
 
     # Clean any previous builds if a Makefile exists
     if [[ -f Makefile || -f GNUmakefile ]]; then
-        make clean || true
+        make clean
     fi
 
-    # Build
-    make || return 1
+    # Build the project
+    make
 }
 
 check() {
     # Check in the checked-out repository
-    cd "${srcdir}/coolerdash" || return 1
+    cd "${srcdir}/coolerdash"
 
     # Verify that the binary was created successfully
     if [[ -f bin/coolerdash ]]; then
-        echo "Build successful - binary created"
+        msg "Build successful - binary created"
     else
-        echo "ERROR: Binary not found"
+        error "Build failed - binary not found"
         return 1
     fi
 }
@@ -71,6 +71,7 @@ package() {
     install -m644 "${srcdir}/coolerdash/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
 
     install -Dm644 "${srcdir}/coolerdash/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
     install -Dm644 "${srcdir}/coolerdash/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
