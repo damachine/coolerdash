@@ -40,7 +40,7 @@
 > Version 2.0.4+ runs as a CoolerControl plugin.
 > This requires CoolerControl >=3.1.0 with plugin support.   
 
-- **OS**: Linux
+- **OS**: Linux (systemd)
 - **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
