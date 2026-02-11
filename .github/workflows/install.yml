@@ -2,8 +2,9 @@ name: Multi-Distribution Installation Test
 
 on:
   push:
-    paths:
-      - "VERSION"
+    branches:
+      - master
+      - next
   workflow_dispatch:
 
 permissions:
