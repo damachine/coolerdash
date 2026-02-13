@@ -1397,8 +1397,11 @@
                 for (const dev of devices) {
                     const dtype = dev.type || '';
                     if (dtype === 'Liquidctl') {
-                        found = dev;
-                        break;
+                        const lcdInfo = dev.info?.channels?.lcd?.lcd_info;
+                        if (lcdInfo && lcdInfo.screen_width > 0 && lcdInfo.screen_height > 0) {
+                            found = dev;
+                            break;
+                        }
                     }
                 }
 
