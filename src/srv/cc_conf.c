@@ -79,7 +79,7 @@ const char *extract_device_type_from_json(const json_t *dev)
     if (!dev)
         return NULL;
 
-    const json_t *type_val = json_object_get(dev, "d_type");
+    const json_t *type_val = json_object_get(dev, "type");
     if (!type_val || !json_is_string(type_val))
         return NULL;
 
@@ -246,7 +246,26 @@ static void extract_liquidctl_device_info(const json_t *dev, char *lcd_uid,
 }
 
 /**
- * @brief Search for Liquidctl device in devices array.
+ * @brief Check if a Liquidctl device has an LCD display.
+ * @details Verifies that lcd_info exists in info.channels.lcd path.
+ */
+static int has_lcd_display(const json_t *dev)
+{
+    const json_t *lcd_info = get_lcd_info_from_device(dev);
+    if (!lcd_info)
+        return 0;
+
+    const json_t *w = json_object_get(lcd_info, "screen_width");
+    const json_t *h = json_object_get(lcd_info, "screen_height");
+    if (!w || !h || !json_is_integer(w) || !json_is_integer(h))
+        return 0;
+
+    return (json_integer_value(w) > 0 && json_integer_value(h) > 0);
+}
+
+/**
+ * @brief Search for Liquidctl device with LCD in devices array.
+ * @details Only selects Liquidctl devices that have a valid LCD display.
  */
 static int search_liquidctl_device(const json_t *devices, char *lcd_uid,
                                    size_t uid_size, int *found_liquidctl,
@@ -263,6 +282,15 @@ static int search_liquidctl_device(const json_t *devices, char *lcd_uid,
         const char *type_str = extract_device_type_from_json(dev);
         if (!is_liquidctl_device(type_str))
             continue;
+
+        if (!has_lcd_display(dev))
+        {
+            const json_t *name_val = json_object_get(dev, "name");
+            const char *name = name_val ? json_string_value(name_val) : "unknown";
+            log_message(LOG_INFO, "Skipping Liquidctl device without LCD: %s",
+                        name ? name : "unknown");
+            continue;
+        }
 
         extract_liquidctl_device_info(dev, lcd_uid, uid_size, found_liquidctl,
                                       screen_width, screen_height, device_name,
