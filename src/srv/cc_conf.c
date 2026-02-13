@@ -79,7 +79,7 @@ const char *extract_device_type_from_json(const json_t *dev)
     if (!dev)
         return NULL;
 
-    const json_t *type_val = json_object_get(dev, "type");
+    const json_t *type_val = json_object_get(dev, "d_type");
     if (!type_val || !json_is_string(type_val))
         return NULL;
 
