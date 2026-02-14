@@ -1188,6 +1188,19 @@
         let discoveredSensors = [];
         let currentSensorConfig = {};
 
+        /**
+         * @brief Escape HTML special characters to prevent XSS.
+         */
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // ===== FALLBACK FUNCTIONS =====
         const isInCoolerControl = window.parent !== window;
 
@@ -1509,8 +1522,10 @@
                 var sensorId = sensorIds[si];
                 var sc = sensors[sensorId];
                 var safeName = sensorId.replace(/[^a-zA-Z0-9]/g, '_');
-                var displayName = getSensorDisplayName(sensorId);
+                var displayName = escapeHtml(getSensorDisplayName(sensorId));
                 var defs = getDefaultSensorConfig(sensorId);
+                var eSensorId = escapeHtml(sensorId);
+                var eLabel = escapeHtml(sc.label || '');
 
                 var section = document.createElement('div');
                 section.className = 'sensor-config-section';
@@ -1527,22 +1542,22 @@
                                 '<div class="form-group">' +
                                     '<label class="form-label">Label</label>' +
                                     '<span class="form-hint">Custom label (empty = auto)</span>' +
-                                    '<input type="text" data-sensor="' + sensorId + '" data-field="label" class="form-control sensor-field" value="' + (sc.label || '') + '" maxlength="31" placeholder="auto">' +
+                                    '<input type="text" data-sensor="' + eSensorId + '" data-field="label" class="form-control sensor-field" value="' + eLabel + '" maxlength="31" placeholder="auto">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Font Size</label>' +
                                     '<span class="form-hint">Default: 100 (0 = global)</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="font_size_temp" class="form-control sensor-field" value="' + (sc.font_size_temp || 0) + '" min="0" max="300" step="1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="font_size_temp" class="form-control sensor-field" value="' + (sc.font_size_temp || 0) + '" min="0" max="300" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">X Offset</label>' +
                                     '<span class="form-hint">Default: 0</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="offset_x" class="form-control sensor-field" value="' + (sc.offset_x || 0) + '" step="1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_x" class="form-control sensor-field" value="' + (sc.offset_x || 0) + '" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Y Offset</label>' +
                                     '<span class="form-hint">Default: 0</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + (sc.offset_y || 0) + '" step="1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + (sc.offset_y || 0) + '" step="1">' +
                                 '</div>' +
                             '</div>' +
 
@@ -1552,22 +1567,22 @@
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 1</label>' +
                                     '<span class="form-hint">Default: ' + defs.threshold_1 + '</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="threshold_1" class="form-control sensor-field" value="' + (sc.threshold_1 !== undefined ? sc.threshold_1 : defs.threshold_1) + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_1" class="form-control sensor-field" value="' + (sc.threshold_1 !== undefined ? sc.threshold_1 : defs.threshold_1) + '" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 2</label>' +
                                     '<span class="form-hint">Default: ' + defs.threshold_2 + '</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="threshold_2" class="form-control sensor-field" value="' + (sc.threshold_2 !== undefined ? sc.threshold_2 : defs.threshold_2) + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_2" class="form-control sensor-field" value="' + (sc.threshold_2 !== undefined ? sc.threshold_2 : defs.threshold_2) + '" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 3</label>' +
                                     '<span class="form-hint">Default: ' + defs.threshold_3 + '</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="threshold_3" class="form-control sensor-field" value="' + (sc.threshold_3 !== undefined ? sc.threshold_3 : defs.threshold_3) + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_3" class="form-control sensor-field" value="' + (sc.threshold_3 !== undefined ? sc.threshold_3 : defs.threshold_3) + '" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Max Scale</label>' +
                                     '<span class="form-hint">Default: ' + defs.max_scale + '</span>' +
-                                    '<input type="number" data-sensor="' + sensorId + '" data-field="max_scale" class="form-control sensor-field" value="' + (sc.max_scale !== undefined ? sc.max_scale : defs.max_scale) + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="max_scale" class="form-control sensor-field" value="' + (sc.max_scale !== undefined ? sc.max_scale : defs.max_scale) + '" step="0.1">' +
                                 '</div>' +
                             '</div>' +
 
