@@ -129,7 +129,7 @@ static void update_sensor_mode(const struct Config *config)
         if (verbose_logging)
         {
             const char *slot_value = get_slot_value_by_index(config, current_slot_index);
-            const char *label = get_slot_label(slot_value);
+            const char *label = get_slot_label(config, NULL, slot_value);
             log_message(LOG_INFO,
                         "Circle mode: switched to %s display (slot: %s, interval: %.0fs)",
                         label ? label : "unknown",
@@ -161,7 +161,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
     // Get temperature and label for current slot
     const float temp_value = get_slot_temperature(data, slot_value);
-    const char *label_text = get_slot_label(slot_value);
+    const char *label_text = get_slot_label(config, data, slot_value);
     const float max_temp = get_slot_max_scale(config, slot_value);
 
     const int effective_bar_width = params->safe_bar_width;
@@ -180,67 +180,61 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     // Draw temperature value (centered horizontally INCLUDING degree symbol)
     char temp_str[16];
 
-    // Use 1 decimal for liquid, integer for CPU/GPU
-    if (strcmp(slot_value, "liquid") == 0)
+    // Use decimal based on sensor type
+    if (get_slot_use_decimal(data, slot_value))
         snprintf(temp_str, sizeof(temp_str), "%.1f", temp_value);
     else
         snprintf(temp_str, sizeof(temp_str), "%d", (int)temp_value);
 
     const Color *value_color = &config->font_color_temp;
 
+    // Use per-slot font size
+    float slot_font_size = get_slot_font_size(config, slot_value);
+
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, config->font_size_temp);
+    cairo_set_font_size(cr, slot_font_size);
     set_cairo_color(cr, value_color);
 
     cairo_text_extents_t temp_ext;
     cairo_text_extents(cr, temp_str, &temp_ext);
 
     // Calculate degree symbol width for proper centering
-    cairo_set_font_size(cr, config->font_size_temp / 1.66);
+    cairo_set_font_size(cr, slot_font_size / 1.66);
     cairo_text_extents_t degree_ext;
     cairo_text_extents(cr, "°", &degree_ext);
-    cairo_set_font_size(cr, config->font_size_temp);
+    cairo_set_font_size(cr, slot_font_size);
 
     // Center temperature + degree symbol as a unit
     const double total_width = temp_ext.width - 4 + degree_ext.width;
     double temp_x = (config->display_width - total_width) / 2.0;
     double final_temp_y = temp_y;
 
-    // Apply user-defined offsets based on sensor type
-    if (strcmp(slot_value, "cpu") == 0)
-    {
-        if (config->display_temp_offset_x_cpu != -9999)
-            temp_x += config->display_temp_offset_x_cpu;
-        if (config->display_temp_offset_y_cpu != -9999)
-            final_temp_y += config->display_temp_offset_y_cpu;
-    }
-    else if (strcmp(slot_value, "gpu") == 0)
-    {
-        if (config->display_temp_offset_x_gpu != -9999)
-            temp_x += config->display_temp_offset_x_gpu;
-        if (config->display_temp_offset_y_gpu != -9999)
-            final_temp_y += config->display_temp_offset_y_gpu;
-    }
-    else if (strcmp(slot_value, "liquid") == 0)
-    {
-        if (config->display_temp_offset_x_liquid != -9999)
-            temp_x += config->display_temp_offset_x_liquid;
-        if (config->display_temp_offset_y_liquid != -9999)
-            final_temp_y += config->display_temp_offset_y_liquid;
-    }
+    // Apply user-defined offsets from sensor config
+    int offset_x = get_slot_offset_x(config, slot_value);
+    int offset_y = get_slot_offset_y(config, slot_value);
+    if (offset_x != 0)
+        temp_x += offset_x;
+    if (offset_y != 0)
+        final_temp_y += offset_y;
 
     cairo_move_to(cr, temp_x, final_temp_y);
     cairo_show_text(cr, temp_str);
 
-    // Draw degree symbol
-    const int degree_spacing = (config->display_degree_spacing > 0)
-                                   ? config->display_degree_spacing
-                                   : 16;
-    double degree_x = temp_x + temp_ext.width + degree_spacing;
-    double degree_y = final_temp_y - config->font_size_temp * 0.25;
+    // Draw degree symbol only for temperature sensors
+    if (get_slot_is_temp(data, slot_value))
+    {
+        const int degree_spacing = (config->display_degree_spacing > 0)
+                                       ? config->display_degree_spacing
+                                       : 16;
+        double degree_x = temp_x + temp_ext.width + degree_spacing;
+        double degree_y = final_temp_y - slot_font_size * 0.25;
 
-    draw_degree_symbol(cr, degree_x, degree_y, config);
+        cairo_set_font_size(cr, slot_font_size / 1.66);
+        cairo_move_to(cr, degree_x, degree_y);
+        cairo_show_text(cr, "\xC2\xB0");
+        cairo_set_font_size(cr, slot_font_size);
+    }
 
     // Draw temperature bar (centered reference point)
 
@@ -350,9 +344,9 @@ static int render_circle_display(const struct Config *config,
     if (verbose_logging)
     {
         const char *slot_value = get_slot_value_by_index(config, current_slot_index);
-        const char *label = get_slot_label(slot_value);
+        const char *label = get_slot_label(config, data, slot_value);
         float temp = get_slot_temperature(data, slot_value);
-        log_message(LOG_INFO, "Circle mode: rendering %s (%.1f°C)",
+        log_message(LOG_INFO, "Circle mode: rendering %s (%.1f)",
                     label ? label : "unknown", temp);
     }
 
@@ -411,11 +405,11 @@ void draw_circle_image(const struct Config *config)
         get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
                            sizeof(device_name), &screen_width, &screen_height);
 
-    // Get temperature data
+    // Get sensor data
     monitor_sensor_data_t data = {0};
-    if (!get_temperature_monitor_data(config, &data))
+    if (!get_sensor_monitor_data(config, &data))
     {
-        log_message(LOG_WARNING, "Circle mode: Failed to get temperature data");
+        log_message(LOG_WARNING, "Circle mode: Failed to get sensor data");
         return;
     }
 

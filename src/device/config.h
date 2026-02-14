@@ -25,7 +25,7 @@
 #define CONFIG_MAX_PASSWORD_LEN 128
 #define CONFIG_MAX_PATH_LEN 512
 #define CONFIG_MAX_FONT_NAME_LEN 64
-#define CONFIG_MAX_SENSOR_SLOT_LEN 32
+#define CONFIG_MAX_SENSOR_SLOT_LEN 256
 
 /**
  * @brief Simple color structure.
@@ -52,6 +52,36 @@ typedef enum
     LOG_WARNING,
     LOG_ERROR
 } log_level_t;
+
+// ============================================================================
+// Sensor Configuration (per-sensor thresholds, colors, offsets)
+// ============================================================================
+
+#define MAX_SENSOR_CONFIGS 32
+#define SENSOR_CONFIG_ID_LEN 256
+
+/**
+ * @brief Per-sensor display configuration.
+ * @details Each configured sensor has its own thresholds, bar colors, and
+ * display offsets. Sensor ID format: legacy "cpu"/"gpu"/"liquid" or
+ * dynamic "device_uid:sensor_name".
+ */
+typedef struct
+{
+    char sensor_id[SENSOR_CONFIG_ID_LEN]; /**< Sensor identifier */
+    float threshold_1;                    /**< Low threshold */
+    float threshold_2;                    /**< Medium threshold */
+    float threshold_3;                    /**< High threshold */
+    float max_scale;                      /**< Maximum bar scale value */
+    Color threshold_1_bar;                /**< Bar color below threshold_1 */
+    Color threshold_2_bar;                /**< Bar color at threshold_1..2 */
+    Color threshold_3_bar;                /**< Bar color at threshold_2..3 */
+    Color threshold_4_bar;                /**< Bar color above threshold_3 */
+    int offset_x;                         /**< Display X offset for value text */
+    int offset_y;                         /**< Display Y offset for value text */
+    float font_size_temp;                 /**< Per-sensor temp font size (0 = use global) */
+    char label[32];                       /**< Custom display label (empty = auto) */
+} SensorConfig;
 
 /**
  * @brief Configuration structure.
@@ -109,46 +139,14 @@ typedef struct Config
     Color font_color_temp;
     Color font_color_label;
 
-    // Display positioning overrides
-    int display_temp_offset_x_cpu;
-    int display_temp_offset_x_gpu;
-    int display_temp_offset_y_cpu;
-    int display_temp_offset_y_gpu;
-    int display_temp_offset_x_liquid;
-    int display_temp_offset_y_liquid;
+    // Display positioning overrides (global)
     int display_degree_spacing;
     int display_label_offset_x;
     int display_label_offset_y;
 
-    // CPU temperature configuration
-    float temp_cpu_threshold_1;
-    float temp_cpu_threshold_2;
-    float temp_cpu_threshold_3;
-    float temp_cpu_max_scale;
-    Color temp_cpu_threshold_1_bar;
-    Color temp_cpu_threshold_2_bar;
-    Color temp_cpu_threshold_3_bar;
-    Color temp_cpu_threshold_4_bar;
-
-    // GPU temperature configuration
-    float temp_gpu_threshold_1;
-    float temp_gpu_threshold_2;
-    float temp_gpu_threshold_3;
-    float temp_gpu_max_scale;
-    Color temp_gpu_threshold_1_bar;
-    Color temp_gpu_threshold_2_bar;
-    Color temp_gpu_threshold_3_bar;
-    Color temp_gpu_threshold_4_bar;
-
-    // Liquid temperature configuration
-    float temp_liquid_threshold_1;
-    float temp_liquid_threshold_2;
-    float temp_liquid_threshold_3;
-    float temp_liquid_max_scale;
-    Color temp_liquid_threshold_1_bar;
-    Color temp_liquid_threshold_2_bar;
-    Color temp_liquid_threshold_3_bar;
-    Color temp_liquid_threshold_4_bar;
+    // Per-sensor configuration (thresholds, colors, offsets)
+    SensorConfig sensor_configs[MAX_SENSOR_CONFIGS]; /**< Sensor-specific configs */
+    int sensor_config_count;                         /**< Number of valid entries */
 } Config;
 
 /**
@@ -207,5 +205,22 @@ static inline int is_valid_orientation(int orientation)
  *   /etc/coolercontrol/plugins/coolerdash/config.json
  */
 int load_plugin_config(Config *config, const char *config_path);
+
+/**
+ * @brief Find sensor configuration by sensor ID.
+ * @details Searches sensor_configs[] for a matching sensor_id.
+ * @param config Configuration struct
+ * @param sensor_id Sensor identifier ("cpu", "gpu", "liquid", or "uid:name")
+ * @return Pointer to matching SensorConfig, or NULL if not found
+ */
+const SensorConfig *get_sensor_config(const Config *config, const char *sensor_id);
+
+/**
+ * @brief Initialize a SensorConfig with default values for a given category.
+ * @param sc SensorConfig to initialize
+ * @param sensor_id Sensor identifier to set
+ * @param category 0=temp, 1=rpm, 2=duty, 3=watts, 4=freq
+ */
+void init_default_sensor_config(SensorConfig *sc, const char *sensor_id, int category);
 
 #endif // CONFIG_H
