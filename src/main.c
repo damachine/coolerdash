@@ -706,16 +706,17 @@ static void initialize_device_info(Config *config)
 
     log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
 
-    if (get_temperature_monitor_data(config, &temp_data))
+    if (get_sensor_monitor_data(config, &temp_data))
     {
-        if (temp_data.temp_cpu > 0.0f || temp_data.temp_gpu > 0.0f)
+        if (temp_data.sensor_count > 0)
         {
-            log_message(LOG_STATUS, "Sensor values successfully detected");
+            log_message(LOG_STATUS, "Sensor values successfully detected (%d sensors)",
+                        temp_data.sensor_count);
         }
         else
         {
             log_message(LOG_WARNING,
-                        "Sensor detection issues - temperature values not available");
+                        "Sensor detection issues - no sensor values available");
         }
     }
     else

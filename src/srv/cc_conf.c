@@ -70,9 +70,51 @@ static struct
 } device_cache = {0};
 
 /**
+ * @brief Cache for all device names and types (populated from /devices).
+ * @details Maps device UID to display name and type string.
+ */
+static struct
+{
+    char uid[128];
+    char name[CC_NAME_SIZE];
+    char type[16];
+} device_name_cache[MAX_DEVICE_NAME_CACHE];
+static int device_name_cache_count = 0;
+
+/**
+ * @brief Get device display name by UID.
+ */
+const char *get_device_name_by_uid(const char *device_uid)
+{
+    if (!device_uid)
+        return "";
+    for (int i = 0; i < device_name_cache_count; i++)
+    {
+        if (strcmp(device_name_cache[i].uid, device_uid) == 0)
+            return device_name_cache[i].name;
+    }
+    return "";
+}
+
+/**
+ * @brief Get device type string by UID.
+ */
+const char *get_device_type_by_uid(const char *device_uid)
+{
+    if (!device_uid)
+        return NULL;
+    for (int i = 0; i < device_name_cache_count; i++)
+    {
+        if (strcmp(device_name_cache[i].uid, device_uid) == 0)
+            return device_name_cache[i].type;
+    }
+    return NULL;
+}
+
+/**
  * @brief Extract device type from JSON device object.
  * @details Common helper function to extract device type string from JSON
- * device object.
+ * device object. Checks "type" first (/devices), falls back to "d_type" (/status).
  */
 const char *extract_device_type_from_json(const json_t *dev)
 {
@@ -81,7 +123,12 @@ const char *extract_device_type_from_json(const json_t *dev)
 
     const json_t *type_val = json_object_get(dev, "type");
     if (!type_val || !json_is_string(type_val))
-        return NULL;
+    {
+        /* Fallback: /status endpoint uses "d_type" instead of "type" */
+        type_val = json_object_get(dev, "d_type");
+        if (!type_val || !json_is_string(type_val))
+            return NULL;
+    }
 
     return json_string_value(type_val);
 }
@@ -357,10 +404,76 @@ static void configure_device_cache_curl(CURL *curl, const char *url,
 }
 
 /**
+ * @brief Populate device name cache from parsed JSON devices array.
+ * @details Caches UID, name, and type for all devices (not just Liquidctl).
+ */
+static void populate_device_name_cache(const char *json_data)
+{
+    if (!json_data)
+        return;
+
+    json_error_t error;
+    json_t *root = json_loads(json_data, 0, &error);
+    if (!root)
+        return;
+
+    const json_t *devices = json_object_get(root, "devices");
+    if (!devices || !json_is_array(devices))
+    {
+        json_decref(root);
+        return;
+    }
+
+    device_name_cache_count = 0;
+    const size_t count = json_array_size(devices);
+    for (size_t i = 0; i < count && device_name_cache_count < MAX_DEVICE_NAME_CACHE; i++)
+    {
+        const json_t *dev = json_array_get(devices, i);
+        if (!dev)
+            continue;
+
+        const json_t *uid_val = json_object_get(dev, "uid");
+        const json_t *name_val = json_object_get(dev, "name");
+        const char *type_str = extract_device_type_from_json(dev);
+
+        if (!uid_val || !json_is_string(uid_val))
+            continue;
+
+        int idx = device_name_cache_count;
+        cc_safe_strcpy(device_name_cache[idx].uid,
+                       sizeof(device_name_cache[idx].uid),
+                       json_string_value(uid_val));
+
+        if (name_val && json_is_string(name_val))
+            cc_safe_strcpy(device_name_cache[idx].name,
+                           sizeof(device_name_cache[idx].name),
+                           json_string_value(name_val));
+        else
+            device_name_cache[idx].name[0] = '\0';
+
+        if (type_str)
+            cc_safe_strcpy(device_name_cache[idx].type,
+                           sizeof(device_name_cache[idx].type),
+                           type_str);
+        else
+            device_name_cache[idx].type[0] = '\0';
+
+        device_name_cache_count++;
+    }
+
+    log_message(LOG_INFO, "Device name cache: %d devices cached",
+                device_name_cache_count);
+    json_decref(root);
+}
+
+/**
  * @brief Process device cache API response and populate cache.
  */
 static int process_device_cache_response(const http_response *chunk)
 {
+    /* Populate device name cache for ALL devices (used by sensor system) */
+    populate_device_name_cache(chunk->data);
+
     int found_liquidctl = 0;
     int result = parse_liquidctl_data(
         chunk->data, device_cache.device_uid, sizeof(device_cache.device_uid),
