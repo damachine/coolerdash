@@ -254,90 +254,83 @@ int slot_is_active(const char *slot_value)
 }
 
 /**
- * @brief Get temperature value for a sensor slot.
+ * @brief Get sensor value for a slot.
  */
 float get_slot_temperature(const monitor_sensor_data_t *data, const char *slot_value)
 {
     if (!data || !slot_value)
         return 0.0f;
 
-    if (strcmp(slot_value, "cpu") == 0)
-        return data->temp_cpu;
-    else if (strcmp(slot_value, "gpu") == 0)
-        return data->temp_gpu;
-    else if (strcmp(slot_value, "liquid") == 0)
-        return data->temp_liquid;
+    const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
+    if (entry)
+        return entry->value;
 
     return 0.0f;
 }
 
 /**
  * @brief Get display label for a sensor slot.
+ * @details Returns custom label from SensorConfig if set, otherwise
+ * uses legacy names or sensor name from data.
  */
-const char *get_slot_label(const char *slot_value)
+const char *get_slot_label(const struct Config *config,
+                           const monitor_sensor_data_t *data,
+                           const char *slot_value)
 {
-    if (!slot_value || slot_value[0] == '\0')
+    if (!slot_value || slot_value[0] == '\0' || strcmp(slot_value, "none") == 0)
         return NULL;
 
+    /* Check for custom label override in SensorConfig */
+    if (config)
+    {
+        const SensorConfig *sc = get_sensor_config(config, slot_value);
+        if (sc && sc->label[0] != '\0')
+            return sc->label;
+    }
+
+    /* Legacy labels */
     if (strcmp(slot_value, "cpu") == 0)
         return "CPU";
-    else if (strcmp(slot_value, "gpu") == 0)
+    if (strcmp(slot_value, "gpu") == 0)
         return "GPU";
-    else if (strcmp(slot_value, "liquid") == 0)
+    if (strcmp(slot_value, "liquid") == 0)
         return "LIQ";
-    else if (strcmp(slot_value, "none") == 0)
-        return NULL;
 
-    return NULL;
+    /* Dynamic: use sensor name */
+    if (data)
+    {
+        const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
+        if (entry)
+            return entry->name;
+    }
+
+    return "???";
 }
 
 /**
- * @brief Get bar color for a sensor slot based on temperature.
+ * @brief Get bar color for a sensor slot based on value.
+ * @details Uses SensorConfig thresholds via get_sensor_config().
  */
-Color get_slot_bar_color(const struct Config *config, const char *slot_value, float temperature)
+Color get_slot_bar_color(const struct Config *config, const char *slot_value,
+                         float value)
 {
+    Color default_color = {0, 255, 0, 1};
+
     if (!config || !slot_value)
-    {
-        // Return default green color
-        Color default_color = {0, 255, 0, 1};
         return default_color;
-    }
 
-    // Liquid uses separate thresholds
-    if (strcmp(slot_value, "liquid") == 0)
-    {
-        if (temperature < config->temp_liquid_threshold_1)
-            return config->temp_liquid_threshold_1_bar;
-        else if (temperature < config->temp_liquid_threshold_2)
-            return config->temp_liquid_threshold_2_bar;
-        else if (temperature < config->temp_liquid_threshold_3)
-            return config->temp_liquid_threshold_3_bar;
-        else
-            return config->temp_liquid_threshold_4_bar;
-    }
+    const SensorConfig *sc = get_sensor_config(config, slot_value);
+    if (!sc)
+        return default_color;
 
-    // GPU uses separate thresholds
-    if (strcmp(slot_value, "gpu") == 0)
-    {
-        if (temperature < config->temp_gpu_threshold_1)
-            return config->temp_gpu_threshold_1_bar;
-        else if (temperature < config->temp_gpu_threshold_2)
-            return config->temp_gpu_threshold_2_bar;
-        else if (temperature < config->temp_gpu_threshold_3)
-            return config->temp_gpu_threshold_3_bar;
-        else
-            return config->temp_gpu_threshold_4_bar;
-    }
-
-    // CPU (default) uses separate thresholds
-    if (temperature < config->temp_cpu_threshold_1)
-        return config->temp_cpu_threshold_1_bar;
-    else if (temperature < config->temp_cpu_threshold_2)
-        return config->temp_cpu_threshold_2_bar;
-    else if (temperature < config->temp_cpu_threshold_3)
-        return config->temp_cpu_threshold_3_bar;
+    if (value < sc->threshold_1)
+        return sc->threshold_1_bar;
+    else if (value < sc->threshold_2)
+        return sc->threshold_2_bar;
+    else if (value < sc->threshold_3)
+        return sc->threshold_3_bar;
     else
-        return config->temp_cpu_threshold_4_bar;
+        return sc->threshold_4_bar;
 }
 
 /**
@@ -348,16 +341,11 @@ float get_slot_max_scale(const struct Config *config, const char *slot_value)
     if (!config)
         return 115.0f;
 
-    // Liquid has its own max scale (typically lower, e.g., 50°C)
-    if (slot_value && strcmp(slot_value, "liquid") == 0)
-        return config->temp_liquid_max_scale;
+    const SensorConfig *sc = get_sensor_config(config, slot_value);
+    if (sc && sc->max_scale > 0.0f)
+        return sc->max_scale;
 
-    // GPU has its own max scale
-    if (slot_value && strcmp(slot_value, "gpu") == 0)
-        return config->temp_gpu_max_scale;
-
-    // CPU (default) max scale
-    return config->temp_cpu_max_scale;
+    return 115.0f;
 }
 
 /**
@@ -366,7 +354,7 @@ float get_slot_max_scale(const struct Config *config, const char *slot_value)
 uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name)
 {
     if (!config || !slot_name)
-        return 24; // Default fallback
+        return 24;
 
     if (strcmp(slot_name, "up") == 0)
         return config->layout_bar_height_up;
@@ -375,7 +363,101 @@ uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name)
     else if (strcmp(slot_name, "down") == 0)
         return config->layout_bar_height_down;
 
-    return config->layout_bar_height; // Fallback to global
+    return config->layout_bar_height;
+}
+
+/**
+ * @brief Get display unit string for a sensor slot.
+ */
+const char *get_slot_unit(const monitor_sensor_data_t *data,
+                          const char *slot_value)
+{
+    if (!data || !slot_value)
+        return "\xC2\xB0"
+               "C";
+
+    const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
+    if (entry)
+        return entry->unit;
+
+    return "\xC2\xB0"
+           "C";
+}
+
+/**
+ * @brief Check if sensor should display decimal values.
+ */
+int get_slot_use_decimal(const monitor_sensor_data_t *data,
+                         const char *slot_value)
+{
+    if (!data || !slot_value)
+        return 0;
+
+    const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
+    if (entry)
+        return entry->use_decimal;
+
+    return 0;
+}
+
+/**
+ * @brief Get display X offset for a sensor slot.
+ */
+int get_slot_offset_x(const struct Config *config, const char *slot_value)
+{
+    if (!config || !slot_value)
+        return 0;
+
+    const SensorConfig *sc = get_sensor_config(config, slot_value);
+    return sc ? sc->offset_x : 0;
+}
+
+/**
+ * @brief Get display Y offset for a sensor slot.
+ */
+int get_slot_offset_y(const struct Config *config, const char *slot_value)
+{
+    if (!config || !slot_value)
+        return 0;
+
+    const SensorConfig *sc = get_sensor_config(config, slot_value);
+    return sc ? sc->offset_y : 0;
+}
+
+/**
+ * @brief Check if a sensor slot is a temperature sensor.
+ */
+int get_slot_is_temp(const monitor_sensor_data_t *data, const char *slot_value)
+{
+    if (!data || !slot_value)
+        return 1; /* Default to temp */
+
+    /* Legacy slots are always temperature */
+    if (strcmp(slot_value, "cpu") == 0 || strcmp(slot_value, "gpu") == 0 ||
+        strcmp(slot_value, "liquid") == 0)
+        return 1;
+
+    const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
+    if (entry)
+        return (entry->category == SENSOR_CATEGORY_TEMP) ? 1 : 0;
+
+    return 1;
+}
+
+/**
+ * @brief Get font size for a sensor slot.
+ * @details Returns per-sensor font size if configured (> 0), otherwise global.
+ */
+float get_slot_font_size(const struct Config *config, const char *slot_value)
+{
+    if (!config)
+        return 100.0f;
+
+    const SensorConfig *sc = get_sensor_config(config, slot_value);
+    if (sc && sc->font_size_temp > 0.0f)
+        return sc->font_size_temp;
+
+    return config->font_size_temp;
 }
 
 /**

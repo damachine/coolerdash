@@ -138,34 +138,39 @@ void draw_degree_symbol(cairo_t *cr, double x, double y,
 int slot_is_active(const char *slot_value);
 
 /**
- * @brief Get temperature value for a sensor slot.
- * @param data Sensor data structure with CPU, GPU, and liquid temperatures
- * @param slot_value Slot configuration value ("cpu", "gpu", "liquid")
- * @return Temperature in Celsius, or 0.0 if slot is "none" or invalid
+ * @brief Get sensor value for a slot.
+ * @param data Sensor data collection
+ * @param slot_value Slot configuration value ("cpu","gpu","liquid" or "uid:name")
+ * @return Sensor value, or 0.0 if slot is "none" or sensor not found
  */
 float get_slot_temperature(const monitor_sensor_data_t *data, const char *slot_value);
 
 /**
  * @brief Get display label for a sensor slot.
- * @param slot_value Slot configuration value ("cpu", "gpu", "liquid", "none")
- * @return Label string ("CPU", "GPU", "LIQ") or NULL if "none"
+ * @param config Configuration with sensor configs (for custom label override)
+ * @param data Sensor data collection (used for dynamic sensor names)
+ * @param slot_value Slot configuration value
+ * @return Label string (custom, "CPU","GPU","LIQ" or sensor name) or NULL
  */
-const char *get_slot_label(const char *slot_value);
+const char *get_slot_label(const struct Config *config,
+                           const monitor_sensor_data_t *data,
+                           const char *slot_value);
 
 /**
- * @brief Get bar color for a sensor slot based on temperature.
- * @param config Configuration with threshold colors
- * @param slot_value Slot configuration value (determines which thresholds to use)
- * @param temperature Current temperature value
- * @return Color based on temperature thresholds
+ * @brief Get bar color for a sensor slot based on value.
+ * @param config Configuration with sensor threshold configs
+ * @param slot_value Slot configuration value
+ * @param value Current sensor value
+ * @return Color based on thresholds
  */
-Color get_slot_bar_color(const struct Config *config, const char *slot_value, float temperature);
+Color get_slot_bar_color(const struct Config *config, const char *slot_value,
+                         float value);
 
 /**
  * @brief Get maximum scale for a sensor slot.
- * @param config Configuration with max scale values
+ * @param config Configuration with sensor configs
  * @param slot_value Slot configuration value
- * @return Maximum temperature scale (liquid uses different max)
+ * @return Maximum scale value
  */
 float get_slot_max_scale(const struct Config *config, const char *slot_value);
 
@@ -176,5 +181,55 @@ float get_slot_max_scale(const struct Config *config, const char *slot_value);
  * @return Bar height in pixels for the specified slot
  */
 uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name);
+
+/**
+ * @brief Get display unit string for a sensor slot.
+ * @param data Sensor data collection
+ * @param slot_value Slot configuration value
+ * @return Unit string ("°C","RPM","%","W","MHz") or "°C" as default
+ */
+const char *get_slot_unit(const monitor_sensor_data_t *data,
+                          const char *slot_value);
+
+/**
+ * @brief Check if sensor should display decimal values.
+ * @param data Sensor data collection
+ * @param slot_value Slot configuration value
+ * @return 1 for decimal display, 0 for integer
+ */
+int get_slot_use_decimal(const monitor_sensor_data_t *data,
+                         const char *slot_value);
+
+/**
+ * @brief Get display X offset for a sensor slot.
+ * @param config Configuration with sensor configs
+ * @param slot_value Slot configuration value
+ * @return X offset in pixels
+ */
+int get_slot_offset_x(const struct Config *config, const char *slot_value);
+
+/**
+ * @brief Get display Y offset for a sensor slot.
+ * @param config Configuration with sensor configs
+ * @param slot_value Slot configuration value
+ * @return Y offset in pixels
+ */
+int get_slot_offset_y(const struct Config *config, const char *slot_value);
+
+/**
+ * @brief Check if a sensor slot is a temperature sensor.
+ * @param data Sensor data collection
+ * @param slot_value Slot configuration value
+ * @return 1 if temperature sensor (show degree symbol), 0 otherwise
+ */
+int get_slot_is_temp(const monitor_sensor_data_t *data, const char *slot_value);
+
+/**
+ * @brief Get font size for a sensor slot.
+ * @param config Configuration with sensor configs and global font size
+ * @param slot_value Slot configuration value
+ * @return Per-sensor font size if set, otherwise global font_size_temp
+ */
+float get_slot_font_size(const struct Config *config, const char *slot_value);
 
 #endif // DISPLAY_DISPATCHER_H

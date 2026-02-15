@@ -465,6 +465,92 @@
         ::-webkit-scrollbar-track { background: var(--bg-primary); border-radius: 4px; }
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* Sensor Config Sections */
+        .sensor-config-section {
+            margin-bottom: 16px;
+        }
+
+        .sensor-config-section:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Collapsible details (used in Sensors + Layout tabs) */
+        .sensor-details,
+        .collapsible-details {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .collapsible-details + .collapsible-details {
+            margin-top: 12px;
+        }
+
+        .sensor-details summary,
+        .collapsible-details summary {
+            padding: 12px 16px;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+            list-style: none;
+            border-bottom: 1px solid transparent;
+            transition: background 0.15s;
+        }
+
+        .sensor-details summary::-webkit-details-marker,
+        .collapsible-details summary::-webkit-details-marker { display: none; }
+
+        .sensor-details summary::before,
+        .collapsible-details summary::before {
+            content: '\25B6';
+            font-size: 10px;
+            transition: transform 0.2s;
+            color: var(--text-dim);
+        }
+
+        .sensor-details[open] summary::before,
+        .collapsible-details[open] summary::before {
+            transform: rotate(90deg);
+        }
+
+        .sensor-details[open] summary,
+        .collapsible-details[open] summary {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sensor-details summary:hover,
+        .collapsible-details summary:hover {
+            background: var(--bg-primary);
+        }
+
+        .sensor-details-content,
+        .collapsible-details-content {
+            padding: 16px;
+        }
+
+        .sensor-details .sub-section-title,
+        .collapsible-details .sub-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 16px 0 8px 0;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,107,129,0.15);
+        }
+
+        .sensor-details .sub-section-title:first-child,
+        .collapsible-details .sub-section-title:first-child {
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
@@ -472,9 +558,9 @@
         <!-- Header -->
         <div class="header">
             <h1>CoolerDash Configuration</h1>
-            <p>Customize your LCD temperature dashboard • Changes require plugin restart</p>
+            <p>Customize your LCD temperature dashboard &bull; Changes require plugin restart</p>
             <p style="margin-top: 8px; font-size: 12px; color: var(--text-dim); opacity: 0.8;">
-                💡 <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values. Feedback &amp; bug reports are welcome — see the <em>Info</em> tab for links.
+                &#x1F4A1; <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values. Feedback &amp; bug reports are welcome — see the <em>Info</em> tab for links.
             </p>
         </div>
 
@@ -484,13 +570,10 @@
             <button class="tab" onclick="switchTab(1)">Display</button>
             <button class="tab" onclick="switchTab(2)">Layout</button>
             <button class="tab" onclick="switchTab(3)">Colors</button>
-            <button class="tab" onclick="switchTab(4)">CPU</button>
-            <button class="tab" onclick="switchTab(5)">GPU</button>
-            <button class="tab" onclick="switchTab(6)">Liquid</button>
-            <button class="tab" onclick="switchTab(7)">Position</button>
-            <button class="tab" onclick="switchTab(8)">Advanced</button>
-            <button class="tab" onclick="switchTab(9)">Device</button>
-            <button class="tab" onclick="switchTab(10)">Info</button>
+            <button class="tab" onclick="switchTab(4)">Sensors</button>
+            <button class="tab" onclick="switchTab(5)">Advanced</button>
+            <button class="tab" onclick="switchTab(6)">Device</button>
+            <button class="tab" onclick="switchTab(7)">Info</button>
         </div>
 
         <form id="configForm">
@@ -536,40 +619,47 @@
                 <h3 class="section-title">Sensor Slots</h3>
                 <div class="alert">
                     <strong>Sensor Assignment</strong>
-                    Assign sensors to display positions. Use "None" to disable a slot.
+                    Assign sensors to display positions. Use &ldquo;None&rdquo; to disable a slot.
+                    Discovered sensors from CoolerControl API appear automatically.
                 </div>
 
                 <div class="grid grid-3">
                     <div class="form-group">
                         <label class="form-label">Upper Slot</label>
                         <span class="form-hint">Default: CPU</span>
-                        <select name="display.sensor_slot_up" id="sensor_slot_up" class="form-control" onchange="validateSensorSlots()">
-                            <option value="cpu">CPU</option>
-                            <option value="gpu">GPU</option>
-                            <option value="liquid">Liquid</option>
-                            <option value="none">None</option>
+                        <select name="display.sensor_slot_up" id="sensor_slot_up" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                            <optgroup label="Standard">
+                                <option value="cpu">CPU</option>
+                                <option value="gpu">GPU</option>
+                                <option value="liquid">Liquid</option>
+                                <option value="none">None</option>
+                            </optgroup>
                         </select>
                     </div>
 
                     <div class="form-group" id="sensor_slot_mid_group">
                         <label class="form-label">Middle Slot</label>
                         <span class="form-hint">Default: None (Circle only)</span>
-                        <select name="display.sensor_slot_mid" id="sensor_slot_mid" class="form-control" onchange="validateSensorSlots()">
-                            <option value="cpu">CPU</option>
-                            <option value="gpu">GPU</option>
-                            <option value="liquid">Liquid</option>
-                            <option value="none">None</option>
+                        <select name="display.sensor_slot_mid" id="sensor_slot_mid" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                            <optgroup label="Standard">
+                                <option value="cpu">CPU</option>
+                                <option value="gpu">GPU</option>
+                                <option value="liquid">Liquid</option>
+                                <option value="none">None</option>
+                            </optgroup>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Lower Slot</label>
                         <span class="form-hint">Default: GPU</span>
-                        <select name="display.sensor_slot_down" id="sensor_slot_down" class="form-control" onchange="validateSensorSlots()">
-                            <option value="cpu">CPU</option>
-                            <option value="gpu">GPU</option>
-                            <option value="liquid">Liquid</option>
-                            <option value="none">None</option>
+                        <select name="display.sensor_slot_down" id="sensor_slot_down" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                            <optgroup label="Standard">
+                                <option value="cpu">CPU</option>
+                                <option value="gpu">GPU</option>
+                                <option value="liquid">Liquid</option>
+                                <option value="none">None</option>
+                            </optgroup>
                         </select>
                     </div>
                 </div>
@@ -578,7 +668,7 @@
                     <span id="sensor_slot_warning_text"></span>
                 </div>
 
-                <h3 class="section-title">Timing & Brightness</h3>
+                <h3 class="section-title">Timing &amp; Brightness</h3>
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Refresh Interval (Seconds)</label>
@@ -600,12 +690,12 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Orientation</label>
-                        <span class="form-hint">Default: 0°</span>
+                        <span class="form-hint">Default: 0&deg;</span>
                         <select name="display.orientation" class="form-control">
-                            <option value="0">0° (Default)</option>
-                            <option value="90">90° (Clockwise)</option>
-                            <option value="180">180° (Upside Down)</option>
-                            <option value="270">270° (Counter-Clockwise)</option>
+                            <option value="0">0&deg; (Default)</option>
+                            <option value="90">90&deg; (Clockwise)</option>
+                            <option value="180">180&deg; (Upside Down)</option>
+                            <option value="270">270&deg; (Counter-Clockwise)</option>
                         </select>
                     </div>
 
@@ -618,9 +708,7 @@
                             <option value="circle">Circle</option>
                         </select>
                     </div>
-                </div>
 
-                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Width (Pixels)</label>
                         <span class="form-hint">0 = automatic</span>
@@ -632,9 +720,7 @@
                         <span class="form-hint">0 = automatic</span>
                         <input type="number" name="display.height" class="form-control" min="0" max="1024">
                     </div>
-                </div>
 
-                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Content Scale</label>
                         <span class="form-hint">Default: 0.98</span>
@@ -651,99 +737,129 @@
 
             <!-- Tab 2: Layout -->
             <div class="panel">
-                <h3 class="section-title">Bar Dimensions</h3>
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">Default Bar Height</label>
-                        <span class="form-hint">Default: 24</span>
-                        <input type="number" name="layout.bar_height" class="form-control" min="10" max="100">
-                    </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Bar Width (%)</label>
-                        <span class="form-hint">Default: 98</span>
-                        <input type="number" name="layout.bar_width" class="form-control" min="50" max="100">
-                    </div>
+                <details class="collapsible-details" open>
+                    <summary>Bars</summary>
+                    <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Dimensions</h4>
+                        <div class="grid grid-3">
+                            <div class="form-group">
+                                <label class="form-label">Default Bar Height</label>
+                                <span class="form-hint">Default: 24</span>
+                                <input type="number" name="layout.bar_height" class="form-control" min="10" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Bar Width (%)</label>
+                                <span class="form-hint">Default: 98</span>
+                                <input type="number" name="layout.bar_width" class="form-control" min="50" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Bar Gap</label>
+                                <span class="form-hint">Default: 12</span>
+                                <input type="number" name="layout.bar_gap" class="form-control" min="0" max="50">
+                            </div>
+                        </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Bar Gap</label>
-                        <span class="form-hint">Default: 12</span>
-                        <input type="number" name="layout.bar_gap" class="form-control" min="0" max="50">
-                    </div>
-                </div>
+                        <h4 class="sub-section-title">Individual Heights</h4>
+                        <span class="form-hint" style="margin-bottom: 12px; display: block;">Set to 0 to use default bar height</span>
+                        <div class="grid grid-3">
+                            <div class="form-group">
+                                <label class="form-label">Upper Slot Height</label>
+                                <span class="form-hint">Default: 0</span>
+                                <input type="number" name="layout.bar_height_up" class="form-control" min="0" max="100">
+                            </div>
+                            <div class="form-group" id="bar_height_mid_group">
+                                <label class="form-label">Middle Slot Height</label>
+                                <span class="form-hint">Default: 0</span>
+                                <input type="number" name="layout.bar_height_mid" class="form-control" min="0" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Lower Slot Height</label>
+                                <span class="form-hint">Default: 0</span>
+                                <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
+                            </div>
+                        </div>
 
-                <h3 class="section-title">Individual Bar Heights</h3>
-                <span class="form-hint" style="margin-bottom: 16px; display: block;">Set to 0 to use default bar height</span>
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">Upper Slot Height</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="layout.bar_height_up" class="form-control" min="0" max="100">
+                        <h4 class="sub-section-title">Border</h4>
+                        <div class="grid grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Show Border</label>
+                                <span class="form-hint">Default: On</span>
+                                <select name="layout.bar_border_enabled" class="form-control">
+                                    <option value="1">On</option>
+                                    <option value="0">Off</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Border Thickness</label>
+                                <span class="form-hint">Default: 1.0</span>
+                                <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
+                            </div>
+                        </div>
                     </div>
+                </details>
 
-                    <div class="form-group" id="bar_height_mid_group">
-                        <label class="form-label">Middle Slot Height</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="layout.bar_height_mid" class="form-control" min="0" max="100">
-                    </div>
+                <details class="collapsible-details">
+                    <summary>Labels &amp; Text</summary>
+                    <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Font</h4>
+                        <div class="grid grid-3">
+                            <div class="form-group">
+                                <label class="form-label">Font Face</label>
+                                <span class="form-hint">Default: Roboto Black</span>
+                                <input type="text" name="font.face" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Temperature Size (Global)</label>
+                                <span class="form-hint">Default: 100 (per-sensor override in Sensors tab)</span>
+                                <input type="number" name="font.size_temp" class="form-control" min="50" max="200">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Label Size</label>
+                                <span class="form-hint">Default: 30</span>
+                                <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
+                            </div>
+                        </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Lower Slot Height</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
-                    </div>
-                </div>
+                        <h4 class="sub-section-title">Margins</h4>
+                        <div class="grid grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Label Left Margin</label>
+                                <span class="form-hint">Default: 1</span>
+                                <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Label Bar Margin</label>
+                                <span class="form-hint">Default: 1</span>
+                                <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
+                            </div>
+                        </div>
 
-                <h3 class="section-title">Border & Margins</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Show Border</label>
-                        <span class="form-hint">Default: On</span>
-                        <select name="layout.bar_border_enabled" class="form-control">
-                            <option value="1">On</option>
-                            <option value="0">Off</option>
-                        </select>
+                        <h4 class="sub-section-title">Positioning</h4>
+                        <div class="alert">
+                            <strong>Global Offsets</strong>
+                            These offsets apply to all labels globally. Per-sensor value offsets are configured in the Sensors tab.
+                        </div>
+                        <div class="grid grid-3">
+                            <div class="form-group">
+                                <label class="form-label">Label X Offset</label>
+                                <span class="form-hint">Default: 0</span>
+                                <input type="number" name="positioning.label_offset_x" class="form-control" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Label Y Offset</label>
+                                <span class="form-hint">Default: 0</span>
+                                <input type="number" name="positioning.label_offset_y" class="form-control" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Degree Symbol Spacing</label>
+                                <span class="form-hint">Default: 16</span>
+                                <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="50">
+                            </div>
+                        </div>
                     </div>
+                </details>
 
-                    <div class="form-group">
-                        <label class="form-label">Border Thickness</label>
-                        <span class="form-hint">Default: 1.0</span>
-                        <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Label Left Margin</label>
-                        <span class="form-hint">Default: 1</span>
-                        <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Label Bar Margin</label>
-                        <span class="form-hint">Default: 1</span>
-                        <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
-                    </div>
-                </div>
-
-                <h3 class="section-title">Font</h3>
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">Font Face</label>
-                        <span class="form-hint">Default: Roboto Black</span>
-                        <input type="text" name="font.face" class="form-control">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Temperature Size</label>
-                        <span class="form-hint">Default: 100</span>
-                        <input type="number" name="font.size_temp" class="form-control" min="50" max="200">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Label Size</label>
-                        <span class="form-hint">Default: 30</span>
-                        <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
-                    </div>
-                </div>
             </div>
 
             <!-- Tab 3: Colors -->
@@ -795,276 +911,21 @@
                 </div>
             </div>
 
-            <!-- Tab 4: CPU Thresholds -->
-            <div class="panel">
-                <h3 class="section-title">CPU Thresholds</h3>
-                <div class="grid grid-4">
-                    <div class="form-group">
-                        <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Default: 55</span>
-                        <input type="number" name="cpu.threshold_1" class="form-control" min="0" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Default: 65</span>
-                        <input type="number" name="cpu.threshold_2" class="form-control" min="0" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Default: 75</span>
-                        <input type="number" name="cpu.threshold_3" class="form-control" min="0" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Max Scale (°C)</label>
-                        <span class="form-hint">Default: 115</span>
-                        <input type="number" name="cpu.max_scale" class="form-control" min="80" max="150">
-                    </div>
-                </div>
-
-                <h3 class="section-title">CPU Bar Colors</h3>
-                <div class="grid grid-4">
-                    <div class="form-group">
-                        <label class="form-label">Color 1 (< Threshold 1)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_cpu_1" class="color-swatch" onchange="updateColorRGB('color_cpu_1', 'rgb_cpu_1')">
-                            <span class="color-rgb" id="rgb_cpu_1"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 2 (Threshold 1-2)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_cpu_2" class="color-swatch" onchange="updateColorRGB('color_cpu_2', 'rgb_cpu_2')">
-                            <span class="color-rgb" id="rgb_cpu_2"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 3 (Threshold 2-3)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_cpu_3" class="color-swatch" onchange="updateColorRGB('color_cpu_3', 'rgb_cpu_3')">
-                            <span class="color-rgb" id="rgb_cpu_3"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 4 (> Threshold 3)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_cpu_4" class="color-swatch" onchange="updateColorRGB('color_cpu_4', 'rgb_cpu_4')">
-                            <span class="color-rgb" id="rgb_cpu_4"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 5: GPU Thresholds -->
-            <div class="panel">
-                <h3 class="section-title">GPU Thresholds</h3>
-                <div class="grid grid-4">
-                    <div class="form-group">
-                        <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Default: 55</span>
-                        <input type="number" name="gpu.threshold_1" class="form-control" min="0" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Default: 65</span>
-                        <input type="number" name="gpu.threshold_2" class="form-control" min="0" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Default: 75</span>
-                        <input type="number" name="gpu.threshold_3" class="form-control" min="0" max="100">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Max Scale (°C)</label>
-                        <span class="form-hint">Default: 115</span>
-                        <input type="number" name="gpu.max_scale" class="form-control" min="80" max="150">
-                    </div>
-                </div>
-
-                <h3 class="section-title">GPU Bar Colors</h3>
-                <div class="grid grid-4">
-                    <div class="form-group">
-                        <label class="form-label">Color 1 (< Threshold 1)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_gpu_1" class="color-swatch" onchange="updateColorRGB('color_gpu_1', 'rgb_gpu_1')">
-                            <span class="color-rgb" id="rgb_gpu_1"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 2 (Threshold 1-2)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_gpu_2" class="color-swatch" onchange="updateColorRGB('color_gpu_2', 'rgb_gpu_2')">
-                            <span class="color-rgb" id="rgb_gpu_2"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 3 (Threshold 2-3)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_gpu_3" class="color-swatch" onchange="updateColorRGB('color_gpu_3', 'rgb_gpu_3')">
-                            <span class="color-rgb" id="rgb_gpu_3"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 4 (> Threshold 3)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_gpu_4" class="color-swatch" onchange="updateColorRGB('color_gpu_4', 'rgb_gpu_4')">
-                            <span class="color-rgb" id="rgb_gpu_4"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 6: Liquid Thresholds -->
-            <div class="panel">
-                <h3 class="section-title">Liquid Thresholds</h3>
-                <div class="grid grid-4">
-                    <div class="form-group">
-                        <label class="form-label">Threshold 1 (°C)</label>
-                        <span class="form-hint">Default: 25</span>
-                        <input type="number" name="liquid.threshold_1" class="form-control" min="0" max="50">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Threshold 2 (°C)</label>
-                        <span class="form-hint">Default: 28</span>
-                        <input type="number" name="liquid.threshold_2" class="form-control" min="0" max="50">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Threshold 3 (°C)</label>
-                        <span class="form-hint">Default: 31</span>
-                        <input type="number" name="liquid.threshold_3" class="form-control" min="0" max="50">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Max Scale (°C)</label>
-                        <span class="form-hint">Default: 50</span>
-                        <input type="number" name="liquid.max_scale" class="form-control" min="30" max="80">
-                    </div>
-                </div>
-
-                <h3 class="section-title">Liquid Bar Colors</h3>
-                <div class="grid grid-4">
-                    <div class="form-group">
-                        <label class="form-label">Color 1 (< Threshold 1)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_liquid_1" class="color-swatch" onchange="updateColorRGB('color_liquid_1', 'rgb_liquid_1')">
-                            <span class="color-rgb" id="rgb_liquid_1"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 2 (Threshold 1-2)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_liquid_2" class="color-swatch" onchange="updateColorRGB('color_liquid_2', 'rgb_liquid_2')">
-                            <span class="color-rgb" id="rgb_liquid_2"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 3 (Threshold 2-3)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_liquid_3" class="color-swatch" onchange="updateColorRGB('color_liquid_3', 'rgb_liquid_3')">
-                            <span class="color-rgb" id="rgb_liquid_3"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Color 4 (> Threshold 3)</label>
-                        <div class="color-group">
-                            <input type="color" id="color_liquid_4" class="color-swatch" onchange="updateColorRGB('color_liquid_4', 'rgb_liquid_4')">
-                            <span class="color-rgb" id="rgb_liquid_4"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 7: Positioning -->
+            <!-- Tab 4: Sensors -->
             <div class="panel">
                 <div class="alert">
-                    <strong>Advanced Positioning</strong>
-                    Value 0 = Automatic positioning. Adjust offsets to fine-tune element placement.
+                    <strong>Sensor Configuration</strong>
+                    Configure thresholds, bar colors, and position offsets for each sensor assigned to a display slot.
+                    New sensors are automatically added when assigned in the Display tab.
                 </div>
-
-                <h3 class="section-title">Upper Slot Position</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">X Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.temp_offset_x_cpu" class="form-control" step="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Y Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.temp_offset_y_cpu" class="form-control" step="1">
-                    </div>
-                </div>
-
-                <h3 class="section-title">Middle Slot Position</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">X Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.temp_offset_x_liquid" class="form-control" step="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Y Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.temp_offset_y_liquid" class="form-control" step="1">
-                    </div>
-                </div>
-
-                <h3 class="section-title">Lower Slot Position</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">X Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.temp_offset_x_gpu" class="form-control" step="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Y Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.temp_offset_y_gpu" class="form-control" step="1">
-                    </div>
-                </div>
-
-                <h3 class="section-title">Labels Position</h3>
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">X Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.label_offset_x" class="form-control" step="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Y Offset</label>
-                        <span class="form-hint">Default: 0</span>
-                        <input type="number" name="positioning.label_offset_y" class="form-control" step="1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Degree Symbol Spacing</label>
-                        <span class="form-hint">Default: 16</span>
-                        <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="50">
-                    </div>
+                <div id="sensor-config-container">
+                    <p style="color: var(--text-dim); text-align: center; padding: 20px;">
+                        Loading sensor configurations...
+                    </p>
                 </div>
             </div>
 
-            <!-- Tab 8: Advanced -->
+            <!-- Tab 5: Advanced -->
             <div class="panel">
                 <h3 class="section-title">Image Paths</h3>
 
@@ -1074,17 +935,17 @@
                     <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
 
-                <h3 class="section-title">Backup & Restore</h3>
+                <h3 class="section-title">Backup &amp; Restore</h3>
                 <div class="alert">
                     <strong>Configuration Backup</strong>
                     Export your current settings as a JSON file for backup or migration.
                 </div>
                 <button type="button" class="btn btn-secondary" onclick="exportConfig()" style="width: auto; padding: 10px 20px;">
-                    💾 Export Configuration
+                    &#x1F4BE; Export Configuration
                 </button>
             </div>
 
-            <!-- Tab 9: Device -->
+            <!-- Tab 6: Device -->
             <div class="panel">
                 <h3 class="section-title">Detected LCD Device</h3>
 
@@ -1104,32 +965,32 @@
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">Device Name</span>
-                            <span class="device-info-value" id="device-name">—</span>
+                            <span class="device-info-value" id="device-name">&mdash;</span>
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">Device UID</span>
-                            <span class="device-info-value mono" id="device-uid">—</span>
+                            <span class="device-info-value mono" id="device-uid">&mdash;</span>
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">LCD Resolution</span>
-                            <span class="device-info-value mono" id="device-resolution">—</span>
+                            <span class="device-info-value mono" id="device-resolution">&mdash;</span>
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">Display Shape</span>
-                            <span class="device-info-value" id="device-shape">—</span>
+                            <span class="device-info-value" id="device-shape">&mdash;</span>
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">Firmware</span>
-                            <span class="device-info-value mono" id="device-firmware">—</span>
+                            <span class="device-info-value mono" id="device-firmware">&mdash;</span>
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">Liquidctl Version</span>
-                            <span class="device-info-value mono" id="device-liquidctl">—</span>
+                            <span class="device-info-value mono" id="device-liquidctl">&mdash;</span>
                         </div>
                     </div>
 
                     <button type="button" class="btn btn-secondary" onclick="refreshDeviceInfo()" style="width: auto; padding: 10px 20px; margin-top: 8px;">
-                        🔄 Refresh Device Info
+                        &#x1F504; Refresh Device Info
                     </button>
                 </div>
 
@@ -1139,14 +1000,14 @@
                 </div>
             </div>
 
-            <!-- Tab 10: Info -->
+            <!-- Tab 7: Info -->
             <div class="panel">
                 <h3 class="section-title">About CoolerDash</h3>
 
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Plugin</div>
-                        <div class="info-item-value">CoolerDash v{{VERSION}} — LCD Temperature Dashboard</div>
+                        <div class="info-item-value">CoolerDash v{{VERSION}} &mdash; LCD Temperature Dashboard</div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Description</div>
@@ -1183,7 +1044,7 @@
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Discord</div>
-                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener">CoolerControl Discord — #coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener">CoolerControl Discord &mdash; #coolerdash</a></div>
                     </div>
                 </div>
 
@@ -1192,11 +1053,11 @@
                 <div class="device-info-card">
                     <div class="device-info-row">
                         <span class="device-info-label">Kernel</span>
-                        <span class="device-info-value mono" id="sys-kernel">—</span>
+                        <span class="device-info-value mono" id="sys-kernel">&mdash;</span>
                     </div>
                     <div class="device-info-row">
                         <span class="device-info-label">CoolerControl Version</span>
-                        <span class="device-info-value mono" id="sys-cc-version">—</span>
+                        <span class="device-info-value mono" id="sys-cc-version">&mdash;</span>
                     </div>
                 </div>
             </div>
@@ -1211,7 +1072,7 @@
         <!-- Restart Notice -->
         <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.05); border-left: 3px solid #ff8c00; border-radius: 4px;">
             <p style="margin: 0; color: var(--text-dim); font-size: 13px;">
-                <strong>Note:</strong> Changes are applied immediately — the plugin will be restarted automatically after Save or Reset.
+                <strong>Note:</strong> Changes are applied immediately &mdash; the plugin will be restarted automatically after Save or Reset.
             </p>
         </div>
     </div>
@@ -1265,43 +1126,51 @@
                 size_temp: 100.0,
                 size_labels: 30.0
             },
-            cpu: {
-                threshold_1: 55.0,
-                threshold_2: 65.0,
-                threshold_3: 75.0,
-                max_scale: 115.0,
-                threshold_1_color: { r: 0, g: 255, b: 0 },
-                threshold_2_color: { r: 255, g: 140, b: 0 },
-                threshold_3_color: { r: 255, g: 70, b: 0 },
-                threshold_4_color: { r: 255, g: 0, b: 0 }
-            },
-            gpu: {
-                threshold_1: 55.0,
-                threshold_2: 65.0,
-                threshold_3: 75.0,
-                max_scale: 115.0,
-                threshold_1_color: { r: 0, g: 255, b: 0 },
-                threshold_2_color: { r: 255, g: 140, b: 0 },
-                threshold_3_color: { r: 255, g: 70, b: 0 },
-                threshold_4_color: { r: 255, g: 0, b: 0 }
-            },
-            liquid: {
-                max_scale: 50.0,
-                threshold_1: 25.0,
-                threshold_2: 28.0,
-                threshold_3: 31.0,
-                threshold_1_color: { r: 0, g: 255, b: 0 },
-                threshold_2_color: { r: 255, g: 140, b: 0 },
-                threshold_3_color: { r: 255, g: 70, b: 0 },
-                threshold_4_color: { r: 255, g: 0, b: 0 }
+            sensors: {
+                cpu: {
+                    threshold_1: 55.0,
+                    threshold_2: 65.0,
+                    threshold_3: 75.0,
+                    max_scale: 115.0,
+                    font_size_temp: 0,
+                    label: '',
+                    threshold_1_color: { r: 0, g: 255, b: 0 },
+                    threshold_2_color: { r: 255, g: 140, b: 0 },
+                    threshold_3_color: { r: 255, g: 70, b: 0 },
+                    threshold_4_color: { r: 255, g: 0, b: 0 },
+                    offset_x: 0,
+                    offset_y: 0
+                },
+                gpu: {
+                    threshold_1: 55.0,
+                    threshold_2: 65.0,
+                    threshold_3: 75.0,
+                    max_scale: 115.0,
+                    font_size_temp: 0,
+                    label: '',
+                    threshold_1_color: { r: 0, g: 255, b: 0 },
+                    threshold_2_color: { r: 255, g: 140, b: 0 },
+                    threshold_3_color: { r: 255, g: 70, b: 0 },
+                    threshold_4_color: { r: 255, g: 0, b: 0 },
+                    offset_x: 0,
+                    offset_y: 0
+                },
+                liquid: {
+                    threshold_1: 25.0,
+                    threshold_2: 28.0,
+                    threshold_3: 31.0,
+                    max_scale: 50.0,
+                    font_size_temp: 0,
+                    label: '',
+                    threshold_1_color: { r: 0, g: 255, b: 0 },
+                    threshold_2_color: { r: 255, g: 140, b: 0 },
+                    threshold_3_color: { r: 255, g: 70, b: 0 },
+                    threshold_4_color: { r: 255, g: 0, b: 0 },
+                    offset_x: 0,
+                    offset_y: 0
+                }
             },
             positioning: {
-                temp_offset_x_cpu: 0,
-                temp_offset_x_gpu: 0,
-                temp_offset_y_cpu: 0,
-                temp_offset_y_gpu: 0,
-                temp_offset_x_liquid: 0,
-                temp_offset_y_liquid: 0,
                 degree_spacing: 16,
                 label_offset_x: 0,
                 label_offset_y: 0
@@ -1310,6 +1179,21 @@
 
         let DEFAULT_CONFIG = null;
         let currentTab = 0;
+        let discoveredSensors = [];
+        let currentSensorConfig = {};
+
+        /**
+         * @brief Escape HTML special characters to prevent XSS.
+         */
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
 
         // ===== FALLBACK FUNCTIONS =====
         const isInCoolerControl = window.parent !== window;
@@ -1367,75 +1251,536 @@
             window.runPluginScript = function(mainFunction) { mainFunction(); };
         }
 
+        // ===== SENSOR DISCOVERY =====
+        async function discoverSensors(apiAddress, password) {
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                if (password) {
+                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
+                }
+
+                // GET /devices for device names
+                const devRes = await fetch(apiAddress + '/devices', { headers: password ? { 'Authorization': headers['Authorization'] } : {} });
+                const devData = devRes.ok ? await devRes.json() : { devices: [] };
+                const deviceNames = {};
+                for (const dev of (devData.devices || [])) {
+                    if (dev.uid) deviceNames[dev.uid] = dev.name || dev.uid;
+                }
+
+                // POST /status for current sensor data
+                const statusRes = await fetch(apiAddress + '/status', { method: 'POST', headers, body: '{}' });
+                if (!statusRes.ok) return;
+                const statusData = await statusRes.json();
+
+                const sensors = [];
+                for (const dev of (statusData.devices || [])) {
+                    const uid = dev.uid || '';
+                    const devName = deviceNames[uid] || uid;
+                    const lastStatus = Array.isArray(dev.status_history) && dev.status_history.length > 0
+                        ? dev.status_history[dev.status_history.length - 1]
+                        : {};
+
+                    // Temperature sensors
+                    const temps = lastStatus.temps || [];
+                    for (const t of temps) {
+                        if (t.temp !== undefined && t.temp > -50 && t.temp < 200) {
+                            sensors.push({
+                                id: uid + ':' + t.name,
+                                label: devName + ' \u2014 ' + t.name,
+                                device: devName,
+                                name: t.name,
+                                category: 'temp'
+                            });
+                        }
+                    }
+
+                    // Channel sensors (RPM, Duty, Watts, Freq)
+                    const channels = lastStatus.channels || [];
+                    for (const ch of channels) {
+                        if (ch.rpm !== undefined) {
+                            sensors.push({
+                                id: uid + ':' + ch.name + ' RPM',
+                                label: devName + ' \u2014 ' + ch.name + ' RPM',
+                                device: devName,
+                                name: ch.name + ' RPM',
+                                category: 'rpm'
+                            });
+                        }
+                        if (ch.duty !== undefined) {
+                            sensors.push({
+                                id: uid + ':' + ch.name + ' Duty',
+                                label: devName + ' \u2014 ' + ch.name + ' Duty',
+                                device: devName,
+                                name: ch.name + ' Duty',
+                                category: 'duty'
+                            });
+                        }
+                        if (ch.watts !== undefined) {
+                            sensors.push({
+                                id: uid + ':' + ch.name + ' Watts',
+                                label: devName + ' \u2014 ' + ch.name + ' Watts',
+                                device: devName,
+                                name: ch.name + ' Watts',
+                                category: 'watts'
+                            });
+                        }
+                        if (ch.freq !== undefined) {
+                            sensors.push({
+                                id: uid + ':' + ch.name + ' Freq',
+                                label: devName + ' \u2014 ' + ch.name + ' Freq',
+                                device: devName,
+                                name: ch.name + ' Freq',
+                                category: 'freq'
+                            });
+                        }
+                    }
+                }
+
+                discoveredSensors = sensors;
+                updateSensorSlotOptions();
+                // Re-render sensor configs to update display names
+                if (Object.keys(currentSensorConfig).length > 0) {
+                    renderSensorConfigs({ sensors: currentSensorConfig });
+                }
+            } catch (error) {
+                console.warn('Sensor discovery failed:', error);
+            }
+        }
+
+        function updateSensorSlotOptions() {
+            var selects = document.querySelectorAll('.sensor-slot-select');
+            for (var i = 0; i < selects.length; i++) {
+                var select = selects[i];
+                var currentValue = select.value;
+
+                // Remove old dynamic optgroups (keep first "Standard" group)
+                var groups = select.querySelectorAll('optgroup');
+                for (var g = groups.length - 1; g >= 1; g--) {
+                    select.removeChild(groups[g]);
+                }
+                // Also remove any loose options outside optgroups
+                var looseOpts = select.querySelectorAll(':scope > option');
+                for (var lo = 0; lo < looseOpts.length; lo++) {
+                    select.removeChild(looseOpts[lo]);
+                }
+
+                // Group discovered sensors by device
+                if (discoveredSensors.length > 0) {
+                    var byDevice = {};
+                    for (var s = 0; s < discoveredSensors.length; s++) {
+                        var sensor = discoveredSensors[s];
+                        if (!byDevice[sensor.device]) byDevice[sensor.device] = [];
+                        byDevice[sensor.device].push(sensor);
+                    }
+                    for (var device in byDevice) {
+                        if (!byDevice.hasOwnProperty(device)) continue;
+                        var group = document.createElement('optgroup');
+                        group.label = device;
+                        var deviceSensors = byDevice[device];
+                        deviceSensors.sort(function(a, b) {
+                            return a.name.localeCompare(b.name);
+                        });
+                        for (var ds = 0; ds < deviceSensors.length; ds++) {
+                            var opt = document.createElement('option');
+                            opt.value = deviceSensors[ds].id;
+                            opt.textContent = deviceSensors[ds].name;
+                            group.appendChild(opt);
+                        }
+                        select.appendChild(group);
+                    }
+                }
+
+                // Restore selected value
+                if (currentValue) {
+                    var exists = false;
+                    for (var oi = 0; oi < select.options.length; oi++) {
+                        if (select.options[oi].value === currentValue) { exists = true; break; }
+                    }
+                    if (exists) {
+                        select.value = currentValue;
+                    } else if (currentValue !== 'none' && currentValue !== '') {
+                        // Add as custom option if not found (e.g. sensor not currently connected)
+                        var customOpt = document.createElement('option');
+                        customOpt.value = currentValue;
+                        customOpt.textContent = getSensorDisplayName(currentValue);
+                        select.insertBefore(customOpt, select.firstChild);
+                        select.value = currentValue;
+                    }
+                }
+            }
+        }
+
+        // ===== SENSOR CONFIG DEFAULTS =====
+        function getDefaultSensorConfig(sensorId) {
+            var defaults = {
+                threshold_1: 55.0, threshold_2: 65.0, threshold_3: 75.0, max_scale: 115.0,
+                font_size_temp: 0, label: '',
+                threshold_1_color: { r: 0, g: 255, b: 0 },
+                threshold_2_color: { r: 255, g: 140, b: 0 },
+                threshold_3_color: { r: 255, g: 70, b: 0 },
+                threshold_4_color: { r: 255, g: 0, b: 0 },
+                offset_x: 0, offset_y: 0
+            };
+
+            if (sensorId === 'liquid') {
+                defaults.threshold_1 = 25.0;
+                defaults.threshold_2 = 28.0;
+                defaults.threshold_3 = 31.0;
+                defaults.max_scale = 50.0;
+            } else if (/RPM|rpm/.test(sensorId)) {
+                defaults.threshold_1 = 500;
+                defaults.threshold_2 = 1000;
+                defaults.threshold_3 = 1500;
+                defaults.max_scale = 3000;
+            } else if (/Duty|duty/.test(sensorId)) {
+                defaults.threshold_1 = 25;
+                defaults.threshold_2 = 50;
+                defaults.threshold_3 = 75;
+                defaults.max_scale = 100;
+            } else if (/Watts|watts/.test(sensorId)) {
+                defaults.threshold_1 = 50;
+                defaults.threshold_2 = 100;
+                defaults.threshold_3 = 200;
+                defaults.max_scale = 500;
+            } else if (/Freq|freq/.test(sensorId)) {
+                defaults.threshold_1 = 1000;
+                defaults.threshold_2 = 2000;
+                defaults.threshold_3 = 3000;
+                defaults.max_scale = 6000;
+            }
+
+            return defaults;
+        }
+
+        function getSensorDisplayName(sensorId) {
+            var legacyNames = { cpu: 'CPU', gpu: 'GPU', liquid: 'Liquid' };
+            if (legacyNames[sensorId]) return legacyNames[sensorId];
+            var found = null;
+            for (var i = 0; i < discoveredSensors.length; i++) {
+                if (discoveredSensors[i].id === sensorId) { found = discoveredSensors[i]; break; }
+            }
+            if (found) return found.label;
+            // Fallback: show the raw ID
+            return sensorId;
+        }
+
+        // ===== DYNAMIC SENSOR CONFIG UI =====
+        function renderSensorConfigs(config) {
+            var container = document.getElementById('sensor-config-container');
+            if (!container) return;
+
+            var sensors = config.sensors || {};
+
+            // Ensure all discovered sensors have a config entry
+            for (var d = 0; d < discoveredSensors.length; d++) {
+                var dsId = discoveredSensors[d].id;
+                if (!sensors[dsId]) {
+                    sensors[dsId] = getDefaultSensorConfig(dsId);
+                }
+            }
+
+            var sensorIds = Object.keys(sensors);
+
+            // Filter out dynamic sensors that duplicate a legacy sensor
+            // e.g. if "liquid" exists, skip any "<uid>:liquid" entry
+            var legacyNames = { cpu: true, gpu: true, liquid: true };
+            sensorIds = sensorIds.filter(function(id) {
+                if (legacyNames[id]) return true; // keep legacy entries
+                var colonIdx = id.indexOf(':');
+                if (colonIdx < 0) return true; // not dynamic
+                var sensorName = id.substring(colonIdx + 1).toLowerCase();
+                // Skip if a legacy key matches the sensor name
+                if (sensorName === 'liquid' && sensors['liquid']) return false;
+                if (sensorName === 'cpu' && sensors['cpu']) return false;
+                if (sensorName === 'gpu' && sensors['gpu']) return false;
+                return true;
+            });
+
+            // Sort: cpu/gpu/liquid always first, then alphabetically by display name
+            var legacyOrder = { cpu: 0, gpu: 1, liquid: 2 };
+            sensorIds.sort(function(a, b) {
+                var aLegacy = legacyOrder.hasOwnProperty(a) ? legacyOrder[a] : 99;
+                var bLegacy = legacyOrder.hasOwnProperty(b) ? legacyOrder[b] : 99;
+                if (aLegacy !== bLegacy) return aLegacy - bLegacy;
+                return getSensorDisplayName(a).localeCompare(getSensorDisplayName(b));
+            });
+
+            if (sensorIds.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 20px;">No sensor configurations found. Assign sensors in the Display tab.</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+
+            for (var si = 0; si < sensorIds.length; si++) {
+                var sensorId = sensorIds[si];
+                var sc = sensors[sensorId];
+                var safeName = sensorId.replace(/[^a-zA-Z0-9]/g, '_');
+                var displayName = escapeHtml(getSensorDisplayName(sensorId));
+                var defs = getDefaultSensorConfig(sensorId);
+                var eSensorId = escapeHtml(sensorId);
+                var eLabel = escapeHtml(sc.label || '');
+
+                // Sanitize all numeric values to break taint chain
+                var eFontSize = Number(sc.font_size_temp) || 0;
+                var eOffsetX = Number(sc.offset_x) || 0;
+                var eOffsetY = Number(sc.offset_y) || 0;
+                var eThresh1 = Number(sc.threshold_1 !== undefined ? sc.threshold_1 : defs.threshold_1);
+                var eThresh2 = Number(sc.threshold_2 !== undefined ? sc.threshold_2 : defs.threshold_2);
+                var eThresh3 = Number(sc.threshold_3 !== undefined ? sc.threshold_3 : defs.threshold_3);
+                var eMaxScale = Number(sc.max_scale !== undefined ? sc.max_scale : defs.max_scale);
+
+                var section = document.createElement('div');
+                section.className = 'sensor-config-section';
+                section.setAttribute('data-sensor-id', sensorId);
+
+                section.innerHTML =
+                    '<details class="sensor-details">' +
+                        '<summary>' + displayName + '</summary>' +
+                        '<div class="sensor-details-content">' +
+
+                            // Display section
+                            '<div class="sub-section-title">Display</div>' +
+                            '<div class="grid grid-4">' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Label</label>' +
+                                    '<span class="form-hint">Custom label (empty = auto)</span>' +
+                                    '<input type="text" data-sensor="' + eSensorId + '" data-field="label" class="form-control sensor-field" value="' + eLabel + '" maxlength="31" placeholder="auto">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Font Size</label>' +
+                                    '<span class="form-hint">Default: 100 (0 = global)</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="font_size_temp" class="form-control sensor-field" value="' + eFontSize + '" min="0" max="300" step="1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">X Offset</label>' +
+                                    '<span class="form-hint">Default: 0</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_x" class="form-control sensor-field" value="' + eOffsetX + '" step="1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Y Offset</label>' +
+                                    '<span class="form-hint">Default: 0</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + eOffsetY + '" step="1">' +
+                                '</div>' +
+                            '</div>' +
+
+                            // Thresholds section
+                            '<div class="sub-section-title">Thresholds</div>' +
+                            '<div class="grid grid-4">' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Threshold 1</label>' +
+                                    '<span class="form-hint">Default: ' + defs.threshold_1 + '</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_1" class="form-control sensor-field" value="' + eThresh1 + '" step="0.1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Threshold 2</label>' +
+                                    '<span class="form-hint">Default: ' + defs.threshold_2 + '</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_2" class="form-control sensor-field" value="' + eThresh2 + '" step="0.1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Threshold 3</label>' +
+                                    '<span class="form-hint">Default: ' + defs.threshold_3 + '</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_3" class="form-control sensor-field" value="' + eThresh3 + '" step="0.1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Max Scale</label>' +
+                                    '<span class="form-hint">Default: ' + defs.max_scale + '</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="max_scale" class="form-control sensor-field" value="' + eMaxScale + '" step="0.1">' +
+                                '</div>' +
+                            '</div>' +
+
+                            // Bar Colors section
+                            '<div class="sub-section-title">Bar Colors</div>' +
+                            '<div class="grid grid-4">' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">&lt; Threshold 1</label>' +
+                                    '<div class="color-group">' +
+                                        '<input type="color" id="color_' + safeName + '_1" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_1\', \'rgb_' + safeName + '_1\')">' +
+                                        '<span class="color-rgb" id="rgb_' + safeName + '_1"></span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Threshold 1-2</label>' +
+                                    '<div class="color-group">' +
+                                        '<input type="color" id="color_' + safeName + '_2" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_2\', \'rgb_' + safeName + '_2\')">' +
+                                        '<span class="color-rgb" id="rgb_' + safeName + '_2"></span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Threshold 2-3</label>' +
+                                    '<div class="color-group">' +
+                                        '<input type="color" id="color_' + safeName + '_3" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_3\', \'rgb_' + safeName + '_3\')">' +
+                                        '<span class="color-rgb" id="rgb_' + safeName + '_3"></span>' +
+                                    '</div>' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">&gt; Threshold 3</label>' +
+                                    '<div class="color-group">' +
+                                        '<input type="color" id="color_' + safeName + '_4" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_4\', \'rgb_' + safeName + '_4\')">' +
+                                        '<span class="color-rgb" id="rgb_' + safeName + '_4"></span>' +
+                                    '</div>' +
+                                '</div>' +
+                            '</div>' +
+
+                        '</div>' +
+                    '</details>';
+
+                container.appendChild(section);
+
+                // Setup color pickers after DOM insertion
+                setupColorPicker('color_' + safeName + '_1', 'rgb_' + safeName + '_1', sc.threshold_1_color || defs.threshold_1_color);
+                setupColorPicker('color_' + safeName + '_2', 'rgb_' + safeName + '_2', sc.threshold_2_color || defs.threshold_2_color);
+                setupColorPicker('color_' + safeName + '_3', 'rgb_' + safeName + '_3', sc.threshold_3_color || defs.threshold_3_color);
+                setupColorPicker('color_' + safeName + '_4', 'rgb_' + safeName + '_4', sc.threshold_4_color || defs.threshold_4_color);
+            }
+
+            // Store reference for buildConfig
+            currentSensorConfig = sensors;
+        }
+
+        function ensureSensorConfigsForSlots() {
+            var slotIds = ['sensor_slot_up', 'sensor_slot_mid', 'sensor_slot_down'];
+            var activeSensors = [];
+
+            for (var i = 0; i < slotIds.length; i++) {
+                var select = document.getElementById(slotIds[i]);
+                if (select && select.value !== 'none' && select.value !== '') {
+                    if (activeSensors.indexOf(select.value) === -1) {
+                        activeSensors.push(select.value);
+                    }
+                }
+            }
+
+            // Check if any sensor is missing from the config
+            var needsRebuild = false;
+            for (var s = 0; s < activeSensors.length; s++) {
+                if (!currentSensorConfig[activeSensors[s]]) {
+                    needsRebuild = true;
+                    break;
+                }
+            }
+
+            if (needsRebuild) {
+                // Collect current values from DOM
+                var sensors = collectSensorConfigsFromDOM();
+                // Add defaults for new sensors
+                for (var ns = 0; ns < activeSensors.length; ns++) {
+                    if (!sensors[activeSensors[ns]]) {
+                        sensors[activeSensors[ns]] = getDefaultSensorConfig(activeSensors[ns]);
+                    }
+                }
+                currentSensorConfig = sensors;
+                renderSensorConfigs({ sensors: sensors });
+            }
+        }
+
+        function collectSensorConfigsFromDOM() {
+            var sensors = {};
+            var sections = document.querySelectorAll('.sensor-config-section');
+            for (var i = 0; i < sections.length; i++) {
+                var section = sections[i];
+                var sensorId = section.getAttribute('data-sensor-id');
+                if (!sensorId) continue;
+
+                var safeName = sensorId.replace(/[^a-zA-Z0-9]/g, '_');
+                var sc = {};
+
+                // Threshold/offset fields (sanitize: numbers stay numbers, strings get escaped)
+                var fields = section.querySelectorAll('.sensor-field');
+                for (var f = 0; f < fields.length; f++) {
+                    var field = fields[f].getAttribute('data-field');
+                    if (field) {
+                        if (field === 'label') {
+                            // Label is the only string field - store as-is (escaped on render)
+                            sc[field] = String(fields[f].value || '');
+                        } else {
+                            // All other fields are numeric - force to number
+                            sc[field] = Number(fields[f].value) || 0;
+                        }
+                    }
+                }
+
+                // Colors
+                sc.threshold_1_color = getColorFromPicker('color_' + safeName + '_1');
+                sc.threshold_2_color = getColorFromPicker('color_' + safeName + '_2');
+                sc.threshold_3_color = getColorFromPicker('color_' + safeName + '_3');
+                sc.threshold_4_color = getColorFromPicker('color_' + safeName + '_4');
+
+                sensors[sensorId] = sc;
+            }
+            return sensors;
+        }
+
         // ===== DEVICE DETECTION =====
-        let lastApiAddress = '';
-        let lastApiPassword = '';
+        var lastApiAddress = '';
+        var lastApiPassword = '';
 
         async function fetchDeviceInfo(apiAddress, password) {
             lastApiAddress = apiAddress;
             lastApiPassword = password;
 
-            const loadingEl = document.getElementById('device-loading');
-            const contentEl = document.getElementById('device-panel-content');
-            const errorEl = document.getElementById('device-error');
+            var loadingEl = document.getElementById('device-loading');
+            var contentEl = document.getElementById('device-panel-content');
+            var errorEl = document.getElementById('device-error');
 
             loadingEl.style.display = 'block';
             contentEl.style.display = 'none';
             errorEl.style.display = 'none';
 
             try {
-                const headers = {};
+                var headers = {};
                 if (password) {
-                    headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
+                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
                 }
-                const response = await fetch(`${apiAddress}/devices`, { headers });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
+                var response = await fetch(apiAddress + '/devices', { headers: headers });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                var data = await response.json();
 
-                const devices = data.devices || [];
-                let found = null;
-                for (const dev of devices) {
-                    const dtype = dev.type || '';
+                var devices = data.devices || [];
+                var found = null;
+                for (var i = 0; i < devices.length; i++) {
+                    var dev = devices[i];
+                    var dtype = dev.type || '';
                     if (dtype === 'Liquidctl') {
-                        found = dev;
-                        break;
+                        var lcdInfo = dev.info && dev.info.channels && dev.info.channels.lcd && dev.info.channels.lcd.lcd_info;
+                        if (lcdInfo && lcdInfo.screen_width > 0 && lcdInfo.screen_height > 0) {
+                            found = dev;
+                            break;
+                        }
                     }
                 }
 
                 loadingEl.style.display = 'none';
 
                 if (found) {
-                    const name = found.name || 'Unknown Device';
-                    const uid = found.uid || '—';
+                    var name = found.name || 'Unknown Device';
+                    var uid = found.uid || '\u2014';
                     document.getElementById('device-name').textContent = name;
                     document.getElementById('device-uid').textContent = uid;
 
-                    // Firmware from lc_info
-                    const firmware = found.lc_info?.firmware_version || '—';
+                    var firmware = (found.lc_info && found.lc_info.firmware_version) || '\u2014';
                     document.getElementById('device-firmware').textContent = firmware;
 
-                    // Liquidctl version from driver_info
-                    const liquidctlVer = found.info?.driver_info?.version || '—';
+                    var liquidctlVer = (found.info && found.info.driver_info && found.info.driver_info.version) || '\u2014';
                     document.getElementById('device-liquidctl').textContent = liquidctlVer;
 
-                    // LCD info path: info.channels.<channel>.lcd_info
-                    let width = 0, height = 0;
-                    const channels = found.info?.channels;
+                    var width = 0, height = 0;
+                    var channels = found.info && found.info.channels;
                     if (channels) {
-                        for (const ch of Object.values(channels)) {
-                            if (ch.lcd_info) {
-                                width = ch.lcd_info.screen_width || 0;
-                                height = ch.lcd_info.screen_height || 0;
+                        for (var chKey in channels) {
+                            if (channels.hasOwnProperty(chKey) && channels[chKey].lcd_info) {
+                                width = channels[chKey].lcd_info.screen_width || 0;
+                                height = channels[chKey].lcd_info.screen_height || 0;
                                 break;
                             }
                         }
                     }
 
-                    const resEl = document.getElementById('device-resolution');
-                    const shapeEl = document.getElementById('device-shape');
+                    var resEl = document.getElementById('device-resolution');
+                    var shapeEl = document.getElementById('device-shape');
                     if (width > 0 && height > 0) {
-                        resEl.textContent = `${width} × ${height} px`;
-                        const isCircular = name.includes('Kraken') && (width > 240 || height > 240);
+                        resEl.textContent = width + ' \u00D7 ' + height + ' px';
+                        var isCircular = name.includes('Kraken') && (width > 240 || height > 240);
                         shapeEl.textContent = isCircular ? 'Circular' : 'Rectangular';
                     } else {
                         resEl.textContent = 'Not available';
@@ -1446,12 +1791,12 @@
                         '<span class="device-status connected"><span class="device-status-dot"></span> Connected</span>';
                     contentEl.style.display = 'block';
                 } else {
-                    document.getElementById('device-name').textContent = '—';
-                    document.getElementById('device-uid').textContent = '—';
-                    document.getElementById('device-resolution').textContent = '—';
-                    document.getElementById('device-shape').textContent = '—';
-                    document.getElementById('device-firmware').textContent = '—';
-                    document.getElementById('device-liquidctl').textContent = '—';
+                    document.getElementById('device-name').textContent = '\u2014';
+                    document.getElementById('device-uid').textContent = '\u2014';
+                    document.getElementById('device-resolution').textContent = '\u2014';
+                    document.getElementById('device-shape').textContent = '\u2014';
+                    document.getElementById('device-firmware').textContent = '\u2014';
+                    document.getElementById('device-liquidctl').textContent = '\u2014';
                     document.getElementById('device-status').innerHTML =
                         '<span class="device-status disconnected"><span class="device-status-dot"></span> No LCD device found</span>';
                     contentEl.style.display = 'block';
@@ -1462,7 +1807,7 @@
                 document.getElementById('device-status').innerHTML =
                     '<span class="device-status error"><span class="device-status-dot"></span> Detection failed</span>';
                 document.getElementById('device-error-text').textContent =
-                    `Could not connect to CoolerControl API (${error.message}).`;
+                    'Could not connect to CoolerControl API (' + error.message + ').';
                 contentEl.style.display = 'block';
                 errorEl.style.display = 'block';
             }
@@ -1474,28 +1819,26 @@
 
         async function fetchSystemInfo(apiAddress, password) {
             try {
-                const headers = {};
+                var headers = {};
                 if (password) {
-                    headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
+                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
                 }
 
-                // Fetch /health for CC version
-                const healthRes = await fetch(`${apiAddress}/health`, { headers });
+                var healthRes = await fetch(apiAddress + '/health', { headers: headers });
                 if (healthRes.ok) {
-                    const health = await healthRes.json();
-                    const ccVersion = health.details?.version || '—';
+                    var health = await healthRes.json();
+                    var ccVersion = (health.details && health.details.version) || '\u2014';
                     document.getElementById('sys-cc-version').textContent = ccVersion;
                 }
 
-                // Fetch /devices to extract kernel from driver_info (drv_type 'Kernel')
-                const devRes = await fetch(`${apiAddress}/devices`, { headers });
+                var devRes = await fetch(apiAddress + '/devices', { headers: headers });
                 if (devRes.ok) {
-                    const data = await devRes.json();
-                    const devices = data.devices || [];
-                    let kernel = '';
-                    for (const dev of devices) {
-                        const drvType = dev.info?.driver_info?.drv_type;
-                        const ver = dev.info?.driver_info?.version;
+                    var data = await devRes.json();
+                    var devices = data.devices || [];
+                    var kernel = '';
+                    for (var i = 0; i < devices.length; i++) {
+                        var drvType = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.drv_type;
+                        var ver = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.version;
                         if (drvType === 'Kernel' && ver) {
                             kernel = ver;
                             break;
@@ -1512,53 +1855,63 @@
 
         // ===== UI FUNCTIONS =====
         function switchTab(index) {
-            document.querySelectorAll('.tab').forEach((tab, i) => tab.classList.toggle('active', i === index));
-            document.querySelectorAll('.panel').forEach((panel, i) => panel.classList.toggle('active', i === index));
+            var tabs = document.querySelectorAll('.tab');
+            var panels = document.querySelectorAll('.panel');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].classList.toggle('active', i === index);
+            }
+            for (var j = 0; j < panels.length; j++) {
+                panels[j].classList.toggle('active', j === index);
+            }
             currentTab = index;
         }
 
         function toggleCircleInterval() {
-            const mode = document.getElementById('display_mode').value;
+            var mode = document.getElementById('display_mode').value;
             document.getElementById('circle_interval_group').style.display = mode === 'circle' ? 'block' : 'none';
-            const midSlotGroup = document.getElementById('sensor_slot_mid_group');
-            const midBarHeightGroup = document.getElementById('bar_height_mid_group');
+            var midSlotGroup = document.getElementById('sensor_slot_mid_group');
+            var midBarHeightGroup = document.getElementById('bar_height_mid_group');
             if (midSlotGroup) midSlotGroup.style.display = mode === 'circle' ? 'block' : 'none';
             if (midBarHeightGroup) midBarHeightGroup.style.display = mode === 'circle' ? 'block' : 'none';
             if (mode === 'dual') {
-                const midSlot = document.getElementById('sensor_slot_mid');
+                var midSlot = document.getElementById('sensor_slot_mid');
                 if (midSlot) midSlot.value = 'none';
             }
             validateSensorSlots();
         }
 
         function validateSensorSlots() {
-            const mode = document.getElementById('display_mode').value;
-            const slotUp = document.getElementById('sensor_slot_up').value;
-            const slotMid = document.getElementById('sensor_slot_mid').value;
-            const slotDown = document.getElementById('sensor_slot_down').value;
+            var mode = document.getElementById('display_mode').value;
+            var slotUp = document.getElementById('sensor_slot_up').value;
+            var slotMid = document.getElementById('sensor_slot_mid').value;
+            var slotDown = document.getElementById('sensor_slot_down').value;
 
-            const warningDiv = document.getElementById('sensor_slot_warning');
-            const warningText = document.getElementById('sensor_slot_warning_text');
-            let warnings = [];
+            var warningDiv = document.getElementById('sensor_slot_warning');
+            var warningText = document.getElementById('sensor_slot_warning_text');
+            var warnings = [];
 
-            const activeSlots = [];
+            var activeSlots = [];
             if (slotUp !== 'none') activeSlots.push({ name: 'Upper', value: slotUp });
             if (mode === 'circle' && slotMid !== 'none') activeSlots.push({ name: 'Middle', value: slotMid });
             if (slotDown !== 'none') activeSlots.push({ name: 'Lower', value: slotDown });
 
             if (activeSlots.length === 0) warnings.push('At least one sensor slot must be active.');
 
-            const usedSensors = {};
-            for (const slot of activeSlots) {
-                if (usedSensors[slot.value]) {
-                    warnings.push(`Duplicate: "${slot.value}" used in ${usedSensors[slot.value]} and ${slot.name}.`);
+            var usedSensors = {};
+            for (var i = 0; i < activeSlots.length; i++) {
+                if (usedSensors[activeSlots[i].value]) {
+                    warnings.push('Duplicate: "' + activeSlots[i].value + '" used in ' + usedSensors[activeSlots[i].value] + ' and ' + activeSlots[i].name + '.');
                 } else {
-                    usedSensors[slot.value] = slot.name;
+                    usedSensors[activeSlots[i].value] = activeSlots[i].name;
                 }
             }
 
             warningDiv.style.display = warnings.length > 0 ? 'block' : 'none';
             warningText.textContent = warnings.join(' ');
+
+            // Ensure sensor configs exist for all active sensors
+            ensureSensorConfigsForSlots();
+
             return warnings.length === 0;
         }
 
@@ -1567,40 +1920,40 @@
         }
 
         function rgbToHex(rgb) {
-            const r = Math.round(rgb.r).toString(16).padStart(2, '0');
-            const g = Math.round(rgb.g).toString(16).padStart(2, '0');
-            const b = Math.round(rgb.b).toString(16).padStart(2, '0');
-            return `#${r}${g}${b}`;
+            var r = Math.round(rgb.r).toString(16).padStart(2, '0');
+            var g = Math.round(rgb.g).toString(16).padStart(2, '0');
+            var b = Math.round(rgb.b).toString(16).padStart(2, '0');
+            return '#' + r + g + b;
         }
 
         function hexToRgb(hex) {
-            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
             return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : null;
         }
 
         function updateColorRGB(colorId, rgbId) {
-            const rgb = hexToRgb(document.getElementById(colorId).value);
-            if (rgb) document.getElementById(rgbId).textContent = `RGB(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+            var rgb = hexToRgb(document.getElementById(colorId).value);
+            if (rgb) document.getElementById(rgbId).textContent = 'RGB(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ')';
         }
 
         function setupColorPicker(colorId, rgbId, rgbObj) {
-            const colorInput = document.getElementById(colorId);
+            var colorInput = document.getElementById(colorId);
             if (rgbObj && colorInput) {
                 colorInput.value = rgbToHex(rgbObj);
-                const rgbEl = document.getElementById(rgbId);
-                if (rgbEl) rgbEl.textContent = `RGB(${Math.round(rgbObj.r)}, ${Math.round(rgbObj.g)}, ${Math.round(rgbObj.b)})`;
+                var rgbEl = document.getElementById(rgbId);
+                if (rgbEl) rgbEl.textContent = 'RGB(' + Math.round(rgbObj.r) + ', ' + Math.round(rgbObj.g) + ', ' + Math.round(rgbObj.b) + ')';
             }
         }
 
         function getColorFromPicker(colorId) {
-            const el = document.getElementById(colorId);
+            var el = document.getElementById(colorId);
             return el ? hexToRgb(el.value) : null;
         }
 
         async function loadDefaultConfig() {
             try {
-                const response = await fetch('config.json');
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                var response = await fetch('config.json');
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 DEFAULT_CONFIG = await response.json();
                 return DEFAULT_CONFIG;
             } catch (error) {
@@ -1610,64 +1963,99 @@
             }
         }
 
+        // ===== BUILD CONFIG FROM FORM =====
         function buildConfig() {
-            const form = document.getElementById('configForm');
-            const formData = new FormData(form);
-            const config = {
+            var form = document.getElementById('configForm');
+            var formData = new FormData(form);
+            var config = {
                 daemon: {}, paths: {}, display: {}, layout: {}, colors: {},
-                font: {}, cpu: {}, gpu: {}, liquid: {}, positioning: {}
+                font: {}, sensors: {}, positioning: {}
             };
 
-            for (const [key, value] of formData.entries()) {
-                const [section, field] = key.split('.');
-                if (section && field && config[section]) {
-                    const numValue = parseFloat(value);
-                    config[section][field] = isNaN(numValue) ? value : numValue;
+            var entries = formData.entries();
+            var entry;
+            while (!(entry = entries.next()).done) {
+                var key = entry.value[0];
+                var value = entry.value[1];
+                var parts = key.split('.');
+                if (parts.length === 2 && config[parts[0]] !== undefined) {
+                    // Sensor slot values must always be strings
+                    var isSlotField = (parts[1] === 'sensor_slot_up' || parts[1] === 'sensor_slot_mid' || parts[1] === 'sensor_slot_down');
+                    if (isSlotField) {
+                        config[parts[0]][parts[1]] = value;
+                    } else {
+                        // Strict number check: only convert pure numeric strings
+                        var trimmed = value.trim();
+                        var isNumeric = trimmed !== '' && /^-?\d+(\.\d+)?$/.test(trimmed);
+                        config[parts[0]][parts[1]] = isNumeric ? parseFloat(trimmed) : value;
+                    }
                 }
             }
 
-            // Colors
+            // Global colors
             config.colors.display_background = getColorFromPicker('color_display_background');
             config.colors.bar_background = getColorFromPicker('color_bar_background');
             config.colors.bar_border = getColorFromPicker('color_bar_border');
             config.colors.font_temp = getColorFromPicker('color_font_temp');
             config.colors.font_label = getColorFromPicker('color_font_label');
 
-            // CPU colors
-            config.cpu.threshold_1_color = getColorFromPicker('color_cpu_1');
-            config.cpu.threshold_2_color = getColorFromPicker('color_cpu_2');
-            config.cpu.threshold_3_color = getColorFromPicker('color_cpu_3');
-            config.cpu.threshold_4_color = getColorFromPicker('color_cpu_4');
-
-            // GPU colors
-            config.gpu.threshold_1_color = getColorFromPicker('color_gpu_1');
-            config.gpu.threshold_2_color = getColorFromPicker('color_gpu_2');
-            config.gpu.threshold_3_color = getColorFromPicker('color_gpu_3');
-            config.gpu.threshold_4_color = getColorFromPicker('color_gpu_4');
-
-            // Liquid colors
-            config.liquid.threshold_1_color = getColorFromPicker('color_liquid_1');
-            config.liquid.threshold_2_color = getColorFromPicker('color_liquid_2');
-            config.liquid.threshold_3_color = getColorFromPicker('color_liquid_3');
-            config.liquid.threshold_4_color = getColorFromPicker('color_liquid_4');
+            // Sensor configs from dynamic form sections
+            config.sensors = collectSensorConfigsFromDOM();
 
             return config;
         }
 
+        // ===== POPULATE FORM FROM CONFIG =====
         function populateForm(config) {
-            for (const [section, fields] of Object.entries(config)) {
+            // Standard form fields (non-sensor, non-color)
+            for (var section in config) {
+                if (!config.hasOwnProperty(section)) continue;
+                if (section === 'sensors' || section === 'colors') continue;
+                var fields = config[section];
                 if (typeof fields === 'object' && fields !== null) {
-                    for (const [field, value] of Object.entries(fields)) {
-                        const input = document.querySelector(`[name="${section}.${field}"]`);
+                    for (var field in fields) {
+                        if (!fields.hasOwnProperty(field)) continue;
+                        var value = fields[field];
+                        var input = document.querySelector('[name="' + section + '.' + field + '"]');
                         if (input && typeof value !== 'object') {
-                            input.value = typeof value === 'boolean' ? (value ? "1" : "0") : value;
+                            input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
                             if (field === 'brightness') updateRangeValue('brightness', value);
                         }
                     }
                 }
             }
 
-            // Colors
+            // Sensor slot selects: ensure custom values are available as options
+            var slotFields = ['sensor_slot_up', 'sensor_slot_mid', 'sensor_slot_down'];
+            var slotDefaults = { sensor_slot_up: 'cpu', sensor_slot_mid: 'liquid', sensor_slot_down: 'gpu' };
+            for (var sf = 0; sf < slotFields.length; sf++) {
+                var slotValue = config.display && config.display[slotFields[sf]];
+                if (slotValue) {
+                    // Ensure value is a string (fix legacy numeric corruption)
+                    slotValue = String(slotValue);
+                    // Reject pure numeric values (corrupt from old parseFloat bug)
+                    if (/^\d+$/.test(slotValue)) {
+                        slotValue = slotDefaults[slotFields[sf]] || 'cpu';
+                        config.display[slotFields[sf]] = slotValue;
+                    }
+                    var select = document.getElementById(slotFields[sf]);
+                    if (select) {
+                        var exists = false;
+                        for (var oi = 0; oi < select.options.length; oi++) {
+                            if (select.options[oi].value === slotValue) { exists = true; break; }
+                        }
+                        if (!exists && slotValue !== 'none') {
+                            var opt = document.createElement('option');
+                            opt.value = slotValue;
+                            opt.textContent = getSensorDisplayName(slotValue);
+                            select.insertBefore(opt, select.firstChild);
+                        }
+                        select.value = slotValue;
+                    }
+                }
+            }
+
+            // Global colors
             if (config.colors) {
                 setupColorPicker('color_display_background', 'rgb_display_background', config.colors.display_background);
                 setupColorPicker('color_bar_background', 'rgb_bar_background', config.colors.bar_background);
@@ -1676,47 +2064,28 @@
                 setupColorPicker('color_font_label', 'rgb_font_label', config.colors.font_label);
             }
 
-            // CPU colors
-            if (config.cpu) {
-                setupColorPicker('color_cpu_1', 'rgb_cpu_1', config.cpu.threshold_1_color);
-                setupColorPicker('color_cpu_2', 'rgb_cpu_2', config.cpu.threshold_2_color);
-                setupColorPicker('color_cpu_3', 'rgb_cpu_3', config.cpu.threshold_3_color);
-                setupColorPicker('color_cpu_4', 'rgb_cpu_4', config.cpu.threshold_4_color);
-            }
-
-            // GPU colors
-            if (config.gpu) {
-                setupColorPicker('color_gpu_1', 'rgb_gpu_1', config.gpu.threshold_1_color);
-                setupColorPicker('color_gpu_2', 'rgb_gpu_2', config.gpu.threshold_2_color);
-                setupColorPicker('color_gpu_3', 'rgb_gpu_3', config.gpu.threshold_3_color);
-                setupColorPicker('color_gpu_4', 'rgb_gpu_4', config.gpu.threshold_4_color);
-            }
-
-            // Liquid colors
-            if (config.liquid) {
-                setupColorPicker('color_liquid_1', 'rgb_liquid_1', config.liquid.threshold_1_color);
-                setupColorPicker('color_liquid_2', 'rgb_liquid_2', config.liquid.threshold_2_color);
-                setupColorPicker('color_liquid_3', 'rgb_liquid_3', config.liquid.threshold_3_color);
-                setupColorPicker('color_liquid_4', 'rgb_liquid_4', config.liquid.threshold_4_color);
-            }
+            // Render dynamic sensor configs
+            currentSensorConfig = config.sensors || {};
+            renderSensorConfigs(config);
 
             toggleCircleInterval();
             validateSensorSlots();
         }
 
+        // ===== SAVE / RESET / EXPORT =====
         async function saveConfig() {
             if (!validateSensorSlots()) {
                 alert("Please fix sensor slot warnings before saving.");
                 return;
             }
 
-            const config = buildConfig();
+            var config = buildConfig();
             try {
                 await writeConfigToFile(config);
                 requestRestartAfterSave(1000);
                 await savePluginConfig(config);
                 alert("Configuration saved! Plugin will restart.");
-                setTimeout(() => window.close(), 300);
+                setTimeout(function() { window.close(); }, 300);
             } catch (error) {
                 console.error("Save failed:", error);
                 alert("Save failed: " + error.message);
@@ -1725,14 +2094,14 @@
 
         function exportConfig() {
             try {
-                const config = buildConfig();
-                const jsonStr = JSON.stringify(config, null, 2);
-                const blob = new Blob([jsonStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
+                var config = buildConfig();
+                var jsonStr = JSON.stringify(config, null, 2);
+                var blob = new Blob([jsonStr], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
                 a.href = url;
-                const date = new Date().toISOString().slice(0, 10);
-                a.download = `coolerdash-config-backup-${date}.json`;
+                var date = new Date().toISOString().slice(0, 10);
+                a.download = 'coolerdash-config-backup-' + date + '.json';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -1745,20 +2114,21 @@
 
         async function restartPluginDaemon(config) {
             try {
-                const apiAddress = config.daemon?.address || 'http://localhost:11987';
-                const password = config.daemon?.password || '';
-                const headers = { 'Content-Type': 'application/json' };
-                if (password) headers['Authorization'] = `Basic ${btoa(`admin:${password}`)}`;
+                var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var password = (config.daemon && config.daemon.password) || '';
+                var headers = { 'Content-Type': 'application/json' };
+                if (password) headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
 
-                const response = await fetch(`${apiAddress}/plugins/coolerdash/restart`, { method: 'POST', headers });
+                var response = await fetch(apiAddress + '/plugins/coolerdash/restart', { method: 'POST', headers: headers });
                 if (!response.ok) console.warn("Could not restart plugin automatically");
             } catch (error) {
                 console.error("Plugin restart failed:", error);
             }
         }
 
-        function requestRestartAfterSave(delayMs = 800) {
-            const doRestart = () => {
+        function requestRestartAfterSave(delayMs) {
+            delayMs = delayMs || 800;
+            var doRestart = function() {
                 try {
                     if (typeof restart === 'function') restart();
                     else restartPluginDaemon(buildConfig());
@@ -1766,10 +2136,10 @@
             };
 
             if (typeof successfulConfigSaveCallback === 'function') {
-                successfulConfigSaveCallback(() => setTimeout(doRestart, delayMs));
+                successfulConfigSaveCallback(function() { setTimeout(doRestart, delayMs); });
             } else {
-                const handler = (event) => {
-                    if (event.data?.type === 'configSaved') {
+                var handler = function(event) {
+                    if (event.data && event.data.type === 'configSaved') {
                         window.removeEventListener('message', handler);
                         setTimeout(doRestart, delayMs);
                     }
@@ -1780,20 +2150,20 @@
 
         async function writeConfigToFile(config) {
             try {
-                const apiAddress = config.daemon?.address || 'http://localhost:11987';
-                const password = config.daemon?.password || '';
+                var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var password = (config.daemon && config.daemon.password) || '';
 
                 if (password) {
-                    const response = await fetch(`${apiAddress}/plugins/coolerdash/config`, {
+                    var response = await fetch(apiAddress + '/plugins/coolerdash/config', {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Basic ${btoa(`admin:${password}`)}` },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + btoa('admin:' + password) },
                         body: JSON.stringify(config, null, 2)
                     });
                     if (response.ok) return true;
                 }
 
-                const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-                const a = document.createElement('a');
+                var blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+                var a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = 'config.json';
                 a.click();
@@ -1812,43 +2182,119 @@
                 requestRestartAfterSave(1000);
                 await savePluginConfig(FACTORY_DEFAULTS);
                 alert('Reset to factory defaults! Plugin will restart.');
-                setTimeout(() => window.close(), 300);
+                setTimeout(function() { window.close(); }, 300);
             } catch (error) {
                 console.error("Reset failed:", error);
                 alert('Reset failed: ' + error.message);
             }
         }
 
-        // Initialize
-        runPluginScript(async () => {
+        // ===== LEGACY CONFIG MIGRATION =====
+        function migrateConfig(config) {
+            var sensors = config.sensors || {};
+            var needsMigration = false;
+
+            // Detect legacy format: top-level cpu/gpu/liquid sections
+            if (!config.sensors && (config.cpu || config.gpu || config.liquid)) {
+                needsMigration = true;
+                if (config.cpu) sensors.cpu = config.cpu;
+                if (config.gpu) sensors.gpu = config.gpu;
+                if (config.liquid) sensors.liquid = config.liquid;
+
+                // Migrate per-sensor positioning offsets
+                if (config.positioning) {
+                    if (sensors.cpu) {
+                        sensors.cpu.offset_x = config.positioning.temp_offset_x_cpu || 0;
+                        sensors.cpu.offset_y = config.positioning.temp_offset_y_cpu || 0;
+                    }
+                    if (sensors.gpu) {
+                        sensors.gpu.offset_x = config.positioning.temp_offset_x_gpu || 0;
+                        sensors.gpu.offset_y = config.positioning.temp_offset_y_gpu || 0;
+                    }
+                    if (sensors.liquid) {
+                        sensors.liquid.offset_x = config.positioning.temp_offset_x_liquid || 0;
+                        sensors.liquid.offset_y = config.positioning.temp_offset_y_liquid || 0;
+                    }
+                }
+            }
+
+            // Build merged config
+            var merged = {
+                daemon: Object.assign({}, DEFAULT_CONFIG.daemon, config.daemon || {}),
+                paths: Object.assign({}, DEFAULT_CONFIG.paths, config.paths || {}),
+                display: Object.assign({}, DEFAULT_CONFIG.display, config.display || {}),
+                layout: Object.assign({}, DEFAULT_CONFIG.layout, config.layout || {}),
+                colors: Object.assign({}, DEFAULT_CONFIG.colors, config.colors || {}),
+                font: Object.assign({}, DEFAULT_CONFIG.font, config.font || {}),
+                sensors: Object.assign({}, DEFAULT_CONFIG.sensors || {}),
+                positioning: Object.assign({}, DEFAULT_CONFIG.positioning, config.positioning || {})
+            };
+
+            // Deep merge sensor configs (skip corrupt numeric keys)
+            for (var id in sensors) {
+                if (!sensors.hasOwnProperty(id)) continue;
+                // Remove corrupt numeric sensor IDs from old parseFloat bug
+                if (/^\d+$/.test(id)) continue;
+                var defaults = merged.sensors[id] || getDefaultSensorConfig(id);
+                merged.sensors[id] = Object.assign({}, defaults, sensors[id]);
+                // Deep merge color objects
+                var colorKeys = ['threshold_1_color', 'threshold_2_color', 'threshold_3_color', 'threshold_4_color'];
+                for (var c = 0; c < colorKeys.length; c++) {
+                    if (sensors[id][colorKeys[c]]) {
+                        merged.sensors[id][colorKeys[c]] = Object.assign({}, defaults[colorKeys[c]] || {}, sensors[id][colorKeys[c]]);
+                    }
+                }
+            }
+
+            // Sanitize corrupt numeric slot values (from old parseFloat bug)
+            var slotDefaults = { sensor_slot_up: 'cpu', sensor_slot_mid: 'liquid', sensor_slot_down: 'gpu' };
+            for (var slotKey in slotDefaults) {
+                if (merged.display && merged.display[slotKey] !== undefined) {
+                    var sv = String(merged.display[slotKey]);
+                    if (/^\d+$/.test(sv)) {
+                        merged.display[slotKey] = slotDefaults[slotKey];
+                    } else {
+                        merged.display[slotKey] = sv;
+                    }
+                }
+            }
+
+            // Clean up legacy positioning keys
+            delete merged.positioning.temp_offset_x_cpu;
+            delete merged.positioning.temp_offset_x_gpu;
+            delete merged.positioning.temp_offset_y_cpu;
+            delete merged.positioning.temp_offset_y_gpu;
+            delete merged.positioning.temp_offset_x_liquid;
+            delete merged.positioning.temp_offset_y_liquid;
+
+            // Remove legacy top-level sensor sections
+            delete merged.cpu;
+            delete merged.gpu;
+            delete merged.liquid;
+
+            return merged;
+        }
+
+        // ===== INITIALIZATION =====
+        runPluginScript(async function() {
             try {
                 await loadDefaultConfig();
-                let config = await getPluginConfig();
+                var config = await getPluginConfig();
 
                 if (!config || Object.keys(config).length === 0) {
-                    config = DEFAULT_CONFIG;
+                    config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
                 } else {
-                    config = {
-                        daemon: { ...DEFAULT_CONFIG.daemon, ...(config.daemon || {}) },
-                        paths: { ...DEFAULT_CONFIG.paths, ...(config.paths || {}) },
-                        display: { ...DEFAULT_CONFIG.display, ...(config.display || {}) },
-                        layout: { ...DEFAULT_CONFIG.layout, ...(config.layout || {}) },
-                        colors: { ...DEFAULT_CONFIG.colors, ...(config.colors || {}) },
-                        font: { ...DEFAULT_CONFIG.font, ...(config.font || {}) },
-                        cpu: { ...DEFAULT_CONFIG.cpu, ...(config.cpu || {}) },
-                        gpu: { ...DEFAULT_CONFIG.gpu, ...(config.gpu || {}) },
-                        liquid: { ...DEFAULT_CONFIG.liquid, ...(config.liquid || {}) },
-                        positioning: { ...DEFAULT_CONFIG.positioning, ...(config.positioning || {}) }
-                    };
+                    config = migrateConfig(config);
                 }
 
                 populateForm(config);
 
-                // Detect device from CoolerControl API
-                const apiAddr = config.daemon?.address || 'http://localhost:11987';
-                const apiPass = config.daemon?.password || '';
+                // Detect device and discover sensors from CoolerControl API
+                var apiAddr = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var apiPass = (config.daemon && config.daemon.password) || '';
                 fetchDeviceInfo(apiAddr, apiPass);
                 fetchSystemInfo(apiAddr, apiPass);
+                discoverSensors(apiAddr, apiPass);
             } catch (error) {
                 console.error("Init failed:", error);
                 if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);
