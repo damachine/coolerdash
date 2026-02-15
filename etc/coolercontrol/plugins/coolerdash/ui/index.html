@@ -483,6 +483,10 @@
             overflow: hidden;
         }
 
+        .collapsible-details + .collapsible-details {
+            margin-top: 12px;
+        }
+
         .sensor-details summary,
         .collapsible-details summary {
             padding: 12px 16px;
@@ -704,9 +708,7 @@
                             <option value="circle">Circle</option>
                         </select>
                     </div>
-                </div>
 
-                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Width (Pixels)</label>
                         <span class="form-hint">0 = automatic</span>
@@ -718,9 +720,7 @@
                         <span class="form-hint">0 = automatic</span>
                         <input type="number" name="display.height" class="form-control" min="0" max="1024">
                     </div>
-                </div>
 
-                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Content Scale</label>
                         <span class="form-hint">Default: 0.98</span>
@@ -738,9 +738,10 @@
             <!-- Tab 2: Layout -->
             <div class="panel">
 
-                <details class="collapsible-details">
-                    <summary>Bar Dimensions</summary>
+                <details class="collapsible-details" open>
+                    <summary>Bars</summary>
                     <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Dimensions</h4>
                         <div class="grid grid-3">
                             <div class="form-group">
                                 <label class="form-label">Default Bar Height</label>
@@ -758,12 +759,8 @@
                                 <input type="number" name="layout.bar_gap" class="form-control" min="0" max="50">
                             </div>
                         </div>
-                    </div>
-                </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
-                    <summary>Individual Bar Heights</summary>
-                    <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Individual Heights</h4>
                         <span class="form-hint" style="margin-bottom: 12px; display: block;">Set to 0 to use default bar height</span>
                         <div class="grid grid-3">
                             <div class="form-group">
@@ -782,12 +779,8 @@
                                 <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
                             </div>
                         </div>
-                    </div>
-                </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
-                    <summary>Border &amp; Margins</summary>
-                    <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Border</h4>
                         <div class="grid grid-2">
                             <div class="form-group">
                                 <label class="form-label">Show Border</label>
@@ -802,23 +795,14 @@
                                 <span class="form-hint">Default: 1.0</span>
                                 <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Label Left Margin</label>
-                                <span class="form-hint">Default: 1</span>
-                                <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Label Bar Margin</label>
-                                <span class="form-hint">Default: 1</span>
-                                <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
-                            </div>
                         </div>
                     </div>
                 </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
-                    <summary>Font</summary>
+                <details class="collapsible-details">
+                    <summary>Labels &amp; Text</summary>
                     <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Font</h4>
                         <div class="grid grid-3">
                             <div class="form-group">
                                 <label class="form-label">Font Face</label>
@@ -836,12 +820,22 @@
                                 <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
                             </div>
                         </div>
-                    </div>
-                </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
-                    <summary>Global Positioning</summary>
-                    <div class="collapsible-details-content">
+                        <h4 class="sub-section-title">Margins</h4>
+                        <div class="grid grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Label Left Margin</label>
+                                <span class="form-hint">Default: 1</span>
+                                <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Label Bar Margin</label>
+                                <span class="form-hint">Default: 1</span>
+                                <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
+                            </div>
+                        </div>
+
+                        <h4 class="sub-section-title">Positioning</h4>
                         <div class="alert">
                             <strong>Global Offsets</strong>
                             These offsets apply to all labels globally. Per-sensor value offsets are configured in the Sensors tab.
