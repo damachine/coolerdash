@@ -100,77 +100,114 @@ static void draw_temperature_displays(cairo_t *cr,
     if (!up_active && down_active)
         down_bar_y = start_y;
 
-    cairo_font_extents_t font_ext;
-    cairo_font_extents(cr, &font_ext);
-
-    // Calculate reference width (widest 2-digit number) for sub-100 alignment
-    cairo_text_extents_t ref_width_ext;
-    cairo_text_extents(cr, "88", &ref_width_ext);
-
     // Draw upper slot temperature
     if (up_active)
     {
+        // Set per-slot font size
+        float up_font_size = get_slot_font_size(config, slot_up);
+        cairo_set_font_size(cr, up_font_size);
+
+        cairo_font_extents_t up_font_ext;
+        cairo_font_extents(cr, &up_font_ext);
+
+        // Calculate reference width (widest 2-digit number) for sub-100 alignment
+        cairo_text_extents_t up_ref_ext;
+        cairo_text_extents(cr, "88", &up_ref_ext);
+
         char up_num_str[16];
-        snprintf(up_num_str, sizeof(up_num_str), "%d", (int)temp_up);
+        if (get_slot_use_decimal(data, slot_up))
+            snprintf(up_num_str, sizeof(up_num_str), "%.1f", temp_up);
+        else
+            snprintf(up_num_str, sizeof(up_num_str), "%d", (int)temp_up);
 
         cairo_text_extents_t up_num_ext;
         cairo_text_extents(cr, up_num_str, &up_num_ext);
 
-        double up_width = (temp_up >= 100.0f) ? up_num_ext.width : ref_width_ext.width;
+        double up_width = (temp_up >= 100.0f) ? up_num_ext.width : up_ref_ext.width;
         double up_temp_x = bar_x + (effective_bar_width - up_width) / 2.0;
 
         if (config->display_width == 240 && config->display_height == 240)
             up_temp_x += 20;
 
-        if (config->display_temp_offset_x_cpu != 0)
-            up_temp_x += config->display_temp_offset_x_cpu;
+        int offset_x_up = get_slot_offset_x(config, slot_up);
+        if (offset_x_up != 0)
+            up_temp_x += offset_x_up;
 
-        double up_temp_y = up_bar_y + 8 - font_ext.descent;
-        if (config->display_temp_offset_y_cpu != 0)
-            up_temp_y += config->display_temp_offset_y_cpu;
+        double up_temp_y = up_bar_y + 8 - up_font_ext.descent;
+        int offset_y_up = get_slot_offset_y(config, slot_up);
+        if (offset_y_up != 0)
+            up_temp_y += offset_y_up;
 
         cairo_move_to(cr, up_temp_x, up_temp_y);
         cairo_show_text(cr, up_num_str);
 
-        // Degree symbol
-        const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
-        double degree_up_x = up_temp_x + up_width + degree_spacing;
-        double degree_up_y = up_temp_y - up_num_ext.height * 0.40;
-        draw_degree_symbol(cr, degree_up_x, degree_up_y, config);
+        // Draw degree symbol or unit
+        if (get_slot_is_temp(data, slot_up))
+        {
+            const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
+            double degree_up_x = up_temp_x + up_width + degree_spacing;
+            double degree_up_y = up_temp_y - up_num_ext.height * 0.40;
+            cairo_set_font_size(cr, up_font_size / 1.66);
+            cairo_move_to(cr, degree_up_x, degree_up_y);
+            cairo_show_text(cr, "\xC2\xB0");
+            cairo_set_font_size(cr, up_font_size);
+        }
     }
 
     // Draw lower slot temperature
     if (down_active)
     {
+        // Set per-slot font size
+        float down_font_size = get_slot_font_size(config, slot_down);
+        cairo_set_font_size(cr, down_font_size);
+
+        cairo_font_extents_t down_font_ext;
+        cairo_font_extents(cr, &down_font_ext);
+
+        // Calculate reference width for sub-100 alignment
+        cairo_text_extents_t down_ref_ext;
+        cairo_text_extents(cr, "88", &down_ref_ext);
+
         char down_num_str[16];
-        snprintf(down_num_str, sizeof(down_num_str), "%d", (int)temp_down);
+        if (get_slot_use_decimal(data, slot_down))
+            snprintf(down_num_str, sizeof(down_num_str), "%.1f", temp_down);
+        else
+            snprintf(down_num_str, sizeof(down_num_str), "%d", (int)temp_down);
 
         cairo_text_extents_t down_num_ext;
         cairo_text_extents(cr, down_num_str, &down_num_ext);
 
-        double down_width = (temp_down >= 100.0f) ? down_num_ext.width : ref_width_ext.width;
+        double down_width = (temp_down >= 100.0f) ? down_num_ext.width : down_ref_ext.width;
         double down_temp_x = bar_x + (effective_bar_width - down_width) / 2.0;
 
         if (config->display_width == 240 && config->display_height == 240)
             down_temp_x += 20;
 
-        if (config->display_temp_offset_x_gpu != 0)
-            down_temp_x += config->display_temp_offset_x_gpu;
+        int offset_x_down = get_slot_offset_x(config, slot_down);
+        if (offset_x_down != 0)
+            down_temp_x += offset_x_down;
 
         // Use the actual bar height for positioning
         uint16_t effective_down_height = down_active ? bar_height_down : 0;
-        double down_temp_y = down_bar_y + effective_down_height - 4 + font_ext.ascent;
-        if (config->display_temp_offset_y_gpu != 0)
-            down_temp_y += config->display_temp_offset_y_gpu;
+        double down_temp_y = down_bar_y + effective_down_height - 4 + down_font_ext.ascent;
+        int offset_y_down = get_slot_offset_y(config, slot_down);
+        if (offset_y_down != 0)
+            down_temp_y += offset_y_down;
 
         cairo_move_to(cr, down_temp_x, down_temp_y);
         cairo_show_text(cr, down_num_str);
 
-        // Degree symbol
-        const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
-        double degree_down_x = down_temp_x + down_width + degree_spacing;
-        double degree_down_y = down_temp_y - down_num_ext.height * 0.40;
-        draw_degree_symbol(cr, degree_down_x, degree_down_y, config);
+        // Draw degree symbol or unit
+        if (get_slot_is_temp(data, slot_down))
+        {
+            const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
+            double degree_down_x = down_temp_x + down_width + degree_spacing;
+            double degree_down_y = down_temp_y - down_num_ext.height * 0.40;
+            cairo_set_font_size(cr, down_font_size / 1.66);
+            cairo_move_to(cr, degree_down_x, degree_down_y);
+            cairo_show_text(cr, "\xC2\xB0");
+            cairo_set_font_size(cr, down_font_size);
+        }
     }
 }
 
@@ -294,7 +331,7 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
                         const monitor_sensor_data_t *data,
                         const ScalingParams *params)
 {
-    (void)data; // Reserved for future use (e.g., dynamic labels based on values)
+    (void)data;
 
     if (!cr || !config || !params)
         return;
@@ -306,8 +343,8 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
     const int down_active = slot_is_active(slot_down);
 
     // Get labels from slots (NULL if "none")
-    const char *label_up = get_slot_label(slot_up);
-    const char *label_down = get_slot_label(slot_down);
+    const char *label_up = get_slot_label(config, data, slot_up);
+    const char *label_down = get_slot_label(config, data, slot_down);
 
     // Get bar heights
     const uint16_t bar_height_up = get_slot_bar_height(config, "up");
@@ -401,8 +438,17 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     float temp_up = get_slot_temperature(data, config->sensor_slot_up);
     float temp_down = get_slot_temperature(data, config->sensor_slot_down);
 
-    // Labels only if both temps < 99°C (to avoid overlap with large numbers)
-    if (temp_up < 99.0f && temp_down < 99.0f)
+    // Labels only if temperature sensors < 99°C (to avoid overlap with large numbers)
+    // Non-temperature sensors always show labels (RPM, Watts etc. have different scales)
+    int up_is_temp = get_slot_is_temp(data, config->sensor_slot_up);
+    int down_is_temp = get_slot_is_temp(data, config->sensor_slot_down);
+    int show_labels = 1;
+    if (up_is_temp && temp_up >= 99.0f)
+        show_labels = 0;
+    if (down_is_temp && temp_down >= 99.0f)
+        show_labels = 0;
+
+    if (show_labels)
     {
         cairo_set_font_size(cr, config->font_size_labels);
         set_cairo_color(cr, &config->font_color_label);
@@ -488,10 +534,10 @@ void draw_dual_image(const struct Config *config)
     }
 
     // Get sensor data
-    monitor_sensor_data_t sensor_data = {.temp_cpu = 0.0f, .temp_gpu = 0.0f};
-    if (!get_temperature_monitor_data(config, &sensor_data))
+    monitor_sensor_data_t sensor_data = {0};
+    if (!get_sensor_monitor_data(config, &sensor_data))
     {
-        log_message(LOG_WARNING, "Failed to retrieve temperature data");
+        log_message(LOG_WARNING, "Failed to retrieve sensor data");
         return;
     }
 

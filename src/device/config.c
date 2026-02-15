@@ -237,39 +237,144 @@ static void set_font_defaults(Config *config)
 }
 
 /**
- * @brief Set temperature defaults.
+ * @brief Find or create a SensorConfig entry by sensor_id.
+ * @return Pointer to entry, or NULL if array is full
  */
-static void set_temperature_defaults(Config *config)
+static SensorConfig *ensure_sensor_config(Config *config, const char *sensor_id)
 {
-    // CPU temperature defaults
-    if (config->temp_cpu_threshold_1 == 0.0f)
-        config->temp_cpu_threshold_1 = 55.0f;
-    if (config->temp_cpu_threshold_2 == 0.0f)
-        config->temp_cpu_threshold_2 = 65.0f;
-    if (config->temp_cpu_threshold_3 == 0.0f)
-        config->temp_cpu_threshold_3 = 75.0f;
-    if (config->temp_cpu_max_scale == 0.0f)
-        config->temp_cpu_max_scale = 115.0f;
+    for (int i = 0; i < config->sensor_config_count; i++)
+    {
+        if (strcmp(config->sensor_configs[i].sensor_id, sensor_id) == 0)
+            return &config->sensor_configs[i];
+    }
+    if (config->sensor_config_count >= MAX_SENSOR_CONFIGS)
+        return NULL;
+    SensorConfig *sc = &config->sensor_configs[config->sensor_config_count++];
+    memset(sc, 0, sizeof(SensorConfig));
+    cc_safe_strcpy(sc->sensor_id, sizeof(sc->sensor_id), sensor_id);
+    return sc;
+}
 
-    // GPU temperature defaults (same as CPU)
-    if (config->temp_gpu_threshold_1 == 0.0f)
-        config->temp_gpu_threshold_1 = 55.0f;
-    if (config->temp_gpu_threshold_2 == 0.0f)
-        config->temp_gpu_threshold_2 = 65.0f;
-    if (config->temp_gpu_threshold_3 == 0.0f)
-        config->temp_gpu_threshold_3 = 75.0f;
-    if (config->temp_gpu_max_scale == 0.0f)
-        config->temp_gpu_max_scale = 115.0f;
+/**
+ * @brief Initialize a SensorConfig with defaults for a given category.
+ */
+void init_default_sensor_config(SensorConfig *sc, const char *sensor_id,
+                                int category)
+{
+    if (!sc || !sensor_id)
+        return;
+    memset(sc, 0, sizeof(SensorConfig));
+    cc_safe_strcpy(sc->sensor_id, sizeof(sc->sensor_id), sensor_id);
 
-    // Liquid temperature defaults
-    if (config->temp_liquid_threshold_1 == 0.0f)
-        config->temp_liquid_threshold_1 = 25.0f;
-    if (config->temp_liquid_threshold_2 == 0.0f)
-        config->temp_liquid_threshold_2 = 28.0f;
-    if (config->temp_liquid_threshold_3 == 0.0f)
-        config->temp_liquid_threshold_3 = 31.0f;
-    if (config->temp_liquid_max_scale == 0.0f)
-        config->temp_liquid_max_scale = 50.0f;
+    switch (category)
+    {
+    case 0: /* SENSOR_CATEGORY_TEMP */
+        sc->threshold_1 = 55.0f;
+        sc->threshold_2 = 65.0f;
+        sc->threshold_3 = 75.0f;
+        sc->max_scale = 115.0f;
+        break;
+    case 1: /* SENSOR_CATEGORY_RPM */
+        sc->threshold_1 = 500.0f;
+        sc->threshold_2 = 1000.0f;
+        sc->threshold_3 = 1500.0f;
+        sc->max_scale = 3000.0f;
+        break;
+    case 2: /* SENSOR_CATEGORY_DUTY */
+        sc->threshold_1 = 25.0f;
+        sc->threshold_2 = 50.0f;
+        sc->threshold_3 = 75.0f;
+        sc->max_scale = 100.0f;
+        break;
+    case 3: /* SENSOR_CATEGORY_WATTS */
+        sc->threshold_1 = 50.0f;
+        sc->threshold_2 = 100.0f;
+        sc->threshold_3 = 200.0f;
+        sc->max_scale = 500.0f;
+        break;
+    case 4: /* SENSOR_CATEGORY_FREQ */
+        sc->threshold_1 = 1000.0f;
+        sc->threshold_2 = 2000.0f;
+        sc->threshold_3 = 3000.0f;
+        sc->max_scale = 6000.0f;
+        break;
+    default:
+        sc->threshold_1 = 55.0f;
+        sc->threshold_2 = 65.0f;
+        sc->threshold_3 = 75.0f;
+        sc->max_scale = 115.0f;
+        break;
+    }
+
+    sc->threshold_1_bar = (Color){0, 255, 0, 1};
+    sc->threshold_2_bar = (Color){255, 140, 0, 1};
+    sc->threshold_3_bar = (Color){255, 70, 0, 1};
+    sc->threshold_4_bar = (Color){255, 0, 0, 1};
+}
+
+/**
+ * @brief Find sensor configuration by sensor ID (public).
+ */
+const SensorConfig *get_sensor_config(const Config *config,
+                                      const char *sensor_id)
+{
+    if (!config || !sensor_id)
+        return NULL;
+    for (int i = 0; i < config->sensor_config_count; i++)
+    {
+        if (strcmp(config->sensor_configs[i].sensor_id, sensor_id) == 0)
+            return &config->sensor_configs[i];
+    }
+    return NULL;
+}
+
+/**
+ * @brief Set default sensor configurations.
+ * @details Ensures cpu, gpu, liquid configs exist with proper threshold defaults.
+ */
+static void set_default_sensor_configs(Config *config)
+{
+    /* Ensure CPU config */
+    SensorConfig *cpu = ensure_sensor_config(config, "cpu");
+    if (cpu)
+    {
+        if (cpu->threshold_1 == 0.0f)
+            cpu->threshold_1 = 55.0f;
+        if (cpu->threshold_2 == 0.0f)
+            cpu->threshold_2 = 65.0f;
+        if (cpu->threshold_3 == 0.0f)
+            cpu->threshold_3 = 75.0f;
+        if (cpu->max_scale == 0.0f)
+            cpu->max_scale = 115.0f;
+    }
+
+    /* Ensure GPU config */
+    SensorConfig *gpu = ensure_sensor_config(config, "gpu");
+    if (gpu)
+    {
+        if (gpu->threshold_1 == 0.0f)
+            gpu->threshold_1 = 55.0f;
+        if (gpu->threshold_2 == 0.0f)
+            gpu->threshold_2 = 65.0f;
+        if (gpu->threshold_3 == 0.0f)
+            gpu->threshold_3 = 75.0f;
+        if (gpu->max_scale == 0.0f)
+            gpu->max_scale = 115.0f;
+    }
+
+    /* Ensure Liquid config (lower thresholds) */
+    SensorConfig *liquid = ensure_sensor_config(config, "liquid");
+    if (liquid)
+    {
+        if (liquid->threshold_1 == 0.0f)
+            liquid->threshold_1 = 25.0f;
+        if (liquid->threshold_2 == 0.0f)
+            liquid->threshold_2 = 28.0f;
+        if (liquid->threshold_3 == 0.0f)
+            liquid->threshold_3 = 31.0f;
+        if (liquid->max_scale == 0.0f)
+            liquid->max_scale = 50.0f;
+    }
 }
 
 /**
@@ -295,27 +400,13 @@ typedef struct
  */
 static void set_color_defaults(Config *config)
 {
+    /* Global color defaults */
     ColorDefault color_defaults[] = {
-        {&config->display_background_color, 0, 0, 0}, // Main background (black)
+        {&config->display_background_color, 0, 0, 0},
         {&config->layout_bar_color_background, 52, 52, 52},
         {&config->layout_bar_color_border, 192, 192, 192},
         {&config->font_color_temp, 255, 255, 255},
-        {&config->font_color_label, 200, 200, 200},
-        // CPU temperature colors
-        {&config->temp_cpu_threshold_1_bar, 0, 255, 0},
-        {&config->temp_cpu_threshold_2_bar, 255, 140, 0},
-        {&config->temp_cpu_threshold_3_bar, 255, 70, 0},
-        {&config->temp_cpu_threshold_4_bar, 255, 0, 0},
-        // GPU temperature colors (same as CPU)
-        {&config->temp_gpu_threshold_1_bar, 0, 255, 0},
-        {&config->temp_gpu_threshold_2_bar, 255, 140, 0},
-        {&config->temp_gpu_threshold_3_bar, 255, 70, 0},
-        {&config->temp_gpu_threshold_4_bar, 255, 0, 0},
-        // Liquid temperature colors
-        {&config->temp_liquid_threshold_1_bar, 0, 255, 0},
-        {&config->temp_liquid_threshold_2_bar, 255, 140, 0},
-        {&config->temp_liquid_threshold_3_bar, 255, 70, 0},
-        {&config->temp_liquid_threshold_4_bar, 255, 0, 0}};
+        {&config->font_color_label, 200, 200, 200}};
 
     const size_t color_count = sizeof(color_defaults) / sizeof(color_defaults[0]);
     for (size_t i = 0; i < color_count; i++)
@@ -327,19 +418,44 @@ static void set_color_defaults(Config *config)
             color_defaults[i].color_ptr->b = color_defaults[i].b;
         }
     }
+
+    /* Per-sensor color defaults (apply to all sensor configs) */
+    for (int i = 0; i < config->sensor_config_count; i++)
+    {
+        SensorConfig *sc = &config->sensor_configs[i];
+        if (is_color_unset(&sc->threshold_1_bar))
+            sc->threshold_1_bar = (Color){0, 255, 0, 1};
+        if (is_color_unset(&sc->threshold_2_bar))
+            sc->threshold_2_bar = (Color){255, 140, 0, 1};
+        if (is_color_unset(&sc->threshold_3_bar))
+            sc->threshold_3_bar = (Color){255, 70, 0, 1};
+        if (is_color_unset(&sc->threshold_4_bar))
+            sc->threshold_4_bar = (Color){255, 0, 0, 1};
+    }
 }
 
 /**
  * @brief Check if a sensor slot value is valid.
+ * @details Accepts legacy ("cpu","gpu","liquid","none") and dynamic ("uid:name").
  */
 static int is_valid_sensor_slot(const char *slot)
 {
     if (!slot || slot[0] == '\0')
         return 0;
-    return (strcmp(slot, "cpu") == 0 ||
-            strcmp(slot, "gpu") == 0 ||
-            strcmp(slot, "liquid") == 0 ||
-            strcmp(slot, "none") == 0);
+
+    /* Legacy values */
+    if (strcmp(slot, "cpu") == 0 ||
+        strcmp(slot, "gpu") == 0 ||
+        strcmp(slot, "liquid") == 0 ||
+        strcmp(slot, "none") == 0)
+        return 1;
+
+    /* Dynamic format: "uid:sensor_name" */
+    const char *sep = strchr(slot, ':');
+    if (sep && sep != slot && *(sep + 1) != '\0')
+        return 1;
+
+    return 0;
 }
 
 /**
@@ -439,7 +555,7 @@ static void apply_system_defaults(Config *config)
     set_display_defaults(config);
     set_layout_defaults(config);
     set_font_defaults(config);
-    set_temperature_defaults(config);
+    set_default_sensor_configs(config);
     set_color_defaults(config);
     validate_sensor_slots(config);
 }
@@ -677,6 +793,11 @@ static void load_display_from_json(json_t *root, Config *config)
         if (value)
             cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), value);
     }
+    else if (slot_up && !json_is_string(slot_up))
+    {
+        log_message(LOG_WARNING, "sensor_slot_up has non-string type, using default '%s'",
+                    config->sensor_slot_up);
+    }
 
     json_t *slot_mid = json_object_get(display, "sensor_slot_mid");
     if (slot_mid && json_is_string(slot_mid))
@@ -685,6 +806,11 @@ static void load_display_from_json(json_t *root, Config *config)
         if (value)
             cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), value);
     }
+    else if (slot_mid && !json_is_string(slot_mid))
+    {
+        log_message(LOG_WARNING, "sensor_slot_mid has non-string type, using default '%s'",
+                    config->sensor_slot_mid);
+    }
 
     json_t *slot_down = json_object_get(display, "sensor_slot_down");
     if (slot_down && json_is_string(slot_down))
@@ -692,6 +818,11 @@ static void load_display_from_json(json_t *root, Config *config)
         const char *value = json_string_value(slot_down);
         if (value)
             cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), value);
+    }
+    else if (slot_down && !json_is_string(slot_down))
+    {
+        log_message(LOG_WARNING, "sensor_slot_down has non-string type, using default '%s'",
+                    config->sensor_slot_down);
     }
 }
 
@@ -837,166 +968,142 @@ static void load_font_from_json(json_t *root, Config *config)
 }
 
 /**
- * @brief Load CPU temperature settings from JSON.
+ * @brief Load a single sensor config entry from a JSON object.
+ * @details Generic loader for thresholds, max_scale, colors, and offsets.
  */
-static void load_cpu_temperature_from_json(json_t *root, Config *config)
+static void load_sensor_config_from_json(json_t *obj, SensorConfig *sc)
 {
+    if (!obj || !json_is_object(obj) || !sc)
+        return;
+
+    json_t *val;
+
+    val = json_object_get(obj, "threshold_1");
+    if (val && json_is_number(val))
+        sc->threshold_1 = (float)json_number_value(val);
+
+    val = json_object_get(obj, "threshold_2");
+    if (val && json_is_number(val))
+        sc->threshold_2 = (float)json_number_value(val);
+
+    val = json_object_get(obj, "threshold_3");
+    if (val && json_is_number(val))
+        sc->threshold_3 = (float)json_number_value(val);
+
+    val = json_object_get(obj, "max_scale");
+    if (val && json_is_number(val))
+        sc->max_scale = (float)json_number_value(val);
+
+    read_color_from_json(json_object_get(obj, "threshold_1_color"), &sc->threshold_1_bar);
+    read_color_from_json(json_object_get(obj, "threshold_2_color"), &sc->threshold_2_bar);
+    read_color_from_json(json_object_get(obj, "threshold_3_color"), &sc->threshold_3_bar);
+    read_color_from_json(json_object_get(obj, "threshold_4_color"), &sc->threshold_4_bar);
+
+    val = json_object_get(obj, "offset_x");
+    if (val && json_is_integer(val))
+        sc->offset_x = (int)json_integer_value(val);
+
+    val = json_object_get(obj, "offset_y");
+    if (val && json_is_integer(val))
+        sc->offset_y = (int)json_integer_value(val);
+
+    val = json_object_get(obj, "font_size_temp");
+    if (val && json_is_number(val))
+        sc->font_size_temp = (float)json_number_value(val);
+
+    val = json_object_get(obj, "label");
+    if (val && json_is_string(val))
+    {
+        const char *label_str = json_string_value(val);
+        if (label_str)
+            cc_safe_strcpy(sc->label, sizeof(sc->label), label_str);
+    }
+}
+
+/**
+ * @brief Load sensor configurations from JSON "sensors" map.
+ * @details New format: "sensors": { "cpu": {...}, "gpu": {...}, "uid:name": {...} }
+ * Also handles legacy format with top-level "cpu", "gpu", "liquid" objects.
+ */
+static void load_sensors_from_json(json_t *root, Config *config)
+{
+    /* New format: "sensors" map */
+    json_t *sensors = json_object_get(root, "sensors");
+    if (sensors && json_is_object(sensors))
+    {
+        const char *key;
+        json_t *value;
+        json_object_foreach(sensors, key, value)
+        {
+            if (!json_is_object(value))
+                continue;
+            SensorConfig *sc = ensure_sensor_config(config, key);
+            if (sc)
+                load_sensor_config_from_json(value, sc);
+        }
+        return; /* New format takes priority */
+    }
+
+    /* Legacy backward compatibility: top-level "cpu", "gpu", "liquid" */
     json_t *cpu = json_object_get(root, "cpu");
-    if (!cpu || !json_is_object(cpu))
-        return;
-
-    json_t *threshold_1 = json_object_get(cpu, "threshold_1");
-    if (threshold_1 && json_is_number(threshold_1))
+    if (cpu && json_is_object(cpu))
     {
-        config->temp_cpu_threshold_1 = (float)json_number_value(threshold_1);
+        SensorConfig *sc = ensure_sensor_config(config, "cpu");
+        if (sc)
+            load_sensor_config_from_json(cpu, sc);
     }
 
-    json_t *threshold_2 = json_object_get(cpu, "threshold_2");
-    if (threshold_2 && json_is_number(threshold_2))
-    {
-        config->temp_cpu_threshold_2 = (float)json_number_value(threshold_2);
-    }
-
-    json_t *threshold_3 = json_object_get(cpu, "threshold_3");
-    if (threshold_3 && json_is_number(threshold_3))
-    {
-        config->temp_cpu_threshold_3 = (float)json_number_value(threshold_3);
-    }
-
-    json_t *max_scale = json_object_get(cpu, "max_scale");
-    if (max_scale && json_is_number(max_scale))
-    {
-        config->temp_cpu_max_scale = (float)json_number_value(max_scale);
-    }
-
-    read_color_from_json(json_object_get(cpu, "threshold_1_color"), &config->temp_cpu_threshold_1_bar);
-    read_color_from_json(json_object_get(cpu, "threshold_2_color"), &config->temp_cpu_threshold_2_bar);
-    read_color_from_json(json_object_get(cpu, "threshold_3_color"), &config->temp_cpu_threshold_3_bar);
-    read_color_from_json(json_object_get(cpu, "threshold_4_color"), &config->temp_cpu_threshold_4_bar);
-}
-
-/**
- * @brief Load GPU temperature settings from JSON.
- */
-static void load_gpu_temperature_from_json(json_t *root, Config *config)
-{
     json_t *gpu = json_object_get(root, "gpu");
-    if (!gpu || !json_is_object(gpu))
-        return;
-
-    json_t *threshold_1 = json_object_get(gpu, "threshold_1");
-    if (threshold_1 && json_is_number(threshold_1))
+    if (gpu && json_is_object(gpu))
     {
-        config->temp_gpu_threshold_1 = (float)json_number_value(threshold_1);
+        SensorConfig *sc = ensure_sensor_config(config, "gpu");
+        if (sc)
+            load_sensor_config_from_json(gpu, sc);
     }
 
-    json_t *threshold_2 = json_object_get(gpu, "threshold_2");
-    if (threshold_2 && json_is_number(threshold_2))
-    {
-        config->temp_gpu_threshold_2 = (float)json_number_value(threshold_2);
-    }
-
-    json_t *threshold_3 = json_object_get(gpu, "threshold_3");
-    if (threshold_3 && json_is_number(threshold_3))
-    {
-        config->temp_gpu_threshold_3 = (float)json_number_value(threshold_3);
-    }
-
-    json_t *max_scale = json_object_get(gpu, "max_scale");
-    if (max_scale && json_is_number(max_scale))
-    {
-        config->temp_gpu_max_scale = (float)json_number_value(max_scale);
-    }
-
-    read_color_from_json(json_object_get(gpu, "threshold_1_color"), &config->temp_gpu_threshold_1_bar);
-    read_color_from_json(json_object_get(gpu, "threshold_2_color"), &config->temp_gpu_threshold_2_bar);
-    read_color_from_json(json_object_get(gpu, "threshold_3_color"), &config->temp_gpu_threshold_3_bar);
-    read_color_from_json(json_object_get(gpu, "threshold_4_color"), &config->temp_gpu_threshold_4_bar);
-}
-
-/**
- * @brief Load liquid temperature settings from JSON.
- */
-static void load_liquid_from_json(json_t *root, Config *config)
-{
     json_t *liquid = json_object_get(root, "liquid");
-    if (!liquid || !json_is_object(liquid))
-        return;
-
-    json_t *max_scale = json_object_get(liquid, "max_scale");
-    if (max_scale && json_is_number(max_scale))
+    if (liquid && json_is_object(liquid))
     {
-        config->temp_liquid_max_scale = (float)json_number_value(max_scale);
+        SensorConfig *sc = ensure_sensor_config(config, "liquid");
+        if (sc)
+            load_sensor_config_from_json(liquid, sc);
     }
 
-    json_t *threshold_1 = json_object_get(liquid, "threshold_1");
-    if (threshold_1 && json_is_number(threshold_1))
+    /* Legacy positioning offsets → migrate to SensorConfig */
+    json_t *positioning = json_object_get(root, "positioning");
+    if (positioning && json_is_object(positioning))
     {
-        config->temp_liquid_threshold_1 = (float)json_number_value(threshold_1);
-    }
+        const char *offset_keys[][3] = {
+            {"temp_offset_x_cpu", "temp_offset_y_cpu", "cpu"},
+            {"temp_offset_x_gpu", "temp_offset_y_gpu", "gpu"},
+            {"temp_offset_x_liquid", "temp_offset_y_liquid", "liquid"}};
 
-    json_t *threshold_2 = json_object_get(liquid, "threshold_2");
-    if (threshold_2 && json_is_number(threshold_2))
-    {
-        config->temp_liquid_threshold_2 = (float)json_number_value(threshold_2);
-    }
+        for (int i = 0; i < 3; i++)
+        {
+            SensorConfig *sc = ensure_sensor_config(config, offset_keys[i][2]);
+            if (!sc)
+                continue;
 
-    json_t *threshold_3 = json_object_get(liquid, "threshold_3");
-    if (threshold_3 && json_is_number(threshold_3))
-    {
-        config->temp_liquid_threshold_3 = (float)json_number_value(threshold_3);
-    }
+            json_t *ox = json_object_get(positioning, offset_keys[i][0]);
+            if (ox && json_is_integer(ox))
+                sc->offset_x = (int)json_integer_value(ox);
 
-    read_color_from_json(json_object_get(liquid, "threshold_1_color"), &config->temp_liquid_threshold_1_bar);
-    read_color_from_json(json_object_get(liquid, "threshold_2_color"), &config->temp_liquid_threshold_2_bar);
-    read_color_from_json(json_object_get(liquid, "threshold_3_color"), &config->temp_liquid_threshold_3_bar);
-    read_color_from_json(json_object_get(liquid, "threshold_4_color"), &config->temp_liquid_threshold_4_bar);
+            json_t *oy = json_object_get(positioning, offset_keys[i][1]);
+            if (oy && json_is_integer(oy))
+                sc->offset_y = (int)json_integer_value(oy);
+        }
+    }
 }
 
 /**
- * @brief Load positioning settings from JSON.
+ * @brief Load global positioning settings from JSON.
+ * @details Per-sensor offsets are now handled in load_sensors_from_json().
  */
 static void load_positioning_from_json(json_t *root, Config *config)
 {
     json_t *positioning = json_object_get(root, "positioning");
     if (!positioning || !json_is_object(positioning))
         return;
-
-    json_t *temp_offset_x_cpu = json_object_get(positioning, "temp_offset_x_cpu");
-    if (temp_offset_x_cpu && json_is_integer(temp_offset_x_cpu))
-    {
-        config->display_temp_offset_x_cpu = (int)json_integer_value(temp_offset_x_cpu);
-    }
-
-    json_t *temp_offset_x_gpu = json_object_get(positioning, "temp_offset_x_gpu");
-    if (temp_offset_x_gpu && json_is_integer(temp_offset_x_gpu))
-    {
-        config->display_temp_offset_x_gpu = (int)json_integer_value(temp_offset_x_gpu);
-    }
-
-    json_t *temp_offset_y_cpu = json_object_get(positioning, "temp_offset_y_cpu");
-    if (temp_offset_y_cpu && json_is_integer(temp_offset_y_cpu))
-    {
-        config->display_temp_offset_y_cpu = (int)json_integer_value(temp_offset_y_cpu);
-    }
-
-    json_t *temp_offset_y_gpu = json_object_get(positioning, "temp_offset_y_gpu");
-    if (temp_offset_y_gpu && json_is_integer(temp_offset_y_gpu))
-    {
-        config->display_temp_offset_y_gpu = (int)json_integer_value(temp_offset_y_gpu);
-    }
-
-    json_t *temp_offset_x_liquid = json_object_get(positioning, "temp_offset_x_liquid");
-    if (temp_offset_x_liquid && json_is_integer(temp_offset_x_liquid))
-    {
-        config->display_temp_offset_x_liquid = (int)json_integer_value(temp_offset_x_liquid);
-    }
-
-    json_t *temp_offset_y_liquid = json_object_get(positioning, "temp_offset_y_liquid");
-    if (temp_offset_y_liquid && json_is_integer(temp_offset_y_liquid))
-    {
-        config->display_temp_offset_y_liquid = (int)json_integer_value(temp_offset_y_liquid);
-    }
 
     json_t *degree_spacing = json_object_get(positioning, "degree_spacing");
     if (degree_spacing && json_is_integer(degree_spacing))
@@ -1057,9 +1164,7 @@ int load_plugin_config(Config *config, const char *config_path)
             load_layout_from_json(root, config);
             load_colors_from_json(root, config);
             load_font_from_json(root, config);
-            load_cpu_temperature_from_json(root, config);
-            load_gpu_temperature_from_json(root, config);
-            load_liquid_from_json(root, config);
+            load_sensors_from_json(root, config);
             load_positioning_from_json(root, config);
 
             json_decref(root);
