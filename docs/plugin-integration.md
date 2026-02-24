@@ -4,7 +4,7 @@
 
 CoolerDash is now fully integrated as a CoolerControl plugin with enhanced UI support.
 
-## New Features in 2.0.5
+## New Features in 2.2.x
 
 ### 1. Theme-Adaptive UI
 
@@ -48,7 +48,7 @@ Consistent iconography using CoolerControl's icon library:
 The `manifest.toml` now includes:
 
 ```toml
-version = "2.0.5"                              # Displayed in plugin list
+version = "2.2.x"                              # Displayed in plugin list
 url = "https://github.com/damachine/coolerdash" # Link to project homepage
 ```
 
@@ -65,7 +65,7 @@ These fields are displayed on the CoolerControl plugin page, helping users:
 - ❌ Custom CSS only (no Tailwind support)
 - ❌ Toast notifications (not standard in CC)
 
-### After (2.0.5)
+### After (2.2.x)
 
 - ✅ Theme-adaptive colors using CSS variables
 - ✅ Tailwind CSS for consistent styling

@@ -23,11 +23,11 @@ CoolerDash supports two distinct display modes for rendering temperature informa
 
 The mode is selected through a three-tier configuration system:
 
-1. **System Default** (`src/device/sys.c`): `display_mode = "dual"`
-2. **User Configuration** (`etc/coolerdash/config.ini`): `[display] mode=dual|circle`
+1. **System Default** (`src/device/config.c`): `display_mode = "dual"`
+2. **User Configuration** (`/etc/coolercontrol/plugins/coolerdash/config.json`): `"mode": "dual"|"circle"`
 3. **CLI Override** (`src/main.c`): `--dual` or `--circle` flags
 
-Priority: **CLI > INI > Default**
+Priority: **CLI > JSON > Default**
 
 ---
 
@@ -37,6 +37,8 @@ Priority: **CLI > INI > Default**
 
 ```
 src/mods/
+├── display.c       # Mode dispatcher
+├── display.h       # Dispatcher API
 ├── dual.c          # Dual mode implementation
 ├── dual.h          # Dual mode API
 ├── circle.c        # Circle mode implementation
@@ -45,10 +47,10 @@ src/mods/
 
 ### Mode Dispatcher
 
-The mode dispatcher is located in `src/mods/dual.c`:
+The mode dispatcher is located in `src/mods/display.c`:
 
 ```c
-void draw_combined_image(const struct Config *config)
+void draw_display_image(const struct Config *config)
 {
     if (strcmp(config->display_mode, "circle") == 0) {
         draw_circle_image(config);
@@ -183,7 +185,7 @@ static time_t last_switch_time = 0;
 
 #### 3. Configuration-Based Timing
 
-The sensor switch interval is **configurable** via `config.ini`:
+The sensor switch interval is **configurable** via `config.json`:
 
 ```c
 // No longer hardcoded - uses Config parameter
@@ -199,12 +201,14 @@ void update_sensor_mode(const struct Config *config)
 }
 ```
 
-**Configuration:**
-```ini
-[display]
-mode=circle
-circle_switch_interval=5  # 1-60 seconds, default: 5
-```
+**Configuration (`config.json`):**
+```json
+{
+  "display": {
+    "mode": "circle",
+    "circle_switch_interval": 5
+  }
+}
 
 **Use Cases:**
 - **Fast (1-3s):** Quick sensor overview
@@ -281,14 +285,14 @@ This ensures visual balance by treating "45°" as a single unit rather than cent
 
 ### Timing Implementation
 
-The sensor switching interval is **configurable** via `config.ini` (1-60 seconds, default: 5):
+The sensor switching interval is **configurable** via `config.json` (1-60 seconds, default: 5):
 
 ```c
 void update_sensor_mode(const struct Config *config)
 {
     time_t current_time = time(NULL);
     
-    // Use configurable interval from config.ini
+    // Use configurable interval from config.json
     if (difftime(current_time, last_switch_time) >= config->circle_switch_interval) {
         current_sensor = (current_sensor == SENSOR_CPU) ? SENSOR_GPU : SENSOR_CPU;
         last_switch_time = current_time;
@@ -296,12 +300,14 @@ void update_sensor_mode(const struct Config *config)
 }
 ```
 
-**Configuration:**
-```ini
-[display]
-mode=circle
-circle_switch_interval=5  # 1-60 seconds, default: 5
-```
+**Configuration (`config.json`):**
+```json
+{
+  "display": {
+    "mode": "circle",
+    "circle_switch_interval": 5
+  }
+}
 
 **Note**: For sub-second precision, `nanosleep()` or `clock_gettime()` could be used, but the current implementation provides sufficient accuracy for display purposes.
 
@@ -311,39 +317,33 @@ circle_switch_interval=5  # 1-60 seconds, default: 5
 
 ### Config Structure Extension
 
-The `Config` structure in `src/device/sys.h` includes:
+The `Config` structure in `src/device/config.h` includes:
 ```c
 char display_mode[16];  // "dual" or "circle"
 ```
 
-### System Defaults (`src/device/sys.c`)
+### System Defaults (`src/device/config.c`)
 
 ```c
-void set_display_defaults(struct Config *config)
+static void set_display_defaults(struct Config *config)
 {
     // ... other defaults ...
-    cc_safe_strcpy(config->display_mode, "dual", sizeof(config->display_mode));
+    cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
 }
 ```
 
-### INI Parsing (`src/device/usr.c`)
+### JSON Parsing (`src/device/config.c`)
 
 ```c
-static int handle_display_mode(void *user, const char *section,
-                               const char *name, const char *value)
+static void load_display_from_json(Config *config, json_t *display)
 {
-    struct Config *config = (struct Config *)user;
-    
-    if (strcmp(section, "display") == 0 && strcmp(name, "mode") == 0) {
-        if (strcmp(value, "dual") == 0 || strcmp(value, "circle") == 0) {
-            cc_safe_strcpy(config->display_mode, value, 
-                          sizeof(config->display_mode));
-            return 1;
-        }
+    json_t *val = json_object_get(display, "mode");
+    if (json_is_string(val)) {
+        const char *mode = json_string_value(val);
+        if (strcmp(mode, "dual") == 0 || strcmp(mode, "circle") == 0)
+            SAFE_STRCPY(config->display_mode, mode);
     }
-    return 0;
 }
-```
 
 ### CLI Override (`src/main.c`)
 
@@ -379,14 +379,14 @@ int main(int argc, char *argv[])
 ### 1. Main Loop (`src/main.c`)
 ```c
 while (1) {
-    draw_combined_image(&config);  // Mode dispatcher
+    draw_display_image(&config);  // Mode dispatcher
     sleep(update_interval);
 }
 ```
 
-### 2. Mode Dispatcher (`src/mods/dual.c`)
+### 2. Mode Dispatcher (`src/mods/display.c`)
 ```c
-void draw_combined_image(const struct Config *config)
+void draw_display_image(const struct Config *config)
 {
     if (strcmp(config->display_mode, "circle") == 0) {
         draw_circle_image(config);
@@ -457,26 +457,19 @@ int is_circular = is_circular_display_device(device_name, width, height);
 
 ### Display Shape Override (New in v1.96)
 
-**Recommended Method:** Manual configuration override in `config.ini`:
-```ini
-[display]
-# Display shape override (auto, rectangular, circular)
-# - auto: Auto-detection based on device database (default)
-# - rectangular: Force inscribe_factor=1.0 (full width)
-# - circular: Force inscribe_factor=0.7071 (inscribed circle). Note: The value is configurable via `display_inscribe_factor` in `config.ini` (default: 0.70710678) — 0.0 = auto
-shape = auto
+**Recommended Method:** Manual configuration override in `config.json`:
+```json
+{
+  "display": {
+    "shape": "auto"
+  }
+}
 ```
-
-**Legacy Method (Deprecated):** CLI flag for backwards compatibility:
-```ini
-[display]
-force_circular = true
-```
+> Values: `"auto"` (default), `"rectangular"`, `"circular"` — `"circular"` inscribe factor is configurable via `display_inscribe_factor` (default: 0.70710678; 0.0 = auto).
 
 **Priority System:**
 1. `shape` config parameter (highest - manual override)
-2. `force_display_circular` flag (legacy compatibility)
-3. Automatic device detection (default)
+2. Automatic device detection (default)
 
 **Use cases:**
 - Testing circular layout on rectangular displays
@@ -517,7 +510,7 @@ Create `src/mods/newmode.c` and `src/mods/newmode.h`:
 #ifndef NEWMODE_H
 #define NEWMODE_H
 
-#include "../device/sys.h"
+#include "../device/config.h"
 
 void draw_newmode_image(const struct Config *config);
 
@@ -577,7 +570,7 @@ In `src/mods/dual.c`, add your mode:
 ```c
 #include "newmode.h"
 
-void draw_combined_image(const struct Config *config)
+void draw_display_image(const struct Config *config)
 {
     if (strcmp(config->display_mode, "newmode") == 0) {
         draw_newmode_image(config);
@@ -598,14 +591,13 @@ HEADERS = ... src/mods/newmode.h
 
 #### 5. Update Configuration
 
-Add validation in `src/device/usr.c`:
+Add validation in `src/device/config.c`:
 
 ```c
-if (strcmp(value, "dual") == 0 || 
-    strcmp(value, "circle") == 0 ||
-    strcmp(value, "newmode") == 0) {
-    cc_safe_strcpy(config->display_mode, value, sizeof(config->display_mode));
-    return 1;
+if (strcmp(mode, "dual") == 0 || 
+    strcmp(mode, "circle") == 0 ||
+    strcmp(mode, "newmode") == 0) {
+    SAFE_STRCPY(config->display_mode, mode);
 }
 ```
 
@@ -626,7 +618,7 @@ printf("  --newmode           Use new display mode\n");
 #### 7. Update Documentation
 
 - `README.md`: Add mode description
-- `etc/coolerdash/config.ini`: Add example
+- `/etc/coolercontrol/plugins/coolerdash/config.json`: Add example
 - `docs/display-modes.md`: Add technical details
 
 ---
@@ -754,7 +746,7 @@ Current implementation uses `time()` for 5s intervals:
 
 Compile with `-DDEBUG`:
 ```bash
-gcc -g -O0 -DDEBUG src/*.c -o coolerdash -lcurl -lcairo -lm -ljansson -linih
+gcc -g -O0 -DDEBUG src/*.c -o coolerdash -lcurl -lcairo -lm -ljansson
 ```
 
 ### 2. Test PNG Output

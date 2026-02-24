@@ -1953,16 +1953,8 @@
         }
 
         async function loadDefaultConfig() {
-            try {
-                var response = await fetch('config.json');
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                DEFAULT_CONFIG = await response.json();
-                return DEFAULT_CONFIG;
-            } catch (error) {
-                console.error("Failed to load config.json:", error);
-                DEFAULT_CONFIG = FACTORY_DEFAULTS;
-                return DEFAULT_CONFIG;
-            }
+            DEFAULT_CONFIG = FACTORY_DEFAULTS;
+            return DEFAULT_CONFIG;
         }
 
         // ===== BUILD CONFIG FROM FORM =====
