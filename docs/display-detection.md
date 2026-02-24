@@ -7,30 +7,27 @@ The system automatically detects whether a display is **circular** (round) or **
 
 ## Configuration Override
 
-**New in v1.96:** Manual control via `config.ini`
+**Manual control via `config.json`**
 
-```ini
-[display]
-# Display shape override (auto, rectangular, circular)
-# - auto: Auto-detection based on device database (default)
-# - rectangular: Force inscribe_factor=1.0 (full width)
-# - circular: Force inscribe_factor=0.7071 (inscribed circle)
-shape = auto
+```json
+{
+  "display": {
+    "shape": "auto"
+  }
+}
 ```
+
+> Values: `"auto"` (default), `"rectangular"`, `"circular"`
 
 ### Priority System
 
 1. **`shape` config parameter** (highest priority - manual override)
-2. **`--force-display-circular` CLI flag** (deprecated, kept for compatibility)
-3. **Automatic detection** (default behavior)
+2. **Automatic detection** (default behavior)
 
 **Examples:**
 ```bash
-# Config file takes precedence
-coolerdash  # Uses shape from config.ini
-
-# CLI flag overrides auto-detection only (not config)
-coolerdash --force-display-circular  # Only if shape=auto in config
+# Config file controls shape
+coolerdash  # Uses shape from config.json
 ```
 
 ## Automatic Detection
@@ -112,7 +109,7 @@ If circle radius = R:
 
 **Circular Displays:**
 ```
-inscribe_factor = 0.7071 (reduced safe area) - NOTE: The `inscribe_factor` is configurable via `display_inscribe_factor` in `config.ini`; default is 0.70710678 (0.0 = auto)
+inscribe_factor = 0.7071 (reduced safe area) - NOTE: The `inscribe_factor` is configurable via `display_inscribe_factor` in `config.json`; default is 0.70710678 (0.0 = auto)
 safe_area_width = 240 × 0.7071 = ~170px
 safe_bar_width = 170 × 0.98 = ~167px
 margin = (240 - 170) / 2 = ~35px
@@ -140,7 +137,7 @@ margin = (320 - 226) / 2 = ~47px
 
 ### Adding a Circular Display (Non-Kraken)
 
-Edit `src/coolercontrol.c`, function `is_circular_display_device()`:
+Edit `src/srv/cc_conf.c`, function `is_circular_display_device()`:
 
 ```c
 const char *circular_devices[] = {
@@ -219,7 +216,7 @@ The system logs the detection:
 
 ### Function: `is_circular_display_device()`
 
-**Location**: `src/coolercontrol.c`
+**Location**: `src/srv/cc_conf.c`
 
 **Signature**:
 ```c
@@ -244,7 +241,7 @@ int is_circular_display_device(const char *device_name, int screen_width, int sc
 ### C Functions
 
 ```c
-// In coolercontrol.h/c
+// In cc_conf.h/c
 int is_circular_display_device(const char *device_name, int screen_width, int screen_height);
 
 // In display.c
@@ -254,11 +251,7 @@ static void calculate_scaling_params(
     const char *device_name
 );
 
-int render_display(
-    const struct Config *config, 
-    const monitor_sensor_data_t *data, 
-    const char *device_name
-);
+void draw_display_image(const struct Config *config);
 ```
 
 ## Testing
@@ -301,7 +294,7 @@ Expected output for **NZXT Kraken Z (320×320)**:
 **Cause**: Device not detected as circular
 
 **Solution Options**:
-1. **Quick fix (recommended)**: Set `shape=circular` in `/etc/coolerdash/config.ini`
+1. **Quick fix (recommended)**: Set `shape` to `"circular"` in `config.json`
 2. For NZXT Kraken: Verify resolution is >240×240
 3. For other devices: Add device name to database in `cc_conf.c`
 
@@ -310,7 +303,7 @@ Expected output for **NZXT Kraken Z (320×320)**:
 **Cause**: Incorrectly detected as circular
 
 **Solution Options**:
-1. **Quick fix (recommended)**: Set `shape=rectangular` in `/etc/coolerdash/config.ini`
+1. **Quick fix (recommended)**: Set `shape` to `"rectangular"` in `config.json`
 2. For NZXT Kraken: Verify resolution is ≤240×240
 3. For other devices: Ensure not in circular device database
 
@@ -318,18 +311,16 @@ Expected output for **NZXT Kraken Z (320×320)**:
 
 **Cause**: Not in database and not NZXT Kraken
 
-**Solution**: This is intentional (safe default). Use `shape=circular` in config if needed.
+**Solution**: This is intentional (safe default). Set `shape` to `"circular"` in `config.json` if needed.
 
 ### Testing Shape Override
 
 ```bash
-# Test rectangular layout
-echo "shape=rectangular" >> /etc/coolerdash/config.ini
-systemctl restart coolerdash.service
+# Test rectangular layout - set in config.json: "shape": "rectangular"
+sudo systemctl restart coolerdash.service
 
-# Test circular layout
-echo "shape=circular" >> /etc/coolerdash/config.ini
-systemctl restart coolerdash.service
+# Test circular layout - set in config.json: "shape": "circular"
+sudo systemctl restart coolerdash.service
 
 # Check logs for inscribe factor
 journalctl -u coolerdash.service -f | grep "inscribe"
@@ -345,7 +336,7 @@ Expected output with manual override:
 ### Problem: Display Detected Incorrectly
 
 **Solution for Circular display treated as rectangular:**
-- Add device name to database in `coolercontrol.c`
+- Add device name to database in `cc_conf.c`
 
 **Solution for Rectangular display treated as circular:**
 1. Check if device name is incorrectly in `circular_devices[]`

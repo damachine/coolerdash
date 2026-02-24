@@ -33,7 +33,7 @@ build() {
     fi
 
     # Remove all previous tarball builds
-    rm -rf coolerdash-*.pkg.*
+    rm -f "${pkgname}"-*.pkg.tar.*
 
     # Clean any previous builds if a Makefile exists
     if [[ -f Makefile || -f GNUmakefile ]]; then

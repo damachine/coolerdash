@@ -1,11 +1,7 @@
 # CoolerDash Developer Documentation
 
-**Project:** CoolerDash - LCD Display Enhancement for CoolerControl  
-**Version:** 1.94+  
-**Language:** C99  
-**Platform:** Linux (x86-64-v3)  
-**License:** MIT  
-**Author:** damachine (christkue79@gmail.com)  
+**Language:** C99 | **Platform:** Linux x86-64-v3 | **License:** MIT  
+**Author:** damachine (damachin3@proton.me)  
 **Repository:** https://github.com/damachine/coolerdash
 
 ---
@@ -42,15 +38,14 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 
 ### System Requirements
 
-- **OS:** Linux (systemd-based distributions)
+- **OS:** Linux (systemd-based)
 - **Architecture:** x86-64-v3 (Intel Haswell+ / AMD Excavator+)
 - **Dependencies:**
-  - **cairo** - Graphics rendering (PNG generation)
-  - **jansson** - JSON parsing (API responses)
-  - **libcurl-gnutls** - HTTP client (REST API communication)
-  - **libinih** - INI file parsing (configuration)
-  - **ttf-roboto** - Font rendering
-- **Required Service:** CoolerControl >=2.2.2 (must be running)
+  - `cairo` — PNG generation
+  - `jansson` — JSON parsing (config + API)
+  - `libcurl-gnutls` — HTTP client
+  - `ttf-roboto` — Font rendering
+- **Required Service:** CoolerControl >=3.x (must be running)
 
 ---
 
@@ -62,15 +57,15 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 ┌─────────────────────────────────────────────────────────────────┐
 │                         main.c                                  │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │ 1. Configuration Loading (usr.c + sys.c)                  │  │
+│  │ 1. Configuration Loading (device/config.c)                │  │
 │  │ 2. Session Initialization (cc_main.c)                     │  │
 │  │ 3. Device Cache Setup (cc_conf.c)                         │  │
-│  │ 4. Main Loop (60s interval)                               │  │
+│  │ 4. Main Loop (configurable interval)                      │  │
 │  │    ├─ Temperature Reading (cc_sensor.c)                   │  │
-│  │    ├─ Image Rendering (dual.c)                            │  │
+│  │    ├─ Image Rendering (display.c → dual.c|circle.c)       │  │
 │  │    └─ LCD Upload (cc_main.c)                              │  │
 │  │ 5. Signal Handling (SIGTERM/SIGINT → shutdown image)      │  │
-│  │ 6. Cleanup (session + PID file removal)                   │  │
+│  │ 6. Cleanup (session + image files)                        │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
               ↓                    ↓                    ↓
@@ -79,9 +74,9 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
     │  Configuration  │  │  CoolerControl   │  │  Rendering      │
     │  Management     │  │  API Client      │  │  Engine         │
     └─────────────────┘  └──────────────────┘  └─────────────────┘
-         sys.c/h              cc_main.c/h           dual.c/h
-         usr.c/h              cc_conf.c/h
-                             cc_sensor.c/h
+         config.c/h           cc_main.c/h           display.c/h
+                              cc_conf.c/h            dual.c/h
+                              cc_sensor.c/h          circle.c/h
 ```
 
 ### Design Principles
@@ -103,16 +98,17 @@ coolerdash/
 ├── src/
 │   ├── main.c                    # Main daemon entry point (967 lines, 30 functions)
 │   ├── device/                   # Configuration subsystem
-│   │   ├── sys.c/h              # System defaults (295 lines, 11 functions)
-│   │   └── usr.c/h              # User INI parsing (584 lines, 25+ functions)
+│   │   └── config.c/h           # JSON config loader + defaults
 │   ├── srv/                     # CoolerControl API client
-│   │   ├── cc_main.c/h          # Session management (549 lines, 19 functions)
-│   │   ├── cc_conf.c/h          # Device cache (467 lines, 20 functions)
-│   │   └── cc_sensor.c/h        # Temperature monitoring (298 lines, 6 functions)
+│   │   ├── cc_main.c/h          # Session management
+│   │   ├── cc_conf.c/h          # Device cache, display detection
+│   │   └── cc_sensor.c/h        # Temperature monitoring
 │   └── mods/                    # Rendering modules
-│       └── dual.c/h             # Cairo-based LCD rendering (576 lines, 15+ functions)
+│       ├── display.c/h          # Mode dispatcher, shared helpers
+│       ├── dual.c/h             # Dual mode (CPU+GPU simultaneous)
+│       └── circle.c/h           # Circle mode (alternating sensor)
 ├── etc/
-│   ├── coolerdash/config.ini    # User configuration
+│   ├── coolercontrol/plugins/coolerdash/config.json  # User configuration
 │   └── systemd/coolerdash.service
 ├── docs/                        # Documentation
 │   ├── config.md                # Configuration guide
@@ -126,13 +122,14 @@ coolerdash/
 
 | Module | Purpose | Key Functions | Lines | Public API |
 |--------|---------|---------------|-------|------------|
-| **main.c** | Daemon lifecycle | Signal handling, PID management, main loop | 967 | `main()` |
-| **device/sys** | Default config | Hardcoded fallback values | 295 | `init_system_defaults()` |
-| **device/usr** | User config | INI parsing with change tracking | 584 | `load_user_config()` |
-| **srv/cc_main** | HTTP session | Login, LCD upload, cleanup | 549 | 4 functions |
-| **srv/cc_conf** | Device cache | UID/name/dimensions, display shape | 467 | 4 functions |
-| **srv/cc_sensor** | Temperature | CPU/GPU sensor reading | 298 | 1 function |
-| **mods/dual** | Rendering | Cairo PNG generation | 576 | 2 functions |
+| **main.c** | Daemon lifecycle | Signal handling, PID management, main loop | — | `main()` |
+| **device/config** | Config system | JSON loading, hardcoded defaults | — | `load_plugin_config()` |
+| **srv/cc_main** | HTTP session | Login, LCD upload, cleanup | — | 4 functions |
+| **srv/cc_conf** | Device cache | UID/name/dimensions, display shape | — | 4 functions |
+| **srv/cc_sensor** | Temperature | CPU/GPU sensor reading | — | 1 function |
+| **mods/display** | Mode dispatch | Route to dual/circle, shared Cairo helpers | — | `draw_display_image()` |
+| **mods/dual** | Dual rendering | CPU+GPU simultaneous layout | — | `draw_dual_image()` |
+| **mods/circle** | Circle rendering | Alternating single-sensor layout | — | `draw_circle_image()` |
 
 ---
 
@@ -159,8 +156,8 @@ make help           # Show all available targets
 
 ```makefile
 CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude \
-         $(shell pkg-config --cflags cairo jansson libcurl inih)
-LIBS = $(shell pkg-config --libs cairo jansson libcurl inih) -lm
+         $(shell pkg-config --cflags cairo jansson libcurl)
+LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 ```
 
 **Optimization Level:** `-O2` (production), `-O0` (debug)  
@@ -175,20 +172,19 @@ LIBS = $(shell pkg-config --libs cairo jansson libcurl inih) -lm
 │    ├─ cairo (graphics)                                      │
 │    ├─ jansson (JSON)                                        │
 │    ├─ libcurl (HTTP)                                        │
-│    └─ inih (INI parsing)                                    │
+│    └─ jansson (JSON parsing)                                 │
 ├─────────────────────────────────────────────────────────────┤
 │ 2. Module Compilation (src/ → build/)                       │
-│    ├─ device/sys.o, device/usr.o                            │
+│    ├─ device/config.o                                       │
 │    ├─ srv/cc_main.o, srv/cc_conf.o, srv/cc_sensor.o        │
-│    └─ mods/dual.o                                           │
+│    └─ mods/display.o, mods/dual.o, mods/circle.o           │
 ├─────────────────────────────────────────────────────────────┤
 │ 3. Linking (main.c + modules → bin/coolerdash)             │
 ├─────────────────────────────────────────────────────────────┤
 │ 4. Installation (make install)                              │
-│    ├─ Binary: /opt/coolerdash/bin/coolerdash               │
-│    ├─ Config: /etc/coolerdash/config.ini                   │
-│    ├─ Service: /etc/systemd/system/coolerdash.service      │
-│    ├─ Symlink: /usr/bin/coolerdash                         │
+│    ├─ Binary: /usr/libexec/coolerdash/coolerdash            │
+│    ├─ Config: /etc/coolercontrol/plugins/coolerdash/config.json │
+│    ├─ Plugin UI: /etc/coolercontrol/plugins/coolerdash/ui/  │
 │    └─ Manual: /usr/share/man/man1/coolerdash.1             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -203,33 +199,33 @@ LIBS = $(shell pkg-config --libs cairo jansson libcurl inih) -lm
 
 ## Configuration System
 
-### Three-Stage Configuration Loading
+### Two-Stage Configuration Loading
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ Stage 1: System Defaults (sys.c)                                 │
-│ ────────────────────────────────────────────────────────────     │
-│ Hardcoded fallback values ensure all fields have valid defaults │
-│ Function: init_system_defaults(Config *config)                   │
-│ Example: daemon_address = "http://localhost:11987"              │
+│ Stage 1: Hardcoded Defaults (device/config.c)                    │
+│ ─────────────────────────────────────────────────────────────    │
+│ All Config fields initialized to built-in defaults              │
+│ Function: set_*_defaults(Config *config)                         │
+│ Example: daemon_address = "http://localhost:11987"               │
 ├──────────────────────────────────────────────────────────────────┤
-│ Stage 2: User Overrides (usr.c)                                  │
-│ ────────────────────────────────────────────────────────────     │
-│ Parse /etc/coolerdash/config.ini and override defaults          │
-│ Function: load_user_config(const char *path, Config *config)    │
-│ Change Tracking: Records all INI entries for verbose logging    │
+│ Stage 2: JSON Config Override (device/config.c)                  │
+│ ─────────────────────────────────────────────────────────────    │
+│ Parse config.json and override defaults                         │
+│ Function: load_plugin_config(Config *config, const char *path)   │
+│ Path: /etc/coolercontrol/plugins/coolerdash/config.json         │
 ├──────────────────────────────────────────────────────────────────┤
-│ Stage 3: Device Detection (cc_conf.c)                            │
-│ ────────────────────────────────────────────────────────────     │
+│ Stage 3: Device API Detection (cc_conf.c)                        │
+│ ─────────────────────────────────────────────────────────────    │
 │ Auto-detect display dimensions from CoolerControl API           │
-│ Function: update_config_from_device(Config *config)             │
-│ Behavior: Only updates if config.ini values are 0 (commented)   │
+│ Function: update_config_from_device(Config *config)              │
+│ Behavior: Only updates if width/height are 0 in config           │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 ### Configuration Structure
 
-**File:** `src/device/sys.h`
+**File:** `src/device/config.h`
 
 ```c
 typedef struct {
@@ -288,31 +284,21 @@ typedef struct {
 
 ### Change Tracking System
 
-**Purpose:** Log all user customizations from config.ini to systemd journal for visibility
+**Purpose:** Log active configuration to systemd journal at startup
 
-**Implementation (usr.c):**
+**Implementation (config.c):**
 
 ```c
-#define MAX_CONFIG_CHANGES 100
-static ConfigChange config_changes[MAX_CONFIG_CHANGES];
-static int config_change_count = 0;
-
-// Called by INI parser for each entry
-void record_config_change(const char *section, const char *key, const char *value);
-
-// Called after INI parsing completes - ALWAYS logs (no verbose flag required)
-void log_config_changes(void);  // Uses LOG_STATUS level (always visible)
+// Called after JSON loading completes
+void log_config(const Config *config);  // Uses LOG_STATUS level (always visible)
 ```
 
 **Example Output (always shown in systemd journal):**
 
 ```
-[CoolerDash STATUS] === User Configuration Changes (from coolerdash.ini) ===
-[CoolerDash STATUS] Found 3 customized configuration values:
-[CoolerDash STATUS]   [display] refresh_interval = 3.50
-[CoolerDash STATUS]   [layout] bar_height = 33
-[CoolerDash STATUS]   [temperature] temp_threshold_1 = 60.0
-[CoolerDash STATUS] === End of Configuration Changes ===
+[CoolerDash STATUS] Config loaded: mode=dual, interval=2.5s, brightness=80
+[CoolerDash STATUS] Display: 240x240, shape=auto
+[CoolerDash STATUS] Daemon: http://localhost:11987
 ```
 
 **Note:** Changed from LOG_INFO to LOG_STATUS in version 1.96+ to ensure manual configuration changes are always visible in systemd journal, even without --verbose flag.
@@ -494,16 +480,16 @@ Response: 200 OK
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│ 1. draw_combined_image(config)                                   │
+│ 1. draw_display_image(config)                                    │
 │    ├─ Get device info from cache                                 │
 │    ├─ Fetch temperature data (cc_sensor.c)                       │
-│    └─ Call render_display()                                      │
+│    └─ Dispatch to draw_dual_image() or draw_circle_image()       │
 ├──────────────────────────────────────────────────────────────────┤
 │ 2. render_display(config, data, device_name)                     │
 │    ├─ Detect display shape (circular vs rectangular)             │
 │    ├─ Calculate scaling parameters                               │
 │    │   ├─ Circular: inscribe_factor = 1/√2 (≈0.7071, default)
-│    │   │   * Can be overridden in `config.ini` with `inscribe_factor` (>=0; 0 = auto)
+│    │   │   * Can be overridden in `config.json` with `inscribe_factor` (>=0; 0 = auto)
 │    │   └─ Rectangular: inscribe_factor = 1.0                     │
 │    ├─ Create Cairo surface (width × height × ARGB32)             │
 │    ├─ Draw background                                            │
@@ -678,47 +664,35 @@ int calculate_temp_fill_width(float temp, int max_width, float max_temp) {
 
 ---
 
-### Module: device/sys.c (System Defaults)
+### Module: device/config.c (Configuration System)
 
 | Function | Purpose |
 |----------|---------|
-| `init_system_defaults(config)` | Initialize all fields with hardcoded defaults |
-| `apply_system_defaults(config)` | Fill missing fields after user config load |
+| `load_plugin_config(config, path)` | Load JSON config, apply defaults, log result |
+| `set_*_defaults(config)` | Initialize subsystem fields with hardcoded defaults |
 | `log_message(level, format, ...)` | Global logging function (respects verbose flag) |
 
-**Default Values Example:**
+**Default Values:**
 
 ```c
 daemon_address = "http://localhost:11987"
 daemon_password = "coolAdmin"
-display_width = 0  // Auto-detected from API
-display_refresh_interval = 2.50  // 2.5 seconds
+display_width = 0  // auto-detected from API
+display_refresh_interval = 2.5
 lcd_brightness = 80
-temp_cpu_high = 80.0
 ```
 
----
+**JSON Sections:**
 
-### Module: device/usr.c (User Configuration)
-
-| Function | Purpose |
-|----------|---------|
-| `load_user_config(path, config)` | Parse INI file, record changes, log if verbose |
-| `parse_config_data(section, name, value, config)` | INI handler callback |
-| `record_config_change()` | Store section/key/value for verbose logging |
-| `log_config_changes()` | Print all recorded changes if verbose enabled |
-
-**INI Sections:**
-
-```
-[daemon]     → daemon_address, daemon_password
-[paths]      → paths_images, paths_pid, etc.
-[display]    → width, height, brightness, orientation, refresh_interval
-[layout]     → bar_height, label_size, value_size, content_y_offset
-[font]       → face, weight_label, weight_value
-[temperature] → cpu_low, cpu_medium, cpu_high, gpu_*
-[color_*]    → 15 color sections (background, cpu_label, etc.)
-```
+```json
+{
+  "daemon": { "address": "...", "password": "..." },
+  "display": { "width": 0, "height": 0, "brightness": 80, "mode": "dual" },
+  "layout": { "bar_height": 30, "label_size": 18, "value_size": 24 },
+  "font": { "face": "Roboto" },
+  "temperature": { "cpu_low": 50, "cpu_medium": 70, "cpu_high": 85 },
+  "colors": { "background": [0,0,0], "cpu_label": [255,255,255] }
+}
 
 ---
 
@@ -834,16 +808,17 @@ if (temperature < -50.0f || temperature > 150.0f)
 
 ---
 
-### Module: mods/dual.c (Rendering Engine)
+### Module: mods/display.c + dual.c + circle.c (Rendering)
 
-#### Public API (2 functions)
+#### Public API
 
 | Function | Purpose | Returns |
 |----------|---------|---------|
-| `draw_combined_image(config)` | High-level: fetch data + render + upload | `void` |
-| `render_display(config, data, device_name)` | Low-level: Cairo PNG generation | `int` success |
+| `draw_display_image(config)` | Dispatch to dual or circle mode | `void` |
+| `draw_dual_image(config)` | Render CPU+GPU simultaneously, upload | `void` |
+| `draw_circle_image(config)` | Render alternating sensor slot, upload | `void` |
 
-#### Internal Helpers (13+ functions)
+#### Internal Helpers
 
 ```c
 calculate_scaling_params()       // Compute inscribe factor, margins
@@ -978,122 +953,95 @@ log_message(LOG_ERROR, "Failed to connect to API");          // Always
 
 **Steps:**
 
-1. **Add field to Config struct** (`src/device/sys.h`)
-2. **Add default value** (`src/device/sys.c` → `set_display_defaults()` or appropriate function)
-3. **Add INI parser** (`src/device/usr.c` → handler function + entry in ConfigEntry array)
+1. **Add field to Config struct** (`src/device/config.h`)
+2. **Add default value** (`src/device/config.c` → appropriate `set_*_defaults()`)
+3. **Add JSON parsing** (`src/device/config.c` → `load_*_from_json()` function)
 4. **Update documentation** (`docs/config-guide.md`)
-5. **Update example config** (`etc/coolerdash/config.ini`)
+5. **Update example config** (`/etc/coolercontrol/plugins/coolerdash/config.json`)
 
 **Example 1: Adding Circle Mode Switch Interval (uint16_t with validation)**
 
 ```c
-// 1. sys.h - Add field to Config struct
+// 1. config.h - Add field to Config struct
 typedef struct {
     // ...
     uint16_t circle_switch_interval;  // Circle mode sensor switch interval (1-60s)
 } Config;
 
-// 2. sys.c - Set default value
-void set_display_defaults(Config *config) {
-    // ...
-    config->circle_switch_interval = 5;  // Default: 5 seconds
+// 2. config.c - Set default value
+static void set_display_defaults(Config *config) {
+    if (config->circle_switch_interval == 0)
+        config->circle_switch_interval = 5;
 }
 
-// 3. usr.c - Add handler with validation
-static int handle_circle_switch_interval(void *user, const char *section, 
-                                         const char *name, const char *value) {
-    Config *config = (Config *)user;
-    if (strcmp(section, "display") == 0 && strcmp(name, "circle_switch_interval") == 0) {
-        long val = strtol(value, NULL, 10);
-        if (val >= 1 && val <= 60) {
-            config->circle_switch_interval = (uint16_t)val;
-            record_config_change(section, name, value);
-        } else {
+// 3. config.c - Add JSON parsing
+static void load_display_from_json(Config *config, json_t *display) {
+    json_t *val = json_object_get(display, "circle_switch_interval");
+    if (json_is_integer(val)) {
+        long v = json_integer_value(val);
+        if (v >= 1 && v <= 60)
+            config->circle_switch_interval = (uint16_t)v;
+        else
             log_message(LOG_WARNING, "circle_switch_interval must be 1-60, using default: 5");
-        }
-        return 1;
     }
-    return 0;
 }
-
-// Add to DisplayConfigEntry array
-static const DisplayConfigEntry display_config_entries[] = {
-    // ...
-    {"circle_switch_interval", handle_circle_switch_interval},
-};
 ```
 
 **Example 2: Adding Content Scale Factor (float with validation)**
 
 ```c
-// 1. sys.h - Add field to Config struct
+// 1. config.h - Add field to Config struct
 typedef struct {
     // ...
     float display_content_scale_factor;  // Content scale factor (0.5-1.0)
 } Config;
 
-// 2. sys.c - Set default value
-void set_display_defaults(Config *config) {
+// 2. config.c - Set default value
+static void set_display_defaults(Config *config) {
     // ...
     config->display_content_scale_factor = 0.98f;  // Default: 98% (2% margin)
 }
 
-// 3. usr.c - Add handler with validation
-static int handle_content_scale_factor(void *user, const char *section, 
-                                       const char *name, const char *value) {
-    Config *config = (Config *)user;
-    if (strcmp(section, "display") == 0 && strcmp(name, "content_scale_factor") == 0) {
-        float val = strtof(value, NULL);
-        if (val >= 0.5f && val <= 1.0f) {
-            config->display_content_scale_factor = val;
-            record_config_change(section, name, value);
-        } else {
-            log_message(LOG_WARNING, "content_scale_factor must be 0.5-1.0, using default: 0.98");
-        }
-        return 1;
+// 3. config.c - Add JSON parsing
+static void load_display_from_json(Config *config, json_t *display) {
+    json_t *val = json_object_get(display, "content_scale_factor");
+    if (json_is_real(val)) {
+        float f = (float)json_real_value(val);
+        if (f >= 0.5f && f <= 1.0f)
+            config->display_content_scale_factor = f;
     }
-    return 0;
 }
-
-// Add to DisplayConfigEntry array
-static const DisplayConfigEntry display_config_entries[] = {
-    // ...
-    {"content_scale_factor", handle_content_scale_factor},
-};
 ```
 
 **Example 3: Adding New Color**
 
 ```c
-// 1. sys.h
+// 1. config.h
 typedef struct {
     // ...
     Color color_my_new_element;
 } Config;
 
-// 2. sys.c
-void set_color_defaults(Config *config) {
+// 2. config.c - Set default value
+static void set_color_defaults(Config *config) {
     // ...
     config->color_my_new_element = (Color){0, 255, 0};  // Green
 }
 
-// 3. usr.c
-static int get_color_config(Config *config, const char *section, 
-                            const char *name, const char *value) {
-    // ...
-    else if (strcmp(section, "color_my_element") == 0) {
-        parse_color_component(value, name, &config->color_my_new_element);
-    }
+// 3. config.c - Add JSON parsing
+static void load_colors_from_json(Config *config, json_t *colors) {
+    json_t *my_obj = json_object_get(colors, "my_new_element");
+    if (json_is_object(my_obj))
+        parse_color_from_json(my_obj, &config->color_my_new_element);
 }
 ```
 
 **Configuration Best Practices:**
-- Always provide sensible defaults
-- Validate user input with clear error messages
-- Use appropriate data types (uint16_t for small integers, float for decimals)
-- Document acceptable ranges in both code comments and config.ini
+- Always provide sensible defaults in `set_*_defaults()`
+- Validate user input with clear error messages using `log_message(LOG_WARNING, ...)`
+- Use appropriate data types (`uint16_t` for small integers, `float` for decimals)
+- Document acceptable ranges in both code comments and `config.json`
 - Log warnings for invalid values and fallback to defaults
-- Record configuration changes for debugging with `record_config_change()`
 
 ---
 
@@ -1162,7 +1110,7 @@ systemctl status coolercontrold
 curl -u CCAdmin:coolAdmin -X POST http://localhost:11987/login
 
 # Check config password
-grep daemon_password /etc/coolerdash/config.ini
+grep daemon_password /etc/coolercontrol/plugins/coolerdash/config.json
 ```
 
 ---
@@ -1303,7 +1251,7 @@ coolerdash --verbose 2>&1 | grep -E "(Session|Temperature|Upload)"
 
 **MIT License** - See LICENSE file for full text.
 
-**Copyright (c) 2025 damachine (christkue79@gmail.com)**
+**Copyright (c) 2025 damachine (damachin3@proton.me)**
 
 ---
 
@@ -1315,18 +1263,16 @@ coolerdash --verbose 2>&1 | grep -E "(Session|Temperature|Upload)"
 - **Cairo Graphics:** https://www.cairographics.org/manual/
 - **libcurl:** https://curl.se/libcurl/c/
 - **Jansson JSON:** https://jansson.readthedocs.io/
-- **inih Parser:** https://github.com/benhoyt/inih
 
 ### Project Files
 
-- **Configuration Guide:** `/docs/config.md`
-- **Supported Devices:** `/docs/devices.md`
-- **Display Detection:** `/docs/display-shape-detection.md`
-- **Makefile:** `/Makefile`
-- **Example Config:** `/etc/coolerdash/config.ini`
+- **Configuration Guide:** `docs/config-guide.md`
+- **Supported Devices:** `docs/devices.md`
+- **Display Detection:** `docs/display-detection.md`
+- **Example Config:** `etc/coolercontrol/plugins/coolerdash/config.json`
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** November 5, 2025  
-**Maintained by:** damachine (christkue79@gmail.com)
+**Document Version:** 2.x  
+**Last Updated:** 2026  
+**Maintained by:** damachine (damachin3@proton.me)

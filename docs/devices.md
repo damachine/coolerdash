@@ -13,10 +13,7 @@
 | NZXT             | Kraken 2023              | ✅ Working    | @olivetti80             | 2025-09-12 |
 | NZXT             | Kraken 2023 Elite        | ⚠️ Partially  | @Mondkeks               | 2025-10-09 |
 | NZXT             | Kraken Z63               | ✅ Working    | @SSUPD-Beast            | 2025-11-24 |
-| ?                | ?                        | ?             | ?                       | ?          |
-| ?                | ?                        | ?             | ?                       | ?          |
-| ?                | ?                        | ?             | ?                       | ?          |
-| ?                | ?                        | ?             | ?                       | ?          |
+| NZXT             | Kraken Plus 240          | ❌ Not working | @K-Michallik            | 2026-02-23 |
 | ?                | ?                        | ?             | ?                       | ?          |
 |------------------|--------------------------|---------------|-------------------------|------------|
 

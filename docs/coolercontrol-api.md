@@ -78,8 +78,9 @@ PUT    /devices/{uid}/settings/lcd/... - LCD image upload
 ### Initialization Sequence
 
 ```c
-// 1. Configuration loading (usr.c, sys.c)
-Config config = load_configuration();
+// 1. Configuration loading (config.c)
+Config config = {0};
+load_plugin_config(&config, CONFIG_PATH);
 
 // 2. CoolerControl session initialization
 init_coolercontrol_session(&config);
@@ -93,7 +94,7 @@ update_config_from_device(&config);
 // 5. Main loop: fetch data → render → upload
 while (running) {
     get_temperature_monitor_data(&config, &data);
-    draw_combined_image(&config);  // Renders to PNG
+    draw_display_image(&config);  // Dispatches to dual or circle mode
     // send_image_to_lcd() called internally
     sleep(update_interval);
 }
@@ -627,7 +628,7 @@ force_circular = true
 
 **Function**: `update_config_from_device(Config *config)`
 
-**Purpose**: Update config with device screen dimensions (only if not set in config.ini)
+**Purpose**: Update config with device screen dimensions (only if not set in `config.json`)
 
 **Logic**:
 ```c
@@ -636,7 +637,7 @@ int update_config_from_device(Config *config)
     if (!config)
         return 0;
     
-    // Only update if config.ini values are 0 (commented out)
+    // Only update if config.json values are 0 (auto-detect)
     if (config->display_width == 0) {
         config->display_width = device_cache.screen_width;
         log_message(LOG_INFO, "Updated display width to %d from device", 
@@ -653,7 +654,7 @@ int update_config_from_device(Config *config)
 }
 ```
 
-**Use Case**: Auto-detect display resolution when user doesn't specify in config.ini
+**Use Case**: Auto-detect display resolution when user doesn't specify in `config.json`
 
 #### 6. Safe String Copy
 
@@ -994,7 +995,7 @@ while (running)
     │
     └─→ Parse: Extract temp_cpu and temp_gpu
     ↓
-2. draw_combined_image(&config)
+2. draw_display_image(&config)
     │
     ├─→ render_dual_display() or render_circle_display()
     │   │
@@ -1149,7 +1150,7 @@ log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, respons
 
 **Resolution**:
 - Verify daemon is running: `systemctl status coolercontrol`
-- Check password in config.ini
+- Check password in `config.json`
 - Test connection: `curl http://127.0.0.1:11987/devices`
 
 #### 2. Device Not Found
@@ -1574,7 +1575,7 @@ while (running) {
     monitor_sensor_data_t data = {0};
     if (get_temperature_monitor_data(&config, &data)) {
         // Render and upload handled by display modules
-        draw_combined_image(&config);
+        draw_display_image(&config);
     }
     sleep(2);
 }
