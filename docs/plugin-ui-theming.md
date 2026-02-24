@@ -178,7 +178,7 @@ See [index.html](../etc/coolercontrol/plugins/coolerdash/index.html) for a compl
 Add version and URL to your `manifest.toml`:
 
 ```toml
-version = "2.0.5"
+version = "2.2.x"
 url = "https://github.com/damachine/coolerdash"
 ```
 
@@ -186,5 +186,5 @@ These will be displayed on the plugin page in CoolerControl's UI.
 
 ## Changelog
 
-- **2.0.5** - Added theme color support and Tailwind CSS integration
+- **2.2.x** - Added theme color support and Tailwind CSS integration
 - **2.0.4** - Initial plugin UI implementation
