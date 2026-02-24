@@ -31,7 +31,7 @@ build() {
     cd "${srcdir}/${pkgname}"
 
     # Remove all previous tarball builds
-    rm -rf ${pkgname}-*.pkg.*
+    rm -f "${pkgname}"-*.pkg.tar.*
 
     # Clean any previous builds if a Makefile exists
     if [[ -f Makefile || -f GNUmakefile ]]; then
