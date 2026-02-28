@@ -8,14 +8,11 @@
  */
 
 /**
- * @brief Session management, authentication, LCD image upload.
- * @details HTTP client for CoolerControl REST API.
+ * @brief Session management, authentication and LCD image upload via CoolerControl REST API.
  */
 
-// Define POSIX constants
 #define _POSIX_C_SOURCE 200112L
 
-// Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <curl/curl.h>
 #include <stdio.h>
@@ -25,15 +22,11 @@
 #include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
 
-// Include project headers
 #include "../device/config.h"
 #include "cc_conf.h"
 #include "cc_main.h"
 
-/**
- * @brief Initialize HTTP response buffer with specified capacity.
- * @details Allocates memory for HTTP response data with proper initialization.
- */
+/** Allocate and initialise an HTTP response buffer. */
 int cc_init_response_buffer(http_response *response, size_t initial_capacity)
 {
     if (!response || initial_capacity == 0 ||
@@ -56,10 +49,7 @@ int cc_init_response_buffer(http_response *response, size_t initial_capacity)
     return 1;
 }
 
-/**
- * @brief Cleanup HTTP response buffer and free memory.
- * @details Properly frees allocated memory and resets buffer state.
- */
+/** Free an HTTP response buffer and reset its state. */
 void cc_cleanup_response_buffer(http_response *response)
 {
     if (!response)
@@ -76,11 +66,7 @@ void cc_cleanup_response_buffer(http_response *response)
     response->capacity = 0;
 }
 
-/**
- * @brief Structure to hold CoolerControl session state.
- * @details Contains the CURL handle, cookie jar path, and session
- * initialization status.
- */
+/** CoolerControl session state (CURL handle, cookie jar, init flag). */
 typedef struct
 {
     CURL *curl_handle;
@@ -88,18 +74,11 @@ typedef struct
     int session_initialized;
 } CoolerControlSession;
 
-/**
- * @brief Global CoolerControl session state.
- * @details Holds the state of the CoolerControl session, including the CURL
- * handle and session initialization status.
- */
+/** Global session instance. */
 static CoolerControlSession cc_session = {
     .curl_handle = NULL, .cookie_jar = {0}, .session_initialized = 0};
 
-/**
- * @brief Reallocate response buffer if needed.
- * @details Grows buffer capacity using exponential growth strategy.
- */
+/** Grow response buffer using exponential strategy. */
 static int reallocate_response_buffer(http_response *response,
                                       size_t required_size)
 {
@@ -125,11 +104,7 @@ static int reallocate_response_buffer(http_response *response,
     return 1;
 }
 
-/**
- * @brief Callback for libcurl to write received data into a buffer.
- * @details This function is called by libcurl to write the response data into a
- * dynamically allocated buffer with automatic reallocation when needed.
- */
+/** libcurl write callback — appends received data to an http_response buffer. */
 size_t write_callback(const void *contents, size_t size, size_t nmemb,
                       http_response *response)
 {
@@ -152,10 +127,7 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb,
     return realsize;
 }
 
-/**
- * @brief Validate snprintf result for buffer overflow.
- * @details Checks if snprintf truncated output.
- */
+/** Check snprintf result for truncation. */
 static int validate_snprintf(int written, size_t buffer_size, char *buffer)
 {
     if (written < 0 || (size_t)written >= buffer_size)
@@ -167,9 +139,45 @@ static int validate_snprintf(int written, size_t buffer_size, char *buffer)
 }
 
 /**
- * @brief Build login URL and credentials for CoolerControl session.
- * @details Constructs the login URL and username:password string from config.
+ * @brief Apply TLS verification options to a CURL handle.
+ * @details Uses tls_skip_verify flag for self-signed certs; verifies peer
+ * when daemon_address starts with "https://".
  */
+void cc_apply_tls_to_curl(CURL *curl, const Config *config)
+{
+    if (!curl || !config)
+        return;
+    if (config->tls_skip_verify)
+    {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+    }
+    else if (strncmp(config->daemon_address, "https://", 8) == 0)
+    {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    }
+}
+
+/**
+ * @brief Append Authorization Bearer header if access_token is configured.
+ * @details Returns the (possibly extended) header list.
+ */
+struct curl_slist *cc_apply_auth_to_curl(struct curl_slist *headers,
+                                         const Config *config)
+{
+    if (!config || config->access_token[0] == '\0')
+        return headers;
+
+    char auth_header[CC_AUTH_HEADER_SIZE];
+    int written = snprintf(auth_header, sizeof(auth_header),
+                           "Authorization: Bearer %s", config->access_token);
+    if (written > 0 && (size_t)written < sizeof(auth_header))
+        headers = curl_slist_append(headers, auth_header);
+    return headers;
+}
+
+/** Build login URL and Basic-Auth credentials from config. */
 static int build_login_credentials(const Config *config, char *login_url,
                                    size_t url_size, char *userpwd,
                                    size_t pwd_size)
@@ -187,10 +195,7 @@ static int build_login_credentials(const Config *config, char *login_url,
     return 1;
 }
 
-/**
- * @brief Configure CURL for CoolerControl login request.
- * @details Sets up all CURL options including authentication, headers and SSL.
- */
+/** Configure CURL for the CC 3.x login request. */
 static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
                                                const char *login_url,
                                                const char *userpwd)
@@ -202,37 +207,28 @@ static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
 
-    // Set HTTP headers for login request
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
     headers = curl_slist_append(headers, "Accept: application/json");
     headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = cc_apply_auth_to_curl(headers, config);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    cc_apply_tls_to_curl(curl, config);
 
     return headers;
 }
 
-/**
- * @brief Check login response status.
- * @details Validates CURL result and HTTP response code.
- */
+/** Return 1 if the CURL response indicates a successful login. */
 static int is_login_successful(CURLcode res, long response_code)
 {
     return (res == CURLE_OK && (response_code == 200 || response_code == 204));
 }
 
 /**
- * @brief Initializes the CoolerControl session (CURL setup and login).
- * @details This function initializes the CURL library, sets up the session
- * cookie jar, constructs the login URL and credentials, and performs a login to
- * the CoolerControl API.
+ * @brief Initialise a CoolerControl session (CURL setup + authentication).
+ * @details CC 4.0 (access_token set): skips login, uses Bearer token.
+ *          CC 3.x: performs Basic Auth login and stores session cookie.
  */
 int init_coolercontrol_session(const Config *config)
 {
@@ -241,6 +237,16 @@ int init_coolercontrol_session(const Config *config)
     if (!cc_session.curl_handle)
         return 0;
 
+    /* CC 4.0 path: Bearer token auth — skip login endpoint and cookie jar */
+    if (config->access_token[0] != '\0')
+    {
+        cc_session.cookie_jar[0] = '\0'; /* no cookie jar in token mode */
+        cc_session.session_initialized = 1;
+        log_message(LOG_STATUS, "CoolerControl session initialized (Bearer token auth)");
+        return 1;
+    }
+
+    /* CC 3.x path: Basic Auth + session cookie */
     int written_cookie =
         snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar),
                  "/tmp/coolerdash_cookie_%d.txt", getpid());
@@ -285,18 +291,10 @@ int init_coolercontrol_session(const Config *config)
     return 0;
 }
 
-/**
- * @brief Checks if the CoolerControl session is initialized.
- * @details This function returns whether the session has been successfully
- * initialized and is ready for use.
- */
+/** Returns 1 if the CoolerControl session is ready for use. */
 int is_session_initialized(void) { return cc_session.session_initialized; }
 
-/**
- * @brief Cleans up and terminates the CoolerControl session.
- * @details This function performs cleanup of the CURL handle, removes the
- * cookie jar file, and marks the session as uninitialized.
- */
+/** Release all CURL resources and remove the session cookie file. */
 void cleanup_coolercontrol_session(void)
 {
     static int cleanup_done = 0;
@@ -305,36 +303,28 @@ void cleanup_coolercontrol_session(void)
 
     int all_cleaned = 1;
 
-    // Clean up CURL handle
     if (cc_session.curl_handle)
     {
         curl_easy_cleanup(cc_session.curl_handle);
         cc_session.curl_handle = NULL;
     }
 
-    // Perform global CURL cleanup
     curl_global_cleanup();
 
-    // Remove cookie jar file
-    if (unlink(cc_session.cookie_jar) != 0)
+    if (cc_session.cookie_jar[0] != '\0' && unlink(cc_session.cookie_jar) != 0)
     {
         all_cleaned = 0;
     }
 
-    // Mark session as uninitialized
     cc_session.session_initialized = 0;
 
-    // Set cleanup flag only if all operations succeeded
     if (all_cleaned)
     {
         cleanup_done = 1;
     }
 }
 
-/**
- * @brief Add a string field to multipart form with error checking.
- * @details Helper function to add a named string field to curl_mime form.
- */
+/** Add a named string field to a curl_mime multipart form. */
 static int add_mime_field(curl_mime *form, const char *field_name,
                           const char *field_value)
 {
@@ -364,10 +354,7 @@ static int add_mime_field(curl_mime *form, const char *field_name,
     return 1;
 }
 
-/**
- * @brief Add image file to multipart form with error checking.
- * @details Adds the image file field with proper MIME type and validation.
- */
+/** Add the PNG image file field to a curl_mime multipart form. */
 static int add_image_file_field(curl_mime *form, const char *image_path)
 {
     curl_mimepart *field = curl_mime_addpart(form);
@@ -408,11 +395,7 @@ static int add_image_file_field(curl_mime *form, const char *image_path)
     return 1;
 }
 
-/**
- * @brief Build multipart form for LCD image upload.
- * @details Constructs the complete multipart form with mode, brightness,
- * orientation and image fields.
- */
+/** Build the complete multipart form for an LCD image upload. */
 static curl_mime *build_lcd_upload_form(const Config *config,
                                         const char *image_path)
 {
@@ -423,14 +406,12 @@ static curl_mime *build_lcd_upload_form(const Config *config,
         return NULL;
     }
 
-    // Add mode field
     if (!add_mime_field(form, "mode", "image"))
     {
         curl_mime_free(form);
         return NULL;
     }
 
-    // Add brightness field
     char brightness_str[8];
     snprintf(brightness_str, sizeof(brightness_str), "%d",
              config->lcd_brightness);
@@ -440,7 +421,6 @@ static curl_mime *build_lcd_upload_form(const Config *config,
         return NULL;
     }
 
-    // Add orientation field
     char orientation_str[8];
     snprintf(orientation_str, sizeof(orientation_str), "%d",
              config->lcd_orientation);
@@ -450,7 +430,6 @@ static curl_mime *build_lcd_upload_form(const Config *config,
         return NULL;
     }
 
-    // Add image file
     if (!add_image_file_field(form, image_path))
     {
         curl_mime_free(form);
@@ -460,10 +439,7 @@ static curl_mime *build_lcd_upload_form(const Config *config,
     return form;
 }
 
-/**
- * @brief Configure CURL for LCD image upload request.
- * @details Sets up URL, form data, SSL and response handling.
- */
+/** Set up CURL options for a multipart LCD image upload request. */
 static struct curl_slist *configure_lcd_upload_curl(const Config *config,
                                                     const char *upload_url,
                                                     curl_mime *form,
@@ -473,32 +449,23 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
 
-    // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    cc_apply_tls_to_curl(cc_session.curl_handle, config);
 
-    // Set write callback
     curl_easy_setopt(
         cc_session.curl_handle, CURLOPT_WRITEFUNCTION,
         (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, response);
 
-    // Add headers
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
     headers = curl_slist_append(headers, "Accept: application/json");
+    headers = cc_apply_auth_to_curl(headers, config);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
 
     return headers;
 }
 
-/**
- * @brief Cleanup CURL options after LCD upload.
- * @details Resets all CURL options set during the upload request.
- */
+/** Reset all CURL options set during an LCD image upload. */
 static void cleanup_lcd_upload_curl(void)
 {
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
@@ -508,10 +475,7 @@ static void cleanup_lcd_upload_curl(void)
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
 }
 
-/**
- * @brief Validate upload request parameters.
- * @details Checks all required parameters for LCD upload.
- */
+/** Validate parameters and session state before an LCD upload. */
 static int validate_upload_params(const char *image_path,
                                   const char *device_uid)
 {
@@ -524,10 +488,7 @@ static int validate_upload_params(const char *image_path,
     return 1;
 }
 
-/**
- * @brief Check LCD upload response.
- * @details Validates CURL result and HTTP response code for LCD upload.
- */
+/** Return 1 if the CURL result and HTTP code indicate a successful upload. */
 static int check_upload_response(CURLcode res, long http_response_code,
                                  const http_response *response)
 {
@@ -545,21 +506,78 @@ static int check_upload_response(CURLcode res, long http_response_code,
 }
 
 /**
- * @brief Sends an image to the LCD display.
- * @details This function uploads an image to the LCD display using a multipart
- * HTTP PUT request.
+ * @brief CC 4.0: PUT JSON body with image_file_processed path to the LCD settings endpoint.
+ * @details CoolerControl reads the file directly — no multipart serialisation needed.
  */
-int send_image_to_lcd(const Config *config, const char *image_path,
-                      const char *device_uid)
+static int send_image_via_json(const Config *config, const char *image_path,
+                               const char *device_uid)
 {
-    if (!validate_upload_params(image_path, device_uid))
+    char upload_url[CC_URL_SIZE];
+    int written = snprintf(upload_url, sizeof(upload_url),
+                           "%s/devices/%s/settings/%s/lcd",
+                           config->daemon_address, device_uid,
+                           config->channel_name);
+    if (!validate_snprintf(written, sizeof(upload_url), upload_url))
         return 0;
 
-    char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url),
-             "%s/devices/%s/settings/lcd/lcd/images?log=false",
-             config->daemon_address, device_uid);
+    /* Build JSON body - path is a plain filesystem path, no special chars */
+    char json_body[1024];
+    written = snprintf(json_body, sizeof(json_body),
+                       "{\"mode\":\"image\",\"brightness\":%d,"
+                       "\"orientation\":%d,"
+                       "\"image_file_processed\":\"%s\",\"colors\":[]}",
+                       config->lcd_brightness, config->lcd_orientation,
+                       image_path);
+    if (!validate_snprintf(written, sizeof(json_body), json_body))
+        return 0;
 
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, json_body);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDSIZE,
+                     (long)strlen(json_body));
+
+    cc_apply_tls_to_curl(cc_session.curl_handle, config);
+
+    http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096))
+        return 0;
+
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION,
+                     (size_t (*)(const void *, size_t, size_t, void *))write_callback);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
+    headers = curl_slist_append(headers, "Accept: application/json");
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = cc_apply_auth_to_curl(headers, config);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
+
+    CURLcode res = curl_easy_perform(cc_session.curl_handle);
+    long http_code = -1;
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
+
+    int success = check_upload_response(res, http_code, &response);
+
+    cc_cleanup_response_buffer(&response);
+    if (headers)
+        curl_slist_free_all(headers);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDSIZE, 0L);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
+
+    return success;
+}
+
+/** Multipart PUT to an arbitrary LCD endpoint URL (shared by CC 3.x and shutdown-image paths). */
+static int send_image_multipart_to_url(const Config *config,
+                                       const char *image_path,
+                                       const char *url)
+{
     curl_mime *form = build_lcd_upload_form(config, image_path);
     if (!form)
         return 0;
@@ -573,7 +591,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
     }
 
     struct curl_slist *headers =
-        configure_lcd_upload_curl(config, upload_url, form, &response);
+        configure_lcd_upload_curl(config, url, form, &response);
 
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long http_response_code = -1;
@@ -587,6 +605,71 @@ int send_image_to_lcd(const Config *config, const char *image_path,
         curl_slist_free_all(headers);
     curl_mime_free(form);
     cleanup_lcd_upload_curl();
+
+    return success;
+}
+
+/**
+ * @brief Upload a PNG image to the device LCD.
+ * @details CC 4.0 (access_token set): JSON body via send_image_via_json.
+ *          CC 3.x (no token): multipart PUT to /lcd/images.
+ */
+int send_image_to_lcd(const Config *config, const char *image_path,
+                      const char *device_uid)
+{
+    if (!validate_upload_params(image_path, device_uid))
+        return 0;
+
+    /* CC 4.0: JSON body, CC reads file directly — no multipart upload */
+    if (config->access_token[0] != '\0')
+        return send_image_via_json(config, image_path, device_uid);
+
+    /* CC 3.x: multipart PUT to /lcd/images */
+    char upload_url[CC_URL_SIZE];
+    snprintf(upload_url, sizeof(upload_url),
+             "%s/devices/%s/settings/%s/lcd/images?log=false",
+             config->daemon_address, device_uid, config->channel_name);
+
+    return send_image_multipart_to_url(config, image_path, upload_url);
+}
+
+/**
+ * @brief Register a persistent LCD shutdown image with CoolerControl (CC 4.0).
+ * @details Uploads the shutdown PNG once at startup via PUT
+ * /devices/{uid}/settings/{channel}/lcd/shutdown-image.
+ * CoolerControl stores and auto-applies it on daemon shutdown.
+ * @return 1 on success, 0 on failure or missing image file
+ */
+int register_shutdown_image(const Config *config, const char *device_uid)
+{
+    if (!config || !device_uid || !cc_session.session_initialized)
+        return 0;
+
+    /* Check that the shutdown image exists */
+    struct stat st;
+    if (stat(config->paths_image_shutdown, &st) != 0)
+    {
+        log_message(LOG_INFO,
+                    "No shutdown image at %s — skipping CC shutdown registration",
+                    config->paths_image_shutdown);
+        return 0;
+    }
+
+    char url[CC_URL_SIZE];
+    int written = snprintf(url, sizeof(url),
+                           "%s/devices/%s/settings/%s/lcd/shutdown-image",
+                           config->daemon_address, device_uid,
+                           config->channel_name);
+    if (!validate_snprintf(written, sizeof(url), url))
+        return 0;
+
+    int success = send_image_multipart_to_url(config,
+                                              config->paths_image_shutdown, url);
+    if (success)
+        log_message(LOG_STATUS,
+                    "Shutdown image registered with CoolerControl (persistent)");
+    else
+        log_message(LOG_WARNING, "Failed to register shutdown image with CoolerControl");
 
     return success;
 }
@@ -614,7 +697,6 @@ int send_image_to_lcd_blocking(const Config *config, const char *image_path,
 
     for (attempt = 0; attempt < retries; attempt++)
     {
-        // Set conservative timeouts for shutdown path
         curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
                          (long)timeout_seconds);
         curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
@@ -628,7 +710,7 @@ int send_image_to_lcd_blocking(const Config *config, const char *image_path,
                     attempt + 1, retries);
     }
 
-    // Restore to no timeout (behaviour prior to explicit shutdown upload)
+    /* restore: no timeout (default) */
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 0L);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 0L);
 

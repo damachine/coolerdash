@@ -17,10 +17,6 @@
 7. [Rendering Pipeline](#rendering-pipeline)
 8. [Function Reference](#function-reference)
 9. [Development Guidelines](#development-guidelines)
-10. [Testing & Debugging](#testing--debugging)
-
----
-
 ## Project Overview
 
 ### Purpose
@@ -31,7 +27,7 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 
 - **Real-time Temperature Monitoring:** CPU/GPU sensor data via CoolerControl REST API
 - **Adaptive Display Rendering:** Automatic circular/rectangular display detection
-- **Customizable UI:** Full color/layout/font configuration via INI file
+- **Customizable UI:** Full color/layout/font configuration via JSON
 - **Secure Session Management:** HTTP Basic Auth with cookie-based session persistence
 - **Efficient Caching:** One-time device information retrieval at startup
 - **Systemd Integration:** Native service management with automatic startup
@@ -111,7 +107,7 @@ coolerdash/
 │   ├── coolercontrol/plugins/coolerdash/config.json  # User configuration
 │   └── systemd/coolerdash.service
 ├── docs/                        # Documentation
-│   ├── config.md                # Configuration guide
+│   ├── config-guide.md          # Configuration guide
 │   ├── devices.md               # Supported hardware
 │   └── developer-guide.md       # This file
 ├── Makefile                     # Build system
@@ -231,7 +227,7 @@ LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 typedef struct {
     // Daemon connection
     char daemon_address[256];        // CoolerControl API URL
-    char daemon_password[128];       // API password
+    char daemon_password[128];      // Decrypted API password (runtime)
 
     // File paths
     char paths_images[PATH_MAX];     // Shutdown image directory
@@ -591,10 +587,10 @@ double safe_y = params.safe_content_margin * config->display_height;
 
 **Configuration Override (v1.96+):**
 
-```ini
-[display]
-# Manual override (recommended for testing/troubleshooting)
-shape = auto  # or "rectangular" or "circular"
+```json
+"display": {
+  "shape": "auto"
+}
 ```
 
 ### Temperature Bar Rendering
@@ -676,7 +672,7 @@ int calculate_temp_fill_width(float temp, int max_width, float max_temp) {
 
 ```c
 daemon_address = "http://localhost:11987"
-daemon_password = "coolAdmin"
+daemon_password = ""  // Loaded from daemon.password_encrypted or legacy daemon.password
 display_width = 0  // auto-detected from API
 display_refresh_interval = 2.5
 lcd_brightness = 80
@@ -686,7 +682,7 @@ lcd_brightness = 80
 
 ```json
 {
-  "daemon": { "address": "...", "password": "..." },
+  "daemon": { "address": "...", "password_encrypted": "enc:v1:..." },
   "display": { "width": 0, "height": 0, "brightness": 80, "mode": "dual" },
   "layout": { "bar_height": 30, "label_size": 18, "value_size": 24 },
   "font": { "face": "Roboto" },
@@ -1109,8 +1105,8 @@ systemctl status coolercontrold
 # Test API manually
 curl -u CCAdmin:coolAdmin -X POST http://localhost:11987/login
 
-# Check config password
-grep daemon_password /etc/coolercontrol/plugins/coolerdash/config.json
+# Check encrypted password field
+grep 'password_encrypted\|password' /etc/coolercontrol/plugins/coolerdash/config.json
 ```
 
 ---

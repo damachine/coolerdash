@@ -1,9 +1,7 @@
 # Maintainer: damachin3 (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
-
 # This PKGBUILD is for building the coolerdash package from local source.
 # It assumes the source code is already present in the current directory.
-
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
@@ -14,7 +12,7 @@ pkgdesc="Monitor telemetry data on an AIO liquid cooler with an integrated LCD d
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
-depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
+depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'libsodium' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config' 'git')
 optdepends=()
 backup=('etc/coolercontrol/plugins/coolerdash/config.json')

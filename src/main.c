@@ -41,6 +41,7 @@
 #define DEFAULT_VERSION "unknown"
 #define SHUTDOWN_RETRY_COUNT 2
 #define VERSION_BUFFER_SIZE 32
+#define CC4_MODE_LOCK "/etc/coolercontrol/plugins/coolerdash/.cc4-mode"
 
 /**
  * @brief Global variables for daemon management.
@@ -706,6 +707,10 @@ static void initialize_device_info(Config *config)
 
     log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
 
+    /* CC 4.0: register persistent shutdown image with CoolerControl once */
+    if (config->access_token[0] != '\0' && device_uid[0] != '\0')
+        register_shutdown_image(config, device_uid);
+
     if (get_sensor_monitor_data(config, &temp_data))
     {
         if (temp_data.sensor_count > 0)
@@ -785,6 +790,31 @@ int main(int argc, char **argv)
     if (initialize_coolercontrol_services(&config) != 0)
     {
         return EXIT_FAILURE;
+    }
+
+    /* CC 4.0: write or remove helper-service lock file based on token mode */
+    if (config.access_token[0] != '\0')
+    {
+        FILE *lf = fopen(CC4_MODE_LOCK, "w");
+        if (lf)
+        {
+            fclose(lf);
+            log_message(LOG_STATUS,
+                        "CC 4.0 mode: helper service disabled (%s)", CC4_MODE_LOCK);
+        }
+        else
+        {
+            log_message(LOG_WARNING,
+                        "Could not create CC4 lock file %s: %s",
+                        CC4_MODE_LOCK, strerror(errno));
+        }
+    }
+    else
+    {
+        /* CC 3.x mode: remove lock file if present */
+        if (unlink(CC4_MODE_LOCK) == 0)
+            log_message(LOG_STATUS,
+                        "CC 3.x mode: CC4 lock file removed, helper service enabled");
     }
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");

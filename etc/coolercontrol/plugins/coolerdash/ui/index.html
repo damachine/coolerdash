@@ -587,8 +587,13 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">API Password</label>
-                    <span class="form-hint">Leave empty if authentication is disabled (Default: coolAdmin)</span>
+                    <span class="form-hint">Leave empty if authentication is disabled (Default: coolAdmin) — not needed when Access Token is set</span>
                     <input type="password" name="daemon.password" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Access Token <span style="color:var(--accent);font-size:11px;font-weight:600;">CC 4.0</span></label>
+                    <span class="form-hint">Bearer token from CoolerControl UI (Settings &rarr; Access Tokens). When set, password is ignored.</span>
+                    <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" placeholder="cc_...">
                 </div>
             </div>
 
@@ -929,6 +934,22 @@
 
             <!-- Tab 5: Advanced -->
             <div class="panel">
+                <h3 class="section-title">Connection (Expert)</h3>
+
+                <div class="form-group">
+                    <label class="form-label">Accept Self-Signed TLS Certificate <span style="color:var(--accent);font-size:11px;font-weight:600;">CC 4.0</span></label>
+                    <span class="form-hint">Enable when using https:// with a self-signed certificate (e.g. localhost HTTPS in CC 4.0)</span>
+                    <select name="daemon.tls_skip_verify" class="form-control">
+                        <option value="0">No &mdash; verify certificate (secure default)</option>
+                        <option value="1">Yes &mdash; skip verification (self-signed)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">LCD Channel Name</label>
+                    <span class="form-hint">LCD channel name used in CoolerControl API (Default: lcd)</span>
+                    <input type="text" name="daemon.channel_name" class="form-control" placeholder="lcd">
+                </div>
+
                 <h3 class="section-title">Image Paths</h3>
 
                 <div class="form-group">
@@ -1084,7 +1105,10 @@
         const FACTORY_DEFAULTS = {
             daemon: {
                 address: "http://localhost:11987",
-                password: "coolAdmin"
+                password: "coolAdmin",
+                access_token: "",
+                tls_skip_verify: 0,
+                channel_name: "lcd"
             },
             paths: {
                 image_shutdown: "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
@@ -1253,16 +1277,24 @@
             window.runPluginScript = function(mainFunction) { mainFunction(); };
         }
 
+        // ===== AUTH HELPER =====
+        function buildAuthHeaders(token, password, base) {
+            var headers = base || { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = 'Bearer ' + token;
+            } else if (password) {
+                headers['Authorization'] = 'Basic ' + btoa('CCAdmin:' + password);
+            }
+            return headers;
+        }
+
         // ===== SENSOR DISCOVERY =====
-        async function discoverSensors(apiAddress, password) {
+        async function discoverSensors(apiAddress, token, password) {
             try {
-                const headers = { 'Content-Type': 'application/json' };
-                if (password) {
-                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
-                }
+                var headers = buildAuthHeaders(token, password, { 'Content-Type': 'application/json' });
 
                 // GET /devices for device names
-                const devRes = await fetch(apiAddress + '/devices', { headers: password ? { 'Authorization': headers['Authorization'] } : {} });
+                const devRes = await fetch(apiAddress + '/devices', { headers: headers });
                 const devData = devRes.ok ? await devRes.json() : { devices: [] };
                 const deviceNames = {};
                 for (const dev of (devData.devices || [])) {
@@ -1716,10 +1748,12 @@
         // ===== DEVICE DETECTION =====
         var lastApiAddress = '';
         var lastApiPassword = '';
+        var lastApiToken = '';
 
-        async function fetchDeviceInfo(apiAddress, password) {
+        async function fetchDeviceInfo(apiAddress, token, password) {
             lastApiAddress = apiAddress;
             lastApiPassword = password;
+            lastApiToken = token;
 
             var loadingEl = document.getElementById('device-loading');
             var contentEl = document.getElementById('device-panel-content');
@@ -1730,10 +1764,7 @@
             errorEl.style.display = 'none';
 
             try {
-                var headers = {};
-                if (password) {
-                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
-                }
+                var headers = buildAuthHeaders(token, password, {});
                 var response = await fetch(apiAddress + '/devices', { headers: headers });
                 if (!response.ok) throw new Error('HTTP ' + response.status);
                 var data = await response.json();
@@ -1816,15 +1847,12 @@
         }
 
         function refreshDeviceInfo() {
-            fetchDeviceInfo(lastApiAddress, lastApiPassword);
+            fetchDeviceInfo(lastApiAddress, lastApiToken, lastApiPassword);
         }
 
-        async function fetchSystemInfo(apiAddress, password) {
+        async function fetchSystemInfo(apiAddress, token, password) {
             try {
-                var headers = {};
-                if (password) {
-                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
-                }
+                var headers = buildAuthHeaders(token, password, {});
 
                 var healthRes = await fetch(apiAddress + '/health', { headers: headers });
                 if (healthRes.ok) {
@@ -2109,9 +2137,9 @@
         async function restartPluginDaemon(config) {
             try {
                 var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var token = (config.daemon && config.daemon.access_token) || '';
                 var password = (config.daemon && config.daemon.password) || '';
-                var headers = { 'Content-Type': 'application/json' };
-                if (password) headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
+                var headers = buildAuthHeaders(token, password, { 'Content-Type': 'application/json' });
 
                 var response = await fetch(apiAddress + '/plugins/coolerdash/restart', { method: 'POST', headers: headers });
                 if (!response.ok) console.warn("Could not restart plugin automatically");
@@ -2145,12 +2173,14 @@
         async function writeConfigToFile(config) {
             try {
                 var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var token = (config.daemon && config.daemon.access_token) || '';
                 var password = (config.daemon && config.daemon.password) || '';
 
-                if (password) {
+                if (token || password) {
+                    var headers = buildAuthHeaders(token, password, { 'Content-Type': 'application/json' });
                     var response = await fetch(apiAddress + '/plugins/coolerdash/config', {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + btoa('admin:' + password) },
+                        headers: headers,
                         body: JSON.stringify(config, null, 2)
                     });
                     if (response.ok) return true;
@@ -2285,10 +2315,11 @@
 
                 // Detect device and discover sensors from CoolerControl API
                 var apiAddr = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var apiToken = (config.daemon && config.daemon.access_token) || '';
                 var apiPass = (config.daemon && config.daemon.password) || '';
-                fetchDeviceInfo(apiAddr, apiPass);
-                fetchSystemInfo(apiAddr, apiPass);
-                discoverSensors(apiAddr, apiPass);
+                fetchDeviceInfo(apiAddr, apiToken, apiPass);
+                fetchSystemInfo(apiAddr, apiToken, apiPass);
+                discoverSensors(apiAddr, apiToken, apiPass);
             } catch (error) {
                 console.error("Init failed:", error);
                 if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);

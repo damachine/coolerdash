@@ -1050,7 +1050,7 @@ Program exit
 struct Config {
     // CoolerControl connection
     char daemon_address[256];      // e.g., "http://127.0.0.1:11987"
-    char daemon_password[128];     // CCAdmin password
+    char daemon_password[128];     // Decrypted CCAdmin password in memory
     
     // Display settings
     uint16_t display_width;        // e.g., 640 (auto-detected if 0)

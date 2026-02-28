@@ -360,15 +360,12 @@ static int get_sensor_data_from_api(const Config *config,
 
     configure_status_request(curl, url, &response);
 
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    cc_apply_tls_to_curl(curl, config);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");
     headers = curl_slist_append(headers, "content-type: application/json");
+    headers = cc_apply_auth_to_curl(headers, config);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     int result = 0;

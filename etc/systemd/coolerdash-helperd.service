@@ -3,6 +3,10 @@ Description=CoolerDash helper daemon
 BindsTo=coolercontrold.service
 PartOf=coolercontrold.service
 After=coolercontrold.service
+# CC 4.0 mode: coolerdash writes this lock file when access_token is configured.
+# In that case CoolerControl handles shutdown images natively - this service
+# is not needed and will not start.
+ConditionPathNotExists=/etc/coolercontrol/plugins/coolerdash/.cc4-mode
 
 [Service]
 Type=simple

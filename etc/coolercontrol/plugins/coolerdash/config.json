@@ -3,7 +3,8 @@
 
   "daemon": {
     "address": "http://localhost:11987",
-    "password": "coolAdmin"
+    "password": "",
+    "password_encrypted": "enc:v1:fe1cb9a734eae24041910f6cd99026e0eb22efe30c373a92c91c5630e3dfe14856ef7252a03150012fe06dc2c7a1b8afbd"
   },
 
   "paths": {
