@@ -390,7 +390,8 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid,
  */
 static void configure_device_cache_curl(CURL *curl, const char *url,
                                         http_response *chunk,
-                                        struct curl_slist **headers)
+                                        struct curl_slist **headers,
+                                        const Config *config)
 {
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(
@@ -400,7 +401,10 @@ static void configure_device_cache_curl(CURL *curl, const char *url,
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
 
     *headers = curl_slist_append(NULL, "accept: application/json");
+    *headers = cc_apply_auth_to_curl(*headers, config);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
+
+    cc_apply_tls_to_curl(curl, config);
 }
 
 /**
@@ -533,7 +537,7 @@ static int initialize_device_cache(const Config *config)
     chunk.capacity = 4096;
 
     struct curl_slist *headers = NULL;
-    configure_device_cache_curl(curl, url, &chunk, &headers);
+    configure_device_cache_curl(curl, url, &chunk, &headers, config);
 
     int success = 0;
     if (curl_easy_perform(curl) == CURLE_OK)

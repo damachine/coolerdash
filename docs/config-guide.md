@@ -25,21 +25,26 @@ Configure connection to the CoolerControl daemon API.
 ```json
 "daemon": {
     "address": "http://localhost:11987",
-    "password": "coolAdmin"
+    "password": "",
+    "password_encrypted": "enc:v1:..."
 }
 ```
 
 ### Settings
 - **`address`**: API endpoint URL (default: `http://localhost:11987`)
-- **`password`**: API authentication password (default: `coolAdmin`)
+- **`password_encrypted`**: Encrypted API password (standard field)
+- **`password`**: Legacy plaintext fallback; will be auto-migrated to `password_encrypted`
 
 ### HTTPS Example
 ```json
 "daemon": {
     "address": "https://192.168.1.100:11987",
-    "password": "mySecurePassword123"
+    "password": "",
+    "password_encrypted": "enc:v1:..."
 }
 ```
+
+> If `password` is set in plaintext, CoolerDash reads it once and rewrites the config with `password_encrypted` automatically.
 
 ---
 
@@ -187,12 +192,13 @@ Controls the safe area percentage used for rendering content (determines margin/
 Display layout and spacing configuration. All positioning is now calculated dynamically from display dimensions.
 
 ### Example Configuration
-```ini
-[layout]
-bar_height=24
-bar_width=98
-bar_gap=12
-bar_border=2.0
+```json
+"layout": {
+    "bar_height": 24,
+    "bar_width": 98,
+    "bar_gap": 12,
+    "bar_border": 2.0
+}
 ```
 
 ### Settings

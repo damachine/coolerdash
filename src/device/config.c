@@ -20,10 +20,250 @@
 #include <stdio.h>
 #include <string.h>
 #include <jansson.h>
+#include <sodium.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 #include "config.h"
 #include "../srv/cc_conf.h"
+
+#define PASSWORD_ENC_PREFIX "enc:v1:"
+#define PASSWORD_KEY_CONTEXT "coolerdash.daemon.password.v1"
+
+/**
+ * @brief Return string length capped at max_len.
+ */
+static size_t bounded_strlen(const char *value, size_t max_len)
+{
+    size_t len = 0;
+
+    if (!value)
+        return 0;
+
+    while (len < max_len && value[len] != '\0')
+        len++;
+
+    return len;
+}
+
+/**
+ * @brief Initialize libsodium once.
+ * @return 1 on success, 0 on failure
+ */
+static int ensure_crypto_ready(void)
+{
+    static int crypto_initialized = 0;
+
+    if (crypto_initialized)
+        return 1;
+
+    if (sodium_init() < 0)
+    {
+        log_message(LOG_ERROR, "libsodium initialization failed");
+        return 0;
+    }
+
+    crypto_initialized = 1;
+    return 1;
+}
+
+/**
+ * @brief Check for encrypted password prefix.
+ */
+static int is_password_encrypted_value(const char *value)
+{
+    size_t prefix_len = strlen(PASSWORD_ENC_PREFIX);
+    return (value && strncmp(value, PASSWORD_ENC_PREFIX, prefix_len) == 0);
+}
+
+/**
+ * @brief Derive the local secretbox key.
+ */
+static int derive_password_key(unsigned char key[crypto_secretbox_KEYBYTES])
+{
+    if (!key)
+        return 0;
+
+    if (!ensure_crypto_ready())
+        return 0;
+
+    if (crypto_generichash(key, crypto_secretbox_KEYBYTES,
+                           (const unsigned char *)PASSWORD_KEY_CONTEXT,
+                           strlen(PASSWORD_KEY_CONTEXT),
+                           NULL, 0) != 0)
+    {
+        log_message(LOG_ERROR, "Failed to derive password encryption key");
+        return 0;
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Encrypt daemon password for JSON storage.
+ * @return 1 on success, 0 on failure
+ */
+static int encrypt_password_for_storage(const char *plain, char *out, size_t out_size)
+{
+    unsigned char key[crypto_secretbox_KEYBYTES];
+    unsigned char nonce[crypto_secretbox_NONCEBYTES];
+    size_t plain_len = 0;
+    size_t cipher_len = 0;
+    size_t payload_len = 0;
+    unsigned char payload[crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES +
+                          CONFIG_MAX_PASSWORD_LEN];
+    char hex_payload[(sizeof(payload) * 2U) + 1U];
+    int written = 0;
+
+    if (!plain || !out || out_size == 0)
+        return 0;
+    if (!derive_password_key(key))
+        return 0;
+
+    plain_len = bounded_strlen(plain, CONFIG_MAX_PASSWORD_LEN - 1);
+    cipher_len = plain_len + crypto_secretbox_MACBYTES;
+    payload_len = crypto_secretbox_NONCEBYTES + cipher_len;
+
+    if (payload_len > sizeof(payload))
+        return 0;
+
+    randombytes_buf(nonce, sizeof(nonce));
+    memcpy(payload, nonce, crypto_secretbox_NONCEBYTES);
+
+    if (crypto_secretbox_easy(payload + crypto_secretbox_NONCEBYTES,
+                              (const unsigned char *)plain,
+                              (unsigned long long)plain_len,
+                              nonce, key) != 0)
+    {
+        sodium_memzero(key, sizeof(key));
+        return 0;
+    }
+
+    sodium_bin2hex(hex_payload, sizeof(hex_payload), payload, payload_len);
+    written = snprintf(out, out_size, "%s%s", PASSWORD_ENC_PREFIX, hex_payload);
+    sodium_memzero(key, sizeof(key));
+
+    if (written < 0 || (size_t)written >= out_size)
+        return 0;
+
+    return 1;
+}
+
+/**
+ * @brief Decrypt password from JSON storage.
+ * @return 1 on success, 0 on failure
+ */
+static int decrypt_password_from_storage(const char *stored, char *plain, size_t plain_size)
+{
+    unsigned char key[crypto_secretbox_KEYBYTES];
+    const size_t prefix_len = strlen(PASSWORD_ENC_PREFIX);
+    const char *hex_payload = NULL;
+    size_t hex_len = 0;
+    size_t payload_max = crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES +
+                         CONFIG_MAX_PASSWORD_LEN;
+    unsigned char payload[crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES +
+                          CONFIG_MAX_PASSWORD_LEN];
+    size_t payload_len = 0;
+    const unsigned char *nonce = NULL;
+    const unsigned char *cipher = NULL;
+    size_t cipher_len = 0;
+    size_t message_len = 0;
+
+    if (!stored || !plain || plain_size == 0)
+        return 0;
+    if (!is_password_encrypted_value(stored))
+        return 0;
+    if (!derive_password_key(key))
+        return 0;
+
+    hex_payload = stored + prefix_len;
+    hex_len = strlen(hex_payload);
+    if (hex_len == 0 || (hex_len % 2U) != 0U)
+    {
+        sodium_memzero(key, sizeof(key));
+        return 0;
+    }
+
+    payload_len = hex_len / 2U;
+    if (payload_len < (crypto_secretbox_NONCEBYTES + crypto_secretbox_MACBYTES) ||
+        payload_len > payload_max)
+    {
+        sodium_memzero(key, sizeof(key));
+        return 0;
+    }
+
+    if (sodium_hex2bin(payload, sizeof(payload), hex_payload, hex_len,
+                       NULL, &payload_len, NULL) != 0)
+    {
+        sodium_memzero(key, sizeof(key));
+        return 0;
+    }
+
+    nonce = payload;
+    cipher = payload + crypto_secretbox_NONCEBYTES;
+    cipher_len = payload_len - crypto_secretbox_NONCEBYTES;
+    message_len = cipher_len - crypto_secretbox_MACBYTES;
+
+    if (message_len + 1U > plain_size)
+    {
+        sodium_memzero(key, sizeof(key));
+        return 0;
+    }
+
+    if (crypto_secretbox_open_easy((unsigned char *)plain, cipher,
+                                   (unsigned long long)cipher_len,
+                                   nonce, key) != 0)
+    {
+        sodium_memzero(key, sizeof(key));
+        return 0;
+    }
+
+    plain[message_len] = '\0';
+    sodium_memzero(key, sizeof(key));
+    return 1;
+}
+
+/**
+ * @brief Persist encrypted password and clear legacy plaintext field.
+ */
+static void migrate_password_storage(json_t *root, const char *json_path, const char *plain_password)
+{
+    json_t *daemon = NULL;
+    char encrypted[(CONFIG_MAX_PASSWORD_LEN * 4) + 64];
+
+    if (!root || !json_path)
+        return;
+
+    daemon = json_object_get(root, "daemon");
+    if (!daemon || !json_is_object(daemon))
+        return;
+
+    if (!encrypt_password_for_storage((plain_password ? plain_password : ""),
+                                      encrypted, sizeof(encrypted)))
+    {
+        log_message(LOG_WARNING, "Could not encrypt daemon password for config migration");
+        return;
+    }
+
+    if (json_object_set_new(daemon, "password_encrypted", json_string(encrypted)) != 0)
+    {
+        log_message(LOG_WARNING, "Could not set daemon.password_encrypted");
+        return;
+    }
+
+    if (json_object_set_new(daemon, "password", json_string("")) != 0)
+    {
+        log_message(LOG_WARNING, "Could not clear daemon.password during migration");
+        return;
+    }
+
+    if (json_dump_file(root, json_path, JSON_INDENT(2)) != 0)
+    {
+        log_message(LOG_WARNING, "Could not write encrypted password back to %s", json_path);
+        return;
+    }
+
+    log_message(LOG_STATUS, "Migrated daemon password to encrypted storage");
+}
 
 // ============================================================================
 // Global Logging Implementation
@@ -74,6 +314,12 @@ static void set_daemon_defaults(Config *config)
     {
         SAFE_STRCPY(config->daemon_password, "");
     }
+    /* access_token: empty string = use Basic Auth (CC 3.x), set = Bearer token (CC 4.0) */
+    /* tls_skip_verify: 0 from memset = verify peer (secure default) */
+    if (config->channel_name[0] == '\0')
+    {
+        SAFE_STRCPY(config->channel_name, "lcd");
+    }
 }
 
 /**
@@ -91,8 +337,7 @@ static void set_paths_defaults(Config *config)
     }
     if (config->paths_image_shutdown[0] == '\0')
     {
-        SAFE_STRCPY(config->paths_image_shutdown,
-                    "/etc/coolercontrol/plugins/coolerdash/shutdown.png");
+        SAFE_STRCPY(config->paths_image_shutdown, "/etc/coolercontrol/plugins/coolerdash/shutdown.png");
     }
 }
 
@@ -629,11 +874,13 @@ static const char *find_config_json(const char *custom_path)
 /**
  * @brief Load daemon settings from JSON.
  */
-static void load_daemon_from_json(json_t *root, Config *config)
+static int load_daemon_from_json(json_t *root, Config *config)
 {
+    int should_migrate_password = 0;
+
     json_t *daemon = json_object_get(root, "daemon");
     if (!daemon || !json_is_object(daemon))
-        return;
+        return 0;
 
     json_t *address = json_object_get(daemon, "address");
     if (address && json_is_string(address) && json_string_length(address) > 0)
@@ -645,15 +892,90 @@ static void load_daemon_from_json(json_t *root, Config *config)
         }
     }
 
+    json_t *password_encrypted = json_object_get(daemon, "password_encrypted");
+    int loaded_from_password_encrypted = 0;
+
+    if (password_encrypted && json_is_string(password_encrypted) && json_string_length(password_encrypted) > 0)
+    {
+        const char *value = json_string_value(password_encrypted);
+        if (value)
+        {
+            if (decrypt_password_from_storage(value,
+                                              config->daemon_password,
+                                              sizeof(config->daemon_password)))
+            {
+                loaded_from_password_encrypted = 1;
+            }
+            else
+            {
+                log_message(LOG_WARNING, "Invalid daemon.password_encrypted, fallback to daemon.password");
+            }
+        }
+    }
+
     json_t *password = json_object_get(daemon, "password");
     if (password && json_is_string(password) && json_string_length(password) > 0)
     {
         const char *value = json_string_value(password);
         if (value)
         {
-            SAFE_STRCPY(config->daemon_password, value);
+            if (is_password_encrypted_value(value))
+            {
+                if (!loaded_from_password_encrypted)
+                {
+                    if (decrypt_password_from_storage(value,
+                                                      config->daemon_password,
+                                                      sizeof(config->daemon_password)))
+                    {
+                        should_migrate_password = 1;
+                    }
+                }
+                else
+                {
+                    should_migrate_password = 1;
+                }
+            }
+            else
+            {
+                if (!loaded_from_password_encrypted)
+                {
+                    SAFE_STRCPY(config->daemon_password, value);
+                }
+                should_migrate_password = 1;
+            }
         }
     }
+
+    json_t *access_token = json_object_get(daemon, "access_token");
+    if (access_token && json_is_string(access_token) && json_string_length(access_token) > 0)
+    {
+        const char *value = json_string_value(access_token);
+        if (value)
+        {
+            SAFE_STRCPY(config->access_token, value);
+        }
+    }
+
+    json_t *tls_skip = json_object_get(daemon, "tls_skip_verify");
+    if (tls_skip)
+    {
+        if (json_is_boolean(tls_skip))
+            config->tls_skip_verify = json_boolean_value(tls_skip) ? 1 : 0;
+        else if (json_is_integer(tls_skip))
+            config->tls_skip_verify = (json_integer_value(tls_skip) != 0) ? 1 : 0;
+    }
+
+    json_t *channel = json_object_get(daemon, "channel_name");
+    if (channel && json_is_string(channel) && json_string_length(channel) > 0)
+    {
+        const char *value = json_string_value(channel);
+        if (value)
+        {
+            SAFE_STRCPY(config->channel_name, value);
+        }
+    }
+
+    return should_migrate_password;
 }
 
 /**
@@ -1158,7 +1480,7 @@ int load_plugin_config(Config *config, const char *config_path)
 
         if (root)
         {
-            load_daemon_from_json(root, config);
+            int should_migrate_password = load_daemon_from_json(root, config);
             load_paths_from_json(root, config);
             load_display_from_json(root, config);
             load_layout_from_json(root, config);
@@ -1166,6 +1488,11 @@ int load_plugin_config(Config *config, const char *config_path)
             load_font_from_json(root, config);
             load_sensors_from_json(root, config);
             load_positioning_from_json(root, config);
+
+            if (should_migrate_password)
+            {
+                migrate_password_storage(root, json_path, config->daemon_password);
+            }
 
             json_decref(root);
             loaded_from_json = 1;
