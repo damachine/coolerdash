@@ -23,35 +23,35 @@ jobs:
           - distro: "ubuntu:24.04"
             name: "Ubuntu 24.04 LTS"
             pre_install: "apt-get update"
-            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev fonts-roboto file"
+            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev libsodium-dev fonts-roboto file"
 
           - distro: "debian:13"
             name: "Debian 13 (Trixie)"
             pre_install: "apt-get update"
-            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev fonts-roboto file"
+            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev libsodium-dev fonts-roboto file"
 
           # Fedora family (independent from RHEL)
           - distro: "fedora:42"
             name: "Fedora 42"
             pre_install: "dnf update -y"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
+            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel libsodium-devel google-roboto-fonts file"
 
           # RHEL/CentOS family (RHEL-compatible)
           - distro: "quay.io/centos/centos:stream9"
             name: "CentOS Stream 9 (RHEL 9 compatible)"
             pre_install: "dnf update -y && dnf install -y epel-release && dnf config-manager --set-enabled crb && dnf makecache"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
+            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel libsodium-devel google-roboto-fonts file"
 
           # openSUSE family
           - distro: "opensuse/tumbleweed"
             name: "openSUSE Tumbleweed"
             pre_install: "zypper refresh"
-            install_deps: "zypper install -y tar sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
+            install_deps: "zypper install -y tar sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel libsodium-devel google-roboto-fonts file"
 
           - distro: "opensuse/leap:16.0"
             name: "openSUSE Leap 16.0"
             pre_install: "zypper refresh"
-            install_deps: "zypper install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
+            install_deps: "zypper install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel libsodium-devel google-roboto-fonts file"
 
     container:
       image: ${{ matrix.distro }}
@@ -205,7 +205,7 @@ jobs:
       - name: Setup Arch Linux
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm cairo libcurl-gnutls gcc make pkg-config jansson ttf-roboto sudo systemd file
+          pacman -S --noconfirm cairo libcurl-gnutls gcc make pkg-config jansson libsodium ttf-roboto sudo systemd file
 
       - name: Test make install on Arch
         run: |
