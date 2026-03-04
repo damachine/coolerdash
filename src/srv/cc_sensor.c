@@ -361,6 +361,7 @@ static int get_sensor_data_from_api(const Config *config,
     configure_status_request(curl, url, &response);
 
     cc_apply_tls_to_curl(curl, config);
+    cc_apply_session_cookies(curl);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");

@@ -105,4 +105,14 @@ struct curl_slist *cc_apply_auth_to_curl(struct curl_slist *headers,
  */
 int register_shutdown_image(const struct Config *config, const char *device_uid);
 
+/**
+ * @brief Copy session cookies from the global session handle to another CURL handle.
+ * @details Enables the cookie engine on the target handle and injects all
+ * cookies obtained during login. Used by subsystems that create their own
+ * CURL handles but need authenticated access (e.g., device cache).
+ * @param target CURL handle to receive the cookies.
+ * @return 1 on success, 0 if session is uninitialised or no cookies available.
+ */
+int cc_apply_session_cookies(CURL *target);
+
 #endif // CC_MAIN_H

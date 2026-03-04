@@ -294,6 +294,39 @@ int init_coolercontrol_session(const Config *config)
 /** Returns 1 if the CoolerControl session is ready for use. */
 int is_session_initialized(void) { return cc_session.session_initialized; }
 
+/**
+ * @brief Copy session cookies to another CURL handle.
+ * @details Extracts all in-memory cookies from the session handle via
+ * CURLINFO_COOKIELIST and injects them into the target handle using
+ * CURLOPT_COOKIELIST.  Enables the cookie engine on the target first.
+ */
+int cc_apply_session_cookies(CURL *target)
+{
+    if (!target || !cc_session.session_initialized || !cc_session.curl_handle)
+        return 0;
+
+    /* Enable cookie engine on target (empty string = no file, in-memory) */
+    curl_easy_setopt(target, CURLOPT_COOKIEFILE, "");
+
+    /* Extract cookies from session handle */
+    struct curl_slist *cookies = NULL;
+    CURLcode res = curl_easy_getinfo(cc_session.curl_handle,
+                                     CURLINFO_COOKIELIST, &cookies);
+    if (res != CURLE_OK || !cookies)
+        return 0;
+
+    /* Inject each cookie into the target handle */
+    struct curl_slist *each = cookies;
+    while (each)
+    {
+        curl_easy_setopt(target, CURLOPT_COOKIELIST, each->data);
+        each = each->next;
+    }
+
+    curl_slist_free_all(cookies);
+    return 1;
+}
+
 /** Release all CURL resources and remove the session cookie file. */
 void cleanup_coolercontrol_session(void)
 {
