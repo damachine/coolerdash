@@ -800,12 +800,12 @@ int main(int argc, char **argv)
         {
             fclose(lf);
             log_message(LOG_STATUS,
-                        "CC 4.0 mode: helper service disabled (%s)", CC4_MODE_LOCK);
+                        "CC 3.1.2 mode: helper service disabled (%s)", CC4_MODE_LOCK);
         }
         else
         {
             log_message(LOG_WARNING,
-                        "Could not create CC4 lock file %s: %s",
+                        "Could not create CC 3.1.2 lock file %s: %s",
                         CC4_MODE_LOCK, strerror(errno));
         }
     }
@@ -814,7 +814,7 @@ int main(int argc, char **argv)
         /* CC 3.x mode: remove lock file if present */
         if (unlink(CC4_MODE_LOCK) == 0)
             log_message(LOG_STATUS,
-                        "CC 3.x mode: CC4 lock file removed, helper service enabled");
+                        "CC 3.x mode: CC 3.1.2 lock file removed, helper service enabled");
     }
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
