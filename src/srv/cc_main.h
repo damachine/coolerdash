@@ -29,6 +29,7 @@
 #define CC_UID_SIZE 128
 #define CC_URL_SIZE 512
 #define CC_USERPWD_SIZE 128
+#define CC_BEARER_HEADER_SIZE (CONFIG_MAX_TOKEN_LEN + 32)
 
 // Maximum safe allocation size to prevent overflow
 #define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
@@ -90,6 +91,25 @@ int is_session_initialized(void);
  * and cookie file removal.
  */
 void cleanup_coolercontrol_session(void);
+
+/**
+ * @brief Returns the active Bearer access token (empty string if not set).
+ * @details Used by cc_conf and cc_sensor to attach auth headers.
+ */
+const char *get_session_access_token(void);
+
+/**
+ * @brief Returns the cookie jar path for session cookie sharing.
+ * @details Used by cc_conf and cc_sensor when password-auth is active.
+ */
+const char *get_session_cookie_jar(void);
+
+/**
+ * @brief Apply TLS/SSL options to a CURL handle based on config.
+ * @details Handles VERIFYPEER/VERIFYHOST/CAINFO/skip-verify logic.
+ *          Call this for every CURL handle that may use HTTPS.
+ */
+void apply_ssl_options(void *curl, const struct Config *config);
 
 /**
  * @brief Sends an image directly to the LCD of the CoolerControl device.

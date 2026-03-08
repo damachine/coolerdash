@@ -360,15 +360,26 @@ static int get_sensor_data_from_api(const Config *config,
 
     configure_status_request(curl, url, &response);
 
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    /* SSL options (apply_ssl_options handles http:// as no-op) */
+    apply_ssl_options(curl, config);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");
     headers = curl_slist_append(headers, "content-type: application/json");
+
+    /* Attach auth: Bearer token preferred, otherwise share session cookie */
+    const char *bearer = get_session_access_token();
+    if (bearer && bearer[0] != '\0')
+    {
+        headers = curl_slist_append(headers, bearer);
+    }
+    else
+    {
+        const char *cookie_jar = get_session_cookie_jar();
+        if (cookie_jar && cookie_jar[0] != '\0')
+            curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_jar);
+    }
+
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     int result = 0;

@@ -85,6 +85,7 @@ typedef struct
 {
     CURL *curl_handle;
     char cookie_jar[CC_COOKIE_SIZE];
+    char access_token[CC_BEARER_HEADER_SIZE];
     int session_initialized;
 } CoolerControlSession;
 
@@ -94,7 +95,7 @@ typedef struct
  * handle and session initialization status.
  */
 static CoolerControlSession cc_session = {
-    .curl_handle = NULL, .cookie_jar = {0}, .session_initialized = 0};
+    .curl_handle = NULL, .cookie_jar = {0}, .access_token = {0}, .session_initialized = 0};
 
 /**
  * @brief Reallocate response buffer if needed.
@@ -151,6 +152,9 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb,
 
     return realsize;
 }
+
+/* Forward declaration — definition is after cleanup_coolercontrol_session() */
+void apply_ssl_options(void *curl_raw, const struct Config *config);
 
 /**
  * @brief Validate snprintf result for buffer overflow.
@@ -210,11 +214,7 @@ static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    apply_ssl_options(curl, config);
 
     return headers;
 }
@@ -236,6 +236,26 @@ static int is_login_successful(CURLcode res, long response_code)
  */
 int init_coolercontrol_session(const Config *config)
 {
+    /* --- Bearer Token path: skip login entirely --- */
+    if (config->access_token[0] != '\0')
+    {
+        int written = snprintf(cc_session.access_token, sizeof(cc_session.access_token),
+                               "Authorization: Bearer %s", config->access_token);
+        if (written < 0 || (size_t)written >= sizeof(cc_session.access_token))
+            cc_session.access_token[sizeof(cc_session.access_token) - 1] = '\0';
+
+        /* We still need a CURL handle for LCD uploads */
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+        cc_session.curl_handle = curl_easy_init();
+        if (!cc_session.curl_handle)
+            return 0;
+
+        cc_session.session_initialized = 1;
+        log_message(LOG_STATUS, "Session initialized using Bearer token (CC4)");
+        return 1;
+    }
+
+    /* --- Basic Auth / Cookie path (CC3 / fallback) --- */
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
     if (!cc_session.curl_handle)
@@ -328,6 +348,58 @@ void cleanup_coolercontrol_session(void)
     if (all_cleaned)
     {
         cleanup_done = 1;
+    }
+}
+
+/**
+ * @brief Returns the active Bearer auth header string (or empty string).
+ */
+const char *get_session_access_token(void)
+{
+    return cc_session.access_token;
+}
+
+/**
+ * @brief Returns the session cookie jar path.
+ */
+const char *get_session_cookie_jar(void)
+{
+    return cc_session.cookie_jar;
+}
+
+/**
+ * @brief Apply TLS/SSL options to a CURL handle based on config.
+ * @details Localhost always uses plain HTTP; for HTTPS addresses this sets
+ *          peer/host verification and optional custom CA cert or skip flag.
+ */
+void apply_ssl_options(void *curl_raw, const struct Config *config)
+{
+    if (!curl_raw || !config)
+        return;
+
+    CURL *curl = (CURL *)curl_raw;
+
+    /* Plain HTTP → nothing to do */
+    if (strncmp(config->daemon_address, "https://", 8) != 0)
+        return;
+
+    if (config->tls_skip_verify)
+    {
+        log_message(LOG_WARNING,
+                    "TLS peer verification disabled (tls_skip_verify=true) — insecure!");
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        return;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+
+    if (config->tls_ca_cert_path[0] != '\0')
+    {
+        curl_easy_setopt(curl, CURLOPT_CAINFO, config->tls_ca_cert_path);
+        log_message(LOG_INFO, "TLS: using custom CA cert: %s",
+                    config->tls_ca_cert_path);
     }
 }
 
@@ -474,11 +546,7 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
 
     // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    apply_ssl_options(cc_session.curl_handle, config);
 
     // Set write callback
     curl_easy_setopt(
@@ -490,6 +558,13 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
     headers = curl_slist_append(headers, "Accept: application/json");
+
+    // Attach auth: Bearer token preferred, otherwise rely on session cookie
+    if (cc_session.access_token[0] != '\0')
+    {
+        headers = curl_slist_append(headers, cc_session.access_token);
+    }
+
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
 
     return headers;

@@ -1,6 +1,6 @@
 pkgbase = coolerdash
-	pkgdesc = Monitor telemetry data on an AIO liquid cooler with an integrated LCD display
-	pkgver = 2.2.6
+	pkgdesc = Plug-in for CoolerControl that extends the LCD functionality with additional features
+	pkgver = 3.0.1
 	pkgrel = 1
 	url = https://github.com/damachine/coolerdash
 	install = coolerdash.install
@@ -11,7 +11,6 @@ pkgbase = coolerdash
 	makedepends = pkg-config
 	makedepends = git
 	depends = cairo
-	depends = coolercontrol
 	depends = jansson
 	depends = libcurl-gnutls
 	depends = ttf-roboto

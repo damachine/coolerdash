@@ -388,7 +388,8 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid,
 /**
  * @brief Configure CURL options for device cache request.
  */
-static void configure_device_cache_curl(CURL *curl, const char *url,
+static void configure_device_cache_curl(CURL *curl, const Config *config,
+                                        const char *url,
                                         http_response *chunk,
                                         struct curl_slist **headers)
 {
@@ -400,7 +401,23 @@ static void configure_device_cache_curl(CURL *curl, const char *url,
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
 
     *headers = curl_slist_append(NULL, "accept: application/json");
+
+    /* Attach auth: Bearer token preferred, otherwise share session cookie */
+    const char *bearer = get_session_access_token();
+    if (bearer && bearer[0] != '\0')
+    {
+        *headers = curl_slist_append(*headers, bearer);
+    }
+    else
+    {
+        const char *cookie_jar = get_session_cookie_jar();
+        if (cookie_jar && cookie_jar[0] != '\0')
+            curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_jar);
+    }
+
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
+
+    apply_ssl_options(curl, config);
 }
 
 /**
@@ -533,7 +550,7 @@ static int initialize_device_cache(const Config *config)
     chunk.capacity = 4096;
 
     struct curl_slist *headers = NULL;
-    configure_device_cache_curl(curl, url, &chunk, &headers);
+    configure_device_cache_curl(curl, config, url, &chunk, &headers);
 
     int success = 0;
     if (curl_easy_perform(curl) == CURLE_OK)
