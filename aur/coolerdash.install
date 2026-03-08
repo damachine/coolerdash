@@ -40,20 +40,21 @@ post_install() {
         udevadm trigger --subsystem-match=usb
     fi
 
-    # Migrate helperd from /etc to /usr/lib
+    # Remove legacy helperd service (no longer part of this project)
     rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
     rm -f /etc/systemd/system/coolerdash-helperd.service
+    rm -f /usr/lib/systemd/system/coolerdash-helperd.service
 
     systemctl daemon-reload
-
-    # Enable helperd
-    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
-        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
-    fi
 
     # Restart CoolerControl
     if systemctl list-unit-files coolercontrold.service | grep -q coolercontrold; then
         systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
+    fi
+
+    # Restart plugin service
+    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
+        systemctl restart cc-plugin-coolerdash.service || echo "Note: Plugin restart failed."
     fi
 
     echo "================================================================"
@@ -62,16 +63,12 @@ post_install() {
 }
 
 post_upgrade() {
-    # Migrate helperd from /etc to /usr/lib
+    # Remove legacy helperd service (no longer part of this project)
     rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
     rm -f /etc/systemd/system/coolerdash-helperd.service
+    rm -f /usr/lib/systemd/system/coolerdash-helperd.service
 
     systemctl daemon-reload
-
-    # Enable helperd
-    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
-        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
-    fi
 
     # Restart plugin
     if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then

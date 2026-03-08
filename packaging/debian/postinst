@@ -8,16 +8,14 @@ case "$1" in
             chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
         fi
 
-        # Migrate helperd from /etc to /usr/lib
+        # Remove legacy helperd service (no longer part of this project)
         rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
         rm -f /etc/systemd/system/coolerdash-helperd.service
+        rm -f /usr/lib/systemd/system/coolerdash-helperd.service
 
         # Enable services
         if command -v systemctl >/dev/null 2>&1; then
             systemctl daemon-reload
-            if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
-                systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
-            fi
             if systemctl is-active --quiet coolercontrold.service; then
                 systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
             fi

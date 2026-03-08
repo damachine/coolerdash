@@ -92,8 +92,7 @@ typedef struct Config
 {
     // Daemon configuration
     char daemon_address[CONFIG_MAX_STRING_LEN];
-    char daemon_password[CONFIG_MAX_PASSWORD_LEN];
-    char access_token[CONFIG_MAX_STRING_LEN]; /**< CC 4.0 Bearer token (empty = use Basic Auth + session) */
+    char access_token[CONFIG_MAX_STRING_LEN]; /**< Bearer token for CoolerControl API authentication */
     int tls_skip_verify;                      /**< 1 = accept self-signed TLS certificates */
     char channel_name[32];                    /**< LCD channel name, default: "lcd" */
 

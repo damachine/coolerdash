@@ -5,8 +5,8 @@ SUDO ?= sudo
 REALOS ?= yes
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo jansson libcurl libsodium)
-LIBS = $(shell pkg-config --libs cairo jansson libcurl libsodium) -lm
+CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude $(shell pkg-config --cflags cairo jansson libcurl)
+LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 TARGET = coolerdash
 
 # Directories
@@ -110,41 +110,41 @@ install-deps:
 	case $$DISTRO in \
 		arch) \
             printf "$(GREEN)Installing dependencies for Arch Linux/Manjaro...$(RESET)\n"; \
-			$(SUDO) pacman -S --needed cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson libsodium || { \
+			$(SUDO) pacman -S --needed cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson libsodium\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson\n"; \
                 exit 1; \
             }; \
             ;; \
         debian) \
             printf "$(GREEN)Installing dependencies for Ubuntu/Debian...$(RESET)\n"; \
-			$(SUDO) apt update && $(SUDO) apt install -y libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev libsodium-dev || { \
+			$(SUDO) apt update && $(SUDO) apt install -y libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) apt install libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev libsodium-dev\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) apt install libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
                 exit 1; \
             }; \
             ;; \
         fedora) \
             printf "$(GREEN)Installing dependencies for Fedora...$(RESET)\n"; \
-			$(SUDO) dnf install -y cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel libsodium-devel || { \
+			$(SUDO) dnf install -y cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) dnf install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel libsodium-devel\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) dnf install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
                 exit 1; \
             }; \
             ;; \
         rhel) \
             printf "$(GREEN)Installing dependencies for RHEL/CentOS...$(RESET)\n"; \
-			$(SUDO) yum install -y cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel libsodium-devel || { \
+			$(SUDO) yum install -y cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) yum install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel libsodium-devel\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) yum install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
                 exit 1; \
             }; \
             ;; \
         opensuse) \
             printf "$(GREEN)Installing dependencies for openSUSE...$(RESET)\n"; \
-			$(SUDO) zypper install -y cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts libjansson-devel libsodium-devel || { \
+			$(SUDO) zypper install -y cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) zypper install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts libjansson-devel libsodium-devel\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) zypper install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
                 exit 1; \
             }; \
             ;; \
@@ -154,19 +154,19 @@ install-deps:
 			printf "$(YELLOW)Please install the following dependencies manually:$(RESET)\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Arch Linux / Manjaro:$(RESET)\n"; \
-			printf "  sudo pacman -S cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson libsodium\n"; \
+			printf "  sudo pacman -S cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Ubuntu / Debian:$(RESET)\n"; \
-			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev libsodium-dev\n"; \
+			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Fedora:$(RESET)\n"; \
-			printf "  sudo dnf install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel libsodium-devel\n"; \
+			printf "  sudo dnf install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 			printf "\n"; \
 			printf "$(WHITE)RHEL / CentOS:$(RESET)\n"; \
-			printf "  sudo yum install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel libsodium-devel\n"; \
+			printf "  sudo yum install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 			printf "\n"; \
 			printf "$(WHITE)openSUSE:$(RESET)\n"; \
-			printf "  sudo zypper install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts libjansson-devel libsodium-devel\n"; \
+			printf "  sudo zypper install cairo-devel libcurl-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
 			printf "\n"; \
 			exit 1; \
 			;; \
@@ -175,7 +175,7 @@ install-deps:
 # Check if required libs are available via pkg-config
 check-deps:
 	@MISSING=""; \
-	for dep in cairo libcurl jansson libsodium; do \
+	for dep in cairo libcurl jansson; do \
 		if ! pkg-config --exists $$dep >/dev/null 2>&1; then \
 			MISSING="$$MISSING $$dep"; \
 		fi; \
@@ -284,10 +284,6 @@ install: check-deps $(TARGET)
 	@install -m644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-	@install -Dm644 etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf "$(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf"
-	@install -Dm644 etc/systemd/coolerdash-helperd.service "$(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service"
-	@printf "  $(GREEN)Drop-in:$(RESET)       $(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"
-	@printf "  $(GREEN)Service:$(RESET)       $(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service\n"
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/usr/libexec/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html\n"
@@ -324,8 +320,11 @@ install: check-deps $(TARGET)
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
-		$(SUDO) systemctl enable --now coolerdash-helperd.service 2>/dev/null || true; \
 		$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true; \
+		$(SUDO) systemctl restart cc-plugin-coolerdash.service 2>/dev/null || true; \
+		$(SUDO) systemctl stop coolerdash-helperd.service 2>/dev/null || true; \
+		$(SUDO) systemctl disable coolerdash-helperd.service 2>/dev/null || true; \
+		$(SUDO) rm -f /usr/lib/systemd/system/coolerdash-helperd.service; \
 	fi
 	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
 	@printf "  $(PURPLE)Restart CoolerControl:$(RESET) systemctl restart coolercontrold.service\n"

@@ -5,6 +5,7 @@ case "$1" in
     remove|upgrade|deconfigure)
         # Stop services
         if command -v systemctl >/dev/null 2>&1; then
+            # Stop legacy helperd if still present from old installation
             if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
                 systemctl stop --no-block coolerdash-helperd.service
                 systemctl disable coolerdash-helperd.service

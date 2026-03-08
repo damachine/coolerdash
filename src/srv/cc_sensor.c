@@ -316,9 +316,8 @@ static void configure_status_request(CURL *curl, const char *url,
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0");
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
-    // POST data for status request
-    const char *post_data =
-        "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}";
+    /* all=false: only current status, no historical data */
+    const char *post_data = "{\"all\":false}";
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
 }
 
@@ -361,7 +360,6 @@ static int get_sensor_data_from_api(const Config *config,
     configure_status_request(curl, url, &response);
 
     cc_apply_tls_to_curl(curl, config);
-    cc_apply_session_cookies(curl);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");

@@ -387,9 +387,7 @@ static int parse_liquidctl_data(const char *json, char *lcd_uid,
 
 /**
  * @brief Configure CURL options for device cache request.
- * @details Sets URL, write callback, timeout, auth headers/cookies and TLS.
- *          Session cookies are injected so that authenticated endpoints
- *          (e.g. /devices on CC >= 3.1) work with this separate handle.
+ * @details Sets URL, write callback, timeout, auth headers and TLS.
  */
 static void configure_device_cache_curl(CURL *curl, const char *url,
                                         http_response *chunk,
@@ -408,7 +406,6 @@ static void configure_device_cache_curl(CURL *curl, const char *url,
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
 
     cc_apply_tls_to_curl(curl, config);
-    cc_apply_session_cookies(curl);
 }
 
 /**

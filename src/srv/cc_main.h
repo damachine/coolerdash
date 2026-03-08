@@ -21,10 +21,8 @@
 // cppcheck-suppress-end missingIncludeSystem
 
 #include "../device/config.h"
-#define CC_COOKIE_SIZE 512
 #define CC_UID_SIZE 128
 #define CC_URL_SIZE 512
-#define CC_USERPWD_SIZE 128
 #define CC_AUTH_HEADER_SIZE 320 /**< "Authorization: Bearer " (24) + token (256) + null */
 
 // Maximum safe allocation size to prevent overflow
@@ -52,22 +50,18 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb,
                       http_response *response);
 
 /**
- * @brief Initialise CURL session and authenticate with the CoolerControl daemon.
- * @details CC 4.0 (access_token set): skips login, uses Bearer token.
- *          CC 3.x: performs Basic Auth login and stores session cookie.
+ * @brief Initialise CURL session for the CoolerControl daemon (Bearer token auth).
  */
-int init_coolercontrol_session(const struct Config *config);
+int init_coolercontrol_session(void);
 
 /** Returns 1 if the CoolerControl session is ready for use. */
 int is_session_initialized(void);
 
-/** Release all CURL resources and remove the session cookie file. */
+/** Release all CURL resources. */
 void cleanup_coolercontrol_session(void);
 
 /**
- * @brief Upload a PNG image to the device LCD.
- * @details CC 4.0: JSON body with image_file_processed path.
- *          CC 3.x: multipart PUT to /lcd/images.
+ * @brief Upload a PNG image to the device LCD via JSON body.
  */
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
@@ -96,23 +90,5 @@ void cc_apply_tls_to_curl(CURL *curl, const struct Config *config);
  */
 struct curl_slist *cc_apply_auth_to_curl(struct curl_slist *headers,
                                          const struct Config *config);
-
-/**
- * @brief Register the shutdown image with CoolerControl (CC 4.0, one-shot on startup).
- * @details PUT /devices/{uid}/settings/{channel}/lcd/shutdown-image.
- * No-op if paths_image_shutdown does not exist.
- * @return 1 on success, 0 on failure or missing file
- */
-int register_shutdown_image(const struct Config *config, const char *device_uid);
-
-/**
- * @brief Copy session cookies from the global session handle to another CURL handle.
- * @details Enables the cookie engine on the target handle and injects all
- * cookies obtained during login. Used by subsystems that create their own
- * CURL handles but need authenticated access (e.g., device cache).
- * @param target CURL handle to receive the cookies.
- * @return 1 on success, 0 if session is uninitialised or no cookies available.
- */
-int cc_apply_session_cookies(CURL *target);
 
 #endif // CC_MAIN_H

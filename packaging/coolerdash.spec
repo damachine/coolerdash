@@ -78,14 +78,12 @@ fi
 if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
     chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
 fi
-# Migrate helperd from /etc to /usr/lib
+# Remove legacy helperd service (no longer part of this project)
 rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
 rm -f /etc/systemd/system/coolerdash-helperd.service
+rm -f /usr/lib/systemd/system/coolerdash-helperd.service
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
-    if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
-        systemctl enable --now coolerdash-helperd.service || echo "Note: coolerdash-helperd.service failed. Enable manually."
-    fi
     if systemctl is-active --quiet coolercontrold.service; then
         systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
     fi
@@ -93,6 +91,7 @@ fi
 
 %preun
 if command -v systemctl >/dev/null 2>&1; then
+    # Stop legacy helperd if still present from old installation
     if systemctl list-unit-files coolerdash-helperd.service | grep -q coolerdash-helperd; then
         systemctl stop --no-block coolerdash-helperd.service
         systemctl disable coolerdash-helperd.service
@@ -155,9 +154,6 @@ fi
 /usr/share/applications/coolerdash.desktop
 /usr/share/icons/hicolor/scalable/apps/coolerdash.svg
 /usr/lib/udev/rules.d/99-coolerdash.rules
-/usr/lib/systemd/system/coolerdash-helperd.service
-%dir /etc/systemd/system/cc-plugin-coolerdash.service.d
-/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf
 
 %changelog
 * %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1
