@@ -220,7 +220,7 @@ static void collect_device_channels(const json_t *device,
         {
             float watts = (float)json_number_value(watts_val);
             int n = snprintf(sensor_name, sizeof(sensor_name),
-                             "%s Power", ch_name);
+                             "%s Watts", ch_name);
             if (n > 0 && (size_t)n < sizeof(sensor_name))
                 add_sensor_entry(data, sensor_name, device_uid,
                                  device_type, SENSOR_CATEGORY_WATTS,
@@ -360,15 +360,26 @@ static int get_sensor_data_from_api(const Config *config,
 
     configure_status_request(curl, url, &response);
 
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    /* SSL options (apply_ssl_options handles http:// as no-op) */
+    apply_ssl_options(curl, config);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");
     headers = curl_slist_append(headers, "content-type: application/json");
+
+    /* Attach auth: Bearer token preferred, otherwise share session cookie */
+    const char *bearer = get_session_access_token();
+    if (bearer && bearer[0] != '\0')
+    {
+        headers = curl_slist_append(headers, bearer);
+    }
+    else
+    {
+        const char *cookie_jar = get_session_cookie_jar();
+        if (cookie_jar && cookie_jar[0] != '\0')
+            curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_jar);
+    }
+
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     int result = 0;

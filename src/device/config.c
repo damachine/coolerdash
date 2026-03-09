@@ -74,6 +74,8 @@ static void set_daemon_defaults(Config *config)
     {
         SAFE_STRCPY(config->daemon_password, "");
     }
+    /* access_token, tls_ca_cert_path default to empty string; tls_skip_verify defaults to 0 */
+    /* (already zeroed by memset in load_plugin_config) */
 }
 
 /**
@@ -653,6 +655,32 @@ static void load_daemon_from_json(json_t *root, Config *config)
         {
             SAFE_STRCPY(config->daemon_password, value);
         }
+    }
+
+    json_t *token = json_object_get(daemon, "access_token");
+    if (token && json_is_string(token) && json_string_length(token) > 0)
+    {
+        const char *value = json_string_value(token);
+        if (value)
+        {
+            SAFE_STRCPY(config->access_token, value);
+        }
+    }
+
+    json_t *ca_cert = json_object_get(daemon, "tls_ca_cert_path");
+    if (ca_cert && json_is_string(ca_cert) && json_string_length(ca_cert) > 0)
+    {
+        const char *value = json_string_value(ca_cert);
+        if (value)
+        {
+            SAFE_STRCPY(config->tls_ca_cert_path, value);
+        }
+    }
+
+    json_t *skip_verify = json_object_get(daemon, "tls_skip_verify");
+    if (skip_verify && json_is_boolean(skip_verify))
+    {
+        config->tls_skip_verify = json_is_true(skip_verify) ? 1 : 0;
     }
 }
 

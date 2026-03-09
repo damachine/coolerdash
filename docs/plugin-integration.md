@@ -2,13 +2,37 @@
 
 ## Overview
 
-CoolerDash is now fully integrated as a CoolerControl plugin with enhanced UI support.
+CoolerDash runs as a native CoolerControl plugin managed by `cc-plugin-coolerdash.service`. No separate systemd service or startup delay is needed. CoolerControl handles the plugin lifecycle.
 
-## New Features in 2.2.x
+## CC4 Integration
 
-### 1. Theme-Adaptive UI
+### Authentication
 
-The plugin UI now automatically adapts to the user's CoolerControl theme:
+CC4 uses Bearer Token authentication. Generate a token in CoolerControl UI under **Access Protection** and set it in `config.json`:
+
+```json
+"daemon": {
+    "access_token": "cc_<your-uuid-here>"
+}
+```
+
+CC3 fallback: leave `access_token` empty, set `password` instead.
+
+### Shutdown Image
+
+CoolerDash registers `shutdown.png` with CC4 once at startup:
+
+```
+PUT /devices/{uid}/settings/lcd/lcd/shutdown-image
+```
+
+CC4 stores the image server-side and displays it when CoolerControl stops. No helper daemon or `ExecStop` workaround needed.
+
+## Plugin UI
+
+### Theme-Adaptive UI
+
+The plugin UI automatically adapts to the user's CoolerControl theme:
 
 - **Dark/Light Theme Support** - Seamlessly integrates with user preferences
 - **Theme Color Variables** - Uses CoolerControl's native color system
@@ -24,9 +48,7 @@ The plugin UI now automatically adapts to the user's CoolerControl theme:
 --colors-accent       /* Accent/highlight color */
 ```
 
-### 2. Tailwind CSS Integration
-
-The UI leverages Tailwind CSS classes for rapid development:
+### Tailwind CSS
 
 ```html
 <div class="flex flex-col p-4 gap-2">
@@ -34,22 +56,18 @@ The UI leverages Tailwind CSS classes for rapid development:
 </div>
 ```
 
-### 3. PrimeIcons Support
-
-Consistent iconography using CoolerControl's icon library:
+### PrimeIcons
 
 ```html
 <i class="pi pi-save"></i>     <!-- Save icon -->
 <i class="pi pi-refresh"></i>  <!-- Refresh icon -->
 ```
 
-### 4. Manifest Enhancements
-
-The `manifest.toml` now includes:
+### Manifest
 
 ```toml
-version = "2.2.x"                              # Displayed in plugin list
-url = "https://github.com/damachine/coolerdash" # Link to project homepage
+version = "{{VERSION}}"
+url = "https://github.com/damachine/coolerdash"
 ```
 
 These fields are displayed on the CoolerControl plugin page, helping users:
@@ -59,18 +77,18 @@ These fields are displayed on the CoolerControl plugin page, helping users:
 
 ## Plugin UI Structure
 
-### Before (2.0.4 and earlier)
+### Before (2.x and earlier)
 
-- ❌ Hardcoded colors (didn't adapt to themes)
-- ❌ Custom CSS only (no Tailwind support)
-- ❌ Toast notifications (not standard in CC)
+- ❌ Hardcoded colors
+- ❌ Separate helperd service for shutdown
+- ❌ Custom CSS only
 
-### After (2.2.x)
+### Current (3.x)
 
-- ✅ Theme-adaptive colors using CSS variables
-- ✅ Tailwind CSS for consistent styling
-- ✅ Standard console logging (no custom toasts)
-- ✅ PrimeIcons for consistent iconography
+- ✅ Theme-adaptive colors via CSS variables
+- ✅ Tailwind CSS
+- ✅ Shutdown handled natively by CC4
+- ✅ PrimeIcons
 
 ## Configuration UI
 
@@ -151,10 +169,7 @@ If you're updating from an older version:
 
 ## Acknowledgments
 
-Special thanks to @codifryed (CoolerControl developer) for:
-- Providing the custom-device plugin as reference
-- Sharing information about theme colors and Tailwind CSS support
-- Implementing the version/url manifest fields
+Special thanks to @codifryed (CoolerControl developer) for the custom-device plugin reference and CC4 API design.
 
 ## Related Documentation
 

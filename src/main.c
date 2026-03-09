@@ -39,7 +39,6 @@
 
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
-#define SHUTDOWN_RETRY_COUNT 2
 #define VERSION_BUFFER_SIZE 32
 
 /**
@@ -57,9 +56,6 @@ int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
 // Developer/testing flag: when set (via --develop), force displays to be
 // treated as circular
 int force_display_circular = 0;
-
-// CLI mode: send shutdown image and exit
-int send_shutdown_only = 0;
 
 /**
  * @brief Global pointer to configuration.
@@ -204,8 +200,7 @@ static void show_help(const char *program_name)
     printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 "
            "seconds)\n");
     printf("  --develop         Developer: force display to be treated as "
-           "circular for testing\n");
-    printf("  --shutdown         Send shutdown image to device and exit (use with systemd ExecStop)\n\n");
+           "circular for testing\n\n");
     printf("DISPLAY MODES:\n");
     printf(
         "  dual              Default mode - shows CPU and GPU simultaneously\n");
@@ -221,8 +216,6 @@ static void show_help(const char *program_name)
            program_name);
     printf("  %s --circle                       # Standalone with circle mode "
            "(alternating display)\n",
-           program_name);
-    printf("  %s --shutdown               # Send shutdown image and exit\n",
            program_name);
     printf("  %s --dual --verbose               # Force dual mode with detailed "
            "logging\n",
@@ -291,88 +284,6 @@ static void show_system_diagnostics(const Config *config, int api_width,
 
     log_message(LOG_STATUS, "Refresh interval: %.2f seconds",
                 config->display_refresh_interval);
-}
-
-/**
- * @brief Validate session and configuration for shutdown image.
- * @details Checks if session is initialized and configuration is valid.
- */
-static int validate_shutdown_conditions(void)
-{
-    if (!is_session_initialized() || !g_config_ptr)
-    {
-        return 0;
-    }
-    return 1;
-}
-
-/**
- * @brief Get device UID for shutdown operation.
- * @details Retrieves device UID from liquidctl data.
- */
-static int get_device_uid_for_shutdown(char *device_uid, size_t uid_size)
-{
-    if (!get_liquidctl_data(g_config_ptr, device_uid, uid_size, NULL, 0, NULL,
-                            NULL) ||
-        !device_uid[0])
-    {
-        return 0;
-    }
-    return 1;
-}
-
-/**
- * @brief Send shutdown image if needed or turn off LCD if image is missing.
- * @details Checks if shutdown image should be sent to LCD device and performs
- * the transmission if conditions are met. If shutdown image is missing, sets
- * LCD brightness to 0 to turn off the display.
- */
-static void send_shutdown_image_if_needed(void)
-{
-    if (!validate_shutdown_conditions())
-    {
-        return;
-    }
-
-    char device_uid[128];
-    if (!get_device_uid_for_shutdown(device_uid, sizeof(device_uid)))
-    {
-        return;
-    }
-
-    const char *shutdown_image_path = g_config_ptr->paths_image_shutdown;
-    if (!shutdown_image_path || !shutdown_image_path[0])
-    {
-        return;
-    }
-
-    FILE *image_file = fopen(shutdown_image_path, "r");
-    if (image_file)
-    {
-        fclose(image_file);
-        // Use blocking upload with timeout and retries to ensure image is sent
-        if (!send_image_to_lcd_blocking(g_config_ptr, shutdown_image_path,
-                                        device_uid, 5, SHUTDOWN_RETRY_COUNT))
-        {
-            log_message(LOG_WARNING, "Shutdown image upload failed after retries");
-        }
-    }
-    else
-    {
-        // Turn off display using blocking upload to ensure it reaches device
-        Config temp_config = *g_config_ptr;
-        temp_config.lcd_brightness = 0;
-
-        const char *fallback_image = g_config_ptr->paths_image_coolerdash;
-        if (fallback_image && fallback_image[0])
-        {
-            if (!send_image_to_lcd_blocking(&temp_config, fallback_image,
-                                            device_uid, 5, SHUTDOWN_RETRY_COUNT))
-            {
-                log_message(LOG_WARNING, "Fallback shutdown action failed after retries");
-            }
-        }
-    }
 }
 
 /**
@@ -559,10 +470,6 @@ static const char *parse_arguments(int argc, char **argv,
             force_display_circular = 1;
             verbose_logging = 1; // Developer mode implies verbose logging
         }
-        else if (strcmp(argv[i], "--shutdown") == 0)
-        {
-            send_shutdown_only = 1;
-        }
         else if (argv[i][0] != '-')
         {
             config_path = argv[i];
@@ -730,13 +637,12 @@ static void initialize_device_info(Config *config)
 
 /**
  * @brief Perform cleanup operations.
- * @details Removes PID and image files, sends shutdown image, closes
- * CoolerControl session.
+ * @details Removes image files and closes CoolerControl session.
+ * Shutdown image is handled by CC4 natively via register_shutdown_image_with_cc().
  */
 static void perform_cleanup(const Config *config)
 {
     log_message(LOG_INFO, "Daemon shutdown initiated");
-    send_shutdown_image_if_needed();
 
     // Close CoolerControl session and free resources
     cleanup_coolercontrol_session();
@@ -790,11 +696,18 @@ int main(int argc, char **argv)
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
     initialize_device_info(&config);
 
-    if (send_shutdown_only)
+    /* CC4: Register shutdown.png once at startup so CoolerControl displays
+     * it natively when the CC daemon stops (MR !417 / CC 4.0). */
+    if (config.paths_image_shutdown[0])
     {
-        log_message(LOG_STATUS, "Shutdown mode: performing cleanup (send image) and exiting");
-        perform_cleanup(&config);
-        return EXIT_SUCCESS;
+        char device_uid[128] = {0};
+        if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
+                               NULL, 0, NULL, NULL) && device_uid[0])
+        {
+            register_shutdown_image_with_cc(&config,
+                                            config.paths_image_shutdown,
+                                            device_uid);
+        }
     }
 
     log_message(LOG_STATUS, "Starting daemon");

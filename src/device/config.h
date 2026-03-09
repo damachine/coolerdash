@@ -23,6 +23,7 @@
 // Configuration constants
 #define CONFIG_MAX_STRING_LEN 256
 #define CONFIG_MAX_PASSWORD_LEN 128
+#define CONFIG_MAX_TOKEN_LEN 64
 #define CONFIG_MAX_PATH_LEN 512
 #define CONFIG_MAX_FONT_NAME_LEN 64
 #define CONFIG_MAX_SENSOR_SLOT_LEN 256
@@ -93,6 +94,9 @@ typedef struct Config
     // Daemon configuration
     char daemon_address[CONFIG_MAX_STRING_LEN];
     char daemon_password[CONFIG_MAX_PASSWORD_LEN];
+    char access_token[CONFIG_MAX_TOKEN_LEN];
+    char tls_ca_cert_path[CONFIG_MAX_PATH_LEN];
+    int  tls_skip_verify;
 
     // Paths configuration
     char paths_images[CONFIG_MAX_PATH_LEN];

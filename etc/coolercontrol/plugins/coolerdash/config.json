@@ -3,7 +3,10 @@
 
   "daemon": {
     "address": "http://localhost:11987",
-    "password": "coolAdmin"
+    "access_token": "",
+    "_comment_token": "CC4: Create token in UI → Access Protection. Format: cc_<uuid>. Preferred over password.",
+    "password": "coolAdmin",
+    "_comment_password": "Legacy CC3 / fallback. Ignored when access_token is set."
   },
 
   "paths": {

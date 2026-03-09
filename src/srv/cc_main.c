@@ -85,6 +85,7 @@ typedef struct
 {
     CURL *curl_handle;
     char cookie_jar[CC_COOKIE_SIZE];
+    char access_token[CC_BEARER_HEADER_SIZE];
     int session_initialized;
 } CoolerControlSession;
 
@@ -94,7 +95,7 @@ typedef struct
  * handle and session initialization status.
  */
 static CoolerControlSession cc_session = {
-    .curl_handle = NULL, .cookie_jar = {0}, .session_initialized = 0};
+    .curl_handle = NULL, .cookie_jar = {0}, .access_token = {0}, .session_initialized = 0};
 
 /**
  * @brief Reallocate response buffer if needed.
@@ -151,6 +152,9 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb,
 
     return realsize;
 }
+
+/* Forward declaration — definition is after cleanup_coolercontrol_session() */
+void apply_ssl_options(void *curl_raw, const struct Config *config);
 
 /**
  * @brief Validate snprintf result for buffer overflow.
@@ -210,11 +214,7 @@ static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    apply_ssl_options(curl, config);
 
     return headers;
 }
@@ -236,6 +236,26 @@ static int is_login_successful(CURLcode res, long response_code)
  */
 int init_coolercontrol_session(const Config *config)
 {
+    /* --- Bearer Token path: skip login entirely --- */
+    if (config->access_token[0] != '\0')
+    {
+        int written = snprintf(cc_session.access_token, sizeof(cc_session.access_token),
+                               "Authorization: Bearer %s", config->access_token);
+        if (written < 0 || (size_t)written >= sizeof(cc_session.access_token))
+            cc_session.access_token[sizeof(cc_session.access_token) - 1] = '\0';
+
+        /* We still need a CURL handle for LCD uploads */
+        curl_global_init(CURL_GLOBAL_DEFAULT);
+        cc_session.curl_handle = curl_easy_init();
+        if (!cc_session.curl_handle)
+            return 0;
+
+        cc_session.session_initialized = 1;
+        log_message(LOG_STATUS, "Session initialized using Bearer token (CC4)");
+        return 1;
+    }
+
+    /* --- Basic Auth / Cookie path (CC3 / fallback) --- */
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
     if (!cc_session.curl_handle)
@@ -328,6 +348,58 @@ void cleanup_coolercontrol_session(void)
     if (all_cleaned)
     {
         cleanup_done = 1;
+    }
+}
+
+/**
+ * @brief Returns the active Bearer auth header string (or empty string).
+ */
+const char *get_session_access_token(void)
+{
+    return cc_session.access_token;
+}
+
+/**
+ * @brief Returns the session cookie jar path.
+ */
+const char *get_session_cookie_jar(void)
+{
+    return cc_session.cookie_jar;
+}
+
+/**
+ * @brief Apply TLS/SSL options to a CURL handle based on config.
+ * @details Localhost always uses plain HTTP; for HTTPS addresses this sets
+ *          peer/host verification and optional custom CA cert or skip flag.
+ */
+void apply_ssl_options(void *curl_raw, const struct Config *config)
+{
+    if (!curl_raw || !config)
+        return;
+
+    CURL *curl = (CURL *)curl_raw;
+
+    /* Plain HTTP → nothing to do */
+    if (strncmp(config->daemon_address, "https://", 8) != 0)
+        return;
+
+    if (config->tls_skip_verify)
+    {
+        log_message(LOG_WARNING,
+                    "TLS peer verification disabled (tls_skip_verify=true) — insecure!");
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        return;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+
+    if (config->tls_ca_cert_path[0] != '\0')
+    {
+        curl_easy_setopt(curl, CURLOPT_CAINFO, config->tls_ca_cert_path);
+        log_message(LOG_INFO, "TLS: using custom CA cert: %s",
+                    config->tls_ca_cert_path);
     }
 }
 
@@ -474,11 +546,7 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
 
     // Enable SSL verification for HTTPS
-    if (strncmp(config->daemon_address, "https://", 8) == 0)
-    {
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYPEER, 1L);
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_SSL_VERIFYHOST, 2L);
-    }
+    apply_ssl_options(cc_session.curl_handle, config);
 
     // Set write callback
     curl_easy_setopt(
@@ -490,6 +558,13 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
     headers = curl_slist_append(headers, "Accept: application/json");
+
+    // Attach auth: Bearer token preferred, otherwise rely on session cookie
+    if (cc_session.access_token[0] != '\0')
+    {
+        headers = curl_slist_append(headers, cc_session.access_token);
+    }
+
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
 
     return headers;
@@ -592,45 +667,83 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 }
 
 /**
- * @brief Blocking wrapper for `send_image_to_lcd` with timeout and retries.
- * @details Temporarily sets CURLOPT_TIMEOUT and CURLOPT_CONNECTTIMEOUT on the
- * global CURL handle, attempts the upload up to `retries` times and restores
- * timeouts to defaults after completion.
+ * @brief Register shutdown image with CC4's persistent LCD shutdown endpoint.
+ * @details Called once at daemon startup. Uploads shutdown.png to
+ * PUT /devices/{uid}/settings/lcd/lcd/shutdown-image so CoolerControl
+ * displays it automatically whenever the CC daemon itself stops.
+ * Gracefully skips if the endpoint is unavailable (CC3 / pre-CC4).
  */
-int send_image_to_lcd_blocking(const Config *config, const char *image_path,
-                               const char *device_uid, int timeout_seconds,
-                               int retries)
+int register_shutdown_image_with_cc(const Config *config,
+                                    const char *image_path,
+                                    const char *device_uid)
 {
     if (!validate_upload_params(image_path, device_uid))
         return 0;
 
-    if (timeout_seconds <= 0)
-        timeout_seconds = 5; // sensible default
-    if (retries <= 0)
-        retries = 1;
+    if (!image_path || !image_path[0])
+        return 1;
 
-    int attempt;
-    int success = 0;
-
-    for (attempt = 0; attempt < retries; attempt++)
+    /* Verify the file exists before attempting to upload */
+    FILE *f = fopen(image_path, "r");
+    if (!f)
     {
-        // Set conservative timeouts for shutdown path
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
-                         (long)timeout_seconds);
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
-                         (long)(timeout_seconds / 2 > 0 ? timeout_seconds / 2 : 1));
+        log_message(LOG_WARNING,
+                    "CC4 shutdown registration skipped: image not found: %s",
+                    image_path);
+        return 0;
+    }
+    fclose(f);
 
-        success = send_image_to_lcd(config, image_path, device_uid);
-        if (success)
-            break;
+    char upload_url[CC_URL_SIZE];
+    int written = snprintf(upload_url, sizeof(upload_url),
+                           "%s/devices/%s/settings/lcd/lcd/shutdown-image",
+                           config->daemon_address, device_uid);
+    if (written < 0 || (size_t)written >= sizeof(upload_url))
+        return 0;
 
-        log_message(LOG_WARNING, "Shutdown upload attempt %d/%d failed",
-                    attempt + 1, retries);
+    curl_mime *form = build_lcd_upload_form(config, image_path);
+    if (!form)
+        return 0;
+
+    http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096))
+    {
+        curl_mime_free(form);
+        return 0;
     }
 
-    // Restore to no timeout (behaviour prior to explicit shutdown upload)
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 0L);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 0L);
+    struct curl_slist *headers =
+        configure_lcd_upload_curl(config, upload_url, form, &response);
+
+    CURLcode res = curl_easy_perform(cc_session.curl_handle);
+    long http_code = -1;
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
+
+    int success = 0;
+    if (res == CURLE_OK && (http_code == 200 || http_code == 204))
+    {
+        log_message(LOG_STATUS,
+                    "Shutdown image registered with CC4 (HTTP %ld)", http_code);
+        success = 1;
+    }
+    else if (res == CURLE_OK && http_code == 404)
+    {
+        log_message(LOG_WARNING,
+                    "CC4 shutdown image endpoint not available (HTTP 404) "
+                    "- requires CoolerControl 4.0 or later");
+    }
+    else
+    {
+        log_message(LOG_WARNING,
+                    "Shutdown image registration failed: CURL %d, HTTP %ld",
+                    res, http_code);
+    }
+
+    cc_cleanup_response_buffer(&response);
+    if (headers)
+        curl_slist_free_all(headers);
+    curl_mime_free(form);
+    cleanup_lcd_upload_curl();
 
     return success;
 }

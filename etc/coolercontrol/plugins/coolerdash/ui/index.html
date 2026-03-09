@@ -577,7 +577,7 @@
             <div class="panel active">
                 <div class="alert">
                     <strong>CoolerControl API</strong>
-                    Make sure CoolerControl is running and the API is reachable.
+                    Make sure CoolerControl is running and the API address below is reachable.
                 </div>
 
                 <div class="form-group">
@@ -585,11 +585,50 @@
                     <span class="form-hint">HTTP or HTTPS supported (Default: http://localhost:11987)</span>
                     <input type="text" name="daemon.address" class="form-control" required>
                 </div>
+
+                <h3 class="section-title">Authentication &mdash; CC4 (Bearer Token)</h3>
+                <div class="alert alert-warning">
+                    <strong>CoolerControl 4.0 requires API authentication.</strong>
+                    <ol style="margin: 10px 0 0 20px; padding: 0; font-size: 13px; color: var(--text-dim); line-height: 1.9;">
+                        <li>Open the <strong>CoolerControl UI</strong></li>
+                        <li>Bottom-left corner &rarr; &#x1F512; <strong>Access Protection &rarr; Access Tokens</strong></li>
+                        <li>Generate a new Access Token</li>
+                        <li>Copy your token key (<code style="font-size:12px;">cc_&hellip;</code>)</li>
+                        <li>Paste the token in the <em>Access Token</em> field below</li>
+                    </ol>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Access Token</label>
+                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). Leave empty to fall back to password auth (Legacy / CC3).</span>
+                    <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                </div>
+
+                <h3 class="section-title">Authentication &mdash; Legacy / CC3 (Password)</h3>
                 <div class="form-group">
                     <label class="form-label">API Password</label>
-                    <span class="form-hint">Leave empty if authentication is disabled (Default: coolAdmin)</span>
+                    <span class="form-hint">Only used when no Access Token is set. Default: coolAdmin</span>
                     <input type="password" name="daemon.password" class="form-control">
                 </div>
+
+                <h3 class="section-title">TLS / HTTPS (Optional)</h3>
+                <div class="grid grid-2" style="align-items: start;">
+                    <div class="form-group">
+                        <label class="form-label">CA Certificate Path</label>
+                        <span class="form-hint">CA certificate for self-signed HTTPS (e.g. /etc/coolercontrol/coolercontrol.crt)</span>
+                        <input type="text" name="daemon.tls_ca_cert_path" class="form-control" placeholder="/etc/coolercontrol/coolercontrol.crt">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Skip TLS Verification</label>
+                        <span class="form-hint">Insecure &mdash; only use when no CA certificate is available.</span>
+                        <select name="daemon.tls_skip_verify" class="form-control">
+                            <option value="0">No (verify certificate &mdash; recommended)</option>
+                            <option value="1">Yes (skip verification)</option>
+                        </select>
+                    </div>
+                </div>
+                <p class="form-hint" style="margin-top: 2px; margin-bottom: 0;">
+                    TLS options affect the CoolerDash daemon only &mdash; not this browser UI. Localhost always uses plain HTTP.
+                </p>
             </div>
 
             <!-- Tab 1: Display -->
@@ -728,6 +767,13 @@
                         <span class="form-hint">Default: 0.707</span>
                         <input type="number" name="display.inscribe_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
+                </div>
+
+                <h3 class="section-title">Shutdown Image</h3>
+                <div class="form-group">
+                    <label class="form-label">Shutdown Image Path</label>
+                    <span class="form-hint">Displayed on the LCD when the daemon stops. Default: /etc/coolercontrol/plugins/coolerdash/shutdown.png</span>
+                    <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
             </div>
 
@@ -917,26 +963,19 @@
             <div class="panel">
                 <div class="alert">
                     <strong>Sensor Configuration</strong>
-                    Configure thresholds, bar colors, and position offsets for each sensor assigned to a display slot.
-                    New sensors are automatically added when assigned in the Display tab.
+                    Configure thresholds, bar colors, and position offsets for every sensor.
+                    Standard sensors (CPU, GPU, Liquid) are always shown at the top. All sensors discovered from the CC4 API are listed automatically below.
                 </div>
+                <div id="sensor-discovery-status" style="margin-bottom: 16px; display: none;"></div>
                 <div id="sensor-config-container">
                     <p style="color: var(--text-dim); text-align: center; padding: 20px;">
-                        Loading sensor configurations...
+                        Discovering sensors from CoolerControl API&hellip;
                     </p>
                 </div>
             </div>
 
             <!-- Tab 5: Advanced -->
             <div class="panel">
-                <h3 class="section-title">Image Paths</h3>
-
-                <div class="form-group">
-                    <label class="form-label">Shutdown Image</label>
-                    <span class="form-hint">Image displayed when daemon stops (Default: /etc/coolercontrol/plugins/coolerdash/shutdown.png)</span>
-                    <input type="text" name="paths.image_shutdown" class="form-control">
-                </div>
-
                 <h3 class="section-title">Backup &amp; Restore</h3>
                 <div class="alert">
                     <strong>Configuration Backup</strong>
@@ -1084,7 +1123,10 @@
         const FACTORY_DEFAULTS = {
             daemon: {
                 address: "http://localhost:11987",
-                password: "coolAdmin"
+                access_token: "",
+                password: "coolAdmin",
+                tls_ca_cert_path: "",
+                tls_skip_verify: false
             },
             paths: {
                 image_shutdown: "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
@@ -1253,26 +1295,73 @@
             window.runPluginScript = function(mainFunction) { mainFunction(); };
         }
 
-        // ===== SENSOR DISCOVERY =====
-        async function discoverSensors(apiAddress, password) {
-            try {
-                const headers = { 'Content-Type': 'application/json' };
-                if (password) {
-                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
-                }
+        // Fallback for getDevices() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
+        // Inside CC4's sandboxed iframe, cc-plugin-lib.js provides the real getDevices() via postMessage.
+        if (typeof getDevices === 'undefined') {
+            window.getDevices = async function() {
+                var headers = makeAuthHeaders(lastApiToken, lastApiPassword);
+                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
+                if (!res.ok) return { devices: [] };
+                return res.json();
+            };
+        }
 
-                // GET /devices for device names
-                const devRes = await fetch(apiAddress + '/devices', { headers: password ? { 'Authorization': headers['Authorization'] } : {} });
-                const devData = devRes.ok ? await devRes.json() : { devices: [] };
+        // Fallback for getStatus() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
+        if (typeof getStatus === 'undefined') {
+            window.getStatus = async function() {
+                var headers = makeAuthHeaders(lastApiToken, lastApiPassword);
+                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            };
+        }
+
+        // ===== AUTH HEADER HELPER =====
+        function makeAuthHeaders(token, password) {
+            var t = (token || '').trim();
+            var p = (password || '').trim();
+            if (t) return { 'Authorization': 'Bearer ' + t };
+            if (p) return { 'Authorization': 'Basic ' + btoa('CCAdmin:' + p) };
+            return {};
+        }
+
+        // ===== SENSOR DISCOVERY =====
+        function setSensorDiscoveryStatus(type, html) {
+            var el = document.getElementById('sensor-discovery-status');
+            if (!el) return;
+            el.style.display = 'block';
+            if (type === 'error') {
+                el.style.background = 'rgba(233, 69, 96, 0.08)';
+                el.style.borderLeft = '4px solid var(--accent)';
+            } else if (type === 'warn') {
+                el.style.background = 'rgba(255, 140, 0, 0.10)';
+                el.style.borderLeft = '4px solid #ff8c00';
+            } else {
+                el.style.background = 'rgba(34, 197, 94, 0.08)';
+                el.style.borderLeft = '4px solid var(--success)';
+            }
+            el.style.padding = '12px 16px';
+            el.style.borderRadius = '6px';
+            el.style.fontSize = '13px';
+            el.innerHTML = html;
+        }
+
+        async function discoverSensors(apiAddress, token, password) {
+            // Keep global auth state in sync so that getDevices/getStatus fallbacks can use it
+            lastApiAddress = apiAddress;
+            lastApiToken = token;
+            lastApiPassword = password;
+
+            try {
+                // Use cc-plugin-lib functions (bypasses CORS sandbox in CC4 iframe).
+                // Falls back to direct fetch in dev/browser mode via the fallback definitions above.
+                const devData = await getDevices();
                 const deviceNames = {};
                 for (const dev of (devData.devices || [])) {
                     if (dev.uid) deviceNames[dev.uid] = dev.name || dev.uid;
                 }
 
-                // POST /status for current sensor data
-                const statusRes = await fetch(apiAddress + '/status', { method: 'POST', headers, body: '{}' });
-                if (!statusRes.ok) return;
-                const statusData = await statusRes.json();
+                const statusData = await getStatus();
 
                 const sensors = [];
                 for (const dev of (statusData.devices || [])) {
@@ -1340,13 +1429,53 @@
 
                 discoveredSensors = sensors;
                 updateSensorSlotOptions();
-                // Re-render sensor configs to update display names
-                if (Object.keys(currentSensorConfig).length > 0) {
-                    renderSensorConfigs({ sensors: currentSensorConfig });
+                // Re-render sensor configs to show all discovered CC4 sensors
+                renderSensorConfigs({ sensors: currentSensorConfig });
+
+                if (sensors.length === 0) {
+                    setSensorDiscoveryStatus('warn',
+                        '<strong>No extra sensors found</strong> &mdash; CoolerControl API is reachable, but returned no temperature or channel data.<br>' +
+                        '<span style="color:var(--text-dim)">Only Standard sensors (CPU, GPU, Liquid) are shown. ' +
+                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
+                    );
+                } else {
+                    setSensorDiscoveryStatus('ok',
+                        '&#x2714; <strong>' + sensors.length + ' sensor(s) discovered</strong> from CoolerControl API &mdash; see &ldquo;CC4 Sensors&rdquo; section below. ' +
+                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0;text-decoration:underline;">Refresh</button>'
+                    );
                 }
             } catch (error) {
                 console.warn('Sensor discovery failed:', error);
+                setSensorDiscoveryStatus('error',
+                    '<strong>CC4 Sensor Discovery failed</strong> &mdash; ' + escapeHtml(error.message) + '.<br>' +
+                    '<span style="color:var(--text-dim)">Make sure CoolerControl is running and the API address in the <strong>Connection</strong> tab is correct. ' +
+                    '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
+                );
             }
+        }
+
+        function retrySensorDiscovery() {
+            var apiAddr = lastApiAddress || 'http://localhost:11987';
+            var apiToken = lastApiToken || '';
+            var apiPass = lastApiPassword || '';
+            // Also read current form values in case they were just changed
+            var addrInput = document.querySelector('[name="daemon.address"]');
+            var tokenInput = document.querySelector('[name="daemon.access_token"]');
+            var passInput = document.querySelector('[name="daemon.password"]');
+            if (addrInput && addrInput.value) apiAddr = addrInput.value;
+            if (tokenInput) apiToken = tokenInput.value;
+            if (passInput) apiPass = passInput.value;
+            var statusEl = document.getElementById('sensor-discovery-status');
+            if (statusEl) {
+                statusEl.style.display = 'block';
+                statusEl.style.background = 'rgba(45, 66, 99, 0.3)';
+                statusEl.style.borderLeft = '4px solid var(--border)';
+                statusEl.style.padding = '12px 16px';
+                statusEl.style.borderRadius = '6px';
+                statusEl.style.fontSize = '13px';
+                statusEl.innerHTML = 'Discovering sensors&hellip;';
+            }
+            discoverSensors(apiAddr, apiToken, apiPass);
         }
 
         function updateSensorSlotOptions() {
@@ -1473,7 +1602,13 @@
 
             var sensors = config.sensors || {};
 
-            // Ensure all discovered sensors have a config entry
+            // Always ensure legacy standard sensors have config entries
+            var legacyDefaults = ['cpu', 'gpu', 'liquid'];
+            for (var li = 0; li < legacyDefaults.length; li++) {
+                if (!sensors[legacyDefaults[li]]) sensors[legacyDefaults[li]] = getDefaultSensorConfig(legacyDefaults[li]);
+            }
+
+            // Ensure all discovered CC4 sensors have a config entry
             for (var d = 0; d < discoveredSensors.length; d++) {
                 var dsId = discoveredSensors[d].id;
                 if (!sensors[dsId]) {
@@ -1508,14 +1643,37 @@
             });
 
             if (sensorIds.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 20px;">No sensor configurations found. Assign sensors in the Display tab.</p>';
+                container.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 20px;">No sensors found. Make sure CoolerControl is running and reachable.</p>';
                 return;
             }
 
             container.innerHTML = '';
 
+            // Track group transitions: legacy sensors first, then all CC4-discovered sensors
+            var addedStdHeader = false;
+            var addedDynHeader = false;
+
             for (var si = 0; si < sensorIds.length; si++) {
                 var sensorId = sensorIds[si];
+
+                // Insert group header on first legacy sensor
+                if (!addedStdHeader && legacyOrder.hasOwnProperty(sensorId)) {
+                    addedStdHeader = true;
+                    var stdHdr = document.createElement('div');
+                    stdHdr.className = 'section-title';
+                    stdHdr.style.marginTop = '0';
+                    stdHdr.textContent = 'Standard Sensors';
+                    container.appendChild(stdHdr);
+                }
+                // Insert group header on first dynamically discovered sensor
+                else if (!addedDynHeader && !legacyOrder.hasOwnProperty(sensorId)) {
+                    addedDynHeader = true;
+                    var dynHdr = document.createElement('div');
+                    dynHdr.className = 'section-title';
+                    dynHdr.textContent = 'CC4 Sensors  (' + (sensorIds.length - si) + ' discovered)';
+                    container.appendChild(dynHdr);
+                }
+
                 var sc = sensors[sensorId];
                 var safeName = sensorId.replace(/[^a-zA-Z0-9]/g, '_');
                 var displayName = escapeHtml(getSensorDisplayName(sensorId));
@@ -1715,10 +1873,12 @@
 
         // ===== DEVICE DETECTION =====
         var lastApiAddress = '';
+        var lastApiToken = '';
         var lastApiPassword = '';
 
-        async function fetchDeviceInfo(apiAddress, password) {
+        async function fetchDeviceInfo(apiAddress, token, password) {
             lastApiAddress = apiAddress;
+            lastApiToken = token;
             lastApiPassword = password;
 
             var loadingEl = document.getElementById('device-loading');
@@ -1730,19 +1890,14 @@
             errorEl.style.display = 'none';
 
             try {
-                var headers = {};
-                if (password) {
-                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
-                }
-                var response = await fetch(apiAddress + '/devices', { headers: headers });
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                var data = await response.json();
+                // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                var data = await getDevices();
 
                 var devices = data.devices || [];
                 var found = null;
                 for (var i = 0; i < devices.length; i++) {
                     var dev = devices[i];
-                    var dtype = dev.type || '';
+                    var dtype = dev.d_type || dev.type || '';
                     if (dtype === 'Liquidctl') {
                         var lcdInfo = dev.info && dev.info.channels && dev.info.channels.lcd && dev.info.channels.lcd.lcd_info;
                         if (lcdInfo && lcdInfo.screen_width > 0 && lcdInfo.screen_height > 0) {
@@ -1816,39 +1971,40 @@
         }
 
         function refreshDeviceInfo() {
-            fetchDeviceInfo(lastApiAddress, lastApiPassword);
+            fetchDeviceInfo(lastApiAddress, lastApiToken, lastApiPassword);
         }
 
-        async function fetchSystemInfo(apiAddress, password) {
+        async function fetchSystemInfo(apiAddress, token, password) {
             try {
-                var headers = {};
-                if (password) {
-                    headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
+                lastApiAddress = apiAddress;
+                lastApiToken = token;
+                lastApiPassword = password;
+
+                // /health has no cc-plugin-lib equivalent; only fetch it in dev/browser mode
+                if (!isInCoolerControl) {
+                    var headers = makeAuthHeaders(token, password);
+                    var healthRes = await fetch(apiAddress + '/health', { headers: headers });
+                    if (healthRes.ok) {
+                        var health = await healthRes.json();
+                        var ccVersion = (health.details && health.details.version) || '\u2014';
+                        document.getElementById('sys-cc-version').textContent = ccVersion;
+                    }
                 }
 
-                var healthRes = await fetch(apiAddress + '/health', { headers: headers });
-                if (healthRes.ok) {
-                    var health = await healthRes.json();
-                    var ccVersion = (health.details && health.details.version) || '\u2014';
-                    document.getElementById('sys-cc-version').textContent = ccVersion;
+                // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                var data = await getDevices();
+                var devices = data.devices || [];
+                var kernel = '';
+                for (var i = 0; i < devices.length; i++) {
+                    var drvType = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.drv_type;
+                    var ver = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.version;
+                    if (drvType === 'Kernel' && ver) {
+                        kernel = ver;
+                        break;
+                    }
                 }
-
-                var devRes = await fetch(apiAddress + '/devices', { headers: headers });
-                if (devRes.ok) {
-                    var data = await devRes.json();
-                    var devices = data.devices || [];
-                    var kernel = '';
-                    for (var i = 0; i < devices.length; i++) {
-                        var drvType = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.drv_type;
-                        var ver = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.version;
-                        if (drvType === 'Kernel' && ver) {
-                            kernel = ver;
-                            break;
-                        }
-                    }
-                    if (kernel) {
-                        document.getElementById('sys-kernel').textContent = kernel;
-                    }
+                if (kernel) {
+                    document.getElementById('sys-kernel').textContent = kernel;
                 }
             } catch (error) {
                 console.warn('System info fetch failed:', error);
@@ -1996,6 +2152,9 @@
             // Sensor configs from dynamic form sections
             config.sensors = collectSensorConfigsFromDOM();
 
+            // Convert tls_skip_verify to boolean for JSON compatibility with C daemon
+            if (config.daemon) config.daemon.tls_skip_verify = !!config.daemon.tls_skip_verify;
+
             return config;
         }
 
@@ -2107,16 +2266,23 @@
         }
 
         async function restartPluginDaemon(config) {
+            // CC4 restarts cc-plugin-coolerdash.service automatically when the plugin
+            // config is updated via PUT /plugins/{id}/config (text/plain as per CC4 API spec).
+            // This function triggers that restart by re-uploading the current config.
             try {
                 var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var token = (config.daemon && config.daemon.access_token) || '';
                 var password = (config.daemon && config.daemon.password) || '';
-                var headers = { 'Content-Type': 'application/json' };
-                if (password) headers['Authorization'] = 'Basic ' + btoa('admin:' + password);
+                var authHdr = makeAuthHeaders(token, password);
 
-                var response = await fetch(apiAddress + '/plugins/coolerdash/restart', { method: 'POST', headers: headers });
-                if (!response.ok) console.warn("Could not restart plugin automatically");
+                var response = await fetch(apiAddress + '/plugins/coolerdash/config', {
+                    method: 'PUT',
+                    headers: Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, authHdr),
+                    body: JSON.stringify(config, null, 2)
+                });
+                if (!response.ok) console.warn('Could not trigger plugin restart via config update: HTTP ' + response.status);
             } catch (error) {
-                console.error("Plugin restart failed:", error);
+                console.error('Plugin restart trigger failed:', error);
             }
         }
 
@@ -2145,12 +2311,15 @@
         async function writeConfigToFile(config) {
             try {
                 var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var token = (config.daemon && config.daemon.access_token) || '';
                 var password = (config.daemon && config.daemon.password) || '';
+                var authHdr = makeAuthHeaders(token, password);
 
-                if (password) {
+                if (token || password) {
+                    // CC4 API spec: PUT /plugins/{id}/config expects text/plain
                     var response = await fetch(apiAddress + '/plugins/coolerdash/config', {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': 'Basic ' + btoa('admin:' + password) },
+                        headers: Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, authHdr),
                         body: JSON.stringify(config, null, 2)
                     });
                     if (response.ok) return true;
@@ -2285,10 +2454,11 @@
 
                 // Detect device and discover sensors from CoolerControl API
                 var apiAddr = (config.daemon && config.daemon.address) || 'http://localhost:11987';
+                var apiToken = (config.daemon && config.daemon.access_token) || '';
                 var apiPass = (config.daemon && config.daemon.password) || '';
-                fetchDeviceInfo(apiAddr, apiPass);
-                fetchSystemInfo(apiAddr, apiPass);
-                discoverSensors(apiAddr, apiPass);
+                fetchDeviceInfo(apiAddr, apiToken, apiPass);
+                fetchSystemInfo(apiAddr, apiToken, apiPass);
+                discoverSensors(apiAddr, apiToken, apiPass);
             } catch (error) {
                 console.error("Init failed:", error);
                 if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);
