@@ -120,15 +120,13 @@ int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
 
 /**
- * @brief Blocking variant of `send_image_to_lcd` with timeout and retries.
- * @details Used for shutdown path to ensure the image upload completes
- * synchronously. Sets temporary CURLOPT_TIMEOUT/CURLOPT_CONNECTTIMEOUT for
- * the duration of the operation and restores defaults afterwards.
+ * @brief Register shutdown image with CC4's persistent LCD shutdown endpoint.
+ * @details Called once at daemon startup. CC4 will display the image
+ * automatically whenever the coolercontrold daemon stops.
+ * Silently skips on 404 (CC3 / pre-CC4 compatibility).
  */
-int send_image_to_lcd_blocking(const struct Config *config,
-                               const char *image_path,
-                               const char *device_uid,
-                               int timeout_seconds,
-                               int retries);
+int register_shutdown_image_with_cc(const struct Config *config,
+                                    const char *image_path,
+                                    const char *device_uid);
 
 #endif // CC_MAIN_H

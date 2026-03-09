@@ -56,9 +56,6 @@ build() {
     cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
     cp -a etc/udev/rules.d/99-coolerdash.rules "${srcdir}/etc/udev/rules.d/"
-    mkdir -p "${srcdir}/etc/systemd/cc-plugin-coolerdash.service.d"
-    cp -a etc/systemd/coolerdash-helperd.service "${srcdir}/etc/systemd/"
-    cp -a etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf "${srcdir}/etc/systemd/cc-plugin-coolerdash.service.d/"
 }
 
 check() {
@@ -96,8 +93,5 @@ package() {
     install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
     install -Dm644 "${srcdir}/etc/udev/rules.d/99-coolerdash.rules" "${pkgdir}/usr/lib/udev/rules.d/99-coolerdash.rules"
     install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
-    install -Dm644 "${srcdir}/etc/systemd/coolerdash-helperd.service" "${pkgdir}/usr/lib/systemd/system/coolerdash-helperd.service"
-    install -Dm644 "${srcdir}/etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf" "${pkgdir}/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf"
-
     install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

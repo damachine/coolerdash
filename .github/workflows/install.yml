@@ -156,22 +156,6 @@ jobs:
             echo "⚠️  Manual page not found"
           fi
 
-          # Check systemd helperd service
-          if [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash-helperd.service" ]; then
-            echo "✅ Systemd helperd service installed"
-          else
-            echo "❌ Systemd helperd service not found"
-            exit 1
-          fi
-
-          # Check systemd startup-delay drop-in
-          if [ -f "/tmp/install-test/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf" ]; then
-            echo "✅ Systemd startup-delay drop-in installed"
-          else
-            echo "❌ Systemd startup-delay drop-in not found"
-            exit 1
-          fi
-
           # Check udev rules
           if [ -f "/tmp/install-test/usr/lib/udev/rules.d/99-coolerdash.rules" ]; then
             echo "✅ Udev rules installed"
@@ -230,22 +214,6 @@ jobs:
             echo "✅ Config file installed"
           else
             echo "❌ Config file not found"
-            exit 1
-          fi
-
-          # Check systemd helperd service
-          if [ -f "/tmp/install-test/usr/lib/systemd/system/coolerdash-helperd.service" ]; then
-            echo "✅ Systemd helperd service installed"
-          else
-            echo "❌ Systemd helperd service not found"
-            exit 1
-          fi
-
-          # Check systemd startup-delay drop-in
-          if [ -f "/tmp/install-test/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf" ]; then
-            echo "✅ Systemd startup-delay drop-in installed"
-          else
-            echo "❌ Systemd startup-delay drop-in not found"
             exit 1
           fi
 

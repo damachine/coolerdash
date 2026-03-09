@@ -667,45 +667,83 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 }
 
 /**
- * @brief Blocking wrapper for `send_image_to_lcd` with timeout and retries.
- * @details Temporarily sets CURLOPT_TIMEOUT and CURLOPT_CONNECTTIMEOUT on the
- * global CURL handle, attempts the upload up to `retries` times and restores
- * timeouts to defaults after completion.
+ * @brief Register shutdown image with CC4's persistent LCD shutdown endpoint.
+ * @details Called once at daemon startup. Uploads shutdown.png to
+ * PUT /devices/{uid}/settings/lcd/lcd/shutdown-image so CoolerControl
+ * displays it automatically whenever the CC daemon itself stops.
+ * Gracefully skips if the endpoint is unavailable (CC3 / pre-CC4).
  */
-int send_image_to_lcd_blocking(const Config *config, const char *image_path,
-                               const char *device_uid, int timeout_seconds,
-                               int retries)
+int register_shutdown_image_with_cc(const Config *config,
+                                    const char *image_path,
+                                    const char *device_uid)
 {
     if (!validate_upload_params(image_path, device_uid))
         return 0;
 
-    if (timeout_seconds <= 0)
-        timeout_seconds = 5; // sensible default
-    if (retries <= 0)
-        retries = 1;
+    if (!image_path || !image_path[0])
+        return 1;
 
-    int attempt;
-    int success = 0;
-
-    for (attempt = 0; attempt < retries; attempt++)
+    /* Verify the file exists before attempting to upload */
+    FILE *f = fopen(image_path, "r");
+    if (!f)
     {
-        // Set conservative timeouts for shutdown path
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
-                         (long)timeout_seconds);
-        curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
-                         (long)(timeout_seconds / 2 > 0 ? timeout_seconds / 2 : 1));
+        log_message(LOG_WARNING,
+                    "CC4 shutdown registration skipped: image not found: %s",
+                    image_path);
+        return 0;
+    }
+    fclose(f);
 
-        success = send_image_to_lcd(config, image_path, device_uid);
-        if (success)
-            break;
+    char upload_url[CC_URL_SIZE];
+    int written = snprintf(upload_url, sizeof(upload_url),
+                           "%s/devices/%s/settings/lcd/lcd/shutdown-image",
+                           config->daemon_address, device_uid);
+    if (written < 0 || (size_t)written >= sizeof(upload_url))
+        return 0;
 
-        log_message(LOG_WARNING, "Shutdown upload attempt %d/%d failed",
-                    attempt + 1, retries);
+    curl_mime *form = build_lcd_upload_form(config, image_path);
+    if (!form)
+        return 0;
+
+    http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096))
+    {
+        curl_mime_free(form);
+        return 0;
     }
 
-    // Restore to no timeout (behaviour prior to explicit shutdown upload)
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT, 0L);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT, 0L);
+    struct curl_slist *headers =
+        configure_lcd_upload_curl(config, upload_url, form, &response);
+
+    CURLcode res = curl_easy_perform(cc_session.curl_handle);
+    long http_code = -1;
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
+
+    int success = 0;
+    if (res == CURLE_OK && (http_code == 200 || http_code == 204))
+    {
+        log_message(LOG_STATUS,
+                    "Shutdown image registered with CC4 (HTTP %ld)", http_code);
+        success = 1;
+    }
+    else if (res == CURLE_OK && http_code == 404)
+    {
+        log_message(LOG_WARNING,
+                    "CC4 shutdown image endpoint not available (HTTP 404) "
+                    "- requires CoolerControl 4.0 or later");
+    }
+    else
+    {
+        log_message(LOG_WARNING,
+                    "Shutdown image registration failed: CURL %d, HTTP %ld",
+                    res, http_code);
+    }
+
+    cc_cleanup_response_buffer(&response);
+    if (headers)
+        curl_slist_free_all(headers);
+    curl_mime_free(form);
+    cleanup_lcd_upload_curl();
 
     return success;
 }

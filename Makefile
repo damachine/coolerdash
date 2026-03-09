@@ -247,6 +247,18 @@ install: check-deps $(TARGET)
 			$(SUDO) userdel -rf coolerdash; \
 			LEGACY_FOUND=1; \
 		fi; \
+		if [ -d /etc/systemd/system/cc-plugin-coolerdash.service.d ]; then \
+			$(SUDO) rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d; \
+			LEGACY_FOUND=1; \
+		fi; \
+		if [ -f /usr/lib/systemd/system/coolerdash-helperd.service ]; then \
+			$(SUDO) rm -f /usr/lib/systemd/system/coolerdash-helperd.service; \
+			LEGACY_FOUND=1; \
+		fi; \
+		if [ -f /etc/systemd/system/coolerdash-helperd.service ]; then \
+			$(SUDO) rm -f /etc/systemd/system/coolerdash-helperd.service; \
+			LEGACY_FOUND=1; \
+		fi; \
 		if [ "$$LEGACY_FOUND" -eq 1 ]; then \
 			printf "  $(GREEN)OK$(RESET) Legacy cleanup complete\n"; \
 		else \
@@ -284,10 +296,6 @@ install: check-deps $(TARGET)
 	@install -m644 $(MANIFEST) "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-	@install -Dm644 etc/systemd/cc-plugin-coolerdash.service.d/startup-delay.conf "$(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf"
-	@install -Dm644 etc/systemd/coolerdash-helperd.service "$(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service"
-	@printf "  $(GREEN)Drop-in:$(RESET)       $(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d/startup-delay.conf\n"
-	@printf "  $(GREEN)Service:$(RESET)       $(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service\n"
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)/usr/libexec/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/config.json\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)/etc/coolercontrol/plugins/coolerdash/ui/index.html\n"
@@ -324,7 +332,6 @@ install: check-deps $(TARGET)
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
-		$(SUDO) systemctl enable --now coolerdash-helperd.service 2>/dev/null || true; \
 		$(SUDO) systemctl restart coolercontrold.service 2>/dev/null || true; \
 	fi
 	@printf "  $(PURPLE)Reload systemd:$(RESET) systemctl daemon-reload\n"
@@ -398,11 +405,6 @@ uninstall:
 			LEGACY_FOUND=1; \
 		fi; \
 	fi
-	@if [ "$(REALOS)" = "yes" ]; then \
-		$(SUDO) rm -f /etc/systemd/system/coolerdash-helperd.service; \
-	fi
-	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/systemd/system/coolerdash-helperd.service"
-	@$(SUDO) rm -rf "$(DESTDIR)/etc/systemd/system/cc-plugin-coolerdash.service.d"
 	@$(SUDO) rm -rf "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)/usr/libexec/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)/usr/share/licenses/coolerdash"
