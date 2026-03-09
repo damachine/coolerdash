@@ -43,9 +43,14 @@ post_install() {
 
     systemctl daemon-reload
 
-    # Restart CoolerControl
-    if systemctl list-unit-files coolercontrold.service | grep -q coolercontrold; then
-        systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
+    # Restart plugin service directly if it already exists (reinstall case)
+    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
+        systemctl restart cc-plugin-coolerdash.service || echo "Note: Plugin restart failed."
+    else
+        # Fresh install: restart CoolerControl so it discovers and starts the plugin service
+        if systemctl list-unit-files coolercontrold.service | grep -q coolercontrold; then
+            systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
+        fi
     fi
 
     echo "================================================================"

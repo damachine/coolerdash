@@ -220,7 +220,7 @@ static void collect_device_channels(const json_t *device,
         {
             float watts = (float)json_number_value(watts_val);
             int n = snprintf(sensor_name, sizeof(sensor_name),
-                             "%s Power", ch_name);
+                             "%s Watts", ch_name);
             if (n > 0 && (size_t)n < sizeof(sensor_name))
                 add_sensor_entry(data, sensor_name, device_uid,
                                  device_type, SENSOR_CATEGORY_WATTS,
