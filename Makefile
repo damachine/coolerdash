@@ -318,14 +318,6 @@ install: check-deps $(TARGET)
 	@printf "$(CYAN)Installing icon...$(RESET)\n"
 	@install -Dm644 etc/icons/coolerdash.svg "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 	@printf "  $(GREEN)Icon:$(RESET)     $(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg\n"
-	@printf "$(CYAN)Installing udev rules for USB power management...$(RESET)\n"
-	@install -Dm644 etc/udev/rules.d/99-coolerdash.rules "$(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules"
-	@printf "  $(GREEN)udev rule:$(RESET) $(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules\n"
-	@if [ "$(REALOS)" = "yes" ]; then \
-		$(SUDO) udevadm control --reload-rules 2>/dev/null || true; \
-		$(SUDO) udevadm trigger --subsystem-match=usb 2>/dev/null || true; \
-		printf "  $(GREEN)OK$(RESET) USB power management configured\n"; \
-	fi
 	@printf "\n"
 	@printf "$(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
@@ -410,13 +402,8 @@ uninstall:
 	@$(SUDO) rm -rf "$(DESTDIR)/usr/share/licenses/coolerdash"
 	@$(SUDO) rm -f "$(DESTDIR)/usr/share/man/man1/coolerdash.1"
 	@$(SUDO) rm -f "$(DESTDIR)/usr/share/applications/coolerdash.desktop"
-	@printf "$(CYAN)Removing udev rule...$(RESET)\n"
+	# Legacy cleanup: remove udev rule if installed by older version
 	@$(SUDO) rm -f "$(DESTDIR)/usr/lib/udev/rules.d/99-coolerdash.rules"
-	@if [ "$(REALOS)" = "yes" ]; then \
-		$(SUDO) udevadm control --reload-rules 2>/dev/null || true; \
-		$(SUDO) udevadm trigger --subsystem-match=usb 2>/dev/null || true; \
-		printf "  $(GREEN)OK$(RESET) udev rules reloaded\n"; \
-	fi
 	@$(SUDO) rm -f "$(DESTDIR)/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		if id -u coolerdash >/dev/null 2>&1; then \

@@ -83,6 +83,7 @@ rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
 rm -f /etc/systemd/system/coolerdash-helperd.service
 rm -f /usr/lib/systemd/system/coolerdash-helperd.service
 rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
+rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
     if systemctl is-active --quiet coolercontrold.service; then
@@ -149,7 +150,6 @@ fi
 /usr/share/man/man1/coolerdash.1.gz
 /usr/share/applications/coolerdash.desktop
 /usr/share/icons/hicolor/scalable/apps/coolerdash.svg
-/usr/lib/udev/rules.d/99-coolerdash.rules
 
 %changelog
 * %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1

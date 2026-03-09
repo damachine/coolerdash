@@ -21,13 +21,10 @@ CoolerDash supports two distinct display modes for rendering temperature informa
 
 ### Mode Selection
 
-The mode is selected through a three-tier configuration system:
+The mode is selected through a two-tier configuration system:
 
 1. **System Default** (`src/device/config.c`): `display_mode = "dual"`
 2. **User Configuration** (`/etc/coolercontrol/plugins/coolerdash/config.json`): `"mode": "dual"|"circle"`
-3. **CLI Override** (`src/main.c`): `--dual` or `--circle` flags
-
-Priority: **CLI > JSON > Default**
 
 ---
 
@@ -169,17 +166,23 @@ Alternates between CPU and GPU display every 5 seconds, optimized for high-resol
 
 ### Key Components
 
-#### 1. SensorMode Enumeration
-```c
-typedef enum {
-    SENSOR_CPU = 0,
-    SENSOR_GPU = 1
-} SensorMode;
+#### 1. SensorMode
+
+Circle mode cycles through the three sensor slots configured in `config.json`:
+
+```json
+"display": {
+    "sensor_slot_up": "cpu",
+    "sensor_slot_mid": "liquid",
+    "sensor_slot_down": "gpu"
+}
 ```
+
+The slots are `cpu`, `gpu`, or `liquid`. Each slot is displayed full-screen in turn.
 
 #### 2. Global State Management
 ```c
-static SensorMode current_sensor = SENSOR_CPU;
+static int current_slot = 0;  // cycles 0→1→2→0
 static time_t last_switch_time = 0;
 ```
 

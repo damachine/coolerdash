@@ -1,9 +1,7 @@
 # Maintainer: damachin3 (damachine3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
-
 # This PKGBUILD is for building the coolerdash package from local source.
 # It assumes the source code is already present in the current directory.
-
 pkgname=coolerdash
 pkgver=$(cat VERSION)
 pkgrel=1
@@ -55,7 +53,6 @@ build() {
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
     cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
-    cp -a etc/udev/rules.d/99-coolerdash.rules "${srcdir}/etc/udev/rules.d/"
 }
 
 check() {
@@ -91,7 +88,6 @@ package() {
 
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
     install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
-    install -Dm644 "${srcdir}/etc/udev/rules.d/99-coolerdash.rules" "${pkgdir}/usr/lib/udev/rules.d/99-coolerdash.rules"
     install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
     install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

@@ -29,12 +29,13 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 
 ### Key Features
 
-- **Real-time Temperature Monitoring:** CPU/GPU sensor data via CoolerControl REST API
+- **Real-time Temperature Monitoring:** CPU/GPU/liquid sensor data via CoolerControl REST API
 - **Adaptive Display Rendering:** Automatic circular/rectangular display detection
-- **Customizable UI:** Full color/layout/font configuration via INI file
-- **Secure Session Management:** HTTP Basic Auth with cookie-based session persistence
+- **Customizable UI:** Full color/layout/font/sensor-slot configuration via `config.json`
+- **CC4 Authentication:** Bearer Token (primary) with CC3 Basic Auth cookie fallback
+- **Shutdown Image:** Registered with CC4 at startup — CC handles display on daemon stop
 - **Efficient Caching:** One-time device information retrieval at startup
-- **Systemd Integration:** Native service management with automatic startup
+- **CoolerControl Plugin:** Managed by `cc-plugin-coolerdash.service`, no separate systemd service needed
 
 ### System Requirements
 
@@ -45,7 +46,7 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
   - `jansson` — JSON parsing (config + API)
   - `libcurl-gnutls` — HTTP client
   - `ttf-roboto` — Font rendering
-- **Required Service:** CoolerControl >=3.x (must be running)
+- **Required Service:** CoolerControl >=4.x recommended (CC3 supported as fallback)
 
 ---
 
@@ -59,13 +60,16 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │ 1. Configuration Loading (device/config.c)                │  │
 │  │ 2. Session Initialization (cc_main.c)                     │  │
+│  │    ├─ CC4: Bearer Token header                           │  │
+│  │    └─ CC3: Basic Auth cookie via /login                  │  │
 │  │ 3. Device Cache Setup (cc_conf.c)                         │  │
-│  │ 4. Main Loop (configurable interval)                      │  │
+│  │ 4. Shutdown Image Registration (cc_main.c, CC4 only)      │  │
+│  │ 5. Main Loop (configurable interval)                      │  │
 │  │    ├─ Temperature Reading (cc_sensor.c)                   │  │
 │  │    ├─ Image Rendering (display.c → dual.c|circle.c)       │  │
 │  │    └─ LCD Upload (cc_main.c)                              │  │
-│  │ 5. Signal Handling (SIGTERM/SIGINT → shutdown image)      │  │
-│  │ 6. Cleanup (session + image files)                        │  │
+│  │ 6. Signal Handling (SIGTERM/SIGINT → graceful stop)       │  │
+│  │ 7. Cleanup (session + image files)                        │  │
 │  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
               ↓                    ↓                    ↓
@@ -109,7 +113,7 @@ coolerdash/
 │       └── circle.c/h           # Circle mode (alternating sensor)
 ├── etc/
 │   ├── coolercontrol/plugins/coolerdash/config.json  # User configuration
-│   └── systemd/coolerdash.service
+│   └── systemd/coolerdash.service         ← managed by CoolerControl (cc-plugin-coolerdash.service)
 ├── docs/                        # Documentation
 │   ├── config.md                # Configuration guide
 │   ├── devices.md               # Supported hardware
@@ -124,7 +128,7 @@ coolerdash/
 |--------|---------|---------------|-------|------------|
 | **main.c** | Daemon lifecycle | Signal handling, PID management, main loop | — | `main()` |
 | **device/config** | Config system | JSON loading, hardcoded defaults | — | `load_plugin_config()` |
-| **srv/cc_main** | HTTP session | Login, LCD upload, cleanup | — | 4 functions |
+| **srv/cc_main** | HTTP session | Login/token auth, LCD upload, shutdown image registration | — | 5 functions |
 | **srv/cc_conf** | Device cache | UID/name/dimensions, display shape | — | 4 functions |
 | **srv/cc_sensor** | Temperature | CPU/GPU sensor reading | — | 1 function |
 | **mods/display** | Mode dispatch | Route to dual/circle, shared Cairo helpers | — | `draw_display_image()` |

@@ -29,10 +29,11 @@ CoolerDash acts as a specialized LCD client for CoolerControl, fetching temperat
 ### API Endpoints Used
 
 ```
-POST   /login                          - Authentication
-GET    /devices                        - Device enumeration
-POST   /status                         - Temperature sensor data
-PUT    /devices/{uid}/settings/lcd/... - LCD image upload
+POST   /login                                        - CC3 authentication (Basic Auth cookie)
+GET    /devices                                      - Device enumeration
+POST   /status                                       - Temperature sensor data
+PUT    /devices/{uid}/settings/lcd/lcd/images        - LCD image upload
+PUT    /devices/{uid}/settings/lcd/lcd/shutdown-image - Shutdown image registration (CC4 only)
 ```
 
 ### Dependencies
@@ -171,7 +172,17 @@ static CoolerControlSession cc_session = {
 
 **Function**: `init_coolercontrol_session(const Config *config)`
 
-**Steps**:
+**CC4 — Bearer Token (primary):**
+- If `access_token` is set in config, all requests use `Authorization: Bearer cc_<uuid>`
+- No cookie jar, no `/login` call needed
+- Token is generated in CoolerControl UI under **Access Protection**
+
+**CC3 — Basic Auth cookie (fallback):**
+- Used when `access_token` is empty
+- Sends `POST /login` with HTTP Basic Auth (`CCAdmin:{password}`)
+- Cookie jar stored at `/tmp/coolerdash_cookie_{PID}.txt` (in-memory, written only on cleanup, deleted immediately after)
+
+**Steps (CC3 path)**:
 1. Initialize libcurl global state
 2. Create CURL easy handle
 3. Configure cookie jar for session persistence
@@ -180,6 +191,19 @@ static CoolerControlSession cc_session = {
 6. Send POST request with empty body
 7. Validate response (200/204)
 8. Store cookies for subsequent requests
+
+---
+
+#### 4. Shutdown Image Registration (CC4)
+
+**Function**: `register_shutdown_image_with_cc(const Config *config, const char *image_path, const char *device_uid)`
+
+Called **once at startup** after device initialization. Registers `shutdown.png` with CC4:
+
+- Endpoint: `PUT {address}/devices/{uid}/settings/lcd/lcd/shutdown-image`
+- Same multipart form as live image upload
+- CC4 stores image server-side; displays it when CoolerControl stops
+- Returns gracefully on 404 (CC3 — endpoint does not exist)
 
 **Implementation**:
 ```c

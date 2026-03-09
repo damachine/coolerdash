@@ -19,27 +19,24 @@ sudo systemctl restart coolercontrold
 
 ## Daemon Settings
 
-Configure connection to the CoolerControl daemon API.
+Connection to the CoolerControl daemon.
 
-### Example
 ```json
 "daemon": {
     "address": "http://localhost:11987",
+    "access_token": "",
     "password": "coolAdmin"
 }
 ```
 
-### Settings
-- **`address`**: API endpoint URL (default: `http://localhost:11987`)
-- **`password`**: API authentication password (default: `coolAdmin`)
+| Key | Default | Description |
+|-----|---------|-------------|
+| `address` | `http://localhost:11987` | API endpoint |
+| `access_token` | `""` | **CC4:** Bearer token from CoolerControl UI → Access Protection. Format: `cc_<uuid>`. Takes precedence over `password`. |
+| `password` | `coolAdmin` | **CC3 / fallback.** Ignored when `access_token` is set. |
 
-### HTTPS Example
-```json
-"daemon": {
-    "address": "https://192.168.1.100:11987",
-    "password": "mySecurePassword123"
-}
-```
+> CC4: generate a token in CoolerControl UI under **Access Protection** and paste it into `access_token`.  
+> CC3: leave `access_token` empty, set `password`.
 
 ---
 
@@ -95,6 +92,11 @@ LCD display configuration tested with NZXT Kraken 2023.
 - **`circle_switch_interval`**: Slot switch interval for circle mode in seconds (1–60, default: `5`)
 - **`content_scale_factor`**: Safe area percentage (0.5–1.0, default: `0.98`)
 - **`inscribe_factor`**: Inscribe factor for circular displays (default: `0.70710678` = 1/√2)
+- **`sensor_slot_up`**: Sensor shown in top slot: `cpu`, `gpu`, or `liquid` (default: `cpu`)
+- **`sensor_slot_mid`**: Sensor shown in middle slot (default: `liquid`)
+- **`sensor_slot_down`**: Sensor shown in bottom slot (default: `gpu`)
+
+Sensor slots control which sensor appears in each display position for both dual and circle mode.
 
 ### Brightness Examples
 ```json
@@ -182,34 +184,35 @@ Controls the safe area percentage used for rendering content (determines margin/
 
 ---
 
-## 🎨 Visual Layout
+## Visual Layout
 
-Display layout and spacing configuration. All positioning is now calculated dynamically from display dimensions.
-
-### Example Configuration
-```ini
-[layout]
-bar_height=24
-bar_width=98
-bar_gap=12
-bar_border=2.0
-```
-
-### Settings
-- **`bar_height`**: Temperature bar thickness in pixels (default: auto-scaled)
-- **`bar_width`**: Bar width in percent of display width (1–100%, default: 98)
-- **`bar_gap`**: Gap between bars in pixels (default: auto-scaled)
-- **`bar_border`**: Border thickness in pixels (default: 1.0)
-
-### Layout Examples
+All values are in pixels unless noted. Positions are calculated dynamically from display dimensions.
 
 ```json
-// Compact
-"layout": { "bar_height": 18, "bar_width": 90, "bar_gap": 5, "bar_border": 1.0 }
-
-// Spacious
-"layout": { "bar_height": 26, "bar_width": 98, "bar_gap": 15, "bar_border": 2.0 }
+"layout": {
+    "bar_height": 24,
+    "bar_width": 98,
+    "bar_gap": 12,
+    "bar_border": 1.0,
+    "bar_border_enabled": 1,
+    "label_margin_left": 1,
+    "label_margin_bar": 1,
+    "bar_height_up": 0,
+    "bar_height_mid": 0,
+    "bar_height_down": 0
+}
 ```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `bar_height` | `24` | Bar height in pixels |
+| `bar_width` | `98` | Bar width in % of display width |
+| `bar_gap` | `12` | Gap between bars in pixels |
+| `bar_border` | `1.0` | Border thickness in pixels |
+| `bar_border_enabled` | `1` | Enable bar border (`1`/`0`) |
+| `label_margin_left` | `1` | Left label margin multiplier |
+| `label_margin_bar` | `1` | Margin between label and bar |
+| `bar_height_up/mid/down` | `0` | Per-slot bar height override. `0` = use `bar_height` |
 
 ---
 
@@ -255,13 +258,17 @@ Four color zones based on temperature thresholds. Configured per-sensor in the `
         "threshold_1": 55.0,
         "threshold_2": 65.0,
         "threshold_3": 75.0,
-        "threshold_1_bar": { "r": 0,   "g": 255, "b": 0 },
-        "threshold_2_bar": { "r": 255, "g": 140, "b": 0 },
-        "threshold_3_bar": { "r": 255, "g": 70,  "b": 0 },
-        "threshold_4_bar": { "r": 255, "g": 0,   "b": 0 }
-    }
+        "max_scale": 115.0,
+        "threshold_1_color": { "r": 0,   "g": 255, "b": 0 },
+        "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
+        "threshold_3_color": { "r": 255, "g": 70,  "b": 0 },
+        "threshold_4_color": { "r": 255, "g": 0,   "b": 0 }
+    },
+    "gpu": { ... }
 }
 ```
+
+`max_scale` sets the temperature at 100% bar fill. Bars transition through 4 color zones as temperature rises through the thresholds.
 
 ---
 

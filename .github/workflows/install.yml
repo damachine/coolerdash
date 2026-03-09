@@ -156,14 +156,6 @@ jobs:
             echo "⚠️  Manual page not found"
           fi
 
-          # Check udev rules
-          if [ -f "/tmp/install-test/usr/lib/udev/rules.d/99-coolerdash.rules" ]; then
-            echo "✅ Udev rules installed"
-          else
-            echo "❌ Udev rules not found"
-            exit 1
-          fi
-
           # Check license file (Linux packaging standard)
           if [ -f "/tmp/install-test/usr/share/licenses/coolerdash/LICENSE" ]; then
             echo "✅ License file installed (/usr/share/licenses/)"
@@ -214,14 +206,6 @@ jobs:
             echo "✅ Config file installed"
           else
             echo "❌ Config file not found"
-            exit 1
-          fi
-
-          # Check udev rules
-          if [ -f "/tmp/install-test/usr/lib/udev/rules.d/99-coolerdash.rules" ]; then
-            echo "✅ Udev rules installed"
-          else
-            echo "❌ Udev rules not found"
             exit 1
           fi
 

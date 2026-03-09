@@ -34,17 +34,12 @@ pre_install() {
 }
 
 post_install() {
-    # Reload udev rules
-    if command -v udevadm >/dev/null 2>&1; then
-        udevadm control --reload-rules
-        udevadm trigger --subsystem-match=usb
-    fi
-
     # Remove legacy files
     rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
     rm -f /etc/systemd/system/coolerdash-helperd.service
     rm -f /usr/lib/systemd/system/coolerdash-helperd.service
     rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
+    rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
 
     systemctl daemon-reload
 
@@ -64,6 +59,7 @@ post_upgrade() {
     rm -f /etc/systemd/system/coolerdash-helperd.service
     rm -f /usr/lib/systemd/system/coolerdash-helperd.service
     rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
+    rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
 
     systemctl daemon-reload
 
