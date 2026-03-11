@@ -403,7 +403,7 @@ void draw_display_image(const struct Config *config)
 
 #### Dual Mode Flow:
 1. `draw_dual_image()` → Entry point
-2. `get_liquidctl_data()` → Device information
+2. `get_cached_lcd_device_data()` → Device information
 3. `get_temperature_monitor_data()` → Sensor data
 4. `render_dual_display()` → Cairo rendering
 5. `cairo_surface_write_to_png()` → PNG generation
@@ -411,7 +411,7 @@ void draw_display_image(const struct Config *config)
 
 #### Circle Mode Flow:
 1. `draw_circle_image()` → Entry point
-2. `get_liquidctl_data()` → Device information
+2. `get_cached_lcd_device_data()` → Device information
 3. `get_temperature_monitor_data()` → Sensor data
 4. `update_sensor_mode()` → Check 5s interval
 5. `render_circle_display()` → Cairo rendering
@@ -534,7 +534,7 @@ void draw_newmode_image(const struct Config *config)
     char device_name[128] = {0};
     int screen_width = 0, screen_height = 0;
     
-    if (!get_liquidctl_data(config, device_uid, sizeof(device_uid),
+    if (!get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
                            device_name, sizeof(device_name),
                            &screen_width, &screen_height)) {
         return;

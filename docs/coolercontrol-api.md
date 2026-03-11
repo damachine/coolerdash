@@ -24,7 +24,7 @@ The CoolerControl API integration consists of three core modules that handle all
 
 ### Purpose
 
-CoolerDash acts as a specialized LCD client for CoolerControl, fetching temperature data and uploading rendered images to Liquidctl-compatible devices with LCD displays (e.g., NZXT Kraken Elite).
+CoolerDash acts as a specialized LCD client for CoolerControl, fetching temperature data and uploading rendered images to CoolerControl-managed devices with LCD displays.
 
 ### API Endpoints Used
 
@@ -472,7 +472,7 @@ static struct {
 - Reduces API overhead (every render cycle)
 - Improves performance and reliability
 
-**Access Function**: `get_liquidctl_data()`
+**Access Function**: `get_cached_lcd_device_data()`
 - Returns cached data if available
 - Initializes cache on first call
 - Thread-safe (single-threaded daemon)
@@ -481,7 +481,7 @@ static struct {
 
 **Function**: `init_device_cache(const Config *config)`
 
-**Purpose**: Fetch device list and extract Liquidctl device info
+**Purpose**: Fetch device list and extract CoolerControl LCD device info
 
 **API Call**:
 ```
@@ -536,7 +536,7 @@ int init_device_cache(const Config *config)
     
     // Parse JSON response
     if (res == CURLE_OK) {
-        parse_liquidctl_data(response.data, 
+        parse_lcd_device_data(response.data, 
                             device_cache.device_uid,
                             sizeof(device_cache.device_uid),
                             &device_cache.screen_width,
@@ -556,7 +556,7 @@ int init_device_cache(const Config *config)
 
 #### 3. JSON Parsing
 
-**Function**: `parse_liquidctl_data(const char *json, ...)`
+**Function**: `parse_lcd_device_data(const char *json, ...)`
 
 **Purpose**: Extract device information from devices JSON response
 
@@ -577,7 +577,7 @@ int init_device_cache(const Config *config)
 - `extract_device_name()`: Get device name
 - `get_lcd_info_from_device()`: Navigate JSON to lcd_info
 - `extract_lcd_dimensions()`: Get width/height from lcd_info
-- `is_liquidctl_device()`: Check if type matches "Liquidctl"
+- `has_usable_device_uid()`: Verify that the device exposes a usable UID
 
 **Error Handling**:
 - Validates JSON structure at each level
@@ -718,7 +718,7 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size, const char *restrict s
 ```c
 // Device cache
 int init_device_cache(const struct Config *config);
-int get_liquidctl_data(const struct Config *config, char *device_uid, 
+int get_cached_lcd_device_data(const struct Config *config, char *device_uid, 
                        size_t uid_size, char *device_name, size_t name_size, 
                        int *screen_width, int *screen_height);
 
@@ -992,7 +992,7 @@ main() startup
     ├─→ GET /devices
     │   Response: Device list JSON
     │
-    ├─→ Parse JSON, find Liquidctl device
+    ├─→ Parse JSON, find first LCD-capable CoolerControl device
     │
     └─→ Cache: UID, name, width, height
     ↓
@@ -1182,13 +1182,13 @@ log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, respons
 **Symptom**: `init_device_cache()` returns 0
 
 **Causes**:
-- No Liquidctl device connected
+- No LCD-capable CoolerControl device connected
 - Device not detected by CoolerControl
 - Wrong device type in JSON
 
 **Debugging**:
 ```c
-log_message(LOG_ERROR, "No Liquidctl device found in API response");
+log_message(LOG_ERROR, "No LCD device found in API response");
 ```
 
 **Resolution**:
@@ -1458,7 +1458,7 @@ curl -I http://127.0.0.1:11987
 systemctl start coolercontrol
 ```
 
-#### Issue: "No Liquidctl device found"
+#### Issue: "No LCD device found"
 
 **Check devices**:
 ```bash
@@ -1561,7 +1561,7 @@ cat /tmp/coolerdash_cookie_*.txt
 
 The CoolerControl API integration provides a robust, efficient interface for:
 - **Authentication**: Cookie-based session with HTTP Basic Auth
-- **Device Detection**: Automatic Liquidctl device discovery and caching
+- **Device Detection**: Automatic CoolerControl LCD device discovery and caching
 - **Temperature Monitoring**: Real-time CPU/GPU data retrieval
 - **LCD Upload**: Multipart image upload with brightness/orientation control
 - **Error Handling**: Comprehensive validation and logging

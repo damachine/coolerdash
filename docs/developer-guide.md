@@ -1,7 +1,7 @@
 # CoolerDash Developer Documentation
 
-**Language:** C99 | **Platform:** Linux x86-64-v3 | **License:** MIT  
-**Author:** damachine (damachin3@proton.me)  
+**Language:** C99 | **Platform:** Linux x86-64-v3 | **License:** MIT
+**Author:** damachine (damachin3@proton.me)
 **Repository:** https://github.com/damachine/coolerdash
 
 ---
@@ -25,7 +25,7 @@
 
 ### Purpose
 
-CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) for Linux systems, specifically targeting AIO liquid cooler LCD displays (NZXT Kraken, etc.). It provides real-time sensor visualization with customizable UI elements.
+CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol) for Linux systems, targeting CoolerControl-managed LCD displays such as AIO pump screens and similar supported devices. It provides real-time sensor visualization with customizable UI elements.
 
 ### Key Features
 
@@ -141,8 +141,8 @@ coolerdash/
 
 ### Makefile Overview
 
-**Location:** `/Makefile`  
-**Build Tool:** GNU Make + GCC  
+**Location:** `/Makefile`
+**Build Tool:** GNU Make + GCC
 **Standard:** C99 with strict warnings
 
 #### Key Targets
@@ -164,8 +164,8 @@ CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude \
 LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 ```
 
-**Optimization Level:** `-O2` (production), `-O0` (debug)  
-**Architecture:** `x86-64-v3` (AVX2/BMI2 support)  
+**Optimization Level:** `-O2` (production), `-O0` (debug)
+**Architecture:** `x86-64-v3` (AVX2/BMI2 support)
 **Warnings:** All enabled (`-Wall -Wextra`)
 
 #### Build Workflow
@@ -195,8 +195,8 @@ LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 
 ### Dependency Management
 
-**Automatic Detection:** Makefile checks for missing dependencies via `pkg-config`  
-**Distribution Support:** Arch, Debian, Fedora, RHEL, openSUSE  
+**Automatic Detection:** Makefile checks for missing dependencies via `pkg-config`
+**Distribution Support:** Arch, Debian, Fedora, RHEL, openSUSE
 **Fallback Behavior:** Build fails with clear error messages if deps missing
 
 ---
@@ -313,8 +313,8 @@ void log_config(const Config *config);  // Uses LOG_STATUS level (always visible
 
 ### CoolerControl REST API
 
-**Base URL:** `http://localhost:11987` (configurable)  
-**Authentication:** HTTP Basic Auth (username: CCAdmin)  
+**Base URL:** `http://localhost:11987` (configurable)
+**Authentication:** HTTP Basic Auth (username: CCAdmin)
 **Session Management:** Cookie-based (stored in `/tmp/coolerdash_cookie_<PID>.txt`)
 
 ### API Endpoints Used
@@ -362,8 +362,8 @@ Response JSON:
 }
 ```
 
-**Implementation:** `src/srv/cc_conf.c` → `initialize_device_cache()`  
-**Caching:** One-time fetch at startup, stored in static struct  
+**Implementation:** `src/srv/cc_conf.c` → `initialize_device_cache()`
+**Caching:** One-time fetch at startup, stored in static struct
 **Display Detection:** Kraken devices: >240x240 = circular, ≤240 = rectangular
 
 ---
@@ -414,8 +414,8 @@ Response JSON:
 }
 ```
 
-**Implementation:** `src/srv/cc_sensor.c` → `get_temperature_data()`  
-**Sensor Selection:** CPU = "temp1", GPU = name contains "GPU"/"gpu"  
+**Implementation:** `src/srv/cc_sensor.c` → `get_temperature_data()`
+**Sensor Selection:** CPU = "temp1", GPU = name contains "GPU"/"gpu"
 **Validation:** Temperature range -50°C to +150°C
 
 ---
@@ -435,8 +435,8 @@ Form Fields:
 Response: 200 OK
 ```
 
-**Implementation:** `src/srv/cc_main.c` → `send_image_to_lcd()`  
-**Image Format:** PNG, dimensions match device LCD  
+**Implementation:** `src/srv/cc_main.c` → `send_image_to_lcd()`
+**Image Format:** PNG, dimensions match device LCD
 **Multipart Construction:** CURL mime API with proper MIME types
 
 ---
@@ -476,8 +476,8 @@ Response: 200 OK
 
 ### Cairo Graphics Workflow
 
-**Library:** cairo 1.x (vector graphics)  
-**Output Format:** PNG image matching LCD dimensions  
+**Library:** cairo 1.x (vector graphics)
+**Output Format:** PNG image matching LCD dimensions
 **Color Depth:** 24-bit RGB
 
 ### Rendering Steps
@@ -513,13 +513,13 @@ Response: 200 OK
 ```c
 int is_circular_display_device(const char *device_name, int width, int height) {
     const int is_kraken = (strstr(device_name, "Kraken") != NULL);
-    
+
     if (is_kraken) {
         // NZXT Kraken: >240x240 = circular, ≤240 = rectangular
         const int is_large_display = (width > 240 || height > 240);
         return is_large_display ? 1 : 0;
     }
-    
+
     // Add other circular display brands here
     return 0;
 }
@@ -552,7 +552,7 @@ This script prints a table summarizing `inscribe_used`, `safe_area`, and `safe_b
 
 ### Circular Display Rendering
 
-**Challenge:** Circular LCD requires content within inscribed square  
+**Challenge:** Circular LCD requires content within inscribed square
 **Solution:** Apply inscribe factor 1/√2 ≈ 0.7071 to all coordinates
 
 **Mathematical Basis:**
@@ -581,7 +581,7 @@ if (strcmp(config->display_shape, "rectangular") == 0) {
     params.inscribe_factor = M_SQRT1_2;
 } else {
     // Auto-detection fallback
-    int is_circular = config->force_display_circular || 
+    int is_circular = config->force_display_circular ||
                       is_circular_display_device(device_name, width, height);
     params.inscribe_factor = is_circular ? M_SQRT1_2 : 1.0;
 }
@@ -622,7 +622,7 @@ const Color *get_bar_color(float temp, float low, float medium) {
 int calculate_temp_fill_width(float temp, int max_width, float max_temp) {
     if (temp <= 0.0f)
         return 0;
-    
+
     const float ratio = fminf(temp / max_temp, 1.0f);  // Clamp to 1.0
     return (int)(ratio * max_width);
 }
@@ -745,7 +745,7 @@ static CoolerControlSession cc_session = {
 | Function | Purpose | Returns |
 |----------|---------|---------|
 | `init_device_cache(config)` | Fetch device info once (GET /devices) | `int` success |
-| `get_liquidctl_data(config, uid, name, width, height)` | Read cached data | `int` success |
+| `get_cached_lcd_device_data(config, uid, name, width, height)` | Read cached data | `int` success |
 | `update_config_from_device(config)` | Auto-set width/height if 0 | `int` updated |
 | `is_circular_display_device(name, width, height)` | Detect display shape | `int` boolean |
 
@@ -753,12 +753,12 @@ static CoolerControlSession cc_session = {
 
 ```c
 initialize_device_cache()        // HTTP GET + JSON parse + cache population
-parse_liquidctl_data()           // Extract device info from JSON
+parse_lcd_device_data()          // Extract device info from JSON
 extract_device_type_from_json()  // Get "type" field
 extract_device_uid()             // Get "uid" field
 extract_device_name()            // Get "name" field
 extract_lcd_dimensions()         // Get screen_width/screen_height
-search_liquidctl_device()        // Find first Liquidctl device in array
+search_lcd_device()              // Find first CoolerControl LCD device in array
 configure_device_cache_curl()    // Setup CURL for /devices request
 process_device_cache_response()  // Parse response + populate cache
 ```
@@ -917,15 +917,15 @@ int my_function(void) {
     char *buffer = malloc(1024);
     if (!buffer)
         return 0;
-    
+
     CURL *curl = curl_easy_init();
     if (!curl) {
         free(buffer);
         return 0;
     }
-    
+
     // ... use resources ...
-    
+
     // Cleanup (always reached)
     curl_easy_cleanup(curl);
     free(buffer);
@@ -1103,7 +1103,7 @@ sudo systemctl restart coolerdash.service
 
 #### Issue: "Session initialization failed"
 
-**Cause:** CoolerControl not running or wrong credentials  
+**Cause:** CoolerControl not running or wrong credentials
 **Debug:**
 
 ```bash
@@ -1119,9 +1119,9 @@ grep daemon_password /etc/coolercontrol/plugins/coolerdash/config.json
 
 ---
 
-#### Issue: "No Liquidctl devices found"
+#### Issue: "No LCD devices found"
 
-**Cause:** Device not detected or wrong type  
+**Cause:** Device not detected or wrong type
 **Debug:**
 
 ```bash
@@ -1136,7 +1136,7 @@ curl http://localhost:11987/devices | jq '.devices[] | {uid, name, type}'
 
 #### Issue: "Display wrong shape (circular/rectangular)"
 
-**Cause:** Incorrect display detection logic  
+**Cause:** Incorrect display detection logic
 **Debug:**
 
 ```bash
@@ -1156,7 +1156,7 @@ coolerdash --develop  # All displays treated as circular
 
 #### Issue: "Temperature values incorrect"
 
-**Cause:** Wrong sensor selection  
+**Cause:** Wrong sensor selection
 **Debug:**
 
 ```bash
@@ -1235,8 +1235,8 @@ coolerdash --verbose 2>&1 | grep -E "(Session|Temperature|Upload)"
 
 ### Contributing
 
-**Repository:** https://github.com/damachine/coolerdash  
-**Issues:** https://github.com/damachine/coolerdash/issues  
+**Repository:** https://github.com/damachine/coolerdash
+**Issues:** https://github.com/damachine/coolerdash/issues
 **Discussions:** https://github.com/damachine/coolerdash/discussions
 
 **Pull Request Checklist:**
@@ -1277,6 +1277,6 @@ coolerdash --verbose 2>&1 | grep -E "(Session|Temperature|Upload)"
 
 ---
 
-**Document Version:** 2.x  
-**Last Updated:** 2026  
+**Document Version:** 2.x
+**Last Updated:** 2026
 **Maintained by:** damachine (damachin3@proton.me)

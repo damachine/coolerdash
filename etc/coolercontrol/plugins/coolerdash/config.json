@@ -12,6 +12,7 @@
   "paths": {
     "images": "/etc/coolercontrol/plugins/coolerdash",
     "image_coolerdash": "/etc/coolercontrol/plugins/coolerdash/coolerdash.png",
+    "image_background": "",
     "image_shutdown": "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
   },
 
@@ -21,6 +22,8 @@
     "refresh_interval": 2.5,
     "brightness": 80,
     "orientation": 0,
+    "background_image_fit": "cover",
+    "background_overlay_opacity": 0.0,
     "width": 0,
     "height": 0,
     "shape": "auto",
@@ -36,6 +39,7 @@
     "bar_width": 98,
     "bar_gap": 12,
     "bar_border": 1.0,
+    "bar_opacity": 1.0,
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,

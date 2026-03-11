@@ -96,11 +96,12 @@ typedef struct Config
     char daemon_password[CONFIG_MAX_PASSWORD_LEN];
     char access_token[CONFIG_MAX_TOKEN_LEN];
     char tls_ca_cert_path[CONFIG_MAX_PATH_LEN];
-    int  tls_skip_verify;
+    int tls_skip_verify;
 
     // Paths configuration
     char paths_images[CONFIG_MAX_PATH_LEN];
     char paths_image_coolerdash[CONFIG_MAX_PATH_LEN];
+    char paths_image_background[CONFIG_MAX_PATH_LEN];
     char paths_image_shutdown[CONFIG_MAX_PATH_LEN];
 
     // Display configuration
@@ -112,9 +113,11 @@ typedef struct Config
     int force_display_circular;
     char display_shape[16];
     char display_mode[16];
+    char display_background_image_fit[16];
     uint16_t circle_switch_interval;
     float display_content_scale_factor;
     float display_inscribe_factor;
+    float display_background_overlay_opacity;
 
     // Sensor slot configuration (flexible sensor assignment)
     char sensor_slot_up[CONFIG_MAX_SENSOR_SLOT_LEN];   // "cpu", "gpu", "liquid", "none"
@@ -128,6 +131,7 @@ typedef struct Config
     uint16_t layout_bar_height_down; // Individual bar height for lower slot
     uint16_t layout_bar_gap;
     float layout_bar_border;
+    float layout_bar_opacity;
     int layout_bar_border_enabled; // 1=enabled, 0=disabled, -1=auto (use default)
     uint8_t layout_bar_width;
     uint8_t layout_label_margin_left;
