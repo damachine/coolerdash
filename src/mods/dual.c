@@ -66,6 +66,10 @@ static void draw_temperature_displays(cairo_t *cr,
 
     const int effective_bar_width = params->safe_bar_width;
     const int bar_x = (config->display_width - effective_bar_width) / 2;
+    const int bar_right = bar_x + effective_bar_width;
+    const int degree_spacing = get_scaled_degree_spacing(config, params);
+    const double top_temp_padding = scale_value_y(params, 8.0);
+    const double bottom_temp_padding = scale_value_y(params, 4.0);
 
     // Get slot configurations
     const char *slot_up = config->sensor_slot_up;
@@ -123,17 +127,31 @@ static void draw_temperature_displays(cairo_t *cr,
         cairo_text_extents_t up_num_ext;
         cairo_text_extents(cr, up_num_str, &up_num_ext);
 
-        double up_width = (temp_up >= 100.0f) ? up_num_ext.width : up_ref_ext.width;
-        double up_temp_x = bar_x + (effective_bar_width - up_width) / 2.0;
+        double up_num_width =
+            (temp_up >= 100.0f) ? up_num_ext.width : up_ref_ext.width;
+        double up_degree_width = 0.0;
 
-        if (config->display_width == 240 && config->display_height == 240)
-            up_temp_x += 20;
+        if (get_slot_is_temp(data, slot_up))
+        {
+            cairo_set_font_size(cr, up_font_size / 1.66);
+            cairo_text_extents_t up_degree_ext;
+            cairo_text_extents(cr, "\xC2\xB0", &up_degree_ext);
+            up_degree_width = up_degree_ext.width;
+            cairo_set_font_size(cr, up_font_size);
+        }
+
+        const double up_total_width = up_num_width +
+                                      (get_slot_is_temp(data, slot_up)
+                                           ? degree_spacing + up_degree_width
+                                           : 0.0);
+        const double up_block_x = bar_right - up_total_width;
+        double up_temp_x = up_block_x + (up_num_width - up_num_ext.width) / 2.0;
 
         int offset_x_up = get_slot_offset_x(config, slot_up);
         if (offset_x_up != 0)
             up_temp_x += offset_x_up;
 
-        double up_temp_y = up_bar_y + 8 - up_font_ext.descent;
+        double up_temp_y = up_bar_y + top_temp_padding - up_font_ext.descent;
         int offset_y_up = get_slot_offset_y(config, slot_up);
         if (offset_y_up != 0)
             up_temp_y += offset_y_up;
@@ -144,8 +162,7 @@ static void draw_temperature_displays(cairo_t *cr,
         // Draw degree symbol or unit
         if (get_slot_is_temp(data, slot_up))
         {
-            const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
-            double degree_up_x = up_temp_x + up_width + degree_spacing;
+            double degree_up_x = up_block_x + up_num_width + degree_spacing;
             double degree_up_y = up_temp_y - up_num_ext.height * 0.40;
             cairo_set_font_size(cr, up_font_size / 1.66);
             cairo_move_to(cr, degree_up_x, degree_up_y);
@@ -177,11 +194,27 @@ static void draw_temperature_displays(cairo_t *cr,
         cairo_text_extents_t down_num_ext;
         cairo_text_extents(cr, down_num_str, &down_num_ext);
 
-        double down_width = (temp_down >= 100.0f) ? down_num_ext.width : down_ref_ext.width;
-        double down_temp_x = bar_x + (effective_bar_width - down_width) / 2.0;
+        double down_num_width =
+            (temp_down >= 100.0f) ? down_num_ext.width : down_ref_ext.width;
+        double down_degree_width = 0.0;
 
-        if (config->display_width == 240 && config->display_height == 240)
-            down_temp_x += 20;
+        if (get_slot_is_temp(data, slot_down))
+        {
+            cairo_set_font_size(cr, down_font_size / 1.66);
+            cairo_text_extents_t down_degree_ext;
+            cairo_text_extents(cr, "\xC2\xB0", &down_degree_ext);
+            down_degree_width = down_degree_ext.width;
+            cairo_set_font_size(cr, down_font_size);
+        }
+
+        const double down_total_width =
+            down_num_width +
+            (get_slot_is_temp(data, slot_down)
+                 ? degree_spacing + down_degree_width
+                 : 0.0);
+        const double down_block_x = bar_right - down_total_width;
+        double down_temp_x =
+            down_block_x + (down_num_width - down_num_ext.width) / 2.0;
 
         int offset_x_down = get_slot_offset_x(config, slot_down);
         if (offset_x_down != 0)
@@ -189,7 +222,8 @@ static void draw_temperature_displays(cairo_t *cr,
 
         // Use the actual bar height for positioning
         uint16_t effective_down_height = down_active ? bar_height_down : 0;
-        double down_temp_y = down_bar_y + effective_down_height - 4 + down_font_ext.ascent;
+        double down_temp_y = down_bar_y + effective_down_height -
+                             bottom_temp_padding + down_font_ext.ascent;
         int offset_y_down = get_slot_offset_y(config, slot_down);
         if (offset_y_down != 0)
             down_temp_y += offset_y_down;
@@ -200,8 +234,8 @@ static void draw_temperature_displays(cairo_t *cr,
         // Draw degree symbol or unit
         if (get_slot_is_temp(data, slot_down))
         {
-            const int degree_spacing = (config->display_degree_spacing > 0) ? config->display_degree_spacing : 16;
-            double degree_down_x = down_temp_x + down_width + degree_spacing;
+            double degree_down_x =
+                down_block_x + down_num_width + degree_spacing;
             double degree_down_y = down_temp_y - down_num_ext.height * 0.40;
             cairo_set_font_size(cr, down_font_size / 1.66);
             cairo_move_to(cr, degree_down_x, degree_down_y);
@@ -228,9 +262,10 @@ static void draw_single_temperature_bar_slot(cairo_t *cr,
     const float max_temp = get_slot_max_scale(config, slot_value);
     const int fill_width =
         calculate_temp_fill_width(temp_value, bar_width, max_temp);
+    const double bar_alpha = config->layout_bar_opacity;
 
     // Background
-    set_cairo_color(cr, &config->layout_bar_color_background);
+    set_cairo_color_alpha(cr, &config->layout_bar_color_background, bar_alpha);
     draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
                                 bar_height, params->corner_radius);
     cairo_fill(cr);
@@ -239,7 +274,7 @@ static void draw_single_temperature_bar_slot(cairo_t *cr,
     if (fill_width > 0)
     {
         Color fill_color = get_slot_bar_color(config, slot_value, temp_value);
-        set_cairo_color(cr, &fill_color);
+        set_cairo_color_alpha(cr, &fill_color, bar_alpha);
 
         if (fill_width >= 16)
             draw_rounded_rectangle_path(cr, bar_x, bar_y, fill_width,
@@ -255,7 +290,7 @@ static void draw_single_temperature_bar_slot(cairo_t *cr,
     if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
     {
         cairo_set_line_width(cr, config->layout_bar_border);
-        set_cairo_color(cr, &config->layout_bar_color_border);
+        set_cairo_color_alpha(cr, &config->layout_bar_color_border, bar_alpha);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
                                     bar_height, params->corner_radius);
         cairo_stroke(cr);
@@ -422,9 +457,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
                                    const ScalingParams *params)
 {
-    // Draw main background
-    set_cairo_color(cr, &config->display_background_color);
-    cairo_paint(cr);
+    paint_display_background(cr, config);
 
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_BOLD);
@@ -547,8 +580,9 @@ void draw_dual_image(const struct Config *config)
     int screen_width = 0, screen_height = 0;
 
     const bool device_available =
-        get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
-                           sizeof(device_name), &screen_width, &screen_height);
+        get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
+                                   device_name, sizeof(device_name),
+                                   &screen_width, &screen_height);
 
     // Render dual display with device name for circular display detection
     if (!render_dual_display(config, &sensor_data, device_name))

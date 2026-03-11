@@ -106,6 +106,40 @@ double cairo_color_convert(uint8_t color_component);
 void set_cairo_color(cairo_t *cr, const Color *color);
 
 /**
+ * @brief Set cairo source color from Color structure with alpha.
+ */
+void set_cairo_color_alpha(cairo_t *cr, const Color *color, double alpha);
+
+/**
+ * @brief Scale a design-space X value based on detected display width.
+ */
+double scale_value_x(const ScalingParams *params, double value);
+
+/**
+ * @brief Scale a design-space Y value based on detected display height.
+ */
+double scale_value_y(const ScalingParams *params, double value);
+
+/**
+ * @brief Scale a design-space value using average display scaling.
+ */
+double scale_value_avg(const ScalingParams *params, double value);
+
+/**
+ * @brief Get effective degree symbol spacing for the current display.
+ */
+int get_scaled_degree_spacing(const struct Config *config,
+                              const ScalingParams *params);
+
+/**
+ * @brief Paint display background from optional PNG image or fallback color.
+ * @details If a PNG background path is configured and readable, the image is
+ * scaled to the current display size and painted first. Otherwise the
+ * configured background color is used.
+ */
+void paint_display_background(cairo_t *cr, const struct Config *config);
+
+/**
  * @brief Calculate temperature fill width with bounds checking.
  * @param temp_value Current temperature value
  * @param max_width Maximum width of the bar in pixels

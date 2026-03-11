@@ -172,6 +172,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     // Calculate vertical layout - BAR is centered
     const int bar_y = (config->display_height - bar_height) / 2;
     const int bar_x = (config->display_width - effective_bar_width) / 2;
+    const int bar_right = bar_x + effective_bar_width;
 
     // Temperature above the bar (10% of display height above bar)
     const int temp_spacing = (int)(config->display_height * 0.10);
@@ -205,9 +206,13 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     cairo_text_extents(cr, "°", &degree_ext);
     cairo_set_font_size(cr, slot_font_size);
 
-    // Center temperature + degree symbol as a unit
-    const double total_width = temp_ext.width - 4 + degree_ext.width;
-    double temp_x = (config->display_width - total_width) / 2.0;
+    // Right-align temperature + degree symbol block to the safe bar area.
+    const int degree_spacing = get_scaled_degree_spacing(config, params);
+    const double total_width = temp_ext.width +
+                               (get_slot_is_temp(data, slot_value)
+                                    ? degree_spacing + degree_ext.width
+                                    : 0.0);
+    double temp_x = bar_right - total_width;
     double final_temp_y = temp_y;
 
     // Apply user-defined offsets from sensor config
@@ -224,9 +229,6 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     // Draw degree symbol only for temperature sensors
     if (get_slot_is_temp(data, slot_value))
     {
-        const int degree_spacing = (config->display_degree_spacing > 0)
-                                       ? config->display_degree_spacing
-                                       : 16;
         double degree_x = temp_x + temp_ext.width + degree_spacing;
         double degree_y = final_temp_y - slot_font_size * 0.25;
 
@@ -237,9 +239,10 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     }
 
     // Draw temperature bar (centered reference point)
+    const double bar_alpha = config->layout_bar_opacity;
 
     // Bar background
-    set_cairo_color(cr, &config->layout_bar_color_background);
+    set_cairo_color_alpha(cr, &config->layout_bar_color_background, bar_alpha);
     draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
                                 params->corner_radius);
     cairo_fill(cr);
@@ -247,7 +250,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     // Bar border (only if enabled and thickness > 0)
     if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
     {
-        set_cairo_color(cr, &config->layout_bar_color_border);
+        set_cairo_color_alpha(cr, &config->layout_bar_color_border, bar_alpha);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
                                     params->corner_radius);
         cairo_set_line_width(cr, config->layout_bar_border);
@@ -260,7 +263,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     if (fill_width > 0)
     {
         Color bar_color = get_slot_bar_color(config, slot_value, temp_value);
-        set_cairo_color(cr, &bar_color);
+        set_cairo_color_alpha(cr, &bar_color, bar_alpha);
 
         cairo_save(cr);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width,
@@ -284,8 +287,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         cairo_text_extents_t label_text_ext;
         cairo_text_extents(cr, label_text, &label_text_ext);
 
-        // Center label horizontally
-        double label_x = (config->display_width - label_text_ext.width) / 2.0;
+        const double left_margin_factor =
+            (config->layout_label_margin_left > 0)
+                ? (config->layout_label_margin_left / 100.0)
+                : 0.01;
+        double label_x = config->display_width * left_margin_factor;
 
         // Position label 2% from bottom
         double final_label_y = config->display_height - (config->display_height * 0.02);
@@ -311,9 +317,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     if (!cr || !config || !data || !params)
         return;
 
-    // Draw main background
-    set_cairo_color(cr, &config->display_background_color);
-    cairo_paint(cr);
+    paint_display_background(cr, config);
 
     // Update sensor mode (check if configured interval elapsed)
     update_sensor_mode(config);
@@ -402,8 +406,9 @@ void draw_circle_image(const struct Config *config)
     int screen_width = 0, screen_height = 0;
 
     const int device_available =
-        get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
-                           sizeof(device_name), &screen_width, &screen_height);
+        get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
+                                   device_name, sizeof(device_name),
+                                   &screen_width, &screen_height);
 
     // Get sensor data
     monitor_sensor_data_t data = {0};

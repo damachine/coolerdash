@@ -91,6 +91,10 @@ static void set_paths_defaults(Config *config)
     {
         SAFE_STRCPY(config->paths_image_coolerdash, "/etc/coolercontrol/plugins/coolerdash/coolerdash.png");
     }
+    if (config->paths_image_background[0] == '\0')
+    {
+        SAFE_STRCPY(config->paths_image_background, "");
+    }
     if (config->paths_image_shutdown[0] == '\0')
     {
         SAFE_STRCPY(config->paths_image_shutdown,
@@ -107,7 +111,8 @@ static void try_set_lcd_dimensions(Config *config)
         return;
 
     int lcd_width = 0, lcd_height = 0;
-    if (!get_liquidctl_data(config, NULL, 0, NULL, 0, &lcd_width, &lcd_height))
+    if (!get_cached_lcd_device_data(config, NULL, 0, NULL, 0, &lcd_width,
+                                    &lcd_height))
         return;
 
     if (lcd_width <= 0 || lcd_height <= 0)
@@ -136,12 +141,18 @@ static void set_display_defaults(Config *config)
         cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), "auto");
     if (config->display_mode[0] == '\0')
         cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
+    if (config->display_background_image_fit[0] == '\0')
+        cc_safe_strcpy(config->display_background_image_fit,
+                       sizeof(config->display_background_image_fit), "cover");
     if (config->circle_switch_interval == 0)
         config->circle_switch_interval = 5;
     if (config->display_content_scale_factor == 0.0f)
         config->display_content_scale_factor = 0.98f;
     if (config->display_inscribe_factor < 0.0f)
         config->display_inscribe_factor = 0.70710678f;
+    if (config->display_background_overlay_opacity < 0.0f ||
+        config->display_background_overlay_opacity > 1.0f)
+        config->display_background_overlay_opacity = 0.0f;
 
     // Sensor slot defaults (flexible sensor assignment)
     if (config->sensor_slot_up[0] == '\0')
@@ -170,6 +181,8 @@ static void set_layout_defaults(Config *config)
     // bar_border: -1 = use default (1.0), 0 = explicitly disabled, >0 = custom value
     if (config->layout_bar_border < 0.0f)
         config->layout_bar_border = 1.0f;
+    if (config->layout_bar_opacity < 0.0f || config->layout_bar_opacity > 1.0f)
+        config->layout_bar_opacity = 1.0f;
     // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
     if (config->layout_bar_border_enabled < 0)
         config->layout_bar_border_enabled = 1; // Default: enabled
@@ -713,6 +726,16 @@ static void load_paths_from_json(json_t *root, Config *config)
         }
     }
 
+    json_t *image_background = json_object_get(paths, "image_background");
+    if (image_background && json_is_string(image_background))
+    {
+        const char *value = json_string_value(image_background);
+        if (value)
+        {
+            SAFE_STRCPY(config->paths_image_background, value);
+        }
+    }
+
     json_t *image_shutdown = json_object_get(paths, "image_shutdown");
     if (image_shutdown && json_is_string(image_shutdown))
     {
@@ -749,6 +772,27 @@ static void load_display_from_json(json_t *root, Config *config)
         int val = (int)json_integer_value(circle_interval);
         if (val >= 1 && val <= 60)
             config->circle_switch_interval = (uint16_t)val;
+    }
+
+    json_t *background_fit = json_object_get(display, "background_image_fit");
+    if (background_fit && json_is_string(background_fit))
+    {
+        const char *value = json_string_value(background_fit);
+        if (value && (strcmp(value, "cover") == 0 ||
+                      strcmp(value, "contain") == 0 ||
+                      strcmp(value, "stretch") == 0))
+        {
+            SAFE_STRCPY(config->display_background_image_fit, value);
+        }
+    }
+
+    json_t *background_overlay =
+        json_object_get(display, "background_overlay_opacity");
+    if (background_overlay && json_is_number(background_overlay))
+    {
+        double val = json_number_value(background_overlay);
+        if (val >= 0.0 && val <= 1.0)
+            config->display_background_overlay_opacity = (float)val;
     }
 
     json_t *refresh = json_object_get(display, "refresh_interval");
@@ -885,6 +929,14 @@ static void load_layout_from_json(json_t *root, Config *config)
         double val = json_number_value(bar_gap);
         if (val >= 0 && val <= 100)
             config->layout_bar_gap = (uint16_t)val;
+    }
+
+    json_t *bar_opacity = json_object_get(layout, "bar_opacity");
+    if (bar_opacity && json_is_number(bar_opacity))
+    {
+        double val = json_number_value(bar_opacity);
+        if (val >= 0.0 && val <= 1.0)
+            config->layout_bar_opacity = (float)val;
     }
 
     json_t *bar_border = json_object_get(layout, "bar_border");
@@ -1170,6 +1222,7 @@ int load_plugin_config(Config *config, const char *config_path)
     memset(config, 0, sizeof(Config));
     config->display_inscribe_factor = -1.0f; // Sentinel for "auto"
     config->layout_bar_border = -1.0f;       // Sentinel for "use default"
+    config->layout_bar_opacity = -1.0f;      // Sentinel for "use default"
     config->layout_bar_border_enabled = -1;  // Sentinel for "auto" (enabled)
     // Note: All colors have is_set=0 after memset, so defaults will be applied
 

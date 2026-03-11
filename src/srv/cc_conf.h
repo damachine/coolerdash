@@ -40,13 +40,14 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size,
                    const char *restrict src);
 
 /**
- * @brief Get complete Liquidctl device information (UID, name, screen
- * dimensions) from cache.
- * @details Reads all LCD device information from cache (no API call).
+ * @brief Get cached LCD device information (UID, name, screen dimensions).
+ * @details Reads the selected CoolerControl LCD device information from cache
+ * without performing an additional API call.
  */
-int get_liquidctl_data(const struct Config *config, char *device_uid,
-                       size_t uid_size, char *device_name, size_t name_size,
-                       int *screen_width, int *screen_height);
+int get_cached_lcd_device_data(const struct Config *config, char *device_uid,
+                               size_t uid_size, char *device_name,
+                               size_t name_size, int *screen_width,
+                               int *screen_height);
 
 /**
  * @brief Initialize device information cache.

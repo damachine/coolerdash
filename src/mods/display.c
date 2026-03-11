@@ -56,6 +56,164 @@ void set_cairo_color(cairo_t *cr, const Color *color)
 }
 
 /**
+ * @brief Set cairo source color from Color structure with alpha.
+ */
+void set_cairo_color_alpha(cairo_t *cr, const Color *color, double alpha)
+{
+    cairo_set_source_rgba(cr, cairo_color_convert(color->r),
+                          cairo_color_convert(color->g),
+                          cairo_color_convert(color->b), alpha);
+}
+
+/**
+ * @brief Scale a design-space X value based on display width.
+ */
+double scale_value_x(const ScalingParams *params, double value)
+{
+    if (!params)
+        return value;
+    return value * params->scale_x;
+}
+
+/**
+ * @brief Scale a design-space Y value based on display height.
+ */
+double scale_value_y(const ScalingParams *params, double value)
+{
+    if (!params)
+        return value;
+    return value * params->scale_y;
+}
+
+/**
+ * @brief Scale a design-space value using average display scaling.
+ */
+double scale_value_avg(const ScalingParams *params, double value)
+{
+    if (!params)
+        return value;
+    return value * ((params->scale_x + params->scale_y) / 2.0);
+}
+
+/**
+ * @brief Get effective degree symbol spacing for the current display.
+ */
+int get_scaled_degree_spacing(const struct Config *config,
+                              const ScalingParams *params)
+{
+    const double base_spacing =
+        (config && config->display_degree_spacing > 0)
+            ? (double)config->display_degree_spacing
+            : 16.0;
+
+    const int scaled_spacing = (int)lround(scale_value_avg(params, base_spacing));
+    return (scaled_spacing > 0) ? scaled_spacing : 1;
+}
+
+/**
+ * @brief Paint a configured overlay over a loaded background image.
+ */
+static void paint_background_overlay(cairo_t *cr, const struct Config *config)
+{
+    if (config->display_background_overlay_opacity <= 0.0f)
+        return;
+
+    cairo_save(cr);
+    cairo_set_source_rgba(cr,
+                          cairo_color_convert(config->display_background_color.r),
+                          cairo_color_convert(config->display_background_color.g),
+                          cairo_color_convert(config->display_background_color.b),
+                          config->display_background_overlay_opacity);
+    cairo_paint(cr);
+    cairo_restore(cr);
+}
+
+/**
+ * @brief Paint configured background image or fallback color.
+ */
+void paint_display_background(cairo_t *cr, const struct Config *config)
+{
+    static char last_failed_path[CONFIG_MAX_PATH_LEN] = {0};
+
+    if (!cr || !config)
+        return;
+
+    set_cairo_color(cr, &config->display_background_color);
+    cairo_paint(cr);
+
+    if (config->paths_image_background[0] != '\0')
+    {
+        cairo_surface_t *background =
+            cairo_image_surface_create_from_png(config->paths_image_background);
+
+        if (background &&
+            cairo_surface_status(background) == CAIRO_STATUS_SUCCESS)
+        {
+            const int image_width = cairo_image_surface_get_width(background);
+            const int image_height = cairo_image_surface_get_height(background);
+
+            if (image_width > 0 && image_height > 0)
+            {
+                double scale_x = 1.0;
+                double scale_y = 1.0;
+                double offset_x = 0.0;
+                double offset_y = 0.0;
+
+                if (strcmp(config->display_background_image_fit, "contain") == 0)
+                {
+                    const double scale = fmin((double)config->display_width / image_width,
+                                              (double)config->display_height / image_height);
+                    scale_x = scale;
+                    scale_y = scale;
+                    offset_x = ((double)config->display_width - image_width * scale) / 2.0;
+                    offset_y = ((double)config->display_height - image_height * scale) / 2.0;
+                }
+                else if (strcmp(config->display_background_image_fit, "stretch") == 0)
+                {
+                    scale_x = (double)config->display_width / image_width;
+                    scale_y = (double)config->display_height / image_height;
+                }
+                else
+                {
+                    const double scale = fmax((double)config->display_width / image_width,
+                                              (double)config->display_height / image_height);
+                    scale_x = scale;
+                    scale_y = scale;
+                    offset_x = ((double)config->display_width - image_width * scale) / 2.0;
+                    offset_y = ((double)config->display_height - image_height * scale) / 2.0;
+                }
+
+                cairo_save(cr);
+                cairo_translate(cr, offset_x, offset_y);
+                cairo_scale(cr, scale_x, scale_y);
+                cairo_set_source_surface(cr, background, 0.0, 0.0);
+                cairo_pattern_set_filter(cairo_get_source(cr),
+                                         CAIRO_FILTER_BILINEAR);
+                cairo_paint(cr);
+                cairo_restore(cr);
+
+                paint_background_overlay(cr, config);
+                cairo_surface_destroy(background);
+                last_failed_path[0] = '\0';
+                return;
+            }
+
+            cairo_surface_destroy(background);
+        }
+
+        if (strcmp(last_failed_path, config->paths_image_background) != 0)
+        {
+            SAFE_STRCPY(last_failed_path, config->paths_image_background);
+            log_message(LOG_WARNING,
+                        "Failed to load background image, using background color: %s",
+                        config->paths_image_background);
+        }
+    }
+
+    return;
+}
+
+/**
  * @brief Calculate temperature fill width with bounds checking.
  */
 int calculate_temp_fill_width(float temp_value, int max_width, float max_temp)

@@ -769,11 +769,32 @@
                     </div>
                 </div>
 
-                <h3 class="section-title">Shutdown Image</h3>
+                <h3 class="section-title">Background &amp; Shutdown Images</h3>
+                <div class="form-group">
+                    <label class="form-label">Background Image Path</label>
+                    <span class="form-hint">Optional PNG file used as display background behind the sensor values. Leave empty to use the configured background color.</span>
+                    <input type="text" name="paths.image_background" class="form-control">
+                </div>
                 <div class="form-group">
                     <label class="form-label">Shutdown Image Path</label>
                     <span class="form-hint">Displayed on the LCD when the daemon stops. Default: /etc/coolercontrol/plugins/coolerdash/shutdown.png</span>
                     <input type="text" name="paths.image_shutdown" class="form-control">
+                </div>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Background Fit</label>
+                        <span class="form-hint">Default: Cover</span>
+                        <select name="display.background_image_fit" class="form-control">
+                            <option value="cover">Cover</option>
+                            <option value="contain">Contain</option>
+                            <option value="stretch">Stretch</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Image Overlay Opacity</label>
+                        <span class="form-hint">0.0 = off, 1.0 = solid overlay using Display Background color</span>
+                        <input type="number" name="display.background_overlay_opacity" class="form-control" min="0" max="1" step="0.05">
+                    </div>
                 </div>
             </div>
 
@@ -843,6 +864,11 @@
                                 <label class="form-label">Border Thickness</label>
                                 <span class="form-hint">Default: 1.0</span>
                                 <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Bar Opacity</label>
+                                <span class="form-hint">0.0 = transparent, 1.0 = fully visible</span>
+                                <input type="number" name="layout.bar_opacity" class="form-control" min="0" max="1" step="0.05">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Left Margin</label>
@@ -1129,6 +1155,7 @@
                 tls_skip_verify: false
             },
             paths: {
+                image_background: "",
                 image_shutdown: "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
             },
             display: {
@@ -1137,6 +1164,8 @@
                 refresh_interval: 2.5,
                 brightness: 80,
                 orientation: 0,
+                background_image_fit: "cover",
+                background_overlay_opacity: 0.0,
                 width: 0,
                 height: 0,
                 shape: "auto",
@@ -1151,6 +1180,7 @@
                 bar_width: 98,
                 bar_gap: 12,
                 bar_border: 1.0,
+                bar_opacity: 1.0,
                 bar_border_enabled: 1,
                 label_margin_left: 1,
                 label_margin_bar: 1,

@@ -596,9 +596,9 @@ static void initialize_device_info(Config *config)
     char device_name[CONFIG_MAX_STRING_LEN] = {0};
     int api_screen_width = 0, api_screen_height = 0;
 
-    if (!get_liquidctl_data(config, device_uid, sizeof(device_uid), device_name,
-                            sizeof(device_name), &api_screen_width,
-                            &api_screen_height))
+    if (!get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
+                                    device_name, sizeof(device_name),
+                                    &api_screen_width, &api_screen_height))
     {
         log_message(LOG_ERROR, "Could not retrieve device information");
         return;
@@ -701,8 +701,10 @@ int main(int argc, char **argv)
     if (config.paths_image_shutdown[0])
     {
         char device_uid[128] = {0};
-        if (get_liquidctl_data(&config, device_uid, sizeof(device_uid),
-                               NULL, 0, NULL, NULL) && device_uid[0])
+        if (get_cached_lcd_device_data(&config, device_uid,
+                                       sizeof(device_uid), NULL, 0, NULL,
+                                       NULL) &&
+            device_uid[0])
         {
             register_shutdown_image_with_cc(&config,
                                             config.paths_image_shutdown,
