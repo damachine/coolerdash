@@ -505,7 +505,7 @@ jobs:
           grep -E "^pkgver=|^_commit=|^pkgrel=" $GITHUB_WORKSPACE/aur-deploy/PKGBUILD || echo "⚠️ Warning: grep found no matches"
 
       - name: Deploy to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@a97f56a8425a7a7f3b8c58607f769c69b089cadb # v3
+        uses: KSXGitHub/github-actions-deploy-aur@abe8ac26b51011c88be58c8809fd2ac674068ea5 # v4.1.2
         with:
           pkgname: coolerdash-git
           pkgbuild: ./aur-deploy/PKGBUILD
