@@ -16,8 +16,6 @@ CC4 uses Bearer Token authentication. Generate a token in CoolerControl UI under
 }
 ```
 
-CC3 fallback: leave `access_token` empty, set `password` instead.
-
 ### Shutdown Image
 
 CoolerDash registers `shutdown.png` with CC4 once at startup:
@@ -96,7 +94,7 @@ The plugin settings page includes:
 
 ### 🌐 Daemon Settings
 - CoolerControl API Address
-- API Password
+- Access Token
 
 ### 🖥️ Display Mode
 - Mode selection (Dual/Circle)

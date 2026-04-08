@@ -37,6 +37,15 @@
 #define M_SQRT1_2 0.7071067811865476
 #endif
 
+static double clamp_double(double value, double min_value, double max_value)
+{
+    if (value < min_value)
+        return min_value;
+    if (value > max_value)
+        return max_value;
+    return value;
+}
+
 /**
  * @brief Convert color component into a 0.0-1.0 range.
  */
@@ -92,7 +101,7 @@ double scale_value_avg(const ScalingParams *params, double value)
 {
     if (!params)
         return value;
-    return value * ((params->scale_x + params->scale_y) / 2.0);
+    return value * params->scale_uniform;
 }
 
 /**
@@ -108,6 +117,381 @@ int get_scaled_degree_spacing(const struct Config *config,
 
     const int scaled_spacing = (int)lround(scale_value_avg(params, base_spacing));
     return (scaled_spacing > 0) ? scaled_spacing : 1;
+}
+
+/**
+ * @brief Get the scaled bar border width.
+ */
+double get_scaled_bar_border_width(const struct Config *config,
+                                   const ScalingParams *params)
+{
+    if (!config || config->layout_bar_border <= 0.0f)
+        return 0.0;
+
+    const double scaled_border = scale_value_avg(params,
+                                                 (double)config->layout_bar_border);
+    return (scaled_border > 0.0) ? scaled_border : 0.0;
+}
+
+/**
+ * @brief Get the preferred label font size.
+ */
+double get_preferred_label_font_size(const struct Config *config,
+                                     const ScalingParams *params)
+{
+    if (!config)
+        return 0.0;
+
+    if (config->font_size_labels > 0.0f)
+        return scale_value_avg(params, (double)config->font_size_labels);
+
+    return scale_value_avg(params, 28.0);
+}
+
+/**
+ * @brief Get the scaled global label X offset using uniform scaling.
+ */
+int get_scaled_label_offset_x(const struct Config *config,
+                              const ScalingParams *params)
+{
+    if (!config)
+        return 0;
+
+    return (int)lround(scale_value_avg(
+        params, (double)config->display_label_offset_x));
+}
+
+/**
+ * @brief Get the scaled global label Y offset using uniform scaling.
+ */
+int get_scaled_label_offset_y(const struct Config *config,
+                              const ScalingParams *params)
+{
+    if (!config)
+        return 0;
+
+    return (int)lround(scale_value_avg(
+        params, (double)config->display_label_offset_y));
+}
+
+/**
+ * @brief Get the scaled pixel bar gap.
+ */
+int get_scaled_bar_gap(const struct Config *config,
+                       const ScalingParams *params)
+{
+    if (!config)
+        return 0;
+
+    const int scaled_gap = (int)lround(scale_value_avg(
+        params, (double)config->layout_bar_gap));
+    return (scaled_gap > 0) ? scaled_gap : 0;
+}
+
+/**
+ * @brief Get the effective vertical spacing between bars and labels.
+ */
+double get_effective_label_spacing(const struct Config *config,
+                                   const ScalingParams *params)
+{
+    if (!config)
+        return 0.0;
+
+    const double spacing_factor =
+        config->layout_label_margin_bar / 100.0;
+    const double min_dimension =
+        (config->display_width < config->display_height)
+            ? (double)config->display_width
+            : (double)config->display_height;
+    const double scaled_spacing = min_dimension * spacing_factor;
+    const double minimum_spacing = scale_value_avg(params, 2.0);
+
+    return fmax(minimum_spacing, scaled_spacing);
+}
+
+/**
+ * @brief Format a sensor value with optional decimals.
+ */
+void format_slot_value_text(char *buffer, size_t buffer_size,
+                            const monitor_sensor_data_t *data,
+                            const char *slot_value, float temp_value)
+{
+    if (!buffer || buffer_size == 0)
+        return;
+
+    if (get_slot_use_decimal(data, slot_value))
+        snprintf(buffer, buffer_size, "%.1f", temp_value);
+    else
+        snprintf(buffer, buffer_size, "%d", (int)temp_value);
+}
+
+/**
+ * @brief Measure and optionally render a right-aligned sensor value block.
+ */
+void layout_and_render_slot_value(cairo_t *cr,
+                                  const monitor_sensor_data_t *data,
+                                  const struct Config *config,
+                                  const ScalingParams *params,
+                                  const char *slot_value,
+                                  float temp_value, double box_x,
+                                  double box_y, double box_width,
+                                  double box_height, int align_bottom,
+                                  int draw_output,
+                                  SlotValueLayout *layout)
+{
+    if (!cr || !data || !config || !params || !slot_value || !layout ||
+        box_width <= 0.0 || box_height <= 0.0)
+        return;
+
+    memset(layout, 0, sizeof(*layout));
+
+    char value_text[16] = {0};
+    format_slot_value_text(value_text, sizeof(value_text), data, slot_value,
+                           temp_value);
+
+    const int is_temp = get_slot_is_temp(data, slot_value);
+    const double offset_x =
+        scale_value_x(params, (double)get_slot_offset_x(config, slot_value));
+    const double offset_y =
+        scale_value_y(params, (double)get_slot_offset_y(config, slot_value));
+    const int degree_spacing =
+        is_temp ? ((get_scaled_degree_spacing(config, params) > 1)
+                       ? (int)lround(get_scaled_degree_spacing(config, params) * 0.65)
+                       : 1)
+                : get_scaled_degree_spacing(config, params);
+    const double temp_margin_factor =
+        (config->layout_label_margin_left > 0)
+            ? (config->layout_label_margin_left / 200.0)
+            : 0.005;
+    const double right_margin = fmax(0.0, box_width * temp_margin_factor);
+    const double inner_padding_x = clamp_double(scale_value_avg(params, 0.75),
+                                                0.0, box_width * 0.015);
+    const double inner_padding_y = clamp_double(scale_value_avg(params, 0.25),
+                                                0.0, box_height * 0.02);
+    const double growth_factor =
+        (config->font_growth_factor >= 1.0f)
+            ? (double)config->font_growth_factor
+            : 1.0;
+    const double available_width =
+        fmax(16.0, (box_width - inner_padding_x - right_margin) * growth_factor);
+    const double available_height =
+        fmax(12.0, (box_height - inner_padding_y) * growth_factor);
+    const double configured_font_size = get_slot_font_size(config, slot_value);
+    const double configured_scaled_font_size =
+        (configured_font_size > 0.0)
+            ? scale_value_avg(params, configured_font_size)
+            : 0.0;
+    const double auto_font_size = fmax(scale_value_avg(params, 220.0),
+                                       available_height * 7.40);
+    const double preferred_font_size =
+        (configured_scaled_font_size > 0.0)
+            ? configured_scaled_font_size
+            : auto_font_size;
+    const double min_font_size =
+        (configured_scaled_font_size > 0.0)
+            ? fmax(8.0, scale_value_avg(params, 8.0))
+            : fmax(12.0, scale_value_avg(params, 14.0));
+
+    cairo_text_extents_t number_ext = {0};
+    cairo_text_extents_t degree_ext = {0};
+    cairo_font_extents_t font_ext = {0};
+    double font_size = preferred_font_size;
+    double degree_font_size = font_size / 2.05;
+    double total_width = 0.0;
+    double number_width = 0.0;
+    double content_height = 0.0;
+
+    while (1)
+    {
+        cairo_set_font_size(cr, font_size);
+        cairo_font_extents(cr, &font_ext);
+        cairo_text_extents(cr, value_text, &number_ext);
+        number_width = fmax(number_ext.x_advance, number_ext.width);
+
+        degree_font_size = font_size / 2.05;
+        degree_ext = (cairo_text_extents_t){0};
+        if (is_temp)
+        {
+            cairo_set_font_size(cr, degree_font_size);
+            cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
+            cairo_set_font_size(cr, font_size);
+        }
+
+        total_width = number_width +
+                      (is_temp
+                           ? (degree_spacing +
+                              fmax(degree_ext.x_advance, degree_ext.width))
+                           : 0.0);
+        content_height = fmax(number_ext.height,
+                              font_ext.ascent + font_ext.descent);
+
+        if ((total_width <= available_width &&
+             content_height <= available_height) ||
+            font_size <= min_font_size)
+            break;
+
+        font_size *= 0.93;
+        if (font_size < min_font_size)
+            font_size = min_font_size;
+    }
+
+    if (configured_scaled_font_size <= 0.0)
+    {
+        double growth_step = fmax(0.5, scale_value_avg(params, 1.0));
+
+        while (growth_step >= 0.25)
+        {
+            while (1)
+            {
+                const double candidate_font_size = font_size + growth_step;
+                cairo_text_extents_t candidate_number_ext = {0};
+                cairo_text_extents_t candidate_degree_ext = {0};
+                cairo_font_extents_t candidate_font_ext = {0};
+                double candidate_number_width = 0.0;
+                double candidate_total_width = 0.0;
+                double candidate_content_height = 0.0;
+                double candidate_degree_font_size = candidate_font_size / 2.05;
+
+                cairo_set_font_size(cr, candidate_font_size);
+                cairo_font_extents(cr, &candidate_font_ext);
+                cairo_text_extents(cr, value_text, &candidate_number_ext);
+                candidate_number_width =
+                    fmax(candidate_number_ext.x_advance,
+                         candidate_number_ext.width);
+
+                if (is_temp)
+                {
+                    cairo_set_font_size(cr, candidate_degree_font_size);
+                    cairo_text_extents(cr, "\xC2\xB0", &candidate_degree_ext);
+                    cairo_set_font_size(cr, candidate_font_size);
+                }
+
+                candidate_total_width = candidate_number_width +
+                                        (is_temp
+                                             ? (degree_spacing +
+                                                fmax(candidate_degree_ext.x_advance,
+                                                     candidate_degree_ext.width))
+                                             : 0.0);
+                candidate_content_height =
+                    fmax(candidate_number_ext.height,
+                         candidate_font_ext.ascent +
+                             candidate_font_ext.descent);
+
+                if (candidate_total_width > available_width ||
+                    candidate_content_height > available_height)
+                    break;
+
+                font_size = candidate_font_size;
+                degree_font_size = candidate_degree_font_size;
+                number_ext = candidate_number_ext;
+                degree_ext = candidate_degree_ext;
+                font_ext = candidate_font_ext;
+                number_width = candidate_number_width;
+                total_width = candidate_total_width;
+                content_height = candidate_content_height;
+            }
+
+            growth_step *= 0.5;
+        }
+    }
+
+    const double requested_right =
+        box_x + box_width - right_margin + offset_x;
+    const double block_left =
+        fmax(box_x + inner_padding_x + offset_x, requested_right - total_width);
+    const double number_x = block_left - number_ext.x_bearing;
+
+    double baseline_y;
+    if (align_bottom)
+    {
+        const double ink_bottom =
+            box_y + box_height - inner_padding_y + offset_y;
+        baseline_y = ink_bottom - (number_ext.y_bearing + number_ext.height);
+    }
+    else
+    {
+        const double ink_top = box_y + inner_padding_y + offset_y;
+        baseline_y = ink_top - number_ext.y_bearing;
+    }
+
+    if (draw_output)
+    {
+        cairo_set_font_size(cr, font_size);
+        cairo_move_to(cr, number_x, baseline_y);
+        cairo_show_text(cr, value_text);
+
+        if (is_temp)
+        {
+            const double number_top = baseline_y + number_ext.y_bearing;
+            const double degree_top = number_top + (number_ext.height * 0.08);
+            const double degree_x =
+                block_left + number_width + degree_spacing - degree_ext.x_bearing;
+            const double degree_y = degree_top - degree_ext.y_bearing;
+
+            cairo_set_font_size(cr, degree_font_size);
+            cairo_move_to(cr, degree_x, degree_y);
+            cairo_show_text(cr, "\xC2\xB0");
+            cairo_set_font_size(cr, font_size);
+        }
+    }
+
+    layout->active = 1;
+    layout->block_left = block_left;
+    layout->block_right = block_left + total_width;
+    layout->block_top = baseline_y + number_ext.y_bearing;
+    layout->block_bottom = layout->block_top + number_ext.height;
+    layout->baseline_y = baseline_y;
+    layout->font_size = font_size;
+}
+
+/**
+ * @brief Calculate usable horizontal bounds for a text lane.
+ */
+void calculate_text_lane_bounds(const struct Config *config,
+                                const ScalingParams *params,
+                                double box_y, double box_height,
+                                int align_bottom,
+                                double fallback_x, double fallback_width,
+                                double *safe_x, double *safe_width)
+{
+    if (!safe_x || !safe_width)
+        return;
+
+    *safe_x = fallback_x;
+    *safe_width = fallback_width;
+
+    if (!config || !params || !params->is_circular || box_height <= 0.0)
+        return;
+
+    const double min_dimension =
+        (config->display_width < config->display_height)
+            ? (double)config->display_width
+            : (double)config->display_height;
+    const double content_scale =
+        (config->display_content_scale_factor > 0.0f &&
+         config->display_content_scale_factor <= 1.0f)
+            ? config->display_content_scale_factor
+            : 0.98;
+    const double radius = (min_dimension * 0.5) * content_scale;
+    const double center_x = config->display_width / 2.0;
+    const double center_y = config->display_height / 2.0;
+    const double anchor_ratio = align_bottom ? 0.82 : 0.18;
+    const double sample_y = box_y + (box_height * anchor_ratio);
+    const double limiting_distance = fabs(sample_y - center_y);
+
+    if (limiting_distance >= radius)
+        return;
+
+    const double half_width = sqrt((radius * radius) -
+                                   (limiting_distance * limiting_distance));
+    const double candidate_x = center_x - half_width;
+    const double candidate_width = half_width * 2.0;
+
+    if (candidate_width > 0.0)
+    {
+        *safe_x = candidate_x;
+        *safe_width = candidate_width;
+    }
 }
 
 /**
@@ -297,85 +681,23 @@ void calculate_scaling_params(const struct Config *config,
 {
     const double base_width = 240.0;
     const double base_height = 240.0;
+    const double min_dimension =
+        (config->display_width < config->display_height)
+            ? (double)config->display_width
+            : (double)config->display_height;
+    const double base_min_dimension =
+        (base_width < base_height) ? base_width : base_height;
 
     params->scale_x = config->display_width / base_width;
     params->scale_y = config->display_height / base_height;
-    const double scale_avg = (params->scale_x + params->scale_y) / 2.0;
+    params->scale_uniform =
+        (base_min_dimension > 0.0) ? (min_dimension / base_min_dimension) : 1.0;
 
-    // Detect circular displays using device database with resolution info
-    int is_circular_by_device = is_circular_display_device(
+    params->is_circular = is_circular_display_device(
         device_name, config->display_width, config->display_height);
+    params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
 
-    // Check display_shape configuration
-    if (strcmp(config->display_shape, "rectangular") == 0)
-    {
-        // Force rectangular (inscribe_factor = 1.0)
-        params->is_circular = 0;
-        params->inscribe_factor = 1.0;
-        log_message(LOG_INFO, "Display shape forced to rectangular via config "
-                              "(inscribe_factor: 1.0)");
-    }
-    else if (strcmp(config->display_shape, "circular") == 0)
-    {
-        // Force circular (inscribe_factor = M_SQRT1_2 ~ 0.7071)
-        params->is_circular = 1;
-        double cfg_inscribe;
-        if (config->display_inscribe_factor == 0.0f)
-            cfg_inscribe = M_SQRT1_2;
-        else if (config->display_inscribe_factor > 0.0f &&
-                 config->display_inscribe_factor <= 1.0f)
-            cfg_inscribe = (double)config->display_inscribe_factor;
-        else
-            cfg_inscribe = M_SQRT1_2;
-        params->inscribe_factor = cfg_inscribe;
-        log_message(
-            LOG_INFO,
-            "Display shape forced to circular via config (inscribe_factor: %.4f)",
-            params->inscribe_factor);
-    }
-    else if (config->force_display_circular)
-    {
-        // Legacy developer override (CLI --develop)
-        params->is_circular = 1;
-        {
-            double cfg_inscribe;
-            if (config->display_inscribe_factor == 0.0f)
-                cfg_inscribe = M_SQRT1_2;
-            else if (config->display_inscribe_factor > 0.0f &&
-                     config->display_inscribe_factor <= 1.0f)
-                cfg_inscribe = (double)config->display_inscribe_factor;
-            else
-                cfg_inscribe = M_SQRT1_2;
-            params->inscribe_factor = cfg_inscribe;
-        }
-        log_message(LOG_INFO,
-                    "Developer override active: forcing circular display detection "
-                    "(device: %s)",
-                    device_name ? device_name : "unknown");
-    }
-    else
-    {
-        // Auto-detection based on device database
-        params->is_circular = is_circular_by_device;
-        if (params->is_circular)
-        {
-            double cfg_inscribe;
-            if (config->display_inscribe_factor == 0.0f)
-                cfg_inscribe = M_SQRT1_2;
-            else if (config->display_inscribe_factor > 0.0f &&
-                     config->display_inscribe_factor <= 1.0f)
-                cfg_inscribe = (double)config->display_inscribe_factor;
-            else
-                cfg_inscribe = M_SQRT1_2;
-            params->inscribe_factor = cfg_inscribe;
-        }
-        else
-        {
-            params->inscribe_factor = 1.0;
-        }
-    }
-
-    // Calculate safe area width
+    // Calculate safe area width from detected device geometry only.
     const double safe_area_width =
         config->display_width * params->inscribe_factor;
     const float content_scale = (config->display_content_scale_factor > 0.0f &&
@@ -391,13 +713,17 @@ void calculate_scaling_params(const struct Config *config,
     params->safe_content_margin =
         (config->display_width - params->safe_bar_width) / 2.0;
 
-    params->corner_radius = 8.0 * scale_avg;
+    params->corner_radius = 8.0 * params->scale_uniform;
 
     // Log detailed scaling calculations
     log_message(
         LOG_INFO,
-        "Scaling: safe_area=%.0fpx, bar_width=%dpx (%.0f%%), margin=%.1fpx",
-        safe_area_width, params->safe_bar_width, bar_width_factor * 100.0,
+        "Scaling: display=%ux%u scale=(%.3f, %.3f) uniform=%.3f shape=%s inscribe=%.4f content=%.3f safe_area=%.0fpx bar_width=%dpx (%.0f%%) margin=%.1fpx",
+        config->display_width, config->display_height, params->scale_x,
+        params->scale_y, params->scale_uniform,
+        params->is_circular ? "circular" : "rectangular",
+        params->inscribe_factor, content_scale, safe_area_width,
+        params->safe_bar_width, bar_width_factor * 100.0,
         params->safe_content_margin);
 }
 
@@ -446,7 +772,34 @@ const char *get_slot_label(const struct Config *config,
             return sc->label;
     }
 
-    /* Legacy labels */
+    /* Use device name from API if available (first two words only) */
+    if (data)
+    {
+        const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
+        if (entry && entry->device_name[0] != '\0')
+        {
+            static char short_name[SENSOR_DEVICE_NAME_LEN];
+            cc_safe_strcpy(short_name, sizeof(short_name),
+                           entry->device_name);
+            /* Find end of second word */
+            int words = 0;
+            for (size_t i = 0; short_name[i] != '\0'; i++)
+            {
+                if (short_name[i] == ' ')
+                {
+                    words++;
+                    if (words >= 2)
+                    {
+                        short_name[i] = '\0';
+                        break;
+                    }
+                }
+            }
+            return short_name;
+        }
+    }
+
+    /* Fallback: legacy labels */
     if (strcmp(slot_value, "cpu") == 0)
         return "CPU";
     if (strcmp(slot_value, "gpu") == 0)
@@ -514,14 +867,40 @@ uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name)
     if (!config || !slot_name)
         return 24;
 
-    if (strcmp(slot_name, "up") == 0)
-        return config->layout_bar_height_up;
-    else if (strcmp(slot_name, "mid") == 0)
-        return config->layout_bar_height_mid;
-    else if (strcmp(slot_name, "down") == 0)
-        return config->layout_bar_height_down;
+    if (strcmp(slot_name, "1") == 0)
+    {
+        return (config->layout_bar_height_1 > 0)
+                   ? config->layout_bar_height_1
+                   : config->layout_bar_height;
+    }
+    else if (strcmp(slot_name, "2") == 0)
+    {
+        return (config->layout_bar_height_2 > 0)
+                   ? config->layout_bar_height_2
+                   : config->layout_bar_height;
+    }
+    else if (strcmp(slot_name, "3") == 0)
+    {
+        return (config->layout_bar_height_3 > 0)
+                   ? config->layout_bar_height_3
+                   : config->layout_bar_height;
+    }
 
     return config->layout_bar_height;
+}
+
+/**
+ * @brief Get the scaled pixel bar height for a slot.
+ */
+int get_scaled_slot_bar_height(const struct Config *config,
+                               const ScalingParams *params,
+                               const char *slot_name)
+{
+    const uint16_t logical_height = get_slot_bar_height(config, slot_name);
+    const int scaled_height =
+        (int)lround(scale_value_avg(params, (double)logical_height));
+
+    return (scaled_height > 0) ? scaled_height : 1;
 }
 
 /**

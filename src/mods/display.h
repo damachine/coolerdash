@@ -55,12 +55,27 @@ typedef struct
 {
     double scale_x;
     double scale_y;
+    double scale_uniform;
     double corner_radius;
     double inscribe_factor;     /**< 1.0 for rectangular, M_SQRT1_2 for circular */
     int safe_bar_width;         /**< Safe bar width for circular displays */
     double safe_content_margin; /**< Horizontal margin for safe content area */
     int is_circular;            /**< 1 if circular display, 0 if rectangular */
 } ScalingParams;
+
+/**
+ * @brief Measured layout for a rendered sensor value block.
+ */
+typedef struct
+{
+    int active;
+    double block_left;
+    double block_right;
+    double block_top;
+    double block_bottom;
+    double baseline_y;
+    double font_size;
+} SlotValueLayout;
 
 /**
  * @brief Main display dispatcher - routes to appropriate rendering mode.
@@ -130,6 +145,95 @@ double scale_value_avg(const ScalingParams *params, double value);
  */
 int get_scaled_degree_spacing(const struct Config *config,
                               const ScalingParams *params);
+
+/**
+ * @brief Get the effective logical bar height for a slot.
+ * @details Slot-specific values inherit the global bar height when set to 0.
+ */
+uint16_t get_slot_bar_height(const struct Config *config,
+                             const char *slot_name);
+
+/**
+ * @brief Get the scaled pixel bar height for a slot.
+ */
+int get_scaled_slot_bar_height(const struct Config *config,
+                               const ScalingParams *params,
+                               const char *slot_name);
+
+/**
+ * @brief Get the scaled pixel bar gap.
+ */
+int get_scaled_bar_gap(const struct Config *config,
+                       const ScalingParams *params);
+
+/**
+ * @brief Get the effective vertical spacing between bars and labels.
+ */
+double get_effective_label_spacing(const struct Config *config,
+                                   const ScalingParams *params);
+
+/**
+ * @brief Get the scaled bar border width.
+ */
+double get_scaled_bar_border_width(const struct Config *config,
+                                   const ScalingParams *params);
+
+/**
+ * @brief Get the preferred label font size.
+ * @details A configured label size is scaled uniformly. A value of 0 enables
+ * renderer-driven automatic sizing.
+ */
+double get_preferred_label_font_size(const struct Config *config,
+                                     const ScalingParams *params);
+
+/**
+ * @brief Get the scaled global label X offset using uniform scaling.
+ */
+int get_scaled_label_offset_x(const struct Config *config,
+                              const ScalingParams *params);
+
+/**
+ * @brief Get the scaled global label Y offset using uniform scaling.
+ */
+int get_scaled_label_offset_y(const struct Config *config,
+                              const ScalingParams *params);
+
+/**
+ * @brief Format a sensor value using the configured decimal mode.
+ */
+void format_slot_value_text(char *buffer, size_t buffer_size,
+                            const monitor_sensor_data_t *data,
+                            const char *slot_value, float temp_value);
+
+/**
+ * @brief Measure and optionally render a right-aligned sensor value block.
+ * @details Fits the font size to the available box width and height and places
+ * the value against the right edge of the provided box. Offsets remain as a
+ * user-facing fine-tuning layer.
+ */
+void layout_and_render_slot_value(cairo_t *cr,
+                                  const monitor_sensor_data_t *data,
+                                  const struct Config *config,
+                                  const ScalingParams *params,
+                                  const char *slot_value,
+                                  float temp_value, double box_x,
+                                  double box_y, double box_width,
+                                  double box_height, int align_bottom,
+                                  int draw_output,
+                                  SlotValueLayout *layout);
+
+/**
+ * @brief Get horizontal safe bounds for a text lane.
+ * @details On circular displays this computes the narrowest usable chord for
+ * the specified vertical region so text can use more space without clipping.
+ * Rectangular displays fall back to the given box bounds.
+ */
+void calculate_text_lane_bounds(const struct Config *config,
+                                const ScalingParams *params,
+                                double box_y, double box_height,
+                                int align_bottom,
+                                double fallback_x, double fallback_width,
+                                double *safe_x, double *safe_width);
 
 /**
  * @brief Paint display background from optional PNG image or fallback color.
@@ -209,10 +313,10 @@ Color get_slot_bar_color(const struct Config *config, const char *slot_value,
 float get_slot_max_scale(const struct Config *config, const char *slot_value);
 
 /**
- * @brief Get bar height for a specific slot.
+ * @brief Get the effective logical bar height for a slot.
  * @param config Configuration with bar height values
- * @param slot_name Slot name: "up", "mid", or "down"
- * @return Bar height in pixels for the specified slot
+ * @param slot_name Slot name: "1", "2", or "3"
+ * @return Bar height in logical layout units for the specified slot
  */
 uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name);
 

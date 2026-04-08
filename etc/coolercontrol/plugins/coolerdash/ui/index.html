@@ -334,6 +334,7 @@
         .range-input {
             flex: 1;
             height: 6px;
+            appearance: none;
             background: var(--bg-input);
             border-radius: 3px;
             outline: none;
@@ -582,7 +583,7 @@
 
                 <div class="form-group">
                     <label class="form-label">API Address</label>
-                    <span class="form-hint">HTTP or HTTPS supported (Default: http://localhost:11987)</span>
+                    <span class="form-hint">Default: http://localhost:11987</span>
                     <input type="text" name="daemon.address" class="form-control" required>
                 </div>
 
@@ -599,36 +600,9 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). Leave empty to fall back to password auth (Legacy / CC3).</span>
+                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;).</span>
                     <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
-
-                <h3 class="section-title">Authentication &mdash; Legacy / CC3 (Password)</h3>
-                <div class="form-group">
-                    <label class="form-label">API Password</label>
-                    <span class="form-hint">Only used when no Access Token is set. Default: coolAdmin</span>
-                    <input type="password" name="daemon.password" class="form-control">
-                </div>
-
-                <h3 class="section-title">TLS / HTTPS (Optional)</h3>
-                <div class="grid grid-2" style="align-items: start;">
-                    <div class="form-group">
-                        <label class="form-label">CA Certificate Path</label>
-                        <span class="form-hint">CA certificate for self-signed HTTPS (e.g. /etc/coolercontrol/coolercontrol.crt)</span>
-                        <input type="text" name="daemon.tls_ca_cert_path" class="form-control" placeholder="/etc/coolercontrol/coolercontrol.crt">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Skip TLS Verification</label>
-                        <span class="form-hint">Insecure &mdash; only use when no CA certificate is available.</span>
-                        <select name="daemon.tls_skip_verify" class="form-control">
-                            <option value="0">No (verify certificate &mdash; recommended)</option>
-                            <option value="1">Yes (skip verification)</option>
-                        </select>
-                    </div>
-                </div>
-                <p class="form-hint" style="margin-top: 2px; margin-bottom: 0;">
-                    TLS options affect the CoolerDash daemon only &mdash; not this browser UI. Localhost always uses plain HTTP.
-                </p>
             </div>
 
             <!-- Tab 1: Display -->
@@ -649,6 +623,13 @@
                         <span class="form-hint">How long each sensor is shown (Default: 5)</span>
                         <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
                     </div>
+                    <div class="form-group" id="circle_extra_info_group" style="display: none;">
+                        <label class="form-label">
+                            <input type="checkbox" name="display.circle_show_extra_info" id="circle_show_extra_info" value="1">
+                            Show Extra Sensor Info
+                        </label>
+                        <span class="form-hint">Display frequency, watts, or RPM below the label (CPU: GHz, GPU: MHz+W, Liquid: RPM)</span>
+                    </div>
                 </div>
 
                 <h3 class="section-title">Sensor Slots</h3>
@@ -660,9 +641,9 @@
 
                 <div class="grid grid-3">
                     <div class="form-group">
-                        <label class="form-label">Upper Slot</label>
+                        <label class="form-label">Slot 1</label>
                         <span class="form-hint">Default: CPU</span>
-                        <select name="display.sensor_slot_up" id="sensor_slot_up" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                        <select name="display.sensor_slot_1" id="sensor_slot_1" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
                                 <option value="gpu">GPU</option>
@@ -672,10 +653,10 @@
                         </select>
                     </div>
 
-                    <div class="form-group" id="sensor_slot_mid_group">
-                        <label class="form-label">Middle Slot</label>
-                        <span class="form-hint">Default: None (Circle only)</span>
-                        <select name="display.sensor_slot_mid" id="sensor_slot_mid" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                    <div class="form-group" id="sensor_slot_2_group">
+                        <label class="form-label">Slot 2</label>
+                        <span class="form-hint">Default: Liquid (Circle only)</span>
+                        <select name="display.sensor_slot_2" id="sensor_slot_2" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
                                 <option value="gpu">GPU</option>
@@ -686,9 +667,9 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Lower Slot</label>
+                        <label class="form-label">Slot 3</label>
                         <span class="form-hint">Default: GPU</span>
-                        <select name="display.sensor_slot_down" id="sensor_slot_down" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                        <select name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
                                 <option value="gpu">GPU</option>
@@ -735,24 +716,14 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Shape</label>
-                        <span class="form-hint">Default: Automatic</span>
-                        <select name="display.shape" class="form-control">
-                            <option value="auto">Automatic</option>
-                            <option value="square">Square</option>
-                            <option value="circle">Circle</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
                         <label class="form-label">Width (Pixels)</label>
-                        <span class="form-hint">0 = automatic</span>
+                        <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
                         <input type="number" name="display.width" class="form-control" min="0" max="1024">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Height (Pixels)</label>
-                        <span class="form-hint">0 = automatic</span>
+                        <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
                         <input type="number" name="display.height" class="form-control" min="0" max="1024">
                     </div>
 
@@ -760,12 +731,6 @@
                         <label class="form-label">Content Scale</label>
                         <span class="form-hint">Default: 0.98</span>
                         <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Inscribe Factor</label>
-                        <span class="form-hint">Default: 0.707</span>
-                        <input type="number" name="display.inscribe_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
 
@@ -801,24 +766,29 @@
             <!-- Tab 2: Layout -->
             <div class="panel">
 
+                <div class="alert" style="margin-bottom: 12px;">
+                    <strong>Resolution-aware layout</strong>
+                    Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.
+                </div>
+
                 <details class="collapsible-details">
                     <summary>Bar Dimensions</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-3">
                             <div class="form-group">
                                 <label class="form-label">Default Bar Height</label>
-                                <span class="form-hint">Default: 24</span>
-                                <input type="number" name="layout.bar_height" class="form-control" min="10" max="100">
+                                <span class="form-hint">Logical base units at 240x240. Default: 24</span>
+                                <input type="number" name="layout.bar_height" class="form-control" min="1" max="100">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Bar Width (%)</label>
-                                <span class="form-hint">Default: 98</span>
-                                <input type="number" name="layout.bar_width" class="form-control" min="50" max="100">
+                                <span class="form-hint">Percentage of the safe drawable width. Default: 98</span>
+                                <input type="number" name="layout.bar_width" class="form-control" min="1" max="100">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Bar Gap</label>
-                                <span class="form-hint">Default: 12</span>
-                                <input type="number" name="layout.bar_gap" class="form-control" min="0" max="50">
+                                <span class="form-hint">Logical base units scaled to the LCD. Default: 12</span>
+                                <input type="number" name="layout.bar_gap" class="form-control" min="0" max="100">
                             </div>
                         </div>
                     </div>
@@ -830,19 +800,19 @@
                         <span class="form-hint" style="margin-bottom: 12px; display: block;">Set to 0 to use default bar height</span>
                         <div class="grid grid-3">
                             <div class="form-group">
-                                <label class="form-label">Upper Slot Height</label>
-                                <span class="form-hint">Default: 0</span>
-                                <input type="number" name="layout.bar_height_up" class="form-control" min="0" max="100">
+                                <label class="form-label">Slot 1 Height</label>
+                                <span class="form-hint">0 = inherit global bar height</span>
+                                <input type="number" name="layout.bar_height_1" class="form-control" min="0" max="100">
                             </div>
-                            <div class="form-group" id="bar_height_mid_group">
-                                <label class="form-label">Middle Slot Height</label>
-                                <span class="form-hint">Default: 0</span>
-                                <input type="number" name="layout.bar_height_mid" class="form-control" min="0" max="100">
+                            <div class="form-group" id="bar_height_2_group">
+                                <label class="form-label">Slot 2 Height</label>
+                                <span class="form-hint">0 = inherit global bar height</span>
+                                <input type="number" name="layout.bar_height_2" class="form-control" min="0" max="100">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Lower Slot Height</label>
-                                <span class="form-hint">Default: 0</span>
-                                <input type="number" name="layout.bar_height_down" class="form-control" min="0" max="100">
+                                <label class="form-label">Slot 3 Height</label>
+                                <span class="form-hint">0 = inherit global bar height</span>
+                                <input type="number" name="layout.bar_height_3" class="form-control" min="0" max="100">
                             </div>
                         </div>
                     </div>
@@ -862,7 +832,7 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Border Thickness</label>
-                                <span class="form-hint">Default: 1.0</span>
+                                <span class="form-hint">Logical base units, scaled uniformly. Default: 1.0</span>
                                 <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
                             </div>
                             <div class="form-group">
@@ -872,12 +842,12 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Left Margin</label>
-                                <span class="form-hint">Default: 1</span>
-                                <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="20">
+                                <span class="form-hint">Percentage of the safe drawable width. Default: 1</span>
+                                <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="50">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Bar Margin</label>
-                                <span class="form-hint">Default: 1</span>
+                                <span class="form-hint">Percentage of the effective display band height. Default: 1</span>
                                 <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
                             </div>
                         </div>
@@ -895,13 +865,13 @@
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Temperature Size (Global)</label>
-                                <span class="form-hint">Default: 100 (per-sensor override in Sensors tab)</span>
-                                <input type="number" name="font.size_temp" class="form-control" min="50" max="200">
+                                   <span class="form-hint">Default: auto (0 = dynamic, per-sensor override in Sensors tab)</span>
+                                   <input type="number" name="font.size_temp" class="form-control" min="0" max="200" step="1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Size</label>
-                                <span class="form-hint">Default: 30</span>
-                                <input type="number" name="font.size_labels" class="form-control" min="10" max="100">
+                                   <span class="form-hint">Default: auto (0 = dynamic)</span>
+                                   <input type="number" name="font.size_labels" class="form-control" min="0" max="100" step="1">
                             </div>
                         </div>
                     </div>
@@ -912,23 +882,23 @@
                     <div class="collapsible-details-content">
                         <div class="alert">
                             <strong>Global Offsets</strong>
-                            These offsets apply to all labels globally. Per-sensor value offsets are configured in the Sensors tab.
+                            The base layout is dynamic and adapts automatically to the LCD size. Use these offsets only for visual fine-tuning after auto-layout.
                         </div>
                         <div class="grid grid-3">
                             <div class="form-group">
                                 <label class="form-label">Label X Offset</label>
-                                <span class="form-hint">Default: 0</span>
+                                <span class="form-hint">Logical units, scaled uniformly after auto-layout. Default: 0</span>
                                 <input type="number" name="positioning.label_offset_x" class="form-control" step="1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Y Offset</label>
-                                <span class="form-hint">Default: 0</span>
+                                <span class="form-hint">Logical units, scaled uniformly after auto-layout. Default: 0</span>
                                 <input type="number" name="positioning.label_offset_y" class="form-control" step="1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Degree Symbol Spacing</label>
-                                <span class="form-hint">Default: 16</span>
-                                <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="50">
+                                <span class="form-hint">Logical units, scaled uniformly. Default: 16</span>
+                                <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="100">
                             </div>
                         </div>
                     </div>
@@ -1014,6 +984,42 @@
 
             <!-- Tab 6: Device -->
             <div class="panel">
+                <h3 class="section-title">LCD Detection</h3>
+                <div class="alert">
+                    <strong>Configurable LCD selection</strong>
+                    CoolerDash scores CoolerControl devices with LCD metadata and picks the best match. Use these rules to keep liquidctl mainboards out or explicitly allow a known LCD by name, type, or UID.
+                </div>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Detection Mode</label>
+                        <span class="form-hint">Strict is recommended. Relax only if your LCD is not detected automatically.</span>
+                        <select name="device_detection.mode" class="form-control">
+                            <option value="strict">Strict</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="relaxed">Relaxed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Pattern Matching</label>
+                        <span class="form-hint">Patterns match device name, type, and UID case-insensitively. Use one pattern per line.</span>
+                        <div class="alert" style="margin: 0; padding: 10px 12px; font-size: 12px;">
+                            <strong>Examples:</strong> kraken, elite, motherboard, chipset, <span class="mono">your-device-uid</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Allowlist</label>
+                        <span class="form-hint">Force-enable matching candidates even if strict mode would skip them.</span>
+                        <textarea name="device_detection.allowlist" class="form-control" rows="5" spellcheck="false" placeholder="kraken&#10;my-lcd-uid"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Blocklist</label>
+                        <span class="form-hint">Reject matching candidates before scoring. Useful for liquidctl mainboards and chipset devices.</span>
+                        <textarea name="device_detection.blocklist" class="form-control" rows="5" spellcheck="false" placeholder="mainboard&#10;motherboard&#10;chipset"></textarea>
+                    </div>
+                </div>
+
                 <h3 class="section-title">Detected LCD Device</h3>
 
                 <div id="device-loading" class="alert" style="opacity: 0.7;">
@@ -1149,18 +1155,21 @@
         const FACTORY_DEFAULTS = {
             daemon: {
                 address: "http://localhost:11987",
-                access_token: "",
-                password: "coolAdmin",
-                tls_ca_cert_path: "",
-                tls_skip_verify: false
+                access_token: ""
+            },
+            device_detection: {
+                mode: "strict",
+                allowlist: "",
+                blocklist: "mainboard\nmotherboard\nchipset"
             },
             paths: {
                 image_background: "",
                 image_shutdown: "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
             },
             display: {
-                mode: "dual",
+                mode: "circle",
                 circle_switch_interval: 5,
+                circle_show_extra_info: true,
                 refresh_interval: 2.5,
                 brightness: 80,
                 orientation: 0,
@@ -1168,12 +1177,10 @@
                 background_overlay_opacity: 0.0,
                 width: 0,
                 height: 0,
-                shape: "auto",
                 content_scale_factor: 0.98,
-                inscribe_factor: 0.70710678,
-                sensor_slot_up: "cpu",
-                sensor_slot_mid: "liquid",
-                sensor_slot_down: "gpu"
+                sensor_slot_1: "cpu",
+                sensor_slot_2: "liquid",
+                sensor_slot_3: "gpu"
             },
             layout: {
                 bar_height: 24,
@@ -1184,9 +1191,9 @@
                 bar_border_enabled: 1,
                 label_margin_left: 1,
                 label_margin_bar: 1,
-                bar_height_up: 0,
-                bar_height_mid: 0,
-                bar_height_down: 0
+                bar_height_1: 0,
+                bar_height_2: 0,
+                bar_height_3: 0
             },
             colors: {
                 display_background: { r: 0, g: 0, b: 0 },
@@ -1197,8 +1204,8 @@
             },
             font: {
                 face: "Roboto Black",
-                size_temp: 100.0,
-                size_labels: 30.0
+                size_temp: 0.0,
+                size_labels: 0.0
             },
             sensors: {
                 cpu: {
@@ -1230,10 +1237,10 @@
                     offset_y: 0
                 },
                 liquid: {
-                    threshold_1: 25.0,
-                    threshold_2: 28.0,
-                    threshold_3: 31.0,
-                    max_scale: 50.0,
+                    threshold_1: 30.0,
+                    threshold_2: 35.0,
+                    threshold_3: 40.0,
+                    max_scale: 55.0,
                     font_size_temp: 0,
                     label: '',
                     threshold_1_color: { r: 0, g: 255, b: 0 },
@@ -1252,6 +1259,7 @@
         };
 
         let DEFAULT_CONFIG = null;
+        let RESET_CONFIG = null;
         let currentTab = 0;
         let discoveredSensors = [];
         let currentSensorConfig = {};
@@ -1267,6 +1275,10 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#39;');
+        }
+
+        function cloneConfig(config) {
+            return JSON.parse(JSON.stringify(config));
         }
 
         // ===== FALLBACK FUNCTIONS =====
@@ -1329,7 +1341,7 @@
         // Inside CC4's sandboxed iframe, cc-plugin-lib.js provides the real getDevices() via postMessage.
         if (typeof getDevices === 'undefined') {
             window.getDevices = async function() {
-                var headers = makeAuthHeaders(lastApiToken, lastApiPassword);
+                var headers = makeAuthHeaders(lastApiToken);
                 var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
                 if (!res.ok) return { devices: [] };
                 return res.json();
@@ -1339,7 +1351,7 @@
         // Fallback for getStatus() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
         if (typeof getStatus === 'undefined') {
             window.getStatus = async function() {
-                var headers = makeAuthHeaders(lastApiToken, lastApiPassword);
+                var headers = makeAuthHeaders(lastApiToken);
                 var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return res.json();
@@ -1347,12 +1359,125 @@
         }
 
         // ===== AUTH HEADER HELPER =====
-        function makeAuthHeaders(token, password) {
+        function makeAuthHeaders(token) {
             var t = (token || '').trim();
-            var p = (password || '').trim();
             if (t) return { 'Authorization': 'Bearer ' + t };
-            if (p) return { 'Authorization': 'Basic ' + btoa('CCAdmin:' + p) };
             return {};
+        }
+
+        function splitPatternList(patternList) {
+            if (!patternList) return [];
+            return String(patternList)
+                .split(/[\n,;]+/)
+                .map(function(item) { return item.trim().toLowerCase(); })
+                .filter(function(item) { return item.length > 0; });
+        }
+
+        function ciContains(haystack, needle) {
+            if (!needle) return false;
+            return String(haystack || '').toLowerCase().indexOf(String(needle).toLowerCase()) !== -1;
+        }
+
+        function getDetectionSettings(config) {
+            var section = (config && config.device_detection) || {};
+            return {
+                mode: section.mode || 'strict',
+                allowlist: splitPatternList(section.allowlist || ''),
+                blocklist: splitPatternList(section.blocklist || '')
+            };
+        }
+
+        function candidateMatchesPatterns(candidate, patterns) {
+            if (!patterns || patterns.length === 0) return false;
+            var name = (candidate.name || '').toLowerCase();
+            var type = String(candidate.d_type || candidate.type || '').toLowerCase();
+            var uid = String(candidate.uid || '').toLowerCase();
+            for (var i = 0; i < patterns.length; i++) {
+                var pattern = patterns[i];
+                if (name.indexOf(pattern) !== -1 || type.indexOf(pattern) !== -1 || uid.indexOf(pattern) !== -1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function looksLikeMainboardCandidate(name) {
+            var lowered = String(name || '').toLowerCase();
+            var markers = ['mainboard', 'motherboard', 'chipset', 'vrm', 'z690', 'z790', 'b650', 'b660', 'x670', 'x870', 'x570', 'b550'];
+            for (var i = 0; i < markers.length; i++) {
+                if (lowered.indexOf(markers[i]) !== -1) return true;
+            }
+            return false;
+        }
+
+        function getDeviceLcdInfo(device) {
+            var channels = device && device.info && device.info.channels;
+            if (!channels) return null;
+
+            var preferredKeys = ['lcd', 'display', 'screen'];
+            for (var i = 0; i < preferredKeys.length; i++) {
+                var channel = channels[preferredKeys[i]];
+                if (channel && channel.lcd_info && channel.lcd_info.screen_width > 0 && channel.lcd_info.screen_height > 0) {
+                    return channel.lcd_info;
+                }
+            }
+
+            for (var key in channels) {
+                if (channels.hasOwnProperty(key) && channels[key] && channels[key].lcd_info && channels[key].lcd_info.screen_width > 0 && channels[key].lcd_info.screen_height > 0) {
+                    return channels[key].lcd_info;
+                }
+            }
+
+            return null;
+        }
+
+        function scoreDetectedDevice(device, detectionSettings) {
+            var lcdInfo = getDeviceLcdInfo(device);
+            if (!device || !device.uid || !lcdInfo) return -1000;
+
+            if (candidateMatchesPatterns(device, detectionSettings.blocklist)) return -1000;
+            if (candidateMatchesPatterns(device, detectionSettings.allowlist)) {
+                return 1000 + ((lcdInfo.screen_width || 0) * (lcdInfo.screen_height || 0));
+            }
+
+            var score = 0;
+            var type = String(device.d_type || device.type || '');
+            var name = String(device.name || '');
+
+            if (type === 'Liquidctl') score += 30;
+            else if (type === 'Hwmon' || type === 'CustomSensors' || type === 'CPU' || type === 'GPU') score -= 40;
+            else if (type) score += 8;
+
+            if (ciContains(name, 'kraken') || ciContains(name, 'elite') || ciContains(name, 'hydro') ||
+                ciContains(name, 'capellix') || ciContains(name, 'lcd') || ciContains(name, 'display') ||
+                ciContains(name, 'screen') || ciContains(name, 'aio')) {
+                score += 24;
+            }
+
+            if (looksLikeMainboardCandidate(name)) score -= 80;
+
+            if (lcdInfo.screen_width === lcdInfo.screen_height) score += 6;
+            else score += 3;
+            if (lcdInfo.screen_width >= 240 && lcdInfo.screen_height >= 240) score += 4;
+
+            if (detectionSettings.mode === 'relaxed') return Math.max(score, 0);
+            if (detectionSettings.mode === 'balanced') return score >= 0 ? score : -1;
+            if (looksLikeMainboardCandidate(name)) return -1;
+            return score >= 20 ? score : -1;
+        }
+
+        function findBestDetectedDevice(devices, config) {
+            var detectionSettings = getDetectionSettings(config);
+            var best = null;
+            var bestScore = -1001;
+            for (var i = 0; i < devices.length; i++) {
+                var score = scoreDetectedDevice(devices[i], detectionSettings);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = devices[i];
+                }
+            }
+            return (bestScore >= 0) ? best : null;
         }
 
         // ===== SENSOR DISCOVERY =====
@@ -1376,11 +1501,10 @@
             el.innerHTML = html;
         }
 
-        async function discoverSensors(apiAddress, token, password) {
+        async function discoverSensors(apiAddress, token) {
             // Keep global auth state in sync so that getDevices/getStatus fallbacks can use it
             lastApiAddress = apiAddress;
             lastApiToken = token;
-            lastApiPassword = password;
 
             try {
                 // Use cc-plugin-lib functions (bypasses CORS sandbox in CC4 iframe).
@@ -1487,14 +1611,11 @@
         function retrySensorDiscovery() {
             var apiAddr = lastApiAddress || 'http://localhost:11987';
             var apiToken = lastApiToken || '';
-            var apiPass = lastApiPassword || '';
             // Also read current form values in case they were just changed
             var addrInput = document.querySelector('[name="daemon.address"]');
             var tokenInput = document.querySelector('[name="daemon.access_token"]');
-            var passInput = document.querySelector('[name="daemon.password"]');
             if (addrInput && addrInput.value) apiAddr = addrInput.value;
             if (tokenInput) apiToken = tokenInput.value;
-            if (passInput) apiPass = passInput.value;
             var statusEl = document.getElementById('sensor-discovery-status');
             if (statusEl) {
                 statusEl.style.display = 'block';
@@ -1505,7 +1626,7 @@
                 statusEl.style.fontSize = '13px';
                 statusEl.innerHTML = 'Discovering sensors&hellip;';
             }
-            discoverSensors(apiAddr, apiToken, apiPass);
+            discoverSensors(apiAddr, apiToken);
         }
 
         function updateSensorSlotOptions() {
@@ -1584,10 +1705,10 @@
             };
 
             if (sensorId === 'liquid') {
-                defaults.threshold_1 = 25.0;
-                defaults.threshold_2 = 28.0;
-                defaults.threshold_3 = 31.0;
-                defaults.max_scale = 50.0;
+                defaults.threshold_1 = 30.0;
+                defaults.threshold_2 = 35.0;
+                defaults.threshold_3 = 40.0;
+                defaults.max_scale = 55.0;
             } else if (/RPM|rpm/.test(sensorId)) {
                 defaults.threshold_1 = 500;
                 defaults.threshold_2 = 1000;
@@ -1739,17 +1860,17 @@
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Font Size</label>' +
-                                    '<span class="form-hint">Default: 100 (0 = global)</span>' +
+                                    '<span class="form-hint">Default: auto (0 = dynamic/global)</span>' +
                                     '<input type="number" data-sensor="' + eSensorId + '" data-field="font_size_temp" class="form-control sensor-field" value="' + eFontSize + '" min="0" max="300" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">X Offset</label>' +
-                                    '<span class="form-hint">Default: 0</span>' +
+                                    '<span class="form-hint">Auto-layout fine-tuning only</span>' +
                                     '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_x" class="form-control sensor-field" value="' + eOffsetX + '" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Y Offset</label>' +
-                                    '<span class="form-hint">Default: 0</span>' +
+                                    '<span class="form-hint">Auto-layout fine-tuning only</span>' +
                                     '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + eOffsetY + '" step="1">' +
                                 '</div>' +
                             '</div>' +
@@ -1829,7 +1950,7 @@
         }
 
         function ensureSensorConfigsForSlots() {
-            var slotIds = ['sensor_slot_up', 'sensor_slot_mid', 'sensor_slot_down'];
+            var slotIds = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
             var activeSensors = [];
 
             for (var i = 0; i < slotIds.length; i++) {
@@ -1904,12 +2025,10 @@
         // ===== DEVICE DETECTION =====
         var lastApiAddress = '';
         var lastApiToken = '';
-        var lastApiPassword = '';
 
-        async function fetchDeviceInfo(apiAddress, token, password) {
+        async function fetchDeviceInfo(apiAddress, token) {
             lastApiAddress = apiAddress;
             lastApiToken = token;
-            lastApiPassword = password;
 
             var loadingEl = document.getElementById('device-loading');
             var contentEl = document.getElementById('device-panel-content');
@@ -1924,18 +2043,7 @@
                 var data = await getDevices();
 
                 var devices = data.devices || [];
-                var found = null;
-                for (var i = 0; i < devices.length; i++) {
-                    var dev = devices[i];
-                    var dtype = dev.d_type || dev.type || '';
-                    if (dtype === 'Liquidctl') {
-                        var lcdInfo = dev.info && dev.info.channels && dev.info.channels.lcd && dev.info.channels.lcd.lcd_info;
-                        if (lcdInfo && lcdInfo.screen_width > 0 && lcdInfo.screen_height > 0) {
-                            found = dev;
-                            break;
-                        }
-                    }
-                }
+                var found = findBestDetectedDevice(devices, buildConfig());
 
                 loadingEl.style.display = 'none';
 
@@ -1951,17 +2059,9 @@
                     var liquidctlVer = (found.info && found.info.driver_info && found.info.driver_info.version) || '\u2014';
                     document.getElementById('device-liquidctl').textContent = liquidctlVer;
 
-                    var width = 0, height = 0;
-                    var channels = found.info && found.info.channels;
-                    if (channels) {
-                        for (var chKey in channels) {
-                            if (channels.hasOwnProperty(chKey) && channels[chKey].lcd_info) {
-                                width = channels[chKey].lcd_info.screen_width || 0;
-                                height = channels[chKey].lcd_info.screen_height || 0;
-                                break;
-                            }
-                        }
-                    }
+                    var lcdInfo = getDeviceLcdInfo(found);
+                    var width = lcdInfo ? (lcdInfo.screen_width || 0) : 0;
+                    var height = lcdInfo ? (lcdInfo.screen_height || 0) : 0;
 
                     var resEl = document.getElementById('device-resolution');
                     var shapeEl = document.getElementById('device-shape');
@@ -2001,18 +2101,17 @@
         }
 
         function refreshDeviceInfo() {
-            fetchDeviceInfo(lastApiAddress, lastApiToken, lastApiPassword);
+            fetchDeviceInfo(lastApiAddress, lastApiToken);
         }
 
-        async function fetchSystemInfo(apiAddress, token, password) {
+        async function fetchSystemInfo(apiAddress, token) {
             try {
                 lastApiAddress = apiAddress;
                 lastApiToken = token;
-                lastApiPassword = password;
 
                 // /health has no cc-plugin-lib equivalent; only fetch it in dev/browser mode
                 if (!isInCoolerControl) {
-                    var headers = makeAuthHeaders(token, password);
+                    var headers = makeAuthHeaders(token);
                     var healthRes = await fetch(apiAddress + '/health', { headers: headers });
                     if (healthRes.ok) {
                         var health = await healthRes.json();
@@ -2056,32 +2155,37 @@
 
         function toggleCircleInterval() {
             var mode = document.getElementById('display_mode').value;
-            document.getElementById('circle_interval_group').style.display = mode === 'circle' ? 'block' : 'none';
-            var midSlotGroup = document.getElementById('sensor_slot_mid_group');
-            var midBarHeightGroup = document.getElementById('bar_height_mid_group');
-            if (midSlotGroup) midSlotGroup.style.display = mode === 'circle' ? 'block' : 'none';
-            if (midBarHeightGroup) midBarHeightGroup.style.display = mode === 'circle' ? 'block' : 'none';
+            var isCircle = mode === 'circle';
+            document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
+            document.getElementById('circle_extra_info_group').style.display = isCircle ? 'block' : 'none';
+            var midSlotGroup = document.getElementById('sensor_slot_2_group');
+            var midBarHeightGroup = document.getElementById('bar_height_2_group');
+            if (midSlotGroup) midSlotGroup.style.display = isCircle ? 'block' : 'none';
+            if (midBarHeightGroup) midBarHeightGroup.style.display = isCircle ? 'block' : 'none';
             if (mode === 'dual') {
-                var midSlot = document.getElementById('sensor_slot_mid');
+                var midSlot = document.getElementById('sensor_slot_2');
                 if (midSlot) midSlot.value = 'none';
+            } else if (mode === 'circle') {
+                var midSlot = document.getElementById('sensor_slot_2');
+                if (midSlot && midSlot.value === 'none') midSlot.value = 'liquid';
             }
             validateSensorSlots();
         }
 
         function validateSensorSlots() {
             var mode = document.getElementById('display_mode').value;
-            var slotUp = document.getElementById('sensor_slot_up').value;
-            var slotMid = document.getElementById('sensor_slot_mid').value;
-            var slotDown = document.getElementById('sensor_slot_down').value;
+            var slotUp = document.getElementById('sensor_slot_1').value;
+            var slotMid = document.getElementById('sensor_slot_2').value;
+            var slotDown = document.getElementById('sensor_slot_3').value;
 
             var warningDiv = document.getElementById('sensor_slot_warning');
             var warningText = document.getElementById('sensor_slot_warning_text');
             var warnings = [];
 
             var activeSlots = [];
-            if (slotUp !== 'none') activeSlots.push({ name: 'Upper', value: slotUp });
-            if (mode === 'circle' && slotMid !== 'none') activeSlots.push({ name: 'Middle', value: slotMid });
-            if (slotDown !== 'none') activeSlots.push({ name: 'Lower', value: slotDown });
+            if (slotUp !== 'none') activeSlots.push({ name: 'Slot 1', value: slotUp });
+            if (mode === 'circle' && slotMid !== 'none') activeSlots.push({ name: 'Slot 2', value: slotMid });
+            if (slotDown !== 'none') activeSlots.push({ name: 'Slot 3', value: slotDown });
 
             if (activeSlots.length === 0) warnings.push('At least one sensor slot must be active.');
 
@@ -2139,8 +2243,24 @@
         }
 
         async function loadDefaultConfig() {
-            DEFAULT_CONFIG = FACTORY_DEFAULTS;
-            return DEFAULT_CONFIG;
+            var fallbackDefaults = cloneConfig(FACTORY_DEFAULTS);
+
+            try {
+                var response = await fetch('../config.json', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                var parsedConfig = JSON.parse(await response.text());
+                RESET_CONFIG = cloneConfig(parsedConfig);
+                DEFAULT_CONFIG = mergeConfigWithDefaults(parsedConfig, fallbackDefaults);
+                return DEFAULT_CONFIG;
+            } catch (error) {
+                console.warn('Falling back to embedded factory defaults:', error);
+                RESET_CONFIG = fallbackDefaults;
+                DEFAULT_CONFIG = cloneConfig(fallbackDefaults);
+                return DEFAULT_CONFIG;
+            }
         }
 
         // ===== BUILD CONFIG FROM FORM =====
@@ -2148,7 +2268,7 @@
             var form = document.getElementById('configForm');
             var formData = new FormData(form);
             var config = {
-                daemon: {}, paths: {}, display: {}, layout: {}, colors: {},
+                daemon: {}, device_detection: {}, paths: {}, display: {}, layout: {}, colors: {},
                 font: {}, sensors: {}, positioning: {}
             };
 
@@ -2160,7 +2280,7 @@
                 var parts = key.split('.');
                 if (parts.length === 2 && config[parts[0]] !== undefined) {
                     // Sensor slot values must always be strings
-                    var isSlotField = (parts[1] === 'sensor_slot_up' || parts[1] === 'sensor_slot_mid' || parts[1] === 'sensor_slot_down');
+                    var isSlotField = (parts[1] === 'sensor_slot_1' || parts[1] === 'sensor_slot_2' || parts[1] === 'sensor_slot_3');
                     if (isSlotField) {
                         config[parts[0]][parts[1]] = value;
                     } else {
@@ -2182,10 +2302,11 @@
             // Sensor configs from dynamic form sections
             config.sensors = collectSensorConfigsFromDOM();
 
-            // Convert tls_skip_verify to boolean for JSON compatibility with C daemon
-            if (config.daemon) config.daemon.tls_skip_verify = !!config.daemon.tls_skip_verify;
+            // Checkbox fields (not included in FormData when unchecked)
+            var extraInfoCb = document.getElementById('circle_show_extra_info');
+            config.display.circle_show_extra_info = extraInfoCb ? extraInfoCb.checked : false;
 
-            return config;
+            return mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
         }
 
         // ===== POPULATE FORM FROM CONFIG =====
@@ -2208,9 +2329,15 @@
                 }
             }
 
+            // Checkbox fields
+            var extraInfoCb = document.getElementById('circle_show_extra_info');
+            if (extraInfoCb && config.display) {
+                extraInfoCb.checked = !!config.display.circle_show_extra_info;
+            }
+
             // Sensor slot selects: ensure custom values are available as options
-            var slotFields = ['sensor_slot_up', 'sensor_slot_mid', 'sensor_slot_down'];
-            var slotDefaults = { sensor_slot_up: 'cpu', sensor_slot_mid: 'liquid', sensor_slot_down: 'gpu' };
+            var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'liquid', sensor_slot_3: 'gpu' };
             for (var sf = 0; sf < slotFields.length; sf++) {
                 var slotValue = config.display && config.display[slotFields[sf]];
                 if (slotValue) {
@@ -2264,9 +2391,7 @@
 
             var config = buildConfig();
             try {
-                await writeConfigToFile(config);
-                requestRestartAfterSave(1000);
-                await savePluginConfig(config);
+                await saveAndRestartConfig(config);
                 alert("Configuration saved! Plugin will restart.");
                 setTimeout(function() { window.close(); }, 300);
             } catch (error) {
@@ -2295,85 +2420,31 @@
             }
         }
 
-        async function restartPluginDaemon(config) {
-            // CC4 restarts cc-plugin-coolerdash.service automatically when the plugin
-            // config is updated via PUT /plugins/{id}/config (text/plain as per CC4 API spec).
-            // This function triggers that restart by re-uploading the current config.
-            try {
-                var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
-                var token = (config.daemon && config.daemon.access_token) || '';
-                var password = (config.daemon && config.daemon.password) || '';
-                var authHdr = makeAuthHeaders(token, password);
-
-                var response = await fetch(apiAddress + '/plugins/coolerdash/config', {
-                    method: 'PUT',
-                    headers: Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, authHdr),
-                    body: JSON.stringify(config, null, 2)
-                });
-                if (!response.ok) console.warn('Could not trigger plugin restart via config update: HTTP ' + response.status);
-            } catch (error) {
-                console.error('Plugin restart trigger failed:', error);
-            }
-        }
-
-        function requestRestartAfterSave(delayMs) {
+        async function triggerPluginRestart(delayMs) {
             delayMs = delayMs || 800;
-            var doRestart = function() {
-                try {
-                    if (typeof restart === 'function') restart();
-                    else restartPluginDaemon(buildConfig());
-                } catch (e) { console.warn('Restart failed:', e); }
-            };
 
-            if (typeof successfulConfigSaveCallback === 'function') {
-                successfulConfigSaveCallback(function() { setTimeout(doRestart, delayMs); });
-            } else {
-                var handler = function(event) {
-                    if (event.data && event.data.type === 'configSaved') {
-                        window.removeEventListener('message', handler);
-                        setTimeout(doRestart, delayMs);
-                    }
-                };
-                window.addEventListener('message', handler);
+            if (delayMs > 0) {
+                await new Promise(function(resolve) { setTimeout(resolve, delayMs); });
             }
+
+            if (typeof restart !== 'function') {
+                throw new Error('CoolerControl native restart API is unavailable in this context.');
+            }
+
+            restart();
+            return true;
         }
 
-        async function writeConfigToFile(config) {
-            try {
-                var apiAddress = (config.daemon && config.daemon.address) || 'http://localhost:11987';
-                var token = (config.daemon && config.daemon.access_token) || '';
-                var password = (config.daemon && config.daemon.password) || '';
-                var authHdr = makeAuthHeaders(token, password);
-
-                if (token || password) {
-                    // CC4 API spec: PUT /plugins/{id}/config expects text/plain
-                    var response = await fetch(apiAddress + '/plugins/coolerdash/config', {
-                        method: 'PUT',
-                        headers: Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, authHdr),
-                        body: JSON.stringify(config, null, 2)
-                    });
-                    if (response.ok) return true;
-                }
-
-                var blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-                var a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = 'config.json';
-                a.click();
-                URL.revokeObjectURL(a.href);
-                return false;
-            } catch (error) {
-                console.warn("Config write failed:", error);
-                return false;
-            }
+        async function saveAndRestartConfig(config, delayMs) {
+            await savePluginConfig(config);
+            return triggerPluginRestart(delayMs);
         }
 
         async function resetConfig() {
             try {
-                await writeConfigToFile(FACTORY_DEFAULTS);
-                populateForm(FACTORY_DEFAULTS);
-                requestRestartAfterSave(1000);
-                await savePluginConfig(FACTORY_DEFAULTS);
+                var factoryConfig = cloneConfig(RESET_CONFIG || DEFAULT_CONFIG || FACTORY_DEFAULTS);
+                await saveAndRestartConfig(factoryConfig);
+                populateForm(factoryConfig);
                 alert('Reset to factory defaults! Plugin will restart.');
                 setTimeout(function() { window.close(); }, 300);
             } catch (error) {
@@ -2383,7 +2454,8 @@
         }
 
         // ===== LEGACY CONFIG MIGRATION =====
-        function migrateConfig(config) {
+        function mergeConfigWithDefaults(config, defaultConfig) {
+            var defaults = defaultConfig || FACTORY_DEFAULTS;
             var sensors = config.sensors || {};
             var needsMigration = false;
 
@@ -2413,14 +2485,15 @@
 
             // Build merged config
             var merged = {
-                daemon: Object.assign({}, DEFAULT_CONFIG.daemon, config.daemon || {}),
-                paths: Object.assign({}, DEFAULT_CONFIG.paths, config.paths || {}),
-                display: Object.assign({}, DEFAULT_CONFIG.display, config.display || {}),
-                layout: Object.assign({}, DEFAULT_CONFIG.layout, config.layout || {}),
-                colors: Object.assign({}, DEFAULT_CONFIG.colors, config.colors || {}),
-                font: Object.assign({}, DEFAULT_CONFIG.font, config.font || {}),
-                sensors: Object.assign({}, DEFAULT_CONFIG.sensors || {}),
-                positioning: Object.assign({}, DEFAULT_CONFIG.positioning, config.positioning || {})
+                daemon: Object.assign({}, defaults.daemon || {}, config.daemon || {}),
+                device_detection: Object.assign({}, defaults.device_detection || {}, config.device_detection || {}),
+                paths: Object.assign({}, defaults.paths || {}, config.paths || {}),
+                display: Object.assign({}, defaults.display || {}, config.display || {}),
+                layout: Object.assign({}, defaults.layout || {}, config.layout || {}),
+                colors: Object.assign({}, defaults.colors || {}, config.colors || {}),
+                font: Object.assign({}, defaults.font || {}, config.font || {}),
+                sensors: Object.assign({}, defaults.sensors || {}),
+                positioning: Object.assign({}, defaults.positioning || {}, config.positioning || {})
             };
 
             // Deep merge sensor configs (skip corrupt numeric keys)
@@ -2440,7 +2513,7 @@
             }
 
             // Sanitize corrupt numeric slot values (from old parseFloat bug)
-            var slotDefaults = { sensor_slot_up: 'cpu', sensor_slot_mid: 'liquid', sensor_slot_down: 'gpu' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'liquid', sensor_slot_3: 'gpu' };
             for (var slotKey in slotDefaults) {
                 if (merged.display && merged.display[slotKey] !== undefined) {
                     var sv = String(merged.display[slotKey]);
@@ -2468,6 +2541,10 @@
             return merged;
         }
 
+        function migrateConfig(config) {
+            return mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+        }
+
         // ===== INITIALIZATION =====
         runPluginScript(async function() {
             try {
@@ -2485,10 +2562,9 @@
                 // Detect device and discover sensors from CoolerControl API
                 var apiAddr = (config.daemon && config.daemon.address) || 'http://localhost:11987';
                 var apiToken = (config.daemon && config.daemon.access_token) || '';
-                var apiPass = (config.daemon && config.daemon.password) || '';
-                fetchDeviceInfo(apiAddr, apiToken, apiPass);
-                fetchSystemInfo(apiAddr, apiToken, apiPass);
-                discoverSensors(apiAddr, apiToken, apiPass);
+                fetchDeviceInfo(apiAddr, apiToken);
+                fetchSystemInfo(apiAddr, apiToken);
+                discoverSensors(apiAddr, apiToken);
             } catch (error) {
                 console.error("Init failed:", error);
                 if (DEFAULT_CONFIG) populateForm(DEFAULT_CONFIG);

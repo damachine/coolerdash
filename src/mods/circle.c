@@ -32,13 +32,197 @@
 /**
  * @brief Global state for sensor alternation (slot-based cycling).
  */
-static int current_slot_index = 0; // 0=up, 1=mid, 2=down
+static int current_slot_index = 0; // 0=slot1, 1=slot2, 2=slot3
 static time_t last_switch_time = 0;
+
+/**
+ * @brief Find pump RPM sensor for a Liquidctl device.
+ * @details Searches for an RPM sensor whose name contains "pump"
+ * (case-insensitive). Falls back to first RPM sensor if no pump found.
+ * @param data Sensor data collection
+ * @return Pointer to pump RPM sensor, or NULL if not found
+ */
+static const sensor_entry_t *find_liquid_pump_rpm(
+    const monitor_sensor_data_t *data)
+{
+    if (!data)
+        return NULL;
+
+    const sensor_entry_t *first_rpm = NULL;
+    for (int i = 0; i < data->sensor_count; i++)
+    {
+        if (data->sensors[i].category != SENSOR_CATEGORY_RPM)
+            continue;
+        if (strcmp(data->sensors[i].device_type, "Liquidctl") != 0)
+            continue;
+
+        /* Prefer sensor with "pump" in the name */
+        if (strstr(data->sensors[i].name, "pump"))
+            return &data->sensors[i];
+
+        if (!first_rpm)
+            first_rpm = &data->sensors[i];
+    }
+
+    return first_rpm;
+}
+
+/**
+ * @brief Build extra info text (freq/watts/RPM) for a slot.
+ * @details Maps slot type to channel sensors:
+ *   CPU → freq + watts ("X.X GHz  XXW")
+ *   GPU → freq + watts ("XXXX MHz  XXW")
+ *   Liquid → RPM ("XXXX RPM")
+ *   Dynamic → tries freq, then watts, then RPM
+ * @param data Sensor data collection
+ * @param slot_value Slot configuration value
+ * @param buf Output buffer
+ * @param buf_size Output buffer size
+ * @return 1 if text was written, 0 if no data available
+ */
+static int get_extra_info_text(const monitor_sensor_data_t *data,
+                               const char *slot_value,
+                               char *buf, size_t buf_size)
+{
+    if (!data || !slot_value || !buf || buf_size == 0)
+        return 0;
+
+    buf[0] = '\0';
+
+    if (strcmp(slot_value, "cpu") == 0)
+    {
+        const sensor_entry_t *freq = find_channel_sensor_for_slot(
+            data, slot_value, SENSOR_CATEGORY_FREQ);
+        const sensor_entry_t *watts = find_channel_sensor_for_slot(
+            data, slot_value, SENSOR_CATEGORY_WATTS);
+        if (!freq && !watts)
+            return 0;
+        if (freq && watts)
+        {
+            if (freq->value >= 1000.0f)
+                snprintf(buf, buf_size, "%.1f GHz  %.0fW",
+                         freq->value / 1000.0f, watts->value);
+            else
+                snprintf(buf, buf_size, "%.0f MHz  %.0fW",
+                         freq->value, watts->value);
+        }
+        else if (freq)
+        {
+            if (freq->value >= 1000.0f)
+                snprintf(buf, buf_size, "%.1f GHz", freq->value / 1000.0f);
+            else
+                snprintf(buf, buf_size, "%.0f MHz", freq->value);
+        }
+        else
+            snprintf(buf, buf_size, "%.0fW", watts->value);
+        return 1;
+    }
+
+    if (strcmp(slot_value, "gpu") == 0)
+    {
+        const sensor_entry_t *freq = find_channel_sensor_for_slot(
+            data, slot_value, SENSOR_CATEGORY_FREQ);
+        const sensor_entry_t *watts = find_channel_sensor_for_slot(
+            data, slot_value, SENSOR_CATEGORY_WATTS);
+        if (!freq && !watts)
+            return 0;
+        if (freq && watts)
+            snprintf(buf, buf_size, "%.0f MHz  %.0fW",
+                     freq->value, watts->value);
+        else if (freq)
+            snprintf(buf, buf_size, "%.0f MHz", freq->value);
+        else
+            snprintf(buf, buf_size, "%.0fW", watts->value);
+        return 1;
+    }
+
+    if (strcmp(slot_value, "liquid") == 0)
+    {
+        const sensor_entry_t *rpm = find_liquid_pump_rpm(data);
+        if (!rpm)
+            return 0;
+        snprintf(buf, buf_size, "%.0f RPM", rpm->value);
+        return 1;
+    }
+
+    /* Dynamic slot: try freq → watts → rpm */
+    const sensor_entry_t *s = find_channel_sensor_for_slot(
+        data, slot_value, SENSOR_CATEGORY_FREQ);
+    if (s)
+    {
+        if (s->value >= 1000.0f)
+            snprintf(buf, buf_size, "%.1f GHz", s->value / 1000.0f);
+        else
+            snprintf(buf, buf_size, "%.0f MHz", s->value);
+        return 1;
+    }
+
+    s = find_channel_sensor_for_slot(data, slot_value, SENSOR_CATEGORY_WATTS);
+    if (s)
+    {
+        snprintf(buf, buf_size, "%.0fW", s->value);
+        return 1;
+    }
+
+    s = find_channel_sensor_for_slot(data, slot_value, SENSOR_CATEGORY_RPM);
+    if (s)
+    {
+        snprintf(buf, buf_size, "%.0f RPM", s->value);
+        return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Build second line of extra info (fan RPM for CPU/GPU).
+ * @details CPU fan RPM comes from the Liquidctl device (AIO cooler),
+ * since the CPU device itself has no fan sensor. GPU fan RPM comes
+ * from the GPU device directly.
+ * @param data Sensor data collection
+ * @param slot_value Slot configuration value
+ * @param buf Output buffer
+ * @param buf_size Output buffer size
+ * @return 1 if text was written, 0 if no data available
+ */
+static int get_extra_info_line2(const monitor_sensor_data_t *data,
+                                const char *slot_value,
+                                char *buf, size_t buf_size)
+{
+    if (!data || !slot_value || !buf || buf_size == 0)
+        return 0;
+
+    buf[0] = '\0';
+
+    /* CPU: fan RPM comes from Liquidctl (AIO cooler fan, not pump) */
+    if (strcmp(slot_value, "cpu") == 0)
+    {
+        const sensor_entry_t *rpm = find_channel_sensor_for_slot(
+            data, "liquid", SENSOR_CATEGORY_RPM);
+        if (!rpm)
+            return 0;
+        snprintf(buf, buf_size, "%.0f RPM", rpm->value);
+        return 1;
+    }
+
+    /* GPU: fan RPM from the GPU device itself */
+    if (strcmp(slot_value, "gpu") == 0)
+    {
+        const sensor_entry_t *rpm = find_channel_sensor_for_slot(
+            data, slot_value, SENSOR_CATEGORY_RPM);
+        if (!rpm)
+            return 0;
+        snprintf(buf, buf_size, "%.0f RPM", rpm->value);
+        return 1;
+    }
+
+    return 0;
+}
 
 /**
  * @brief Get the slot value for a given slot index.
  * @param config Configuration
- * @param slot_index 0=up, 1=mid, 2=down
+ * @param slot_index 0=slot1, 1=slot2, 2=slot3
  * @return Slot value string ("cpu", "gpu", "liquid", "none")
  */
 static const char *get_slot_value_by_index(const struct Config *config, int slot_index)
@@ -49,11 +233,11 @@ static const char *get_slot_value_by_index(const struct Config *config, int slot
     switch (slot_index)
     {
     case 0:
-        return config->sensor_slot_up;
+        return config->sensor_slot_1;
     case 1:
-        return config->sensor_slot_mid;
+        return config->sensor_slot_2;
     case 2:
-        return config->sensor_slot_down;
+        return config->sensor_slot_3;
     default:
         return "none";
     }
@@ -67,13 +251,13 @@ static const char *get_slot_name_by_index(int slot_index)
     switch (slot_index)
     {
     case 0:
-        return "up";
+        return "1";
     case 1:
-        return "mid";
+        return "2";
     case 2:
-        return "down";
+        return "3";
     default:
-        return "up";
+        return "1";
     }
 }
 
@@ -165,78 +349,80 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const float max_temp = get_slot_max_scale(config, slot_value);
 
     const int effective_bar_width = params->safe_bar_width;
+    const int bar_height = get_scaled_slot_bar_height(
+        config, params, get_slot_name_by_index(current_slot_index));
+    const int bar_x = (int)lround(params->safe_content_margin);
 
-    // Get bar height for current slot (use "up" slot as reference since circle shows one at a time)
-    const int bar_height = get_slot_bar_height(config, get_slot_name_by_index(current_slot_index));
+    const double region_gap = get_effective_label_spacing(config, params);
+    const double label_padding = fmax(2.0, scale_value_avg(params, 4.0));
 
-    // Calculate vertical layout - BAR is centered
-    const int bar_y = (config->display_height - bar_height) / 2;
-    const int bar_x = (config->display_width - effective_bar_width) / 2;
-    const int bar_right = bar_x + effective_bar_width;
+    double label_band_height = 0.0;
+    double label_font_size = get_preferred_label_font_size(config, params);
+    cairo_font_extents_t label_font_ext = {0};
+    cairo_text_extents_t label_text_ext = {0};
 
-    // Temperature above the bar (10% of display height above bar)
-    const int temp_spacing = (int)(config->display_height * 0.10);
-    const int temp_y = bar_y - temp_spacing;
+    if (label_text)
+    {
+        const double left_margin_factor =
+            (config->layout_label_margin_left > 0)
+                ? (config->layout_label_margin_left / 100.0)
+                : 0.01;
+        const double label_left_padding = effective_bar_width * left_margin_factor;
+        const double available_label_width =
+            fmax(24.0, effective_bar_width - label_left_padding);
+        const double min_label_font_size =
+            (config->font_size_labels > 0.0f)
+                ? fmax(12.0, scale_value_avg(params,
+                                             (double)config->font_size_labels) *
+                                 0.70)
+                : fmax(12.0, scale_value_avg(params, 12.0));
 
-    // Draw temperature value (centered horizontally INCLUDING degree symbol)
-    char temp_str[16];
+        cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
+                               CAIRO_FONT_WEIGHT_NORMAL);
+        while (1)
+        {
+            cairo_set_font_size(cr, label_font_size);
+            cairo_font_extents(cr, &label_font_ext);
+            cairo_text_extents(cr, label_text, &label_text_ext);
+            if (fmax(label_text_ext.x_advance, label_text_ext.width) <=
+                    available_label_width ||
+                label_font_size <= min_label_font_size)
+                break;
 
-    // Use decimal based on sensor type
-    if (get_slot_use_decimal(data, slot_value))
-        snprintf(temp_str, sizeof(temp_str), "%.1f", temp_value);
-    else
-        snprintf(temp_str, sizeof(temp_str), "%d", (int)temp_value);
+            label_font_size *= 0.94;
+            if (label_font_size < min_label_font_size)
+                label_font_size = min_label_font_size;
+        }
+
+        label_band_height = label_font_ext.ascent + label_font_ext.descent +
+                            (2.0 * label_padding);
+    }
+
+    const double grouped_height =
+        bar_height + (label_text ? (region_gap + label_band_height) : 0.0);
+    const int bar_y =
+        (int)lround(fmax(0.0, (config->display_height - grouped_height) / 2.0));
+    const double value_bar_gap = region_gap * 0.05;
+
+    const double value_box_y = 0.0;
+    const double value_box_height = fmax(0.0, bar_y - value_bar_gap);
+    const double label_box_y = bar_y + bar_height + region_gap;
+    const double label_box_height =
+        fmax(0.0, config->display_height - label_box_y);
+
+    if (verbose_logging)
+    {
+        log_message(
+            LOG_INFO,
+            "Circle layout: slot=%s logical(height=%u gap=%u) scaled(height=%d gap=%.1f) bar_y=%d grouped_height=%.1f value_gap=%.1f value_box=%.1fx%.1f label_box_y=%.1f label_box_h=%.1f safe_width=%d",
+            get_slot_name_by_index(current_slot_index),
+            get_slot_bar_height(config, get_slot_name_by_index(current_slot_index)),
+            config->layout_bar_gap, bar_height, region_gap, bar_y,
+            grouped_height, value_bar_gap, value_box_y, value_box_height, label_box_y,
+            label_box_height, effective_bar_width);
+    }
 
     const Color *value_color = &config->font_color_temp;
-
-    // Use per-slot font size
-    float slot_font_size = get_slot_font_size(config, slot_value);
-
-    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
-                           CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, slot_font_size);
-    set_cairo_color(cr, value_color);
-
-    cairo_text_extents_t temp_ext;
-    cairo_text_extents(cr, temp_str, &temp_ext);
-
-    // Calculate degree symbol width for proper centering
-    cairo_set_font_size(cr, slot_font_size / 1.66);
-    cairo_text_extents_t degree_ext;
-    cairo_text_extents(cr, "°", &degree_ext);
-    cairo_set_font_size(cr, slot_font_size);
-
-    // Right-align temperature + degree symbol block to the safe bar area.
-    const int degree_spacing = get_scaled_degree_spacing(config, params);
-    const double total_width = temp_ext.width +
-                               (get_slot_is_temp(data, slot_value)
-                                    ? degree_spacing + degree_ext.width
-                                    : 0.0);
-    double temp_x = bar_right - total_width;
-    double final_temp_y = temp_y;
-
-    // Apply user-defined offsets from sensor config
-    int offset_x = get_slot_offset_x(config, slot_value);
-    int offset_y = get_slot_offset_y(config, slot_value);
-    if (offset_x != 0)
-        temp_x += offset_x;
-    if (offset_y != 0)
-        final_temp_y += offset_y;
-
-    cairo_move_to(cr, temp_x, final_temp_y);
-    cairo_show_text(cr, temp_str);
-
-    // Draw degree symbol only for temperature sensors
-    if (get_slot_is_temp(data, slot_value))
-    {
-        double degree_x = temp_x + temp_ext.width + degree_spacing;
-        double degree_y = final_temp_y - slot_font_size * 0.25;
-
-        cairo_set_font_size(cr, slot_font_size / 1.66);
-        cairo_move_to(cr, degree_x, degree_y);
-        cairo_show_text(cr, "\xC2\xB0");
-        cairo_set_font_size(cr, slot_font_size);
-    }
 
     // Draw temperature bar (centered reference point)
     const double bar_alpha = config->layout_bar_opacity;
@@ -253,7 +439,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         set_cairo_color_alpha(cr, &config->layout_bar_color_border, bar_alpha);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
                                     params->corner_radius);
-        cairo_set_line_width(cr, config->layout_bar_border);
+        cairo_set_line_width(cr, get_scaled_bar_border_width(config, params));
         cairo_stroke(cr);
     }
 
@@ -274,36 +460,227 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         cairo_restore(cr);
     }
 
-    // Draw label (CPU, GPU, or LIQ) - centered horizontally, close to bottom
+    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
+                           CAIRO_FONT_WEIGHT_BOLD);
+    set_cairo_color(cr, value_color);
+    SlotValueLayout value_layout = {0};
+    if (value_box_height > 0.0)
+    {
+        double safe_x = bar_x;
+        double safe_width = effective_bar_width;
+        calculate_text_lane_bounds(config, params, value_box_y,
+                                   value_box_height, 0, bar_x,
+                                   effective_bar_width, &safe_x,
+                                   &safe_width);
+        layout_and_render_slot_value(cr, data, config, params, slot_value,
+                                     temp_value, safe_x, value_box_y,
+                                     safe_width, value_box_height, 0,
+                                     1, &value_layout);
+
+        /* Duty % rendered left-aligned at half temp font size */
+        if (value_layout.active &&
+            (strcmp(slot_value, "cpu") == 0 ||
+             strcmp(slot_value, "gpu") == 0))
+        {
+            const sensor_entry_t *duty_s = find_channel_sensor_for_slot(
+                data, slot_value, SENSOR_CATEGORY_DUTY);
+            if (duty_s)
+            {
+                char duty_buf[16];
+                snprintf(duty_buf, sizeof(duty_buf), "%.0f%%",
+                         duty_s->value);
+
+                double duty_font = value_layout.font_size * 0.5;
+                cairo_font_extents_t duty_fext = {0};
+                cairo_text_extents_t duty_text_ext = {0};
+
+                cairo_select_font_face(cr, config->font_face,
+                                       CAIRO_FONT_SLANT_NORMAL,
+                                       CAIRO_FONT_WEIGHT_BOLD);
+                cairo_set_font_size(cr, duty_font);
+                cairo_font_extents(cr, &duty_fext);
+                cairo_text_extents(cr, duty_buf, &duty_text_ext);
+
+                /* Position: left margin, vertically centered with temp */
+                const double left_margin_factor =
+                    (config->layout_label_margin_left > 0)
+                        ? (config->layout_label_margin_left / 100.0)
+                        : 0.01;
+                double duty_x = safe_x +
+                                (safe_width * left_margin_factor);
+                double duty_y = value_layout.baseline_y;
+
+                /* Don't overlap with temperature block */
+                double duty_right = duty_x +
+                                    fmax(duty_text_ext.x_advance, duty_text_ext.width) +
+                                    scale_value_avg(params, 4.0);
+                if (duty_right <= value_layout.block_left)
+                {
+                    set_cairo_color(cr, value_color);
+                    cairo_move_to(cr, duty_x, duty_y);
+                    cairo_show_text(cr, duty_buf);
+                }
+            }
+        }
+    }
+
+    // Draw label (CPU, GPU, or LIQ) in a dedicated bottom lane anchored to the bar.
     if (label_text)
     {
         const Color *label_color = &config->font_color_label;
-
-        cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
-                               CAIRO_FONT_WEIGHT_NORMAL);
-        cairo_set_font_size(cr, config->font_size_labels);
-        set_cairo_color(cr, label_color);
-
-        cairo_text_extents_t label_text_ext;
-        cairo_text_extents(cr, label_text, &label_text_ext);
-
+        double label_safe_x = bar_x;
+        double label_safe_width = effective_bar_width;
         const double left_margin_factor =
             (config->layout_label_margin_left > 0)
                 ? (config->layout_label_margin_left / 100.0)
                 : 0.01;
-        double label_x = config->display_width * left_margin_factor;
 
-        // Position label 2% from bottom
-        double final_label_y = config->display_height - (config->display_height * 0.02);
+        calculate_text_lane_bounds(config, params, label_box_y,
+                                   label_box_height, 0, bar_x,
+                                   effective_bar_width, &label_safe_x,
+                                   &label_safe_width);
 
-        // Apply user-defined offsets
-        if (config->display_label_offset_x != 0)
-            label_x += config->display_label_offset_x;
-        if (config->display_label_offset_y != 0)
-            final_label_y += config->display_label_offset_y;
+        const double label_left_padding = label_safe_width * left_margin_factor;
+        const double label_inner_padding_y =
+            fmax(2.0, scale_value_avg(params, 4.0));
+        const double available_label_width =
+            fmax(24.0, label_safe_width - label_left_padding);
+        const double available_label_height =
+            fmax(12.0, label_box_height - (2.0 * label_inner_padding_y));
+        const double min_label_font_size =
+            (config->font_size_labels > 0.0f)
+                ? fmax(12.0, scale_value_avg(params,
+                                             (double)config->font_size_labels) *
+                                 0.70)
+                : fmax(12.0, scale_value_avg(params, 12.0));
+
+        cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
+                               CAIRO_FONT_WEIGHT_NORMAL);
+
+        while (1)
+        {
+            cairo_set_font_size(cr, label_font_size);
+            cairo_font_extents(cr, &label_font_ext);
+            cairo_text_extents(cr, label_text, &label_text_ext);
+
+            if ((fmax(label_text_ext.x_advance, label_text_ext.width) <=
+                     available_label_width &&
+                 (label_font_ext.ascent + label_font_ext.descent) <=
+                     available_label_height) ||
+                label_font_size <= min_label_font_size)
+                break;
+
+            label_font_size *= 0.94;
+            if (label_font_size < min_label_font_size)
+                label_font_size = min_label_font_size;
+        }
+
+        set_cairo_color(cr, label_color);
+
+        double label_x = label_safe_x + (label_safe_width * left_margin_factor);
+        double final_label_y =
+            label_box_y + label_inner_padding_y + label_font_ext.ascent;
+
+        // Apply user-defined offsets using the uniform layout scale.
+        label_x += get_scaled_label_offset_x(config, params);
+        final_label_y += get_scaled_label_offset_y(config, params);
 
         cairo_move_to(cr, label_x, final_label_y);
         cairo_show_text(cr, label_text);
+    }
+
+    // Draw extra info (freq/watts/RPM) below the label if enabled
+    if (config->circle_show_extra_info)
+    {
+        char extra_buf[64];
+        if (get_extra_info_text(data, slot_value, extra_buf, sizeof(extra_buf)))
+        {
+            double extra_font_size = label_font_size * 2.2;
+            const double extra_padding_top = fmax(1.0, scale_value_avg(params, 3.0));
+
+            cairo_font_extents_t extra_font_ext = {0};
+            cairo_text_extents_t extra_text_ext = {0};
+
+            cairo_select_font_face(cr, config->font_face,
+                                   CAIRO_FONT_SLANT_NORMAL,
+                                   CAIRO_FONT_WEIGHT_BOLD);
+            cairo_set_font_size(cr, extra_font_size);
+            cairo_font_extents(cr, &extra_font_ext);
+            cairo_text_extents(cr, extra_buf, &extra_text_ext);
+
+            // Auto-shrink if text exceeds available width
+            const double extra_available_width =
+                fmax(24.0, (double)params->safe_bar_width * 0.96);
+            const double min_extra_font = label_font_size * 0.8;
+            while (fmax(extra_text_ext.x_advance, extra_text_ext.width) >
+                       extra_available_width &&
+                   extra_font_size > min_extra_font)
+            {
+                extra_font_size *= 0.94;
+                cairo_set_font_size(cr, extra_font_size);
+                cairo_font_extents(cr, &extra_font_ext);
+                cairo_text_extents(cr, extra_buf, &extra_text_ext);
+            }
+
+            double extra_y = label_box_y + label_font_ext.ascent +
+                             label_font_ext.descent +
+                             extra_padding_top + extra_font_ext.ascent;
+
+            // Only render if it fits within the display height
+            if (extra_y + extra_font_ext.descent <= config->display_height)
+            {
+                const Color *value_col = &config->font_color_temp;
+                set_cairo_color(cr, value_col);
+
+                const double left_margin_factor =
+                    (config->layout_label_margin_left > 0)
+                        ? (config->layout_label_margin_left / 100.0)
+                        : 0.01;
+                double extra_x = (int)lround(params->safe_content_margin) +
+                                 ((double)params->safe_bar_width * left_margin_factor) +
+                                 get_scaled_label_offset_x(config, params);
+
+                cairo_move_to(cr, extra_x, extra_y);
+                cairo_show_text(cr, extra_buf);
+
+                // Second line: fan RPM for CPU/GPU
+                char line2_buf[64];
+                if (get_extra_info_line2(data, slot_value, line2_buf,
+                                         sizeof(line2_buf)))
+                {
+                    double line2_font_size = extra_font_size;
+                    cairo_font_extents_t line2_font_ext = {0};
+                    cairo_text_extents_t line2_text_ext = {0};
+
+                    cairo_set_font_size(cr, line2_font_size);
+                    cairo_font_extents(cr, &line2_font_ext);
+                    cairo_text_extents(cr, line2_buf, &line2_text_ext);
+
+                    // Auto-shrink for line 2
+                    while (fmax(line2_text_ext.x_advance,
+                                line2_text_ext.width) >
+                               extra_available_width &&
+                           line2_font_size > min_extra_font)
+                    {
+                        line2_font_size *= 0.94;
+                        cairo_set_font_size(cr, line2_font_size);
+                        cairo_font_extents(cr, &line2_font_ext);
+                        cairo_text_extents(cr, line2_buf, &line2_text_ext);
+                    }
+
+                    double line2_y = extra_y + extra_font_ext.descent +
+                                     extra_padding_top + line2_font_ext.ascent;
+
+                    if (line2_y + line2_font_ext.descent <=
+                        config->display_height)
+                    {
+                        set_cairo_color(cr, value_col);
+                        cairo_move_to(cr, extra_x, line2_y);
+                        cairo_show_text(cr, line2_buf);
+                    }
+                }
+            }
+        }
     }
 }
 

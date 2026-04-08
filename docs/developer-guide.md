@@ -32,7 +32,7 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 - **Real-time Temperature Monitoring:** CPU/GPU/liquid sensor data via CoolerControl REST API
 - **Adaptive Display Rendering:** Automatic circular/rectangular display detection
 - **Customizable UI:** Full color/layout/font/sensor-slot configuration via `config.json`
-- **CC4 Authentication:** Bearer Token (primary) with CC3 Basic Auth cookie fallback
+- **Authentication:** Bearer Token via CoolerControl Access Protection
 - **Shutdown Image:** Registered with CC4 at startup — CC handles display on daemon stop
 - **Efficient Caching:** One-time device information retrieval at startup
 - **CoolerControl Plugin:** Managed by `cc-plugin-coolerdash.service`, no separate systemd service needed
@@ -46,7 +46,7 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
   - `jansson` — JSON parsing (config + API)
   - `libcurl-gnutls` — HTTP client
   - `ttf-roboto` — Font rendering
-- **Required Service:** CoolerControl >=4.x recommended (CC3 supported as fallback)
+- **Required Service:** CoolerControl >=4.x
 
 ---
 
@@ -60,8 +60,7 @@ CoolerDash extends the LCD functionality of [CoolerControl](https://gitlab.com/c
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │ 1. Configuration Loading (device/config.c)                │  │
 │  │ 2. Session Initialization (cc_main.c)                     │  │
-│  │    ├─ CC4: Bearer Token header                           │  │
-│  │    └─ CC3: Basic Auth cookie via /login                  │  │
+│  │    └─ Bearer Token header                                │  │
 │  │ 3. Device Cache Setup (cc_conf.c)                         │  │
 │  │ 4. Shutdown Image Registration (cc_main.c, CC4 only)      │  │
 │  │ 5. Main Loop (configurable interval)                      │  │
@@ -235,7 +234,7 @@ LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 typedef struct {
     // Daemon connection
     char daemon_address[256];        // CoolerControl API URL
-    char daemon_password[128];       // API password
+  char access_token[64];           // Bearer token (cc_<uuid>)
 
     // File paths
     char paths_images[PATH_MAX];     // Shutdown image directory
@@ -314,21 +313,14 @@ void log_config(const Config *config);  // Uses LOG_STATUS level (always visible
 ### CoolerControl REST API
 
 **Base URL:** `http://localhost:11987` (configurable)
-**Authentication:** HTTP Basic Auth (username: CCAdmin)
-**Session Management:** Cookie-based (stored in `/tmp/coolerdash_cookie_<PID>.txt`)
+**Authentication:** Bearer token via `Authorization: Bearer cc_<uuid>`
+**Session Management:** Single initialized CURL session with shared auth header
 
 ### API Endpoints Used
 
-#### 1. Login & Session
+#### 1. Session Setup
 
-```http
-POST /login
-Authorization: Basic CCAdmin:<password>
-Content-Type: application/json
-
-Response: 200 OK / 204 No Content
-Sets: session cookies
-```
+CoolerDash initializes one CURL session and stores the Bearer header built from the configured access token.
 
 **Implementation:** `src/srv/cc_main.c` → `init_coolercontrol_session()`
 
@@ -449,25 +441,23 @@ Response: 200 OK
 ┌─────────────────────────────────────────────────────────────┐
 │ 1. init_coolercontrol_session()                             │
 │    ├─ curl_global_init()                                    │
-│    ├─ POST /login (HTTP Basic Auth)                         │
-│    ├─ Store cookies in /tmp/coolerdash_cookie_<PID>.txt    │
+│    ├─ curl_easy_init()                                      │
+│    ├─ Build Authorization: Bearer cc_<uuid> header          │
 │    └─ Set session_initialized = 1                           │
 ├─────────────────────────────────────────────────────────────┤
-│ 2. Repeated API Calls (use existing cookies)                │
-│    ├─ send_image_to_lcd() - every 60s                      │
-│    └─ get_temperature_data() - every 60s                   │
+│ 2. Repeated API Calls (reuse initialized session)           │
+│    ├─ send_image_to_lcd() - every 60s                       │
+│    └─ get_temperature_data() - every 60s                    │
 ├─────────────────────────────────────────────────────────────┤
 │ 3. cleanup_coolercontrol_session()                          │
 │    ├─ curl_easy_cleanup()                                   │
 │    ├─ curl_global_cleanup()                                 │
-│    ├─ unlink(cookie_jar)                                    │
 │    └─ Set session_initialized = 0                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 **Security Features:**
-- Cookie jar path includes PID (prevents conflicts)
-- SSL verification enabled for HTTPS endpoints
+- Explicit Bearer auth header on each API request
 - Cleanup protection with static flag (prevents double-free)
 
 ---
@@ -680,7 +670,7 @@ int calculate_temp_fill_width(float temp, int max_width, float max_temp) {
 
 ```c
 daemon_address = "http://localhost:11987"
-daemon_password = "coolAdmin"
+access_token = ""
 display_width = 0  // auto-detected from API
 display_refresh_interval = 2.5
 lcd_brightness = 80
@@ -690,7 +680,7 @@ lcd_brightness = 80
 
 ```json
 {
-  "daemon": { "address": "...", "password": "..." },
+  "daemon": { "address": "...", "access_token": "cc_<uuid>" },
   "display": { "width": 0, "height": 0, "brightness": 80, "mode": "dual" },
   "layout": { "bar_height": 30, "label_size": 18, "value_size": 24 },
   "font": { "face": "Roboto" },
@@ -706,9 +696,9 @@ lcd_brightness = 80
 
 | Function | Purpose | Returns |
 |----------|---------|---------|
-| `init_coolercontrol_session(config)` | Login, setup cookie jar | `int` success |
+| `init_coolercontrol_session(config)` | Initialize CURL session and Bearer header | `int` success |
 | `is_session_initialized()` | Check session state | `int` boolean |
-| `cleanup_coolercontrol_session()` | Cleanup CURL, delete cookies | `void` |
+| `cleanup_coolercontrol_session()` | Cleanup CURL session resources | `void` |
 | `send_image_to_lcd(config, image_path, device_uid)` | Upload PNG to LCD | `int` success |
 
 #### Internal Helpers (15 functions)
@@ -1110,11 +1100,8 @@ sudo systemctl restart coolerdash.service
 # Check CoolerControl status
 systemctl status coolercontrold
 
-# Test API manually
-curl -u CCAdmin:coolAdmin -X POST http://localhost:11987/login
-
-# Check config password
-grep daemon_password /etc/coolercontrol/plugins/coolerdash/config.json
+# Check configured access token
+grep access_token /etc/coolercontrol/plugins/coolerdash/config.json
 ```
 
 ---

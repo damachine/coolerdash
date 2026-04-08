@@ -53,9 +53,6 @@ static volatile sig_atomic_t running = 1; // flag whether daemon is running
  * parameter).
  */
 int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
-// Developer/testing flag: when set (via --develop), force displays to be
-// treated as circular
-int force_display_circular = 0;
 
 /**
  * @brief Global pointer to configuration.
@@ -199,8 +196,7 @@ static void show_help(const char *program_name)
         "  --dual            Force dual display mode (CPU+GPU simultaneously)\n");
     printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 "
            "seconds)\n");
-    printf("  --develop         Developer: force display to be treated as "
-           "circular for testing\n\n");
+    printf("  --develop         Developer mode: enable verbose logging\n\n");
     printf("DISPLAY MODES:\n");
     printf(
         "  dual              Default mode - shows CPU and GPU simultaneously\n");
@@ -467,7 +463,6 @@ static const char *parse_arguments(int argc, char **argv,
         }
         else if (strcmp(argv[i], "--develop") == 0)
         {
-            force_display_circular = 1;
             verbose_logging = 1; // Developer mode implies verbose logging
         }
         else if (argv[i][0] != '-')
@@ -525,14 +520,6 @@ static int initialize_config_and_instance(const char *config_path,
         log_message(LOG_INFO, "Using hardcoded defaults (no config.json found)");
     }
 
-    /* Apply CLI overrides (developer/testing) */
-    if (force_display_circular)
-    {
-        config->force_display_circular = 1;
-        log_message(LOG_INFO, "Developer override: forcing circular display "
-                              "detection (via --develop)");
-    }
-
     int is_plugin_mode = is_started_as_plugin();
     log_message(LOG_INFO, "Running mode: %s",
                 is_plugin_mode ? "CoolerControl plugin" : "standalone");
@@ -561,7 +548,7 @@ static int initialize_coolercontrol_services(const Config *config)
                 "Please check:\n"
                 "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
                 "  - Is the daemon running on %s?\n"
-                "  - Is the password correct in configuration?\n"
+                "  - Is a valid access token configured?\n"
                 "  - Are network connections allowed?\n",
                 config->daemon_address);
         fflush(stderr);
@@ -576,7 +563,7 @@ static int initialize_coolercontrol_services(const Config *config)
                 "Please check:\n"
                 "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
                 "  - Is the daemon running on %s?\n"
-                "  - Is the password correct in configuration?\n"
+                "  - Is a valid access token configured?\n"
                 "  - Are network connections allowed?\n",
                 config->daemon_address);
         return -1;
