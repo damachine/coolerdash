@@ -487,12 +487,14 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
             if (duty_s)
             {
                 char duty_buf[16];
-                snprintf(duty_buf, sizeof(duty_buf), "%.0f%%",
+                snprintf(duty_buf, sizeof(duty_buf), "%.0f",
                          duty_s->value);
 
                 double duty_font = value_layout.font_size * 0.5;
+                double pct_font = duty_font / 2.05;
                 cairo_font_extents_t duty_fext = {0};
                 cairo_text_extents_t duty_text_ext = {0};
+                cairo_text_extents_t pct_ext = {0};
 
                 cairo_select_font_face(cr, config->font_face,
                                        CAIRO_FONT_SLANT_NORMAL,
@@ -500,6 +502,16 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                 cairo_set_font_size(cr, duty_font);
                 cairo_font_extents(cr, &duty_fext);
                 cairo_text_extents(cr, duty_buf, &duty_text_ext);
+
+                cairo_set_font_size(cr, pct_font);
+                cairo_text_extents(cr, "%", &pct_ext);
+                cairo_set_font_size(cr, duty_font);
+
+                const double pct_spacing = fmax(1.0, scale_value_avg(params, 1.0));
+                double duty_number_width =
+                    fmax(duty_text_ext.x_advance, duty_text_ext.width);
+                double duty_total_width = duty_number_width + pct_spacing +
+                                          fmax(pct_ext.x_advance, pct_ext.width);
 
                 /* Position: left margin, vertically centered with temp */
                 const double left_margin_factor =
@@ -511,14 +523,26 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                 double duty_y = value_layout.baseline_y;
 
                 /* Don't overlap with temperature block */
-                double duty_right = duty_x +
-                                    fmax(duty_text_ext.x_advance, duty_text_ext.width) +
+                double duty_right = duty_x + duty_total_width +
                                     scale_value_avg(params, 4.0);
                 if (duty_right <= value_layout.block_left)
                 {
                     set_cairo_color(cr, value_color);
                     cairo_move_to(cr, duty_x, duty_y);
                     cairo_show_text(cr, duty_buf);
+
+                    /* Render % as superscript at ~49% of duty font */
+                    const double num_top = duty_y + duty_text_ext.y_bearing;
+                    const double pct_top = num_top +
+                                           (duty_text_ext.height * 0.08);
+                    const double pct_x = duty_x + duty_number_width +
+                                         pct_spacing - pct_ext.x_bearing;
+                    const double pct_y = pct_top - pct_ext.y_bearing;
+
+                    cairo_set_font_size(cr, pct_font);
+                    cairo_move_to(cr, pct_x, pct_y);
+                    cairo_show_text(cr, "%");
+                    cairo_set_font_size(cr, duty_font);
                 }
             }
         }
