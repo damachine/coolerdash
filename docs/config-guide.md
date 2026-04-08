@@ -24,19 +24,16 @@ Connection to the CoolerControl daemon.
 ```json
 "daemon": {
     "address": "http://localhost:11987",
-    "access_token": "",
-    "password": "coolAdmin"
+    "access_token": ""
 }
 ```
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `address` | `http://localhost:11987` | API endpoint |
-| `access_token` | `""` | **CC4:** Bearer token from CoolerControl UI → Access Protection. Format: `cc_<uuid>`. Takes precedence over `password`. |
-| `password` | `coolAdmin` | **CC3 / fallback.** Ignored when `access_token` is set. |
+| `access_token` | `""` | Bearer token from CoolerControl UI → Access Protection. Format: `cc_<uuid>`. Required for authenticated API access. |
 
-> CC4: generate a token in CoolerControl UI under **Access Protection** and paste it into `access_token`.  
-> CC3: leave `access_token` empty, set `password`.
+Generate a token in CoolerControl UI under **Access Protection** and paste it into `access_token`.
 
 ---
 
@@ -92,9 +89,9 @@ LCD display configuration tested with NZXT Kraken 2023.
 - **`circle_switch_interval`**: Slot switch interval for circle mode in seconds (1–60, default: `5`)
 - **`content_scale_factor`**: Safe area percentage (0.5–1.0, default: `0.98`)
 - **`inscribe_factor`**: Inscribe factor for circular displays (default: `0.70710678` = 1/√2)
-- **`sensor_slot_up`**: Sensor shown in top slot: `cpu`, `gpu`, or `liquid` (default: `cpu`)
-- **`sensor_slot_mid`**: Sensor shown in middle slot (default: `liquid`)
-- **`sensor_slot_down`**: Sensor shown in bottom slot (default: `gpu`)
+- **`sensor_slot_1`**: Sensor for slot 1: `cpu`, `gpu`, or `liquid` (default: `cpu`)
+- **`sensor_slot_2`**: Sensor for slot 2 (default: `liquid`)
+- **`sensor_slot_3`**: Sensor for slot 3 (default: `gpu`)
 
 Sensor slots control which sensor appears in each display position for both dual and circle mode.
 
@@ -197,9 +194,9 @@ All values are in pixels unless noted. Positions are calculated dynamically from
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,
-    "bar_height_up": 0,
-    "bar_height_mid": 0,
-    "bar_height_down": 0
+    "bar_height_1": 0,
+    "bar_height_2": 0,
+    "bar_height_3": 0
 }
 ```
 
@@ -212,7 +209,7 @@ All values are in pixels unless noted. Positions are calculated dynamically from
 | `bar_border_enabled` | `1` | Enable bar border (`1`/`0`) |
 | `label_margin_left` | `1` | Left label margin multiplier |
 | `label_margin_bar` | `1` | Margin between label and bar |
-| `bar_height_up/mid/down` | `0` | Per-slot bar height override. `0` = use `bar_height` |
+| `bar_height_1/2/3` | `0` | Per-slot bar height override. `0` = use `bar_height` |
 
 ---
 

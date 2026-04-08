@@ -84,7 +84,6 @@ void cc_cleanup_response_buffer(http_response *response)
 typedef struct
 {
     CURL *curl_handle;
-    char cookie_jar[CC_COOKIE_SIZE];
     char access_token[CC_BEARER_HEADER_SIZE];
     int session_initialized;
 } CoolerControlSession;
@@ -95,7 +94,7 @@ typedef struct
  * handle and session initialization status.
  */
 static CoolerControlSession cc_session = {
-    .curl_handle = NULL, .cookie_jar = {0}, .access_token = {0}, .session_initialized = 0};
+    .curl_handle = NULL, .access_token = {0}, .session_initialized = 0};
 
 /**
  * @brief Reallocate response buffer if needed.
@@ -153,9 +152,6 @@ size_t write_callback(const void *contents, size_t size, size_t nmemb,
     return realsize;
 }
 
-/* Forward declaration — definition is after cleanup_coolercontrol_session() */
-void apply_ssl_options(void *curl_raw, const struct Config *config);
-
 /**
  * @brief Validate snprintf result for buffer overflow.
  * @details Checks if snprintf truncated output.
@@ -171,138 +167,39 @@ static int validate_snprintf(int written, size_t buffer_size, char *buffer)
 }
 
 /**
- * @brief Build login URL and credentials for CoolerControl session.
- * @details Constructs the login URL and username:password string from config.
- */
-static int build_login_credentials(const Config *config, char *login_url,
-                                   size_t url_size, char *userpwd,
-                                   size_t pwd_size)
-{
-    int written_url =
-        snprintf(login_url, url_size, "%s/login", config->daemon_address);
-    if (!validate_snprintf(written_url, url_size, login_url))
-        return 0;
-
-    int written_pwd =
-        snprintf(userpwd, pwd_size, "CCAdmin:%s", config->daemon_password);
-    if (!validate_snprintf(written_pwd, pwd_size, userpwd))
-        return 0;
-
-    return 1;
-}
-
-/**
- * @brief Configure CURL for CoolerControl login request.
- * @details Sets up all CURL options including authentication, headers and SSL.
- */
-static struct curl_slist *configure_login_curl(CURL *curl, const Config *config,
-                                               const char *login_url,
-                                               const char *userpwd)
-{
-    curl_easy_setopt(curl, CURLOPT_URL, login_url);
-    curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-    curl_easy_setopt(curl, CURLOPT_USERPWD, userpwd);
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, NULL);
-
-    // Set HTTP headers for login request
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
-    headers = curl_slist_append(headers, "Accept: application/json");
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-    // Enable SSL verification for HTTPS
-    apply_ssl_options(curl, config);
-
-    return headers;
-}
-
-/**
- * @brief Check login response status.
- * @details Validates CURL result and HTTP response code.
- */
-static int is_login_successful(CURLcode res, long response_code)
-{
-    return (res == CURLE_OK && (response_code == 200 || response_code == 204));
-}
-
-/**
  * @brief Initializes the CoolerControl session (CURL setup and login).
- * @details This function initializes the CURL library, sets up the session
- * cookie jar, constructs the login URL and credentials, and performs a login to
- * the CoolerControl API.
+ * @details This function initializes the CURL library and stores the Bearer
+ * authorization header used for all CoolerControl API requests.
  */
 int init_coolercontrol_session(const Config *config)
 {
-    /* --- Bearer Token path: skip login entirely --- */
-    if (config->access_token[0] != '\0')
+    if (!config || config->access_token[0] == '\0')
     {
-        int written = snprintf(cc_session.access_token, sizeof(cc_session.access_token),
-                               "Authorization: Bearer %s", config->access_token);
-        if (written < 0 || (size_t)written >= sizeof(cc_session.access_token))
-            cc_session.access_token[sizeof(cc_session.access_token) - 1] = '\0';
-
-        /* We still need a CURL handle for LCD uploads */
-        curl_global_init(CURL_GLOBAL_DEFAULT);
-        cc_session.curl_handle = curl_easy_init();
-        if (!cc_session.curl_handle)
-            return 0;
-
-        cc_session.session_initialized = 1;
-        log_message(LOG_STATUS, "Session initialized using Bearer token (CC4)");
-        return 1;
+        log_message(LOG_ERROR,
+                    "CoolerControl access token missing; token-only authentication is required");
+        return 0;
     }
 
-    /* --- Basic Auth / Cookie path (CC3 / fallback) --- */
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
     if (!cc_session.curl_handle)
         return 0;
 
-    int written_cookie =
-        snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar),
-                 "/tmp/coolerdash_cookie_%d.txt", getpid());
-    if (written_cookie < 0 ||
-        (size_t)written_cookie >= sizeof(cc_session.cookie_jar))
+    int written = snprintf(cc_session.access_token, sizeof(cc_session.access_token),
+                           "Authorization: Bearer %s", config->access_token);
+    if (!validate_snprintf(written, sizeof(cc_session.access_token),
+                           cc_session.access_token))
     {
-        cc_session.cookie_jar[sizeof(cc_session.cookie_jar) - 1] = '\0';
-    }
-
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEJAR,
-                     cc_session.cookie_jar);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEFILE,
-                     cc_session.cookie_jar);
-
-    char login_url[CC_URL_SIZE];
-    char userpwd[CC_USERPWD_SIZE];
-    if (!build_login_credentials(config, login_url, sizeof(login_url), userpwd,
-                                 sizeof(userpwd)))
+        curl_easy_cleanup(cc_session.curl_handle);
+        cc_session.curl_handle = NULL;
+        curl_global_cleanup();
+        log_message(LOG_ERROR, "Access token header exceeds maximum size");
         return 0;
-
-    struct curl_slist *headers =
-        configure_login_curl(cc_session.curl_handle, config, login_url, userpwd);
-
-    CURLcode res = curl_easy_perform(cc_session.curl_handle);
-    long response_code = 0;
-    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE,
-                      &response_code);
-
-    memset(userpwd, 0, sizeof(userpwd));
-
-    if (headers)
-        curl_slist_free_all(headers);
-
-    if (is_login_successful(res, response_code))
-    {
-        cc_session.session_initialized = 1;
-        return 1;
     }
 
-    log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res,
-                response_code);
-    return 0;
+    cc_session.session_initialized = 1;
+    log_message(LOG_STATUS, "Session initialized using Bearer token");
+    return 1;
 }
 
 /**
@@ -314,8 +211,8 @@ int is_session_initialized(void) { return cc_session.session_initialized; }
 
 /**
  * @brief Cleans up and terminates the CoolerControl session.
- * @details This function performs cleanup of the CURL handle, removes the
- * cookie jar file, and marks the session as uninitialized.
+ * @details This function performs cleanup of the CURL handle and marks the
+ * session as uninitialized.
  */
 void cleanup_coolercontrol_session(void)
 {
@@ -335,14 +232,9 @@ void cleanup_coolercontrol_session(void)
     // Perform global CURL cleanup
     curl_global_cleanup();
 
-    // Remove cookie jar file
-    if (unlink(cc_session.cookie_jar) != 0)
-    {
-        all_cleaned = 0;
-    }
-
     // Mark session as uninitialized
     cc_session.session_initialized = 0;
+    cc_session.access_token[0] = '\0';
 
     // Set cleanup flag only if all operations succeeded
     if (all_cleaned)
@@ -357,50 +249,6 @@ void cleanup_coolercontrol_session(void)
 const char *get_session_access_token(void)
 {
     return cc_session.access_token;
-}
-
-/**
- * @brief Returns the session cookie jar path.
- */
-const char *get_session_cookie_jar(void)
-{
-    return cc_session.cookie_jar;
-}
-
-/**
- * @brief Apply TLS/SSL options to a CURL handle based on config.
- * @details Localhost always uses plain HTTP; for HTTPS addresses this sets
- *          peer/host verification and optional custom CA cert or skip flag.
- */
-void apply_ssl_options(void *curl_raw, const struct Config *config)
-{
-    if (!curl_raw || !config)
-        return;
-
-    CURL *curl = (CURL *)curl_raw;
-
-    /* Plain HTTP → nothing to do */
-    if (strncmp(config->daemon_address, "https://", 8) != 0)
-        return;
-
-    if (config->tls_skip_verify)
-    {
-        log_message(LOG_WARNING,
-                    "TLS peer verification disabled (tls_skip_verify=true) — insecure!");
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
-        return;
-    }
-
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-
-    if (config->tls_ca_cert_path[0] != '\0')
-    {
-        curl_easy_setopt(curl, CURLOPT_CAINFO, config->tls_ca_cert_path);
-        log_message(LOG_INFO, "TLS: using custom CA cert: %s",
-                    config->tls_ca_cert_path);
-    }
 }
 
 /**
@@ -541,12 +389,10 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
                                                     curl_mime *form,
                                                     http_response *response)
 {
+    (void)config;
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, form);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
-
-    // Enable SSL verification for HTTPS
-    apply_ssl_options(cc_session.curl_handle, config);
 
     // Set write callback
     curl_easy_setopt(
@@ -559,11 +405,7 @@ static struct curl_slist *configure_lcd_upload_curl(const Config *config,
     headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
     headers = curl_slist_append(headers, "Accept: application/json");
 
-    // Attach auth: Bearer token preferred, otherwise rely on session cookie
-    if (cc_session.access_token[0] != '\0')
-    {
-        headers = curl_slist_append(headers, cc_session.access_token);
-    }
+    headers = curl_slist_append(headers, cc_session.access_token);
 
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
 
@@ -671,7 +513,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
  * @details Called once at daemon startup. Uploads shutdown.png to
  * PUT /devices/{uid}/settings/lcd/lcd/shutdown-image so CoolerControl
  * displays it automatically whenever the CC daemon itself stops.
- * Gracefully skips if the endpoint is unavailable (CC3 / pre-CC4).
+ * Gracefully skips if the endpoint is unavailable.
  */
 int register_shutdown_image_with_cc(const Config *config,
                                     const char *image_path,

@@ -17,6 +17,7 @@
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
+#include <ctype.h>
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
@@ -316,15 +317,205 @@ static int has_lcd_display(const json_t *dev)
 }
 
 /**
- * @brief Search for the first CoolerControl LCD device in devices array.
- * @details Selects the first device that exposes a valid UID and LCD
- * dimensions through the CoolerControl API.
+ * @brief Convert ASCII character to lower-case without locale dependency.
  */
-static int search_lcd_device(const json_t *devices, char *lcd_uid,
+static char ascii_tolower(char ch)
+{
+    return (char)tolower((unsigned char)ch);
+}
+
+/**
+ * @brief Check if a string contains a token case-insensitively.
+ */
+static int contains_token_ci(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle || needle[0] == '\0')
+        return 0;
+
+    const size_t needle_len = strlen(needle);
+    for (size_t i = 0; haystack[i] != '\0'; i++)
+    {
+        size_t j = 0;
+        while (j < needle_len && haystack[i + j] != '\0' &&
+               ascii_tolower(haystack[i + j]) == ascii_tolower(needle[j]))
+        {
+            j++;
+        }
+        if (j == needle_len)
+            return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Match a pattern list against name, type, and UID.
+ * @details Patterns are separated by commas, semicolons, or newlines.
+ */
+static int pattern_list_matches(const char *pattern_list, const char *device_name,
+                                const char *type_str, const char *device_uid)
+{
+    if (!pattern_list || pattern_list[0] == '\0')
+        return 0;
+
+    char token[64];
+    size_t token_len = 0;
+
+    for (size_t i = 0;; i++)
+    {
+        const char ch = pattern_list[i];
+        const int is_separator =
+            (ch == '\0' || ch == '\n' || ch == '\r' || ch == ',' ||
+             ch == ';');
+
+        if (!is_separator)
+        {
+            if (!(token_len == 0 && isspace((unsigned char)ch)) &&
+                token_len + 1 < sizeof(token))
+            {
+                token[token_len++] = ch;
+            }
+        }
+
+        if (is_separator)
+        {
+            while (token_len > 0 &&
+                   isspace((unsigned char)token[token_len - 1]))
+            {
+                token_len--;
+            }
+
+            token[token_len] = '\0';
+            if (token_len > 0 &&
+                (contains_token_ci(device_name, token) ||
+                 contains_token_ci(type_str, token) ||
+                 contains_token_ci(device_uid, token)))
+            {
+                return 1;
+            }
+
+            token_len = 0;
+
+            if (ch == '\0')
+                break;
+        }
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Detect common motherboard/mainboard false positives.
+ */
+static int looks_like_mainboard_device(const char *device_name)
+{
+    static const char *tokens[] = {
+        "mainboard", "motherboard", "chipset", "vrm",
+        "z690", "z790", "b650", "b660",
+        "x670", "x870", "x570", "b550"};
+
+    if (!device_name)
+        return 0;
+
+    for (size_t i = 0; i < sizeof(tokens) / sizeof(tokens[0]); i++)
+    {
+        if (contains_token_ci(device_name, tokens[i]))
+            return 1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Get effective LCD detection mode.
+ */
+static const char *get_detection_mode(const Config *config)
+{
+    if (!config || config->device_detection_mode[0] == '\0')
+        return "strict";
+    return config->device_detection_mode;
+}
+
+/**
+ * @brief Score an LCD candidate based on type, name, and dimensions.
+ */
+static int score_lcd_candidate(const Config *config, const char *device_uid,
+                               const char *device_name, const char *type_str,
+                               int screen_width, int screen_height)
+{
+    int score = 0;
+    const char *mode = get_detection_mode(config);
+    const int allowlisted = pattern_list_matches(
+        config ? config->device_detection_allowlist : NULL, device_name,
+        type_str, device_uid);
+    const int blocklisted = pattern_list_matches(
+        config ? config->device_detection_blocklist : NULL, device_name,
+        type_str, device_uid);
+
+    if (allowlisted)
+        return 1000 + (screen_width * screen_height);
+
+    if (blocklisted)
+        return -1000;
+
+    if (type_str && strcmp(type_str, "Liquidctl") == 0)
+        score += 30;
+    else if (type_str &&
+             (strcmp(type_str, "Hwmon") == 0 ||
+              strcmp(type_str, "CustomSensors") == 0 ||
+              strcmp(type_str, "CPU") == 0 || strcmp(type_str, "GPU") == 0))
+        score -= 40;
+    else if (type_str && type_str[0] != '\0')
+        score += 8;
+
+    if (contains_token_ci(device_name, "kraken") ||
+        contains_token_ci(device_name, "elite") ||
+        contains_token_ci(device_name, "hydro") ||
+        contains_token_ci(device_name, "capellix") ||
+        contains_token_ci(device_name, "lcd") ||
+        contains_token_ci(device_name, "display") ||
+        contains_token_ci(device_name, "screen") ||
+        contains_token_ci(device_name, "aio"))
+    {
+        score += 24;
+    }
+
+    if (looks_like_mainboard_device(device_name))
+        score -= 80;
+
+    if (screen_width == screen_height)
+        score += 6;
+    else
+        score += 3;
+
+    if (screen_width >= 240 && screen_height >= 240)
+        score += 4;
+
+    if (strcmp(mode, "relaxed") == 0)
+        return (score < 0) ? 0 : score;
+
+    if (strcmp(mode, "balanced") == 0)
+        return (score >= 0) ? score : -1;
+
+    if (looks_like_mainboard_device(device_name))
+        return -1;
+
+    return (score >= 20) ? score : -1;
+}
+
+/**
+ * @brief Search for the best CoolerControl LCD device candidate.
+ * @details Uses UID, LCD metadata, and configurable allow/block heuristics.
+ */
+static int search_lcd_device(const Config *config, const json_t *devices, char *lcd_uid,
                              size_t uid_size, int *found_lcd_device,
                              int *screen_width, int *screen_height,
                              char *device_name, size_t name_size)
 {
+    const json_t *best_dev = NULL;
+    int best_score = -1001;
+    int candidate_count = 0;
+
     const size_t device_count = json_array_size(devices);
     for (size_t i = 0; i < device_count; i++)
     {
@@ -335,6 +526,9 @@ static int search_lcd_device(const json_t *devices, char *lcd_uid,
         const char *type_str = extract_device_type_from_json(dev);
         const json_t *name_val = json_object_get(dev, "name");
         const char *name = name_val ? json_string_value(name_val) : "unknown";
+        char uid_value[128] = {0};
+        int width = 0;
+        int height = 0;
 
         if (!has_usable_device_uid(dev))
         {
@@ -354,22 +548,59 @@ static int search_lcd_device(const json_t *devices, char *lcd_uid,
             continue;
         }
 
-        extract_lcd_device_info(dev, lcd_uid, uid_size, found_lcd_device,
+        extract_device_uid(dev, uid_value, sizeof(uid_value));
+        extract_lcd_dimensions(dev, &width, &height);
+
+        int score = score_lcd_candidate(config, uid_value, name, type_str, width,
+                                        height);
+        if (score < 0)
+        {
+            log_message(LOG_INFO,
+                        "Skipping filtered LCD candidate: %s [%s] (%dx%d)",
+                        name ? name : "unknown",
+                        type_str ? type_str : "unknown type", width, height);
+            continue;
+        }
+
+        candidate_count++;
+        if (score > best_score)
+        {
+            best_score = score;
+            best_dev = dev;
+        }
+
+        log_message(LOG_INFO,
+                    "LCD candidate score=%d: %s [%s] (%dx%d, uid=%s)", score,
+                    name ? name : "unknown",
+                    type_str ? type_str : "unknown type", width, height,
+                    uid_value[0] != '\0' ? uid_value : "n/a");
+    }
+
+    if (best_dev)
+    {
+        extract_lcd_device_info(best_dev, lcd_uid, uid_size, found_lcd_device,
                                 screen_width, screen_height, device_name,
                                 name_size);
         return 1;
     }
 
-    return 1;
+    if (candidate_count == 0)
+    {
+        log_message(LOG_WARNING,
+                    "No suitable LCD device candidates found after filtering");
+    }
+
+    return 0;
 }
 
 /**
  * @brief Parse devices JSON and extract LCD UID, display info and device name.
  */
-static int parse_lcd_device_data(const char *json, char *lcd_uid,
-                                 size_t uid_size, int *found_lcd_device,
-                                 int *screen_width, int *screen_height,
-                                 char *device_name, size_t name_size)
+static int parse_lcd_device_data(const Config *config, const char *json,
+                                 char *lcd_uid, size_t uid_size,
+                                 int *found_lcd_device, int *screen_width,
+                                 int *screen_height, char *device_name,
+                                 size_t name_size)
 {
     if (!json)
         return 0;
@@ -393,7 +624,7 @@ static int parse_lcd_device_data(const char *json, char *lcd_uid,
         return 0;
     }
 
-    int result = search_lcd_device(devices, lcd_uid, uid_size,
+    int result = search_lcd_device(config, devices, lcd_uid, uid_size,
                                    found_lcd_device, screen_width,
                                    screen_height, device_name, name_size);
     json_decref(root);
@@ -408,6 +639,7 @@ static void configure_device_cache_curl(CURL *curl, const Config *config,
                                         http_response *chunk,
                                         struct curl_slist **headers)
 {
+    (void)config;
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(
         curl, CURLOPT_WRITEFUNCTION,
@@ -417,22 +649,11 @@ static void configure_device_cache_curl(CURL *curl, const Config *config,
 
     *headers = curl_slist_append(NULL, "accept: application/json");
 
-    /* Attach auth: Bearer token preferred, otherwise share session cookie */
     const char *bearer = get_session_access_token();
     if (bearer && bearer[0] != '\0')
-    {
         *headers = curl_slist_append(*headers, bearer);
-    }
-    else
-    {
-        const char *cookie_jar = get_session_cookie_jar();
-        if (cookie_jar && cookie_jar[0] != '\0')
-            curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_jar);
-    }
 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
-
-    apply_ssl_options(curl, config);
 }
 
 /**
@@ -501,14 +722,16 @@ static void populate_device_name_cache(const char *json_data)
 /**
  * @brief Process device cache API response and populate cache.
  */
-static int process_device_cache_response(const http_response *chunk)
+static int process_device_cache_response(const Config *config,
+                                         const http_response *chunk)
 {
     /* Populate device name cache for ALL devices (used by sensor system) */
     populate_device_name_cache(chunk->data);
 
     int found_lcd_device = 0;
     int result = parse_lcd_device_data(
-        chunk->data, device_cache.device_uid, sizeof(device_cache.device_uid),
+        config, chunk->data, device_cache.device_uid,
+        sizeof(device_cache.device_uid),
         &found_lcd_device, &device_cache.screen_width,
         &device_cache.screen_height, device_cache.device_name,
         sizeof(device_cache.device_name));
@@ -571,7 +794,7 @@ static int initialize_device_cache(const Config *config)
     int success = 0;
     if (curl_easy_perform(curl) == CURLE_OK)
     {
-        success = process_device_cache_response(&chunk);
+        success = process_device_cache_response(config, &chunk);
     }
 
     free(chunk.data);
@@ -642,6 +865,14 @@ static int update_dimension(uint16_t *config_dim, int device_dim,
 {
     const uint16_t original_value = *config_dim;
 
+    if (device_dim <= 0)
+    {
+        log_message(LOG_WARNING,
+                    "Display %s from device is invalid: %d, keeping config value %u",
+                    dim_name, device_dim, original_value);
+        return 0;
+    }
+
     if (*config_dim == 0)
     {
         *config_dim = (uint16_t)device_dim;
@@ -653,8 +884,11 @@ static int update_dimension(uint16_t *config_dim, int device_dim,
 
     if (original_value != (uint16_t)device_dim)
     {
-        log_message(LOG_INFO, "Display %s from config.json: %d (device reports %d)",
-                    dim_name, *config_dim, device_dim);
+        *config_dim = (uint16_t)device_dim;
+        log_message(LOG_INFO,
+                    "Display %s updated from device: %d (config.json had %u)",
+                    dim_name, *config_dim, original_value);
+        return 1;
     }
     else
     {

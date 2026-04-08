@@ -172,9 +172,9 @@ Circle mode cycles through the three sensor slots configured in `config.json`:
 
 ```json
 "display": {
-    "sensor_slot_up": "cpu",
-    "sensor_slot_mid": "liquid",
-    "sensor_slot_down": "gpu"
+    "sensor_slot_1": "cpu",
+    "sensor_slot_2": "liquid",
+    "sensor_slot_3": "gpu"
 }
 ```
 

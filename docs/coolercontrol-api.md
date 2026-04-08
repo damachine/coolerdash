@@ -29,7 +29,6 @@ CoolerDash acts as a specialized LCD client for CoolerControl, fetching temperat
 ### API Endpoints Used
 
 ```
-POST   /login                                        - CC3 authentication (Basic Auth cookie)
 GET    /devices                                      - Device enumeration
 POST   /status                                       - Temperature sensor data
 PUT    /devices/{uid}/settings/lcd/lcd/images        - LCD image upload
@@ -147,50 +146,32 @@ cc_cleanup_response_buffer(&response);
 
 #### 2. Session State
 
-**Purpose**: Maintain persistent CURL session with cookie-based authentication
+**Purpose**: Maintain persistent CURL session with Bearer-token authentication
 
 ```c
 typedef struct {
     CURL *curl_handle;
-    char cookie_jar[CC_COOKIE_SIZE];
+    char access_token[CC_BEARER_HEADER_SIZE];
     int session_initialized;
 } CoolerControlSession;
 
 static CoolerControlSession cc_session = {
     .curl_handle = NULL,
-    .cookie_jar = {0},
+    .access_token = {0},
     .session_initialized = 0
 };
 ```
-
-**Cookie Jar**: `/tmp/coolerdash_cookie_{PID}.txt`
-- Stores session cookies for authenticated requests
-- Cleaned up on program exit
-- Per-process isolation via PID
 
 #### 3. Authentication Flow
 
 **Function**: `init_coolercontrol_session(const Config *config)`
 
-**CC4 — Bearer Token (primary):**
-- If `access_token` is set in config, all requests use `Authorization: Bearer cc_<uuid>`
-- No cookie jar, no `/login` call needed
+CoolerDash uses one authentication mode only:
+
+- `access_token` must be set in config
+- All requests use `Authorization: Bearer cc_<uuid>`
 - Token is generated in CoolerControl UI under **Access Protection**
-
-**CC3 — Basic Auth cookie (fallback):**
-- Used when `access_token` is empty
-- Sends `POST /login` with HTTP Basic Auth (`CCAdmin:{password}`)
-- Cookie jar stored at `/tmp/coolerdash_cookie_{PID}.txt` (in-memory, written only on cleanup, deleted immediately after)
-
-**Steps (CC3 path)**:
-1. Initialize libcurl global state
-2. Create CURL easy handle
-3. Configure cookie jar for session persistence
-4. Build login URL: `{daemon_address}/login`
-5. Set HTTP Basic Auth: `CCAdmin:{password}`
-6. Send POST request with empty body
-7. Validate response (200/204)
-8. Store cookies for subsequent requests
+- No legacy login or session fallback is used
 
 ---
 
@@ -203,55 +184,28 @@ Called **once at startup** after device initialization. Registers `shutdown.png`
 - Endpoint: `PUT {address}/devices/{uid}/settings/lcd/lcd/shutdown-image`
 - Same multipart form as live image upload
 - CC4 stores image server-side; displays it when CoolerControl stops
-- Returns gracefully on 404 (CC3 — endpoint does not exist)
+- Returns gracefully on 404 when the endpoint is unavailable
 
 **Implementation**:
 ```c
 int init_coolercontrol_session(const Config *config)
 {
+    if (!config || config->access_token[0] == '\0')
+        return 0;
+
     curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
-    
-    // Cookie jar: /tmp/coolerdash_cookie_{PID}.txt
-    snprintf(cc_session.cookie_jar, sizeof(cc_session.cookie_jar),
-             "/tmp/coolerdash_cookie_%d.txt", getpid());
-    
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEJAR, cc_session.cookie_jar);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_COOKIEFILE, cc_session.cookie_jar);
-    
-    // Login request
-    char login_url[CC_URL_SIZE];
-    snprintf(login_url, sizeof(login_url), "%s/login", config->daemon_address);
-    
-    char userpwd[CC_USERPWD_SIZE];
-    snprintf(userpwd, sizeof(userpwd), "CCAdmin:%s", config->daemon_password);
-    
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, login_url);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_USERPWD, userpwd);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POST, 1L);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, "");
-    
-    CURLcode res = curl_easy_perform(cc_session.curl_handle);
-    long response_code = 0;
-    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &response_code);
-    
-    // Secure password cleanup
-    memset(userpwd, 0, sizeof(userpwd));
-    
-    if (res == CURLE_OK && (response_code == 200 || response_code == 204)) {
-        cc_session.session_initialized = 1;
-        return 1;
-    }
-    
-    return 0;
+
+    snprintf(cc_session.access_token, sizeof(cc_session.access_token),
+             "Authorization: Bearer %s", config->access_token);
+    cc_session.session_initialized = 1;
+    return 1;
 }
 ```
 
 **Security Notes**:
-- Password immediately zeroed after use (`memset`)
-- HTTPS support with SSL verification
-- Cookie-based session prevents password re-transmission
+- Bearer token is attached explicitly to every authenticated request
+- No fallback authentication path exists
 
 #### 4. LCD Image Upload
 
@@ -353,8 +307,8 @@ int send_image_to_lcd(const Config *config, const char *image_path, const char *
 **Steps**:
 1. Cleanup CURL easy handle
 2. Cleanup libcurl global state
-3. Remove cookie jar file
-4. Mark session as uninitialized
+3. Mark session as uninitialized
+4. Clear the cached Bearer header
 5. Set cleanup flag to prevent double-cleanup
 
 **Implementation**:
@@ -373,12 +327,10 @@ void cleanup_coolercontrol_session(void)
     
     // Global CURL cleanup
     curl_global_cleanup();
-    
-    // Remove cookie jar
-    unlink(cc_session.cookie_jar);
-    
+
     // Mark as uninitialized
     cc_session.session_initialized = 0;
+    cc_session.access_token[0] = '\0';
     cleanup_done = 1;
 }
 ```
@@ -981,11 +933,7 @@ main() startup
     ↓
 2. init_coolercontrol_session(&config)
     │
-    ├─→ POST /login
-    │   (HTTP Basic Auth: CCAdmin:{password})
-    │   Response: 200 OK + session cookie
-    │
-    └─→ Save cookie to /tmp/coolerdash_cookie_{PID}.txt
+    └─→ Build Authorization: Bearer cc_<uuid>
     ↓
 3. init_device_cache(&config)
     │
@@ -1074,7 +1022,7 @@ Program exit
 struct Config {
     // CoolerControl connection
     char daemon_address[256];      // e.g., "http://127.0.0.1:11987"
-    char daemon_password[128];     // CCAdmin password
+    char access_token[64];         // Bearer token
     
     // Display settings
     uint16_t display_width;        // e.g., 640 (auto-detected if 0)
@@ -1111,7 +1059,7 @@ static struct {
 ```c
 typedef struct {
     CURL *curl_handle;             // Persistent CURL handle
-    char cookie_jar[CC_COOKIE_SIZE]; // Cookie file path
+    char access_token[CC_BEARER_HEADER_SIZE]; // Authorization header
     int session_initialized;       // 0 = not initialized, 1 = ready
 } CoolerControlSession;
 
@@ -1163,18 +1111,19 @@ LOG_STATUS   - Normal operation status (upload success)
 **Symptom**: `init_coolercontrol_session()` returns 0
 
 **Causes**:
-- Wrong password in config
+- Missing or invalid access token
 - CoolerControl daemon not running
 - Daemon address unreachable
 
 **Debugging**:
 ```c
-log_message(LOG_ERROR, "Login failed: CURL code %d, HTTP code %ld", res, response_code);
+log_message(LOG_ERROR,
+            "CoolerControl access token missing; token-only authentication is required");
 ```
 
 **Resolution**:
 - Verify daemon is running: `systemctl status coolercontrol`
-- Check password in `config.json`
+- Check `access_token` in `config.json`
 - Test connection: `curl http://127.0.0.1:11987/devices`
 
 #### 2. Device Not Found
@@ -1411,10 +1360,9 @@ if (response.data && response.size > 0) {
 
 **Test authentication**:
 ```bash
-curl -X POST http://127.0.0.1:11987/login \
-     -u CCAdmin:your_password \
-     -c cookies.txt \
-     -v
+curl http://127.0.0.1:11987/devices \
+    -H "Authorization: Bearer cc_<your-uuid-here>" \
+    -v
 ```
 
 **Test device list**:
@@ -1506,7 +1454,7 @@ cat /tmp/coolerdash_cookie_*.txt
 **Optimization**:
 - Device cache eliminates repeated /devices calls
 - Persistent CURL session reuses HTTP connection
-- Cookie-based auth avoids re-login
+- Shared Bearer header avoids rebuilding auth state on every request
 
 ### Memory Usage
 
@@ -1560,7 +1508,7 @@ cat /tmp/coolerdash_cookie_*.txt
 ## Conclusion
 
 The CoolerControl API integration provides a robust, efficient interface for:
-- **Authentication**: Cookie-based session with HTTP Basic Auth
+- **Authentication**: Bearer token via CoolerControl Access Protection
 - **Device Detection**: Automatic CoolerControl LCD device discovery and caching
 - **Temperature Monitoring**: Real-time CPU/GPU data retrieval
 - **LCD Upload**: Multipart image upload with brightness/orientation control

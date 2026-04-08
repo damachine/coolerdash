@@ -25,6 +25,9 @@
 #include "config.h"
 #include "../srv/cc_conf.h"
 
+#define CONFIG_LAYOUT_U16_UNSET UINT16_MAX
+#define CONFIG_LAYOUT_U8_UNSET UINT8_MAX
+
 // ============================================================================
 // Global Logging Implementation
 // ============================================================================
@@ -70,12 +73,6 @@ static void set_daemon_defaults(Config *config)
     {
         SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
     }
-    if (config->daemon_password[0] == '\0')
-    {
-        SAFE_STRCPY(config->daemon_password, "");
-    }
-    /* access_token, tls_ca_cert_path default to empty string; tls_skip_verify defaults to 0 */
-    /* (already zeroed by memset in load_plugin_config) */
 }
 
 /**
@@ -99,6 +96,28 @@ static void set_paths_defaults(Config *config)
     {
         SAFE_STRCPY(config->paths_image_shutdown,
                     "/etc/coolercontrol/plugins/coolerdash/shutdown.png");
+    }
+}
+
+/**
+ * @brief Set LCD device detection defaults.
+ */
+static void set_device_detection_defaults(Config *config)
+{
+    if (config->device_detection_mode[0] == '\0')
+    {
+        SAFE_STRCPY(config->device_detection_mode, "strict");
+    }
+
+    if (config->device_detection_allowlist[0] == '\0')
+    {
+        SAFE_STRCPY(config->device_detection_allowlist, "");
+    }
+
+    if (config->device_detection_blocklist[0] == '\0')
+    {
+        SAFE_STRCPY(config->device_detection_blocklist,
+                    "mainboard\nmotherboard\nchipset");
     }
 }
 
@@ -137,30 +156,28 @@ static void set_display_defaults(Config *config)
         config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0;
-    if (config->display_shape[0] == '\0')
-        cc_safe_strcpy(config->display_shape, sizeof(config->display_shape), "auto");
     if (config->display_mode[0] == '\0')
-        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "circle");
     if (config->display_background_image_fit[0] == '\0')
         cc_safe_strcpy(config->display_background_image_fit,
                        sizeof(config->display_background_image_fit), "cover");
     if (config->circle_switch_interval == 0)
         config->circle_switch_interval = 5;
+    if (config->circle_show_extra_info < 0)
+        config->circle_show_extra_info = 1; // enabled by default
     if (config->display_content_scale_factor == 0.0f)
         config->display_content_scale_factor = 0.98f;
-    if (config->display_inscribe_factor < 0.0f)
-        config->display_inscribe_factor = 0.70710678f;
     if (config->display_background_overlay_opacity < 0.0f ||
         config->display_background_overlay_opacity > 1.0f)
         config->display_background_overlay_opacity = 0.0f;
 
     // Sensor slot defaults (flexible sensor assignment)
-    if (config->sensor_slot_up[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), "cpu");
-    if (config->sensor_slot_mid[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), "liquid");
-    if (config->sensor_slot_down[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), "gpu");
+    if (config->sensor_slot_1[0] == '\0')
+        cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
+    if (config->sensor_slot_2[0] == '\0')
+        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "liquid");
+    if (config->sensor_slot_3[0] == '\0')
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
 }
 
 /**
@@ -168,15 +185,15 @@ static void set_display_defaults(Config *config)
  */
 static void set_layout_defaults(Config *config)
 {
-    if (config->layout_bar_width == 0)
+    if (config->layout_bar_width == CONFIG_LAYOUT_U8_UNSET)
         config->layout_bar_width = 98;
-    if (config->layout_label_margin_left == 0)
+    if (config->layout_label_margin_left == CONFIG_LAYOUT_U8_UNSET)
         config->layout_label_margin_left = 1;
-    if (config->layout_label_margin_bar == 0)
+    if (config->layout_label_margin_bar == CONFIG_LAYOUT_U8_UNSET)
         config->layout_label_margin_bar = 1;
-    if (config->layout_bar_height == 0)
+    if (config->layout_bar_height == CONFIG_LAYOUT_U16_UNSET)
         config->layout_bar_height = 24;
-    if (config->layout_bar_gap == 0)
+    if (config->layout_bar_gap == CONFIG_LAYOUT_U16_UNSET)
         config->layout_bar_gap = 12.0f;
     // bar_border: -1 = use default (1.0), 0 = explicitly disabled, >0 = custom value
     if (config->layout_bar_border < 0.0f)
@@ -187,13 +204,13 @@ static void set_layout_defaults(Config *config)
     if (config->layout_bar_border_enabled < 0)
         config->layout_bar_border_enabled = 1; // Default: enabled
 
-    // Individual bar heights per slot (default to main bar_height)
-    if (config->layout_bar_height_up == 0)
-        config->layout_bar_height_up = config->layout_bar_height;
-    if (config->layout_bar_height_mid == 0)
-        config->layout_bar_height_mid = config->layout_bar_height;
-    if (config->layout_bar_height_down == 0)
-        config->layout_bar_height_down = config->layout_bar_height;
+    // Individual bar heights default to inherit-from-global when unspecified.
+    if (config->layout_bar_height_1 == CONFIG_LAYOUT_U16_UNSET)
+        config->layout_bar_height_1 = 0;
+    if (config->layout_bar_height_2 == CONFIG_LAYOUT_U16_UNSET)
+        config->layout_bar_height_2 = 0;
+    if (config->layout_bar_height_3 == CONFIG_LAYOUT_U16_UNSET)
+        config->layout_bar_height_3 = 0;
 }
 
 /**
@@ -204,7 +221,7 @@ static void set_display_positioning_defaults(Config *config)
     // 0 = automatic positioning (default behavior)
     // Note: All offset values default to 0, which means automatic positioning
 
-    if (config->display_degree_spacing == 0)
+    if (config->display_degree_spacing < 0)
         config->display_degree_spacing = 16;
 }
 
@@ -217,38 +234,53 @@ static void set_font_defaults(Config *config)
         SAFE_STRCPY(config->font_face, "Roboto Black");
 
     if (config->font_size_temp == 0.0f)
-    {
-        const double base_resolution = 240.0;
-        const double base_font_size_temp = 100.0;
-        const double scale_factor =
-            ((double)config->display_width + (double)config->display_height) /
-            (2.0 * base_resolution);
-        config->font_size_temp = (float)(base_font_size_temp * scale_factor);
-
-        log_message(
-            LOG_INFO,
-            "Font size (temp) auto-scaled: %.1f (display: %dx%d, scale: %.2f)",
-            config->font_size_temp, config->display_width, config->display_height,
-            scale_factor);
-    }
+        log_message(LOG_INFO,
+                    "Font size (temp): automatic renderer sizing enabled");
 
     if (config->font_size_labels == 0.0f)
-    {
-        const double base_resolution = 240.0;
-        const double base_font_size_labels = 30.0;
-        const double scale_factor =
-            ((double)config->display_width + (double)config->display_height) /
-            (2.0 * base_resolution);
-        config->font_size_labels = (float)(base_font_size_labels * scale_factor);
+        log_message(LOG_INFO,
+                    "Font size (labels): automatic renderer sizing enabled");
 
-        log_message(
-            LOG_INFO,
-            "Font size (labels) auto-scaled: %.1f (display: %dx%d, scale: %.2f)",
-            config->font_size_labels, config->display_width, config->display_height,
-            scale_factor);
-    }
+    if (config->font_growth_factor < 1.0f)
+        config->font_growth_factor = 1.33f;
 
     set_display_positioning_defaults(config);
+}
+
+/**
+ * @brief Load LCD device detection settings from JSON.
+ */
+static void load_device_detection_from_json(json_t *root, Config *config)
+{
+    json_t *device_detection = json_object_get(root, "device_detection");
+    if (!device_detection || !json_is_object(device_detection))
+        return;
+
+    json_t *mode = json_object_get(device_detection, "mode");
+    if (mode && json_is_string(mode))
+    {
+        const char *value = json_string_value(mode);
+        if (value &&
+            (strcmp(value, "strict") == 0 || strcmp(value, "balanced") == 0 ||
+             strcmp(value, "relaxed") == 0))
+        {
+            SAFE_STRCPY(config->device_detection_mode, value);
+        }
+    }
+
+    json_t *allowlist = json_object_get(device_detection, "allowlist");
+    if (allowlist && json_is_string(allowlist))
+    {
+        SAFE_STRCPY(config->device_detection_allowlist,
+                    json_string_value(allowlist));
+    }
+
+    json_t *blocklist = json_object_get(device_detection, "blocklist");
+    if (blocklist && json_is_string(blocklist))
+    {
+        SAFE_STRCPY(config->device_detection_blocklist,
+                    json_string_value(blocklist));
+    }
 }
 
 /**
@@ -377,18 +409,18 @@ static void set_default_sensor_configs(Config *config)
             gpu->max_scale = 115.0f;
     }
 
-    /* Ensure Liquid config (lower thresholds) */
+    /* Ensure Liquid config (AIO coolant thresholds) */
     SensorConfig *liquid = ensure_sensor_config(config, "liquid");
     if (liquid)
     {
         if (liquid->threshold_1 == 0.0f)
-            liquid->threshold_1 = 25.0f;
+            liquid->threshold_1 = 30.0f;
         if (liquid->threshold_2 == 0.0f)
-            liquid->threshold_2 = 28.0f;
+            liquid->threshold_2 = 35.0f;
         if (liquid->threshold_3 == 0.0f)
-            liquid->threshold_3 = 31.0f;
+            liquid->threshold_3 = 40.0f;
         if (liquid->max_scale == 0.0f)
-            liquid->max_scale = 50.0f;
+            liquid->max_scale = 55.0f;
     }
 }
 
@@ -496,25 +528,25 @@ static void validate_sensor_slots(Config *config)
     int reset_needed = 0;
 
     // Validate slot values (must be cpu/gpu/liquid/none)
-    if (!is_valid_sensor_slot(config->sensor_slot_up))
+    if (!is_valid_sensor_slot(config->sensor_slot_1))
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_up value, using 'cpu'");
-        cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), "cpu");
+        log_message(LOG_WARNING, "Invalid sensor_slot_1 value, using 'cpu'");
+        cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
     }
-    if (!is_valid_sensor_slot(config->sensor_slot_mid))
+    if (!is_valid_sensor_slot(config->sensor_slot_2))
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_mid value, using 'liquid'");
-        cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), "liquid");
+        log_message(LOG_WARNING, "Invalid sensor_slot_2 value, using 'liquid'");
+        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "liquid");
     }
-    if (!is_valid_sensor_slot(config->sensor_slot_down))
+    if (!is_valid_sensor_slot(config->sensor_slot_3))
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_down value, using 'gpu'");
-        cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), "gpu");
+        log_message(LOG_WARNING, "Invalid sensor_slot_3 value, using 'gpu'");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
     }
 
     // Check for duplicates (only among active slots, "none" can appear multiple times)
-    const char *slots[] = {config->sensor_slot_up, config->sensor_slot_mid, config->sensor_slot_down};
-    const char *slot_names[] = {"sensor_slot_up", "sensor_slot_mid", "sensor_slot_down"};
+    const char *slots[] = {config->sensor_slot_1, config->sensor_slot_2, config->sensor_slot_3};
+    const char *slot_names[] = {"sensor_slot_1", "sensor_slot_2", "sensor_slot_3"};
 
     for (int i = 0; i < 3; i++)
     {
@@ -539,9 +571,9 @@ static void validate_sensor_slots(Config *config)
     }
 
     // Check that at least one slot is active
-    if (!slot_is_active_str(config->sensor_slot_up) &&
-        !slot_is_active_str(config->sensor_slot_mid) &&
-        !slot_is_active_str(config->sensor_slot_down))
+    if (!slot_is_active_str(config->sensor_slot_1) &&
+        !slot_is_active_str(config->sensor_slot_2) &&
+        !slot_is_active_str(config->sensor_slot_3))
     {
         log_message(LOG_ERROR, "All sensor slots are 'none'. At least one sensor must be active. Resetting to defaults.");
         reset_needed = 1;
@@ -550,10 +582,10 @@ static void validate_sensor_slots(Config *config)
     // Reset to defaults if validation failed
     if (reset_needed)
     {
-        cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), "cpu");
-        cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), "liquid");
-        cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), "gpu");
-        log_message(LOG_STATUS, "Sensor slots reset to defaults: up=cpu, mid=liquid, down=gpu");
+        cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
+        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "liquid");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
+        log_message(LOG_STATUS, "Sensor slots reset to defaults: 1=cpu, 2=liquid, 3=gpu");
     }
 }
 
@@ -567,6 +599,7 @@ static void apply_system_defaults(Config *config)
 
     set_daemon_defaults(config);
     set_paths_defaults(config);
+    set_device_detection_defaults(config);
     set_display_defaults(config);
     set_layout_defaults(config);
     set_font_defaults(config);
@@ -660,16 +693,6 @@ static void load_daemon_from_json(json_t *root, Config *config)
         }
     }
 
-    json_t *password = json_object_get(daemon, "password");
-    if (password && json_is_string(password) && json_string_length(password) > 0)
-    {
-        const char *value = json_string_value(password);
-        if (value)
-        {
-            SAFE_STRCPY(config->daemon_password, value);
-        }
-    }
-
     json_t *token = json_object_get(daemon, "access_token");
     if (token && json_is_string(token) && json_string_length(token) > 0)
     {
@@ -678,22 +701,6 @@ static void load_daemon_from_json(json_t *root, Config *config)
         {
             SAFE_STRCPY(config->access_token, value);
         }
-    }
-
-    json_t *ca_cert = json_object_get(daemon, "tls_ca_cert_path");
-    if (ca_cert && json_is_string(ca_cert) && json_string_length(ca_cert) > 0)
-    {
-        const char *value = json_string_value(ca_cert);
-        if (value)
-        {
-            SAFE_STRCPY(config->tls_ca_cert_path, value);
-        }
-    }
-
-    json_t *skip_verify = json_object_get(daemon, "tls_skip_verify");
-    if (skip_verify && json_is_boolean(skip_verify))
-    {
-        config->tls_skip_verify = json_is_true(skip_verify) ? 1 : 0;
     }
 }
 
@@ -774,6 +781,15 @@ static void load_display_from_json(json_t *root, Config *config)
             config->circle_switch_interval = (uint16_t)val;
     }
 
+    json_t *extra_info = json_object_get(display, "circle_show_extra_info");
+    if (extra_info)
+    {
+        if (json_is_boolean(extra_info))
+            config->circle_show_extra_info = json_is_true(extra_info) ? 1 : 0;
+        else if (json_is_integer(extra_info))
+            config->circle_show_extra_info = json_integer_value(extra_info) ? 1 : 0;
+    }
+
     json_t *background_fit = json_object_get(display, "background_image_fit");
     if (background_fit && json_is_string(background_fit))
     {
@@ -835,12 +851,6 @@ static void load_display_from_json(json_t *root, Config *config)
             config->display_height = (uint16_t)val;
     }
 
-    json_t *shape = json_object_get(display, "shape");
-    if (shape && json_is_string(shape))
-    {
-        SAFE_STRCPY(config->display_shape, json_string_value(shape));
-    }
-
     json_t *scale_factor = json_object_get(display, "content_scale_factor");
     if (scale_factor && json_is_number(scale_factor))
     {
@@ -849,52 +859,44 @@ static void load_display_from_json(json_t *root, Config *config)
             config->display_content_scale_factor = (float)val;
     }
 
-    json_t *inscribe = json_object_get(display, "inscribe_factor");
-    if (inscribe && json_is_number(inscribe))
-    {
-        double val = json_number_value(inscribe);
-        if (val >= 0.0 && val <= 1.0)
-            config->display_inscribe_factor = (float)val;
-    }
-
     // Sensor slot configuration
-    json_t *slot_up = json_object_get(display, "sensor_slot_up");
-    if (slot_up && json_is_string(slot_up))
+    json_t *slot_1 = json_object_get(display, "sensor_slot_1");
+    if (slot_1 && json_is_string(slot_1))
     {
-        const char *value = json_string_value(slot_up);
+        const char *value = json_string_value(slot_1);
         if (value)
-            cc_safe_strcpy(config->sensor_slot_up, sizeof(config->sensor_slot_up), value);
+            cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), value);
     }
-    else if (slot_up && !json_is_string(slot_up))
+    else if (slot_1 && !json_is_string(slot_1))
     {
-        log_message(LOG_WARNING, "sensor_slot_up has non-string type, using default '%s'",
-                    config->sensor_slot_up);
+        log_message(LOG_WARNING, "sensor_slot_1 has non-string type, using default '%s'",
+                    config->sensor_slot_1);
     }
 
-    json_t *slot_mid = json_object_get(display, "sensor_slot_mid");
-    if (slot_mid && json_is_string(slot_mid))
+    json_t *slot_2 = json_object_get(display, "sensor_slot_2");
+    if (slot_2 && json_is_string(slot_2))
     {
-        const char *value = json_string_value(slot_mid);
+        const char *value = json_string_value(slot_2);
         if (value)
-            cc_safe_strcpy(config->sensor_slot_mid, sizeof(config->sensor_slot_mid), value);
+            cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), value);
     }
-    else if (slot_mid && !json_is_string(slot_mid))
+    else if (slot_2 && !json_is_string(slot_2))
     {
-        log_message(LOG_WARNING, "sensor_slot_mid has non-string type, using default '%s'",
-                    config->sensor_slot_mid);
+        log_message(LOG_WARNING, "sensor_slot_2 has non-string type, using default '%s'",
+                    config->sensor_slot_2);
     }
 
-    json_t *slot_down = json_object_get(display, "sensor_slot_down");
-    if (slot_down && json_is_string(slot_down))
+    json_t *slot_3 = json_object_get(display, "sensor_slot_3");
+    if (slot_3 && json_is_string(slot_3))
     {
-        const char *value = json_string_value(slot_down);
+        const char *value = json_string_value(slot_3);
         if (value)
-            cc_safe_strcpy(config->sensor_slot_down, sizeof(config->sensor_slot_down), value);
+            cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), value);
     }
-    else if (slot_down && !json_is_string(slot_down))
+    else if (slot_3 && !json_is_string(slot_3))
     {
-        log_message(LOG_WARNING, "sensor_slot_down has non-string type, using default '%s'",
-                    config->sensor_slot_down);
+        log_message(LOG_WARNING, "sensor_slot_3 has non-string type, using default '%s'",
+                    config->sensor_slot_3);
     }
 }
 
@@ -961,7 +963,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     if (label_margin_left && json_is_integer(label_margin_left))
     {
         int val = (int)json_integer_value(label_margin_left);
-        if (val >= 1 && val <= 50)
+        if (val >= 0 && val <= 50)
             config->layout_label_margin_left = (uint8_t)val;
     }
 
@@ -969,33 +971,33 @@ static void load_layout_from_json(json_t *root, Config *config)
     if (label_margin_bar && json_is_integer(label_margin_bar))
     {
         int val = (int)json_integer_value(label_margin_bar);
-        if (val >= 1 && val <= 20)
+        if (val >= 0 && val <= 20)
             config->layout_label_margin_bar = (uint8_t)val;
     }
 
     // Individual bar heights per slot
-    json_t *bar_height_up = json_object_get(layout, "bar_height_up");
-    if (bar_height_up && json_is_integer(bar_height_up))
+    json_t *bar_height_1 = json_object_get(layout, "bar_height_1");
+    if (bar_height_1 && json_is_integer(bar_height_1))
     {
-        int val = (int)json_integer_value(bar_height_up);
-        if (val > 0 && val <= 100)
-            config->layout_bar_height_up = (uint16_t)val;
+        int val = (int)json_integer_value(bar_height_1);
+        if (val >= 0 && val <= 100)
+            config->layout_bar_height_1 = (uint16_t)val;
     }
 
-    json_t *bar_height_mid = json_object_get(layout, "bar_height_mid");
-    if (bar_height_mid && json_is_integer(bar_height_mid))
+    json_t *bar_height_2 = json_object_get(layout, "bar_height_2");
+    if (bar_height_2 && json_is_integer(bar_height_2))
     {
-        int val = (int)json_integer_value(bar_height_mid);
-        if (val > 0 && val <= 100)
-            config->layout_bar_height_mid = (uint16_t)val;
+        int val = (int)json_integer_value(bar_height_2);
+        if (val >= 0 && val <= 100)
+            config->layout_bar_height_2 = (uint16_t)val;
     }
 
-    json_t *bar_height_down = json_object_get(layout, "bar_height_down");
-    if (bar_height_down && json_is_integer(bar_height_down))
+    json_t *bar_height_3 = json_object_get(layout, "bar_height_3");
+    if (bar_height_3 && json_is_integer(bar_height_3))
     {
-        int val = (int)json_integer_value(bar_height_down);
-        if (val > 0 && val <= 100)
-            config->layout_bar_height_down = (uint16_t)val;
+        int val = (int)json_integer_value(bar_height_3);
+        if (val >= 0 && val <= 100)
+            config->layout_bar_height_3 = (uint16_t)val;
     }
 }
 
@@ -1044,6 +1046,14 @@ static void load_font_from_json(json_t *root, Config *config)
         double val = json_number_value(size_labels);
         if (val >= 5.0 && val <= 100.0)
             config->font_size_labels = (float)val;
+    }
+
+    json_t *growth = json_object_get(font, "font_growth_factor");
+    if (growth && json_is_number(growth))
+    {
+        double val = json_number_value(growth);
+        if (val >= 1.0)
+            config->font_growth_factor = (float)val;
     }
 }
 
@@ -1220,10 +1230,19 @@ int load_plugin_config(Config *config, const char *config_path)
 
     // Initialize with defaults (memset sets all to 0, including color.is_set = 0)
     memset(config, 0, sizeof(Config));
-    config->display_inscribe_factor = -1.0f; // Sentinel for "auto"
-    config->layout_bar_border = -1.0f;       // Sentinel for "use default"
-    config->layout_bar_opacity = -1.0f;      // Sentinel for "use default"
-    config->layout_bar_border_enabled = -1;  // Sentinel for "auto" (enabled)
+    config->layout_bar_height = CONFIG_LAYOUT_U16_UNSET;
+    config->layout_bar_height_1 = CONFIG_LAYOUT_U16_UNSET;
+    config->layout_bar_height_2 = CONFIG_LAYOUT_U16_UNSET;
+    config->layout_bar_height_3 = CONFIG_LAYOUT_U16_UNSET;
+    config->layout_bar_gap = CONFIG_LAYOUT_U16_UNSET;
+    config->layout_bar_width = CONFIG_LAYOUT_U8_UNSET;
+    config->layout_label_margin_left = CONFIG_LAYOUT_U8_UNSET;
+    config->layout_label_margin_bar = CONFIG_LAYOUT_U8_UNSET;
+    config->layout_bar_border = -1.0f;      // Sentinel for "use default"
+    config->layout_bar_opacity = -1.0f;     // Sentinel for "use default"
+    config->layout_bar_border_enabled = -1; // Sentinel for "auto" (enabled)
+    config->circle_show_extra_info = -1;    // Sentinel for "auto" (enabled)
+    config->display_degree_spacing = -1;
     // Note: All colors have is_set=0 after memset, so defaults will be applied
 
     // Try to find and load JSON config
@@ -1241,6 +1260,7 @@ int load_plugin_config(Config *config, const char *config_path)
         {
             load_daemon_from_json(root, config);
             load_paths_from_json(root, config);
+            load_device_detection_from_json(root, config);
             load_display_from_json(root, config);
             load_layout_from_json(root, config);
             load_colors_from_json(root, config);

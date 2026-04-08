@@ -53,6 +53,88 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
                                    const monitor_sensor_data_t *data,
                                    const ScalingParams *params);
 
+typedef struct
+{
+    int up_active;
+    int down_active;
+    int bar_x;
+    int effective_bar_width;
+    int bar_gap;
+    int up_bar_y;
+    int down_bar_y;
+    uint16_t bar_height_up;
+    uint16_t bar_height_down;
+    double label_spacing;
+    double top_value_box_y;
+    double top_value_box_height;
+    double bottom_value_box_y;
+    double bottom_value_box_height;
+} DualLayout;
+
+static int calculate_dual_layout(const struct Config *config,
+                                 const ScalingParams *params,
+                                 DualLayout *layout)
+{
+    if (!config || !params || !layout)
+        return 0;
+
+    memset(layout, 0, sizeof(*layout));
+
+    layout->effective_bar_width = params->safe_bar_width;
+    layout->bar_x = (int)lround(params->safe_content_margin);
+    layout->up_active = slot_is_active(config->sensor_slot_1);
+    layout->down_active = slot_is_active(config->sensor_slot_3);
+    layout->bar_height_up = (uint16_t)get_scaled_slot_bar_height(config, params, "1");
+    layout->bar_height_down = (uint16_t)get_scaled_slot_bar_height(config, params, "3");
+    layout->bar_gap = get_scaled_bar_gap(config, params);
+
+    int total_height = 0;
+    if (layout->up_active && layout->down_active)
+        total_height = layout->bar_height_up + layout->bar_gap +
+                       layout->bar_height_down;
+    else if (layout->up_active)
+        total_height = layout->bar_height_up;
+    else if (layout->down_active)
+        total_height = layout->bar_height_down;
+    else
+        return 0;
+
+    const int start_y =
+        (int)lround(((double)config->display_height - total_height) / 2.0);
+    layout->up_bar_y = start_y;
+    layout->down_bar_y = start_y + layout->bar_height_up +
+                         layout->bar_gap;
+
+    if (!layout->up_active && layout->down_active)
+        layout->down_bar_y = start_y;
+
+    layout->label_spacing = get_effective_label_spacing(config, params);
+    const double value_bar_gap = layout->label_spacing * 0.05;
+
+    layout->top_value_box_y = 0.0;
+    layout->top_value_box_height =
+        fmax(0.0, layout->up_bar_y - value_bar_gap);
+    layout->bottom_value_box_y =
+        layout->down_bar_y + layout->bar_height_down + value_bar_gap;
+    layout->bottom_value_box_height =
+        fmax(0.0, config->display_height - layout->bottom_value_box_y);
+
+    if (verbose_logging)
+    {
+        log_message(
+            LOG_INFO,
+            "Dual layout: logical(up=%u, down=%u, gap=%u) scaled(up=%u, down=%u, gap=%d) start_y=%d up_y=%d down_y=%d label_spacing=%.1f value_gap=%.1f safe_width=%d margin=%.1f",
+            get_slot_bar_height(config, "1"),
+            get_slot_bar_height(config, "3"), config->layout_bar_gap,
+            layout->bar_height_up, layout->bar_height_down, layout->bar_gap,
+            start_y, layout->up_bar_y, layout->down_bar_y,
+            layout->label_spacing, value_bar_gap, layout->effective_bar_width,
+            params->safe_content_margin);
+    }
+
+    return 1;
+}
+
 /**
  * @brief Draw temperature displays for up and down slots.
  */
@@ -64,184 +146,50 @@ static void draw_temperature_displays(cairo_t *cr,
     if (!cr || !data || !config || !params)
         return;
 
-    const int effective_bar_width = params->safe_bar_width;
-    const int bar_x = (config->display_width - effective_bar_width) / 2;
-    const int bar_right = bar_x + effective_bar_width;
-    const int degree_spacing = get_scaled_degree_spacing(config, params);
-    const double top_temp_padding = scale_value_y(params, 8.0);
-    const double bottom_temp_padding = scale_value_y(params, 4.0);
+    DualLayout layout = {0};
+    if (!calculate_dual_layout(config, params, &layout))
+        return;
 
-    // Get slot configurations
-    const char *slot_up = config->sensor_slot_up;
-    const char *slot_down = config->sensor_slot_down;
-    const int up_active = slot_is_active(slot_up);
-    const int down_active = slot_is_active(slot_down);
+    const char *slot_up = config->sensor_slot_1;
+    const char *slot_down = config->sensor_slot_3;
 
-    // Get temperatures from configured slots
     float temp_up = get_slot_temperature(data, slot_up);
     float temp_down = get_slot_temperature(data, slot_down);
 
-    // Get bar heights
-    const uint16_t bar_height_up = get_slot_bar_height(config, "up");
-    const uint16_t bar_height_down = get_slot_bar_height(config, "down");
-
-    // Calculate bar positions based on active slots
-    int total_height = 0;
-    if (up_active && down_active)
-        total_height = bar_height_up + config->layout_bar_gap + bar_height_down;
-    else if (up_active)
-        total_height = bar_height_up;
-    else if (down_active)
-        total_height = bar_height_down;
-    else
-        return; // No active slots
-
-    const int start_y = (config->display_height - total_height) / 2;
-    int up_bar_y = start_y;
-    int down_bar_y = start_y + bar_height_up + config->layout_bar_gap;
-
-    // If only down slot is active, center it
-    if (!up_active && down_active)
-        down_bar_y = start_y;
-
-    // Draw upper slot temperature
-    if (up_active)
+    if (layout.up_active && layout.top_value_box_height > 0.0)
     {
-        // Set per-slot font size
-        float up_font_size = get_slot_font_size(config, slot_up);
-        cairo_set_font_size(cr, up_font_size);
-
-        cairo_font_extents_t up_font_ext;
-        cairo_font_extents(cr, &up_font_ext);
-
-        // Calculate reference width (widest 2-digit number) for sub-100 alignment
-        cairo_text_extents_t up_ref_ext;
-        cairo_text_extents(cr, "88", &up_ref_ext);
-
-        char up_num_str[16];
-        if (get_slot_use_decimal(data, slot_up))
-            snprintf(up_num_str, sizeof(up_num_str), "%.1f", temp_up);
-        else
-            snprintf(up_num_str, sizeof(up_num_str), "%d", (int)temp_up);
-
-        cairo_text_extents_t up_num_ext;
-        cairo_text_extents(cr, up_num_str, &up_num_ext);
-
-        double up_num_width =
-            (temp_up >= 100.0f) ? up_num_ext.width : up_ref_ext.width;
-        double up_degree_width = 0.0;
-
-        if (get_slot_is_temp(data, slot_up))
-        {
-            cairo_set_font_size(cr, up_font_size / 1.66);
-            cairo_text_extents_t up_degree_ext;
-            cairo_text_extents(cr, "\xC2\xB0", &up_degree_ext);
-            up_degree_width = up_degree_ext.width;
-            cairo_set_font_size(cr, up_font_size);
-        }
-
-        const double up_total_width = up_num_width +
-                                      (get_slot_is_temp(data, slot_up)
-                                           ? degree_spacing + up_degree_width
-                                           : 0.0);
-        const double up_block_x = bar_right - up_total_width;
-        double up_temp_x = up_block_x + (up_num_width - up_num_ext.width) / 2.0;
-
-        int offset_x_up = get_slot_offset_x(config, slot_up);
-        if (offset_x_up != 0)
-            up_temp_x += offset_x_up;
-
-        double up_temp_y = up_bar_y + top_temp_padding - up_font_ext.descent;
-        int offset_y_up = get_slot_offset_y(config, slot_up);
-        if (offset_y_up != 0)
-            up_temp_y += offset_y_up;
-
-        cairo_move_to(cr, up_temp_x, up_temp_y);
-        cairo_show_text(cr, up_num_str);
-
-        // Draw degree symbol or unit
-        if (get_slot_is_temp(data, slot_up))
-        {
-            double degree_up_x = up_block_x + up_num_width + degree_spacing;
-            double degree_up_y = up_temp_y - up_num_ext.height * 0.40;
-            cairo_set_font_size(cr, up_font_size / 1.66);
-            cairo_move_to(cr, degree_up_x, degree_up_y);
-            cairo_show_text(cr, "\xC2\xB0");
-            cairo_set_font_size(cr, up_font_size);
-        }
+        double safe_x = layout.bar_x;
+        double safe_width = layout.effective_bar_width;
+        calculate_text_lane_bounds(config, params, layout.top_value_box_y,
+                                   layout.top_value_box_height, 0,
+                                   layout.bar_x,
+                                   layout.effective_bar_width, &safe_x,
+                                   &safe_width);
+        SlotValueLayout up_layout;
+        layout_and_render_slot_value(cr, data, config, params, slot_up,
+                                     temp_up, safe_x,
+                                     layout.top_value_box_y,
+                                     safe_width,
+                                     layout.top_value_box_height, 0, 1,
+                                     &up_layout);
     }
 
-    // Draw lower slot temperature
-    if (down_active)
+    if (layout.down_active && layout.bottom_value_box_height > 0.0)
     {
-        // Set per-slot font size
-        float down_font_size = get_slot_font_size(config, slot_down);
-        cairo_set_font_size(cr, down_font_size);
-
-        cairo_font_extents_t down_font_ext;
-        cairo_font_extents(cr, &down_font_ext);
-
-        // Calculate reference width for sub-100 alignment
-        cairo_text_extents_t down_ref_ext;
-        cairo_text_extents(cr, "88", &down_ref_ext);
-
-        char down_num_str[16];
-        if (get_slot_use_decimal(data, slot_down))
-            snprintf(down_num_str, sizeof(down_num_str), "%.1f", temp_down);
-        else
-            snprintf(down_num_str, sizeof(down_num_str), "%d", (int)temp_down);
-
-        cairo_text_extents_t down_num_ext;
-        cairo_text_extents(cr, down_num_str, &down_num_ext);
-
-        double down_num_width =
-            (temp_down >= 100.0f) ? down_num_ext.width : down_ref_ext.width;
-        double down_degree_width = 0.0;
-
-        if (get_slot_is_temp(data, slot_down))
-        {
-            cairo_set_font_size(cr, down_font_size / 1.66);
-            cairo_text_extents_t down_degree_ext;
-            cairo_text_extents(cr, "\xC2\xB0", &down_degree_ext);
-            down_degree_width = down_degree_ext.width;
-            cairo_set_font_size(cr, down_font_size);
-        }
-
-        const double down_total_width =
-            down_num_width +
-            (get_slot_is_temp(data, slot_down)
-                 ? degree_spacing + down_degree_width
-                 : 0.0);
-        const double down_block_x = bar_right - down_total_width;
-        double down_temp_x =
-            down_block_x + (down_num_width - down_num_ext.width) / 2.0;
-
-        int offset_x_down = get_slot_offset_x(config, slot_down);
-        if (offset_x_down != 0)
-            down_temp_x += offset_x_down;
-
-        // Use the actual bar height for positioning
-        uint16_t effective_down_height = down_active ? bar_height_down : 0;
-        double down_temp_y = down_bar_y + effective_down_height -
-                             bottom_temp_padding + down_font_ext.ascent;
-        int offset_y_down = get_slot_offset_y(config, slot_down);
-        if (offset_y_down != 0)
-            down_temp_y += offset_y_down;
-
-        cairo_move_to(cr, down_temp_x, down_temp_y);
-        cairo_show_text(cr, down_num_str);
-
-        // Draw degree symbol or unit
-        if (get_slot_is_temp(data, slot_down))
-        {
-            double degree_down_x =
-                down_block_x + down_num_width + degree_spacing;
-            double degree_down_y = down_temp_y - down_num_ext.height * 0.40;
-            cairo_set_font_size(cr, down_font_size / 1.66);
-            cairo_move_to(cr, degree_down_x, degree_down_y);
-            cairo_show_text(cr, "\xC2\xB0");
-            cairo_set_font_size(cr, down_font_size);
-        }
+        double safe_x = layout.bar_x;
+        double safe_width = layout.effective_bar_width;
+        calculate_text_lane_bounds(config, params, layout.bottom_value_box_y,
+                                   layout.bottom_value_box_height,
+                                   1,
+                                   layout.bar_x, layout.effective_bar_width,
+                                   &safe_x, &safe_width);
+        SlotValueLayout down_layout;
+        layout_and_render_slot_value(cr, data, config, params, slot_down,
+                                     temp_down, safe_x,
+                                     layout.bottom_value_box_y,
+                                     safe_width,
+                                     layout.bottom_value_box_height, 1, 1,
+                                     &down_layout);
     }
 }
 
@@ -289,7 +237,7 @@ static void draw_single_temperature_bar_slot(cairo_t *cr,
     // Border (only if enabled and thickness > 0)
     if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
     {
-        cairo_set_line_width(cr, config->layout_bar_border);
+        cairo_set_line_width(cr, get_scaled_bar_border_width(config, params));
         set_cairo_color_alpha(cr, &config->layout_bar_color_border, bar_alpha);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, bar_width,
                                     bar_height, params->corner_radius);
@@ -308,54 +256,29 @@ static void draw_temperature_bars(cairo_t *cr,
     if (!cr || !data || !config || !params)
         return;
 
-    const double bar_side_margin = config->display_width * 0.0025;
-    const int effective_bar_width =
-        params->safe_bar_width - (int)(2 * bar_side_margin);
-    const int bar_x = (config->display_width - effective_bar_width) / 2;
-
-    // Get slot configurations
-    const char *slot_up = config->sensor_slot_up;
-    const char *slot_down = config->sensor_slot_down;
-    const int up_active = slot_is_active(slot_up);
-    const int down_active = slot_is_active(slot_down);
-
-    // Get bar heights
-    const uint16_t bar_height_up = get_slot_bar_height(config, "up");
-    const uint16_t bar_height_down = get_slot_bar_height(config, "down");
-
-    // Calculate positions based on active slots
-    int total_height = 0;
-    if (up_active && down_active)
-        total_height = bar_height_up + config->layout_bar_gap + bar_height_down;
-    else if (up_active)
-        total_height = bar_height_up;
-    else if (down_active)
-        total_height = bar_height_down;
-    else
+    DualLayout layout = {0};
+    if (!calculate_dual_layout(config, params, &layout))
         return;
 
-    const int start_y = (config->display_height - total_height) / 2;
-    int up_bar_y = start_y;
-    int down_bar_y = start_y + bar_height_up + config->layout_bar_gap;
+    const char *slot_up = config->sensor_slot_1;
+    const char *slot_down = config->sensor_slot_3;
 
-    // If only down slot is active, center it
-    if (!up_active && down_active)
-        down_bar_y = start_y;
-
-    // Draw upper slot bar
-    if (up_active)
+    if (layout.up_active)
     {
         float temp_up = get_slot_temperature(data, slot_up);
         draw_single_temperature_bar_slot(cr, config, params, slot_up, temp_up,
-                                         bar_x, up_bar_y, effective_bar_width, bar_height_up);
+                                         layout.bar_x, layout.up_bar_y,
+                                         layout.effective_bar_width,
+                                         layout.bar_height_up);
     }
 
-    // Draw lower slot bar
-    if (down_active)
+    if (layout.down_active)
     {
         float temp_down = get_slot_temperature(data, slot_down);
         draw_single_temperature_bar_slot(cr, config, params, slot_down, temp_down,
-                                         bar_x, down_bar_y, effective_bar_width, bar_height_down);
+                                         layout.bar_x, layout.down_bar_y,
+                                         layout.effective_bar_width,
+                                         layout.bar_height_down);
     }
 }
 
@@ -366,87 +289,162 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
                         const monitor_sensor_data_t *data,
                         const ScalingParams *params)
 {
-    (void)data;
-
     if (!cr || !config || !params)
         return;
 
-    // Get slot configurations
-    const char *slot_up = config->sensor_slot_up;
-    const char *slot_down = config->sensor_slot_down;
-    const int up_active = slot_is_active(slot_up);
-    const int down_active = slot_is_active(slot_down);
+    DualLayout layout = {0};
+    if (!calculate_dual_layout(config, params, &layout))
+        return;
 
-    // Get labels from slots (NULL if "none")
+    const char *slot_up = config->sensor_slot_1;
+    const char *slot_down = config->sensor_slot_3;
+
     const char *label_up = get_slot_label(config, data, slot_up);
     const char *label_down = get_slot_label(config, data, slot_down);
 
-    // Get bar heights
-    const uint16_t bar_height_up = get_slot_bar_height(config, "up");
-    const uint16_t bar_height_down = get_slot_bar_height(config, "down");
-
-    // Calculate total height based on active slots
-    int total_height = 0;
-    if (up_active && down_active)
-        total_height = bar_height_up + config->layout_bar_gap + bar_height_down;
-    else if (up_active)
-        total_height = bar_height_up;
-    else if (down_active)
-        total_height = bar_height_down;
-    else
-        return;
-
-    const int start_y = (config->display_height - total_height) / 2;
-    int up_bar_y = start_y;
-    int down_bar_y = start_y + bar_height_up + config->layout_bar_gap;
-
-    // If only down slot is active, center it
-    if (!up_active && down_active)
-        down_bar_y = start_y;
+    SlotValueLayout up_layout = {0};
+    SlotValueLayout down_layout = {0};
+    if (layout.up_active && layout.top_value_box_height > 0.0)
+    {
+        double safe_x = layout.bar_x;
+        double safe_width = layout.effective_bar_width;
+        calculate_text_lane_bounds(config, params, layout.top_value_box_y,
+                                   layout.top_value_box_height, 0,
+                                   layout.bar_x,
+                                   layout.effective_bar_width, &safe_x,
+                                   &safe_width);
+        layout_and_render_slot_value(cr, data, config, params, slot_up,
+                                     get_slot_temperature(data, slot_up),
+                                     safe_x, layout.top_value_box_y,
+                                     safe_width,
+                                     layout.top_value_box_height, 0, 0,
+                                     &up_layout);
+    }
+    if (layout.down_active && layout.bottom_value_box_height > 0.0)
+    {
+        double safe_x = layout.bar_x;
+        double safe_width = layout.effective_bar_width;
+        calculate_text_lane_bounds(config, params, layout.bottom_value_box_y,
+                                   layout.bottom_value_box_height,
+                                   1,
+                                   layout.bar_x, layout.effective_bar_width,
+                                   &safe_x, &safe_width);
+        layout_and_render_slot_value(cr, data, config, params, slot_down,
+                                     get_slot_temperature(data, slot_down),
+                                     safe_x, layout.bottom_value_box_y,
+                                     safe_width,
+                                     layout.bottom_value_box_height, 1, 0,
+                                     &down_layout);
+    }
 
     // Labels: Configurable distance from left screen edge (default: 1%)
     const double left_margin_factor =
         (config->layout_label_margin_left > 0)
             ? (config->layout_label_margin_left / 100.0)
             : 0.01;
-    double label_x = config->display_width * left_margin_factor;
+    double label_x = params->safe_content_margin +
+                     (layout.effective_bar_width * left_margin_factor);
 
     // Apply user-defined X offset if set
-    if (config->display_label_offset_x != -9999)
-    {
-        label_x += config->display_label_offset_x;
-    }
+    label_x += get_scaled_label_offset_x(config, params);
 
     cairo_font_extents_t font_ext;
     cairo_font_extents(cr, &font_ext);
 
-    // Vertical spacing: Configurable distance from bars (default: 1%)
-    const double bar_margin_factor =
-        (config->layout_label_margin_bar > 0)
-            ? (config->layout_label_margin_bar / 100.0)
-            : 0.01;
-    const double label_spacing = config->display_height * bar_margin_factor;
-
     // Draw upper slot label (if active and has label)
-    if (up_active && label_up)
+    if (layout.up_active && label_up)
     {
-        double up_label_y = up_bar_y - label_spacing - font_ext.descent;
-        if (config->display_label_offset_y != -9999)
-            up_label_y += config->display_label_offset_y;
+        double label_font_size = get_preferred_label_font_size(config, params);
+        const double min_label_font_size =
+            (config->font_size_labels > 0.0f)
+                ? fmax(10.0, scale_value_avg(params,
+                                             (double)config->font_size_labels) *
+                                 0.60)
+                : fmax(10.0, scale_value_avg(params, 10.0));
+        cairo_text_extents_t up_label_ext;
+        while (1)
+        {
+            cairo_set_font_size(cr, label_font_size);
+            cairo_font_extents(cr, &font_ext);
+            cairo_text_extents(cr, label_up, &up_label_ext);
 
-        cairo_move_to(cr, label_x, up_label_y);
-        cairo_show_text(cr, label_up);
+            const double up_safe_right = up_layout.active
+                                             ? (up_layout.block_left - scale_value_avg(params, 8.0))
+                                             : (layout.bar_x + layout.effective_bar_width);
+            const double up_available_width = fmax(8.0, up_safe_right - label_x);
+
+            if (fmax(up_label_ext.x_advance, up_label_ext.width) <= up_available_width ||
+                label_font_size <= min_label_font_size)
+                break;
+
+            label_font_size *= 0.92;
+            if (label_font_size < min_label_font_size)
+                label_font_size = min_label_font_size;
+        }
+
+        double up_label_y = layout.up_bar_y - layout.label_spacing - font_ext.descent;
+        up_label_y += get_scaled_label_offset_y(config, params);
+
+        const double up_label_right = label_x + fmax(up_label_ext.x_advance, up_label_ext.width);
+        const double up_safe_right = up_layout.active
+                                         ? (up_layout.block_left - scale_value_avg(params, 8.0))
+                                         : (layout.bar_x + layout.effective_bar_width);
+        if (up_label_right <= up_safe_right)
+        {
+            cairo_set_font_size(cr, label_font_size);
+            cairo_move_to(cr, label_x, up_label_y);
+            cairo_show_text(cr, label_up);
+        }
     }
 
     // Draw lower slot label (if active and has label)
-    if (down_active && label_down)
+    if (layout.down_active && label_down)
     {
-        double down_label_y = down_bar_y + bar_height_down + label_spacing + font_ext.ascent;
-        if (config->display_label_offset_y != -9999)
-            down_label_y += config->display_label_offset_y;
+        double label_font_size = get_preferred_label_font_size(config, params);
+        const double min_label_font_size =
+            (config->font_size_labels > 0.0f)
+                ? fmax(10.0, scale_value_avg(params,
+                                             (double)config->font_size_labels) *
+                                 0.60)
+                : fmax(10.0, scale_value_avg(params, 10.0));
+        cairo_text_extents_t down_label_ext;
+        while (1)
+        {
+            cairo_set_font_size(cr, label_font_size);
+            cairo_font_extents(cr, &font_ext);
+            cairo_text_extents(cr, label_down, &down_label_ext);
 
-        cairo_move_to(cr, label_x, down_label_y);
-        cairo_show_text(cr, label_down);
+            const double down_safe_right = down_layout.active
+                                               ? (down_layout.block_left - scale_value_avg(params, 8.0))
+                                               : (layout.bar_x + layout.effective_bar_width);
+            const double down_available_width =
+                fmax(8.0, down_safe_right - label_x);
+
+            if (fmax(down_label_ext.x_advance, down_label_ext.width) <=
+                    down_available_width ||
+                label_font_size <= min_label_font_size)
+                break;
+
+            label_font_size *= 0.92;
+            if (label_font_size < min_label_font_size)
+                label_font_size = min_label_font_size;
+        }
+
+        double down_label_y = layout.down_bar_y + layout.bar_height_down +
+                              layout.label_spacing + font_ext.ascent;
+        down_label_y += get_scaled_label_offset_y(config, params);
+
+        const double down_label_right =
+            label_x + fmax(down_label_ext.x_advance, down_label_ext.width);
+        const double down_safe_right = down_layout.active
+                                           ? (down_layout.block_left - scale_value_avg(params, 8.0))
+                                           : (layout.bar_x + layout.effective_bar_width);
+        if (down_label_right <= down_safe_right)
+        {
+            cairo_set_font_size(cr, label_font_size);
+            cairo_move_to(cr, label_x, down_label_y);
+            cairo_show_text(cr, label_down);
+        }
     }
 }
 
@@ -459,34 +457,18 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
 {
     paint_display_background(cr, config);
 
+    draw_temperature_bars(cr, data, config, params);
+
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, config->font_size_temp);
     set_cairo_color(cr, &config->font_color_temp);
 
     draw_temperature_displays(cr, data, config, params);
-    draw_temperature_bars(cr, data, config, params);
 
-    // Get temperatures from active slots for label visibility check
-    float temp_up = get_slot_temperature(data, config->sensor_slot_up);
-    float temp_down = get_slot_temperature(data, config->sensor_slot_down);
-
-    // Labels only if temperature sensors < 99°C (to avoid overlap with large numbers)
-    // Non-temperature sensors always show labels (RPM, Watts etc. have different scales)
-    int up_is_temp = get_slot_is_temp(data, config->sensor_slot_up);
-    int down_is_temp = get_slot_is_temp(data, config->sensor_slot_down);
-    int show_labels = 1;
-    if (up_is_temp && temp_up >= 99.0f)
-        show_labels = 0;
-    if (down_is_temp && temp_down >= 99.0f)
-        show_labels = 0;
-
-    if (show_labels)
-    {
-        cairo_set_font_size(cr, config->font_size_labels);
-        set_cairo_color(cr, &config->font_color_label);
-        draw_labels(cr, config, data, params);
-    }
+    cairo_set_font_size(cr, config->font_size_labels);
+    set_cairo_color(cr, &config->font_color_label);
+    draw_labels(cr, config, data, params);
 }
 
 /**

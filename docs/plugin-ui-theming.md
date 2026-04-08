@@ -186,6 +186,6 @@ These will be displayed on the plugin page in CoolerControl's UI.
 
 ## Changelog
 
-- **3.x** - CC4 Bearer Token auth, native shutdown image via CC4 API
+- **3.x** - Token-only CC4 auth, native shutdown image via CC4 API
 - **2.2.x** - Added theme color support and Tailwind CSS integration
 - **2.0.4** - Initial plugin UI implementation

@@ -4,9 +4,13 @@
   "daemon": {
     "address": "http://localhost:11987",
     "access_token": "",
-    "_comment_token": "CC4: Create token in UI → Access Protection. Format: cc_<uuid>. Preferred over password.",
-    "password": "coolAdmin",
-    "_comment_password": "Legacy CC3 / fallback. Ignored when access_token is set."
+    "_comment_token": "Create a token in CoolerControl UI → Access Protection. Format: cc_<uuid>."
+  },
+
+  "device_detection": {
+    "mode": "strict",
+    "allowlist": "",
+    "blocklist": "mainboard\nmotherboard\nchipset"
   },
 
   "paths": {
@@ -17,8 +21,9 @@
   },
 
   "display": {
-    "mode": "dual",
+    "mode": "circle",
     "circle_switch_interval": 5,
+    "circle_show_extra_info": true,
     "refresh_interval": 2.5,
     "brightness": 80,
     "orientation": 0,
@@ -26,12 +31,10 @@
     "background_overlay_opacity": 0.0,
     "width": 0,
     "height": 0,
-    "shape": "auto",
     "content_scale_factor": 0.98,
-    "inscribe_factor": 0.70710678,
-    "sensor_slot_up": "cpu",
-    "sensor_slot_mid": "liquid",
-    "sensor_slot_down": "gpu"
+    "sensor_slot_1": "cpu",
+    "sensor_slot_2": "liquid",
+    "sensor_slot_3": "gpu"
   },
 
   "layout": {
@@ -43,9 +46,9 @@
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,
-    "bar_height_up": 0,
-    "bar_height_mid": 0,
-    "bar_height_down": 0
+    "bar_height_1": 0,
+    "bar_height_2": 0,
+    "bar_height_3": 0
   },
 
   "colors": {
@@ -57,8 +60,9 @@
 
   "font": {
     "face": "Roboto Black",
-    "size_temp": 100.0,
-    "size_labels": 30.0
+    "size_temp": 0.0,
+    "size_labels": 0.0,
+    "font_growth_factor": 1.33
   },
 
   "sensors": {
@@ -87,10 +91,10 @@
       "offset_y": 0
     },
     "liquid": {
-      "threshold_1": 25.0,
-      "threshold_2": 28.0,
-      "threshold_3": 31.0,
-      "max_scale": 50.0,
+      "threshold_1": 30.0,
+      "threshold_2": 35.0,
+      "threshold_3": 40.0,
+      "max_scale": 55.0,
       "threshold_1_color": { "r": 0, "g": 255, "b": 0 },
       "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
       "threshold_3_color": { "r": 255, "g": 70, "b": 0 },

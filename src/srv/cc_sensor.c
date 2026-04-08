@@ -360,25 +360,13 @@ static int get_sensor_data_from_api(const Config *config,
 
     configure_status_request(curl, url, &response);
 
-    /* SSL options (apply_ssl_options handles http:// as no-op) */
-    apply_ssl_options(curl, config);
-
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "accept: application/json");
     headers = curl_slist_append(headers, "content-type: application/json");
 
-    /* Attach auth: Bearer token preferred, otherwise share session cookie */
     const char *bearer = get_session_access_token();
     if (bearer && bearer[0] != '\0')
-    {
         headers = curl_slist_append(headers, bearer);
-    }
-    else
-    {
-        const char *cookie_jar = get_session_cookie_jar();
-        if (cookie_jar && cookie_jar[0] != '\0')
-            curl_easy_setopt(curl, CURLOPT_COOKIEFILE, cookie_jar);
-    }
 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
@@ -490,6 +478,62 @@ const sensor_entry_t *find_sensor_for_slot(const monitor_sensor_data_t *data,
         if (strlen(data->sensors[i].device_uid) == uid_len &&
             strncmp(data->sensors[i].device_uid, slot_value, uid_len) == 0 &&
             strcmp(data->sensors[i].name, sensor_name) == 0)
+        {
+            return &data->sensors[i];
+        }
+    }
+
+    return NULL;
+}
+
+/**
+ * @brief Find channel sensor matching a slot value and category.
+ * @details Like find_sensor_for_slot() but matches a specific sensor category
+ * instead of always matching temperature sensors.
+ */
+const sensor_entry_t *find_channel_sensor_for_slot(
+    const monitor_sensor_data_t *data, const char *slot_value,
+    sensor_category_t category)
+{
+    if (!data || !slot_value || strcmp(slot_value, "none") == 0)
+        return NULL;
+
+    /* Legacy slot resolution with custom category */
+    if (is_legacy_sensor_slot(slot_value))
+    {
+        const char *target_type = NULL;
+        if (strcmp(slot_value, "cpu") == 0)
+            target_type = "CPU";
+        else if (strcmp(slot_value, "gpu") == 0)
+            target_type = "GPU";
+        else if (strcmp(slot_value, "liquid") == 0)
+            target_type = "Liquidctl";
+        else
+            return NULL;
+
+        for (int i = 0; i < data->sensor_count; i++)
+        {
+            if (data->sensors[i].category == category &&
+                strcmp(data->sensors[i].device_type, target_type) == 0)
+            {
+                return &data->sensors[i];
+            }
+        }
+        return NULL;
+    }
+
+    /* Dynamic slot: "device_uid:sensor_name" — match by uid + category */
+    const char *separator = strchr(slot_value, ':');
+    if (!separator || separator == slot_value)
+        return NULL;
+
+    size_t uid_len = (size_t)(separator - slot_value);
+
+    for (int i = 0; i < data->sensor_count; i++)
+    {
+        if (data->sensors[i].category == category &&
+            strlen(data->sensors[i].device_uid) == uid_len &&
+            strncmp(data->sensors[i].device_uid, slot_value, uid_len) == 0)
         {
             return &data->sensors[i];
         }

@@ -25,10 +25,8 @@
 #include "../device/config.h"
 
 // Basic constants
-#define CC_COOKIE_SIZE 512
 #define CC_UID_SIZE 128
 #define CC_URL_SIZE 512
-#define CC_USERPWD_SIZE 128
 #define CC_BEARER_HEADER_SIZE (CONFIG_MAX_TOKEN_LEN + 32)
 
 // Maximum safe allocation size to prevent overflow
@@ -87,8 +85,7 @@ int is_session_initialized(void);
 
 /**
  * @brief Cleans up and terminates the CoolerControl session.
- * @details Frees all resources and closes the session, including CURL cleanup
- * and cookie file removal.
+ * @details Frees all resources and closes the session.
  */
 void cleanup_coolercontrol_session(void);
 
@@ -97,19 +94,6 @@ void cleanup_coolercontrol_session(void);
  * @details Used by cc_conf and cc_sensor to attach auth headers.
  */
 const char *get_session_access_token(void);
-
-/**
- * @brief Returns the cookie jar path for session cookie sharing.
- * @details Used by cc_conf and cc_sensor when password-auth is active.
- */
-const char *get_session_cookie_jar(void);
-
-/**
- * @brief Apply TLS/SSL options to a CURL handle based on config.
- * @details Handles VERIFYPEER/VERIFYHOST/CAINFO/skip-verify logic.
- *          Call this for every CURL handle that may use HTTPS.
- */
-void apply_ssl_options(void *curl, const struct Config *config);
 
 /**
  * @brief Sends an image directly to the LCD of the CoolerControl device.
@@ -123,7 +107,7 @@ int send_image_to_lcd(const struct Config *config, const char *image_path,
  * @brief Register shutdown image with CC4's persistent LCD shutdown endpoint.
  * @details Called once at daemon startup. CC4 will display the image
  * automatically whenever the coolercontrold daemon stops.
- * Silently skips on 404 (CC3 / pre-CC4 compatibility).
+ * Silently skips on 404 when the endpoint is unavailable.
  */
 int register_shutdown_image_with_cc(const struct Config *config,
                                     const char *image_path,

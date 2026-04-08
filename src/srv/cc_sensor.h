@@ -109,6 +109,20 @@ const sensor_entry_t *find_sensor_for_slot(const monitor_sensor_data_t *data,
  */
 int is_legacy_sensor_slot(const char *slot_value);
 
+/**
+ * @brief Find channel sensor matching a slot value and category.
+ * @details Like find_sensor_for_slot() but matches a specific sensor category
+ * (e.g. SENSOR_CATEGORY_FREQ, SENSOR_CATEGORY_WATTS, SENSOR_CATEGORY_RPM)
+ * instead of always matching temperature sensors.
+ * @param data Current sensor data collection
+ * @param slot_value Slot configuration value ("cpu", "gpu", "liquid", or "uid:name")
+ * @param category Sensor category to match
+ * @return Pointer to matching sensor entry, or NULL if not found
+ */
+const sensor_entry_t *find_channel_sensor_for_slot(
+    const monitor_sensor_data_t *data, const char *slot_value,
+    sensor_category_t category);
+
 // ============================================================================
 // Data Retrieval
 // ============================================================================
