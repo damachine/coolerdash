@@ -31,9 +31,8 @@
   <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/>
   <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/>
 </div>
-<div align="center">
-  https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
-</div>
+
+https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
 
 ---
 
