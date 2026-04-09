@@ -27,11 +27,6 @@
 
 <a href="https://discord.com/channels/908873022105079848/1461781766791499981"><img src="https://img.shields.io/badge/Discord-Join%20CoolerDash%20Discussion-blue?logo=discord"></a>
 
-<div align="center">
-  <img src="images/round.png" alt="CoolerDash LCD Demo round" width="320" height="320"/>
-  <img src="images/quad.png" alt="CoolerDash LCD Demo quad" width="320" height="320"/>
-</div>
-
 https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
 
 ---
