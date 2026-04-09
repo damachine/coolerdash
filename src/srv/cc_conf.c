@@ -83,6 +83,17 @@ static struct
 static int device_name_cache_count = 0;
 
 /**
+ * @brief Resets device cache for config reload (SIGHUP).
+ * @details Clears all cached device data so it will be re-fetched from the API.
+ */
+void reset_device_cache(void)
+{
+    memset(&device_cache, 0, sizeof(device_cache));
+    memset(device_name_cache, 0, sizeof(device_name_cache));
+    device_name_cache_count = 0;
+}
+
+/**
  * @brief Get device display name by UID.
  */
 const char *get_device_name_by_uid(const char *device_uid)
@@ -153,9 +164,8 @@ int is_circular_display_device(const char *device_name, int screen_width,
         return is_large_display ? 1 : 0;
     }
 
-    // Placeholder for future circular display device names
-    // Currently no other brands detected, only by display size
-    return 0;
+    // Unknown device: detect by display size (>240px = circular LCD)
+    return (screen_width > 240 || screen_height > 240) ? 1 : 0;
 }
 
 /**

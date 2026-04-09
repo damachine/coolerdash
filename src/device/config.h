@@ -152,6 +152,8 @@ typedef struct Config
     int display_degree_spacing;
     int display_label_offset_x;
     int display_label_offset_y;
+    int display_margin_top;    /**< Vertical top margin (0 = auto-detect) */
+    int display_margin_bottom; /**< Vertical bottom margin (0 = auto-detect) */
 
     // Per-sensor configuration (thresholds, colors, offsets)
     SensorConfig sensor_configs[MAX_SENSOR_CONFIGS]; /**< Sensor-specific configs */

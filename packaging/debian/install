@@ -7,7 +7,6 @@ etc/coolercontrol/plugins/coolerdash/README.md
 etc/coolercontrol/plugins/coolerdash/VERSION
 etc/coolercontrol/plugins/coolerdash/CHANGELOG.md
 etc/coolercontrol/plugins/coolerdash/ui/index.html
-etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js
 usr/share/man/man1/coolerdash.1
 usr/share/applications/coolerdash.desktop
 usr/share/icons/hicolor/scalable/apps/coolerdash.svg

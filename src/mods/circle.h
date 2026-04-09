@@ -34,4 +34,10 @@ struct Config;
  */
 void draw_circle_image(const struct Config *config);
 
+/**
+ * @brief Resets circle mode state for config reload (SIGHUP).
+ * @details Resets slot cycling to the first sensor and clears the switch timer.
+ */
+void reset_circle_state(void);
+
 #endif // CIRCLE_H

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoolerDash Settings</title>
-    <script type="text/javascript" src="cc-plugin-lib.js" onerror="console.warn('cc-plugin-lib.js not found, using fallback')"></script>
+    <script type="text/javascript" src="/plugins/lib/cc-plugin-lib.js" onerror="console.warn('cc-plugin-lib.js not found, using fallback')"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -901,6 +901,18 @@
                                 <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="100">
                             </div>
                         </div>
+                        <div class="grid grid-2" style="margin-top: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">Margin Top</label>
+                                <span class="form-hint">Vertical top margin in logical units. 0 = auto (circular ~3%, rectangular 0)</span>
+                                <input type="number" name="positioning.margin_top" class="form-control" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Margin Bottom</label>
+                                <span class="form-hint">Vertical bottom margin in logical units. 0 = auto (circular ~3%, rectangular 0)</span>
+                                <input type="number" name="positioning.margin_bottom" class="form-control" step="1">
+                            </div>
+                        </div>
                     </div>
                 </details>
 
@@ -1145,7 +1157,7 @@
         <!-- Restart Notice -->
         <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.05); border-left: 3px solid #ff8c00; border-radius: 4px;">
             <p style="margin: 0; color: var(--text-dim); font-size: 13px;">
-                <strong>Note:</strong> After saving, the service must be restarted manually: <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px;">systemctl restart cc-plugin-coolerdash.service</code>
+                <strong>Note:</strong> After saving, reload the config with <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px;">kill -HUP $(pgrep coolerdash)</code> or restart the service: <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px;">systemctl restart cc-plugin-coolerdash.service</code>
             </p>
         </div>
     </div>
@@ -1254,7 +1266,9 @@
             positioning: {
                 degree_spacing: 16,
                 label_offset_x: 0,
-                label_offset_y: 0
+                label_offset_y: 0,
+                margin_top: 0,
+                margin_bottom: 0
             }
         };
 

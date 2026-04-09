@@ -715,16 +715,32 @@ void calculate_scaling_params(const struct Config *config,
 
     params->corner_radius = 8.0 * params->scale_uniform;
 
+    // Calculate vertical margins (0 = auto-detect based on display shape)
+    if (config->display_margin_top != 0)
+        params->margin_top = config->display_margin_top * params->scale_uniform;
+    else
+        params->margin_top = params->is_circular
+                                 ? (config->display_height * 0.03)
+                                 : 0.0;
+
+    if (config->display_margin_bottom != 0)
+        params->margin_bottom = config->display_margin_bottom * params->scale_uniform;
+    else
+        params->margin_bottom = params->is_circular
+                                    ? (config->display_height * 0.03)
+                                    : 0.0;
+
     // Log detailed scaling calculations
     log_message(
         LOG_INFO,
-        "Scaling: display=%ux%u scale=(%.3f, %.3f) uniform=%.3f shape=%s inscribe=%.4f content=%.3f safe_area=%.0fpx bar_width=%dpx (%.0f%%) margin=%.1fpx",
+        "Scaling: display=%ux%u scale=(%.3f, %.3f) uniform=%.3f shape=%s inscribe=%.4f content=%.3f safe_area=%.0fpx bar_width=%dpx (%.0f%%) margin=%.1fpx margin_v=(%.1f, %.1f)",
         config->display_width, config->display_height, params->scale_x,
         params->scale_y, params->scale_uniform,
         params->is_circular ? "circular" : "rectangular",
         params->inscribe_factor, content_scale, safe_area_width,
         params->safe_bar_width, bar_width_factor * 100.0,
-        params->safe_content_margin);
+        params->safe_content_margin,
+        params->margin_top, params->margin_bottom);
 }
 
 /**

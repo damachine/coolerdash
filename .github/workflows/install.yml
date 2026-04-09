@@ -125,12 +125,12 @@ jobs:
             exit 1
           fi
 
-          # Check CC-Plugin Lib JS files
+          # Check CC-Plugin Lib JS is NOT installed (served by CoolerControl)
           if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" ]; then
-            echo "✅ Plugin Lib JS files installed"
-          else
-            echo "❌ Plugin Lib JS files not found"
+            echo "❌ Plugin Lib JS should NOT be installed (served by CoolerControl)"
             exit 1
+          else
+            echo "✅ Plugin Lib JS correctly not installed (served by CoolerControl)"
           fi
 
           # Check desktop files

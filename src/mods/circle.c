@@ -36,6 +36,16 @@ static int current_slot_index = 0; // 0=slot1, 1=slot2, 2=slot3
 static time_t last_switch_time = 0;
 
 /**
+ * @brief Resets circle mode state for config reload (SIGHUP).
+ * @details Resets slot cycling to the first sensor and clears the switch timer.
+ */
+void reset_circle_state(void)
+{
+    current_slot_index = 0;
+    last_switch_time = 0;
+}
+
+/**
  * @brief Find pump RPM sensor for a Liquidctl device.
  * @details Searches for an RPM sensor whose name contains "pump"
  * (case-insensitive). Falls back to first RPM sensor if no pump found.
@@ -400,15 +410,18 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
     const double grouped_height =
         bar_height + (label_text ? (region_gap + label_band_height) : 0.0);
+    const double available_height =
+        config->display_height - params->margin_top - params->margin_bottom;
     const int bar_y =
-        (int)lround(fmax(0.0, (config->display_height - grouped_height) / 2.0));
+        (int)lround(fmax(0.0, params->margin_top +
+                                  (available_height - grouped_height) / 2.0));
     const double value_bar_gap = region_gap * 0.05;
 
-    const double value_box_y = 0.0;
-    const double value_box_height = fmax(0.0, bar_y - value_bar_gap);
+    const double value_box_y = params->margin_top;
+    const double value_box_height = fmax(0.0, bar_y - value_bar_gap - params->margin_top);
     const double label_box_y = bar_y + bar_height + region_gap;
     const double label_box_height =
-        fmax(0.0, config->display_height - label_box_y);
+        fmax(0.0, config->display_height - params->margin_bottom - label_box_y);
 
     if (verbose_logging)
     {

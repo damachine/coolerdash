@@ -244,6 +244,24 @@ void cleanup_coolercontrol_session(void)
 }
 
 /**
+ * @brief Resets the CoolerControl session for config reload (SIGHUP).
+ * @details Unlike cleanup_coolercontrol_session(), this does NOT call
+ * curl_global_cleanup() and does NOT set the one-shot cleanup_done guard.
+ * The session can be re-initialized via init_coolercontrol_session().
+ */
+void reset_coolercontrol_session(void)
+{
+    if (cc_session.curl_handle)
+    {
+        curl_easy_cleanup(cc_session.curl_handle);
+        cc_session.curl_handle = NULL;
+    }
+
+    cc_session.session_initialized = 0;
+    cc_session.access_token[0] = '\0';
+}
+
+/**
  * @brief Returns the active Bearer auth header string (or empty string).
  */
 const char *get_session_access_token(void)

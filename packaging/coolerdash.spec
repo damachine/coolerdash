@@ -142,7 +142,6 @@ fi
 /etc/coolercontrol/plugins/coolerdash/manifest.toml
 %dir /etc/coolercontrol/plugins/coolerdash/ui
 /etc/coolercontrol/plugins/coolerdash/ui/index.html
-/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js
 /etc/coolercontrol/plugins/coolerdash/shutdown.png
 /etc/coolercontrol/plugins/coolerdash/README.md
 /etc/coolercontrol/plugins/coolerdash/CHANGELOG.md

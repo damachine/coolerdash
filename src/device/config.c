@@ -1212,6 +1212,18 @@ static void load_positioning_from_json(json_t *root, Config *config)
     {
         config->display_label_offset_y = (int)json_integer_value(label_offset_y);
     }
+
+    json_t *margin_top = json_object_get(positioning, "margin_top");
+    if (margin_top && json_is_integer(margin_top))
+    {
+        config->display_margin_top = (int)json_integer_value(margin_top);
+    }
+
+    json_t *margin_bottom = json_object_get(positioning, "margin_bottom");
+    if (margin_bottom && json_is_integer(margin_bottom))
+    {
+        config->display_margin_bottom = (int)json_integer_value(margin_bottom);
+    }
 }
 
 // ============================================================================

@@ -1,6 +1,13 @@
 /*
  * Simple test harness for safe_area calculations
- * Validates safe_area_width and safe_bar_width for given display_inscribe_factor values.
+ * Validates safe_area_width and safe_bar_width for current scaling logic.
+ *
+ * Current formula (from display.c calculate_scaling_params):
+ *   inscribe_factor = is_circular ? M_SQRT1_2 : 1.0
+ *   safe_area_width = display_width * inscribe_factor
+ *   content_scale   = display_content_scale_factor (0..1, fallback 0.98)
+ *   bar_width_factor = layout_bar_width/100 (fallback 0.98)
+ *   safe_bar_width  = safe_area_width * content_scale * bar_width_factor
  */
 #define _POSIX_C_SOURCE 200112L
 // cppcheck-suppress-begin missingIncludeSystem
@@ -11,7 +18,6 @@
 
 #include "../src/device/config.h"
 
-// Use same constant
 #ifndef M_SQRT1_2
 #define M_SQRT1_2 0.7071067811865476
 #endif
@@ -21,95 +27,107 @@ static int almost_equal(double a, double b, double eps)
     return fabs(a - b) <= eps;
 }
 
-static void run_case(const char *name, int width, float content_scale, float inscribe_cfg, int rectangular_force, double expected_safe_area, double expected_safe_bar)
+static int failures = 0;
+
+static void run_case(const char *name, int width, float content_scale,
+                     uint8_t bar_width_pct, int is_circular,
+                     double expected_safe_area, int expected_safe_bar)
 {
     Config cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.display_width = (uint16_t)width;
-    // Use snprintf for a local, safe copy to avoid external symbol dependency during unit tests
-    snprintf(cfg.display_shape, sizeof(cfg.display_shape), "%s", "circular");
+    cfg.display_height = (uint16_t)width;
     cfg.display_content_scale_factor = content_scale;
-    cfg.display_inscribe_factor = inscribe_cfg;
+    cfg.layout_bar_width = bar_width_pct;
 
-    double inscribe_used;
-    if (rectangular_force)
-        inscribe_used = 1.0;
-    else if (strcmp(cfg.display_shape, "rectangular") == 0)
-        inscribe_used = 1.0;
-    else
-    {
-        if (cfg.display_inscribe_factor == 0.0f)
-            inscribe_used = M_SQRT1_2;
-        else if (cfg.display_inscribe_factor > 0.0f && cfg.display_inscribe_factor <= 1.0f)
-            inscribe_used = (double)cfg.display_inscribe_factor;
-        else
-            inscribe_used = M_SQRT1_2;
-    }
+    double inscribe_factor = is_circular ? M_SQRT1_2 : 1.0;
+    double safe_area_width = (double)cfg.display_width * inscribe_factor;
 
-    double safe_area = (double)cfg.display_width * inscribe_used;
-    double safe_bar = safe_area * (double)cfg.display_content_scale_factor;
+    float cs = (cfg.display_content_scale_factor > 0.0f &&
+                cfg.display_content_scale_factor <= 1.0f)
+                   ? cfg.display_content_scale_factor
+                   : 0.98f;
+    double bwf = (cfg.layout_bar_width > 0)
+                     ? (cfg.layout_bar_width / 100.0)
+                     : 0.98;
+    int safe_bar_width = (int)(safe_area_width * cs * bwf);
 
-    int pass_area = almost_equal(safe_area, expected_safe_area, 0.001);
-    int pass_bar = almost_equal(safe_bar, expected_safe_bar, 0.01);
+    int pass_area = almost_equal(safe_area_width, expected_safe_area, 0.01);
+    int pass_bar = (safe_bar_width == expected_safe_bar);
 
     printf("Case: %s\n", name);
-    printf("  width=%d, content_scale=%.5f, cfg_inscribe=%.8f -> inscribe_used=%.8f\n", width, content_scale, inscribe_cfg, inscribe_used);
-    printf("  safe_area=%.6f expected=%.6f [ %s ]\n", safe_area, expected_safe_area, pass_area ? "OK" : "FAIL");
-    printf("  safe_bar=%.6f expected=%.6f [ %s ]\n", safe_bar, expected_safe_bar, pass_bar ? "OK" : "FAIL");
+    printf("  width=%d, shape=%s, content_scale=%.2f, bar_width=%u%%\n",
+           width, is_circular ? "circular" : "rectangular", content_scale,
+           bar_width_pct);
+    printf("  safe_area=%.4f expected=%.4f [ %s ]\n",
+           safe_area_width, expected_safe_area, pass_area ? "OK" : "FAIL");
+    printf("  safe_bar=%d expected=%d [ %s ]\n",
+           safe_bar_width, expected_safe_bar, pass_bar ? "OK" : "FAIL");
     printf("\n");
+
+    if (!pass_area || !pass_bar)
+        failures++;
 }
 
 int main(void)
 {
-    // Use base width 240
-    const int width = 240;
-    const float content_scale = 0.98f; // default
-
-    // Cases for width 240 and 320
+    const float cs = 0.98f;
     int widths[] = {240, 320};
     size_t wcount = sizeof(widths) / sizeof(widths[0]);
+
     for (size_t i = 0; i < wcount; ++i)
     {
         int w = widths[i];
-        // auto (0.0)
-        double inscribe = M_SQRT1_2;
-        double expected_safe_area = w * inscribe;
-        double expected_safe_bar = expected_safe_area * content_scale;
         char buf[128];
-        snprintf(buf, sizeof(buf), "auto(0.0) width=%d", w);
-        run_case(buf, w, content_scale, 0.0f, 0, expected_safe_area, expected_safe_bar);
 
-        // explicit geometric
-        inscribe = 0.70710678;
-        expected_safe_area = w * inscribe;
-        expected_safe_bar = expected_safe_area * content_scale;
-        snprintf(buf, sizeof(buf), "explicit 0.70710678 width=%d", w);
-        run_case(buf, w, content_scale, 0.70710678f, 0, expected_safe_area, expected_safe_bar);
+        /* Circular display: inscribe = M_SQRT1_2, default bar_width 98% */
+        double area = w * M_SQRT1_2;
+        int bar = (int)(area * cs * 0.98);
+        snprintf(buf, sizeof(buf), "circular default width=%d", w);
+        run_case(buf, w, cs, 98, 1, area, bar);
 
-        // explicit custom 0.85
-        inscribe = 0.85;
-        expected_safe_area = w * inscribe;
-        expected_safe_bar = expected_safe_area * content_scale;
-        snprintf(buf, sizeof(buf), "custom 0.85 width=%d", w);
-        run_case(buf, w, content_scale, 0.85f, 0, expected_safe_area, expected_safe_bar);
+        /* Rectangular display: inscribe = 1.0, default bar_width 98% */
+        area = w * 1.0;
+        bar = (int)(area * cs * 0.98);
+        snprintf(buf, sizeof(buf), "rectangular default width=%d", w);
+        run_case(buf, w, cs, 98, 0, area, bar);
 
-        // rectangular shape forced (inscribe=1.0)
-        inscribe = 1.0;
-        expected_safe_area = w * inscribe;
-        expected_safe_bar = expected_safe_area * content_scale;
-        snprintf(buf, sizeof(buf), "rectangular forced width=%d", w);
-        run_case(buf, w, content_scale, 0.0f, 1, expected_safe_area, expected_safe_bar);
+        /* Circular with custom bar_width 80% */
+        area = w * M_SQRT1_2;
+        bar = (int)(area * cs * 0.80);
+        snprintf(buf, sizeof(buf), "circular bar80%% width=%d", w);
+        run_case(buf, w, cs, 80, 1, area, bar);
+
+        /* Rectangular with content_scale 1.0 */
+        area = w * 1.0;
+        bar = (int)(area * 1.0 * 0.98);
+        snprintf(buf, sizeof(buf), "rectangular cs=1.0 width=%d", w);
+        run_case(buf, w, 1.0f, 98, 0, area, bar);
     }
 
-    // Invalid values -> fallback to M_SQRT1_2
+    /* Fallback tests: invalid content_scale => fallback 0.98 */
     {
         int w = 240;
-        double inscribe = M_SQRT1_2;
-        double expected_safe_area = w * inscribe;
-        double expected_safe_bar = expected_safe_area * content_scale;
-        run_case("invalid -1 -> fallback", w, content_scale, -1.0f, 0, expected_safe_area, expected_safe_bar);
-        run_case("invalid 1.5 -> fallback", w, content_scale, 1.5f, 0, expected_safe_area, expected_safe_bar);
+        double area = w * M_SQRT1_2;
+        int bar = (int)(area * 0.98 * 0.98);
+        run_case("cs=0 fallback", w, 0.0f, 98, 1, area, bar);
+        run_case("cs=-1 fallback", w, -1.0f, 98, 1, area, bar);
+        run_case("cs=1.5 fallback", w, 1.5f, 98, 1, area, bar);
     }
 
+    /* Fallback tests: bar_width=0 => fallback 0.98 */
+    {
+        int w = 240;
+        double area = w * M_SQRT1_2;
+        int bar = (int)(area * cs * 0.98);
+        run_case("bar_width=0 fallback", w, cs, 0, 1, area, bar);
+    }
+
+    if (failures > 0)
+    {
+        printf("FAILED: %d test(s)\n", failures);
+        return 1;
+    }
+    printf("All tests passed.\n");
     return 0;
 }

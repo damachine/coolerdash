@@ -47,7 +47,6 @@ build() {
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
     cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
     cp -a etc/coolercontrol/plugins/coolerdash/ui/index.html "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/"
-    cp -a etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/"
     cp -a images/shutdown.png "${srcdir}/images/"
     cp -a man/coolerdash.1 "${srcdir}/man/"
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
@@ -79,7 +78,6 @@ package() {
 
     install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui"
     install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-    install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js"
     install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
     install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
 

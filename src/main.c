@@ -32,6 +32,7 @@
 
 // Include project headers
 #include "device/config.h"
+#include "mods/circle.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -45,7 +46,16 @@
  * @brief Global variables for daemon management.
  * @details Used for controlling the main daemon loop and shutdown image logic.
  */
-static volatile sig_atomic_t running = 1; // flag whether daemon is running
+static volatile sig_atomic_t running = 1;       // flag whether daemon is running
+static volatile sig_atomic_t reload_config = 0; // flag for SIGHUP config reload
+
+/**
+ * @brief File-scope storage for config reload.
+ * @details Preserved across reload so reload_daemon_config() can re-read
+ * config.json and re-apply CLI overrides.
+ */
+static const char *s_config_path = NULL;
+static char s_display_mode_override[16] = {0};
 
 /**
  * @brief Global logging control.
@@ -331,6 +341,20 @@ static void handle_shutdown_signal(int signum)
 }
 
 /**
+ * @brief Signal handler for SIGHUP (config reload).
+ * @details Sets the reload flag so the main loop re-reads config.json.
+ * Only uses async-signal-safe functions.
+ */
+static void handle_reload_signal(int signum)
+{
+    (void)signum;
+    static const char msg[] = "Received SIGHUP - scheduling config reload\n";
+    ssize_t written = write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    (void)written;
+    reload_config = 1;
+}
+
+/**
  * @brief Setup enhanced signal handlers with comprehensive signal management.
  * @details Installs signal handlers for graceful shutdown and blocks unwanted
  * signals.
@@ -365,10 +389,22 @@ static void setup_enhanced_signal_handlers(void)
                     strerror(errno));
     }
 
+    // Install SIGHUP handler for config reload
+    struct sigaction sa_reload;
+    memset(&sa_reload, 0, sizeof(sa_reload));
+    sa_reload.sa_handler = handle_reload_signal;
+    sigemptyset(&sa_reload.sa_mask);
+    sa_reload.sa_flags = SA_RESTART;
+
+    if (sigaction(SIGHUP, &sa_reload, NULL) == -1)
+    {
+        log_message(LOG_WARNING, "Failed to install SIGHUP handler: %s",
+                    strerror(errno));
+    }
+
     // Block unwanted signals to prevent interference
     sigemptyset(&block_mask);
     sigaddset(&block_mask, SIGPIPE); // Prevent broken pipe crashes
-    sigaddset(&block_mask, SIGHUP);  // Ignore hangup signal for daemon operation
 
     if (pthread_sigmask(SIG_BLOCK, &block_mask, NULL) != 0)
     {
@@ -377,11 +413,61 @@ static void setup_enhanced_signal_handlers(void)
 }
 
 /**
+ * @brief Reload configuration from config.json (SIGHUP handler).
+ * @details Resets all module state, re-reads config.json, and re-initializes
+ * CoolerControl session and device cache. On failure, logs error but the
+ * daemon continues running with the previous configuration values.
+ */
+static void reload_daemon_config(Config *config)
+{
+    log_message(LOG_STATUS, "SIGHUP received — reloading configuration...");
+
+    // 1. Tear down module state (reverse order of init)
+    cleanup_sensor_curl_handle();
+    reset_coolercontrol_session();
+    reset_device_cache();
+    reset_circle_state();
+
+    // 2. Re-read config.json into the existing struct
+    load_plugin_config(config, s_config_path);
+
+    // 3. Re-apply CLI display mode override if it was set at startup
+    if (s_display_mode_override[0] != '\0')
+    {
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode),
+                       s_display_mode_override);
+        log_message(LOG_INFO, "Display mode overridden by CLI: %s",
+                    config->display_mode);
+    }
+
+    // 4. Re-initialize CoolerControl session with potentially new token/address
+    if (!init_coolercontrol_session(config))
+    {
+        log_message(LOG_ERROR,
+                    "Config reload: session re-init failed — continuing with degraded state");
+        return;
+    }
+
+    // 5. Re-populate device cache
+    if (!init_device_cache(config))
+    {
+        log_message(LOG_ERROR,
+                    "Config reload: device cache re-init failed — continuing with degraded state");
+        return;
+    }
+
+    // 6. Update LCD dimensions from device if config has width/height=0
+    update_config_from_device(config);
+
+    log_message(LOG_STATUS, "Configuration reloaded successfully");
+}
+
+/**
  * @brief Enhanced main daemon loop with improved timing and error handling.
  * @details Runs the main loop with precise timing, optimized sleep, and
- * graceful error recovery.
+ * graceful error recovery. Handles SIGHUP for live config reload.
  */
-static int run_daemon(const Config *config)
+static int run_daemon(Config *config)
 {
     if (!config)
     {
@@ -391,12 +477,12 @@ static int run_daemon(const Config *config)
 
     // Convert float seconds to timespec (e.g., 2.50 -> tv_sec=2,
     // tv_nsec=500000000)
-    const long interval_sec = (long)config->display_refresh_interval;
-    const long interval_nsec =
+    long interval_sec = (long)config->display_refresh_interval;
+    long interval_nsec =
         (long)((config->display_refresh_interval - interval_sec) * 1000000000);
 
-    const struct timespec interval = {.tv_sec = interval_sec,
-                                      .tv_nsec = interval_nsec};
+    struct timespec interval = {.tv_sec = interval_sec,
+                                .tv_nsec = interval_nsec};
 
     struct timespec next_time;
     if (clock_gettime(CLOCK_MONOTONIC, &next_time) != 0)
@@ -407,6 +493,21 @@ static int run_daemon(const Config *config)
 
     while (running)
     {
+        // Check for pending config reload (SIGHUP)
+        if (reload_config)
+        {
+            reload_config = 0;
+            reload_daemon_config(config);
+
+            // Recalculate interval from potentially changed refresh_interval
+            interval_sec = (long)config->display_refresh_interval;
+            interval_nsec = (long)((config->display_refresh_interval -
+                                    interval_sec) *
+                                   1000000000);
+            interval.tv_sec = interval_sec;
+            interval.tv_nsec = interval_nsec;
+        }
+
         // Calculate next execution time with overflow protection
         next_time.tv_sec += interval.tv_sec;
         next_time.tv_nsec += interval.tv_nsec;
@@ -651,6 +752,11 @@ int main(int argc, char **argv)
     char display_mode_override[16] = {0};
     const char *config_path = parse_arguments(argc, argv, display_mode_override);
 
+    // Store in file-scope statics for SIGHUP reload
+    s_config_path = config_path;
+    cc_safe_strcpy(s_display_mode_override, sizeof(s_display_mode_override),
+                   display_mode_override);
+
     log_message(LOG_STATUS, "CoolerDash v%s starting up...",
                 read_version_from_file());
 
@@ -663,10 +769,10 @@ int main(int argc, char **argv)
     }
 
     // Apply CLI display mode override if provided
-    if (display_mode_override[0] != '\0')
+    if (s_display_mode_override[0] != '\0')
     {
         cc_safe_strcpy(config.display_mode, sizeof(config.display_mode),
-                       display_mode_override);
+                       s_display_mode_override);
         log_message(LOG_INFO, "Display mode overridden by CLI: %s",
                     config.display_mode);
     }

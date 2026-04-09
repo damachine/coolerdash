@@ -99,8 +99,11 @@ static int calculate_dual_layout(const struct Config *config,
     else
         return 0;
 
+    const double available_height =
+        config->display_height - params->margin_top - params->margin_bottom;
     const int start_y =
-        (int)lround(((double)config->display_height - total_height) / 2.0);
+        (int)lround(params->margin_top +
+                    (available_height - total_height) / 2.0);
     layout->up_bar_y = start_y;
     layout->down_bar_y = start_y + layout->bar_height_up +
                          layout->bar_gap;
@@ -111,13 +114,13 @@ static int calculate_dual_layout(const struct Config *config,
     layout->label_spacing = get_effective_label_spacing(config, params);
     const double value_bar_gap = layout->label_spacing * 0.05;
 
-    layout->top_value_box_y = 0.0;
+    layout->top_value_box_y = params->margin_top;
     layout->top_value_box_height =
-        fmax(0.0, layout->up_bar_y - value_bar_gap);
+        fmax(0.0, layout->up_bar_y - value_bar_gap - params->margin_top);
     layout->bottom_value_box_y =
         layout->down_bar_y + layout->bar_height_down + value_bar_gap;
     layout->bottom_value_box_height =
-        fmax(0.0, config->display_height - layout->bottom_value_box_y);
+        fmax(0.0, config->display_height - params->margin_bottom - layout->bottom_value_box_y);
 
     if (verbose_logging)
     {

@@ -90,6 +90,13 @@ int is_session_initialized(void);
 void cleanup_coolercontrol_session(void);
 
 /**
+ * @brief Resets the CoolerControl session for config reload (SIGHUP).
+ * @details Destroys the CURL handle without global cleanup, allowing
+ * re-initialization via init_coolercontrol_session().
+ */
+void reset_coolercontrol_session(void);
+
+/**
  * @brief Returns the active Bearer access token (empty string if not set).
  * @details Used by cc_conf and cc_sensor to attach auth headers.
  */

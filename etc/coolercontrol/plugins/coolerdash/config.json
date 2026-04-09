@@ -107,6 +107,8 @@
   "positioning": {
     "degree_spacing": 16,
     "label_offset_x": 0,
-    "label_offset_y": 0
+    "label_offset_y": 0,
+    "margin_top": 0,
+    "margin_bottom": 0
   }
 }
