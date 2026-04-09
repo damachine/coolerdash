@@ -1,0 +1,10 @@
+{
+  "_comment": "CoolerDash daemon configuration — chmod 600, never overwritten by make install",
+  "_info": "Edit this file as root. Changes take effect after plugin restart.",
+
+  "daemon": {
+    "address": "http://localhost:11987",
+    "access_token": "",
+    "_comment_token": "Create a token in CoolerControl UI → Access Protection. Format: cc_<uuid>."
+  }
+}

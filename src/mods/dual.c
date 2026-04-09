@@ -114,11 +114,22 @@ static int calculate_dual_layout(const struct Config *config,
     layout->label_spacing = get_effective_label_spacing(config, params);
     const double value_bar_gap = layout->label_spacing * 0.05;
 
+    const SensorConfig *sc_up = get_sensor_config(config, config->sensor_slot_1);
+    const SensorConfig *sc_down = get_sensor_config(config, config->sensor_slot_3);
+    const double dual_avail_height =
+        config->display_height - params->margin_top - params->margin_bottom;
+    const double gap_above_top = (sc_up && sc_up->value_to_bar_gap > 0.0f)
+                                     ? dual_avail_height * (sc_up->value_to_bar_gap / 100.0)
+                                     : value_bar_gap;
+    const double gap_below_bottom = (sc_down && sc_down->value_to_bar_gap > 0.0f)
+                                        ? dual_avail_height * (sc_down->value_to_bar_gap / 100.0)
+                                        : value_bar_gap;
+
     layout->top_value_box_y = params->margin_top;
     layout->top_value_box_height =
-        fmax(0.0, layout->up_bar_y - value_bar_gap - params->margin_top);
+        fmax(0.0, layout->up_bar_y - gap_above_top - params->margin_top);
     layout->bottom_value_box_y =
-        layout->down_bar_y + layout->bar_height_down + value_bar_gap;
+        layout->down_bar_y + layout->bar_height_down + gap_below_bottom;
     layout->bottom_value_box_height =
         fmax(0.0, config->display_height - params->margin_bottom - layout->bottom_value_box_y);
 
@@ -302,8 +313,18 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
     const char *slot_up = config->sensor_slot_1;
     const char *slot_down = config->sensor_slot_3;
 
-    const char *label_up = get_slot_label(config, data, slot_up);
-    const char *label_down = get_slot_label(config, data, slot_down);
+    const double dual_avail_height =
+        config->display_height - params->margin_top - params->margin_bottom;
+
+    /* Dual mode: use custom label if set, otherwise always "CPU" / "GPU" */
+    const SensorConfig *sc_lbl_up = get_sensor_config(config, slot_up);
+    const SensorConfig *sc_lbl_down = get_sensor_config(config, slot_down);
+    const char *label_up = (sc_lbl_up && sc_lbl_up->label[0] != '\0')
+                               ? sc_lbl_up->label
+                               : "CPU";
+    const char *label_down = (sc_lbl_down && sc_lbl_down->label[0] != '\0')
+                                 ? sc_lbl_down->label
+                                 : "GPU";
 
     SlotValueLayout up_layout = {0};
     SlotValueLayout down_layout = {0};
@@ -385,7 +406,11 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
                 label_font_size = min_label_font_size;
         }
 
-        double up_label_y = layout.up_bar_y - layout.label_spacing - font_ext.descent;
+        const SensorConfig *sc_up_lbl = get_sensor_config(config, slot_up);
+        const double up_label_gap = (sc_up_lbl && sc_up_lbl->label_to_bar_gap > 0.0f)
+                                        ? dual_avail_height * (sc_up_lbl->label_to_bar_gap / 100.0)
+                                        : layout.label_spacing;
+        double up_label_y = layout.up_bar_y - up_label_gap - font_ext.descent;
         up_label_y += get_scaled_label_offset_y(config, params);
 
         const double up_label_right = label_x + fmax(up_label_ext.x_advance, up_label_ext.width);
@@ -433,8 +458,12 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
                 label_font_size = min_label_font_size;
         }
 
+        const SensorConfig *sc_down_lbl = get_sensor_config(config, slot_down);
+        const double down_label_gap = (sc_down_lbl && sc_down_lbl->label_to_bar_gap > 0.0f)
+                                          ? dual_avail_height * (sc_down_lbl->label_to_bar_gap / 100.0)
+                                          : layout.label_spacing;
         double down_label_y = layout.down_bar_y + layout.bar_height_down +
-                              layout.label_spacing + font_ext.ascent;
+                              down_label_gap + font_ext.ascent;
         down_label_y += get_scaled_label_offset_y(config, params);
 
         const double down_label_right =

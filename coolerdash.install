@@ -41,6 +41,27 @@ post_install() {
     rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
     rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
 
+    # Create coolercontrol.json (600) only if it does not exist — NEVER overwritten on update
+    if [ ! -f /etc/coolercontrol/plugins/coolerdash/coolercontrol.json ]; then
+        install -Dm600 /dev/null /etc/coolercontrol/plugins/coolerdash/coolercontrol.json
+        cat > /etc/coolercontrol/plugins/coolerdash/coolercontrol.json << 'EOF'
+{
+  "_comment": "CoolerDash daemon configuration — chmod 600, never overwritten by updates",
+  "_info": "Edit this file as root. Changes take effect after plugin restart.",
+
+  "daemon": {
+    "address": "http://localhost:11987",
+    "access_token": "",
+    "_comment_token": "Create a token in CoolerControl UI \u2192 Access Protection. Format: cc_<uuid>."
+  }
+}
+EOF
+        chmod 600 /etc/coolercontrol/plugins/coolerdash/coolercontrol.json
+    fi
+
+    # Ensure correct permissions on config.json
+    chmod 644 /etc/coolercontrol/plugins/coolerdash/config.json 2>/dev/null || true
+
     systemctl daemon-reload
 
     # Restart plugin service directly if it already exists (reinstall case)
@@ -66,6 +87,25 @@ post_upgrade() {
     rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
     rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
 
+    # Ensure correct permissions — coolercontrol.json is NEVER touched if it exists
+    chmod 644 /etc/coolercontrol/plugins/coolerdash/config.json 2>/dev/null || true
+    if [ ! -f /etc/coolercontrol/plugins/coolerdash/coolercontrol.json ]; then
+        install -Dm600 /dev/null /etc/coolercontrol/plugins/coolerdash/coolercontrol.json
+        cat > /etc/coolercontrol/plugins/coolerdash/coolercontrol.json << 'EOF'
+{
+  "_comment": "CoolerDash daemon configuration — chmod 600, never overwritten by updates",
+  "_info": "Edit this file as root. Changes take effect after plugin restart.",
+
+  "daemon": {
+    "address": "http://localhost:11987",
+    "access_token": "",
+    "_comment_token": "Create a token in CoolerControl UI \u2192 Access Protection. Format: cc_<uuid>."
+  }
+}
+EOF
+        chmod 600 /etc/coolercontrol/plugins/coolerdash/coolercontrol.json
+    fi
+
     systemctl daemon-reload
 
     # Restart plugin
@@ -75,6 +115,8 @@ post_upgrade() {
 
     echo "================================================================"
     echo "CoolerDash upgraded successfully."
+    echo "Note: config.json is preserved. If a new template was shipped,"
+    echo "      compare it with /etc/coolercontrol/plugins/coolerdash/config.json.pacnew"
     echo "================================================================"
 }
 

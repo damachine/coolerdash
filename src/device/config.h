@@ -82,6 +82,8 @@ typedef struct
     int offset_y;                         /**< Display Y offset for value text */
     float font_size_temp;                 /**< Per-sensor temp font size (0 = use global) */
     char label[32];                       /**< Custom display label (empty = auto) */
+    float value_to_bar_gap;               /**< Gap above bar as % of available_height (0 = auto) */
+    float label_to_bar_gap;               /**< Gap below bar as % of available_height (0 = auto) */
 } SensorConfig;
 
 /**

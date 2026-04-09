@@ -1,11 +1,6 @@
 {
   "_comment": "CoolerDash Plugin Configuration - All values with defaults",
-
-  "daemon": {
-    "address": "http://localhost:11987",
-    "access_token": "",
-    "_comment_token": "Create a token in CoolerControl UI → Access Protection. Format: cc_<uuid>."
-  },
+  "_comment_daemon": "daemon section (address, access_token) is stored in coolercontrol.json (chmod 600)",
 
   "device_detection": {
     "mode": "strict",
@@ -22,7 +17,7 @@
 
   "display": {
     "mode": "circle",
-    "circle_switch_interval": 5,
+    "circle_switch_interval": 6,
     "circle_show_extra_info": true,
     "refresh_interval": 2.5,
     "brightness": 80,
@@ -33,8 +28,8 @@
     "height": 0,
     "content_scale_factor": 0.98,
     "sensor_slot_1": "cpu",
-    "sensor_slot_2": "liquid",
-    "sensor_slot_3": "gpu"
+    "sensor_slot_2": "gpu",
+    "sensor_slot_3": "liquid"
   },
 
   "layout": {

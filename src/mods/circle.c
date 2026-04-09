@@ -418,8 +418,15 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const double value_bar_gap = region_gap * 0.05;
 
     const double value_box_y = params->margin_top;
-    const double value_box_height = fmax(0.0, bar_y - value_bar_gap - params->margin_top);
-    const double label_box_y = bar_y + bar_height + region_gap;
+    const SensorConfig *sc_gap = get_sensor_config(config, slot_value);
+    const double gap_above = (sc_gap && sc_gap->value_to_bar_gap > 0.0f)
+        ? available_height * (sc_gap->value_to_bar_gap / 100.0)
+        : value_bar_gap;
+    const double gap_below = (sc_gap && sc_gap->label_to_bar_gap > 0.0f)
+        ? available_height * (sc_gap->label_to_bar_gap / 100.0)
+        : region_gap;
+    const double value_box_height = fmax(0.0, bar_y - gap_above - params->margin_top);
+    const double label_box_y = bar_y + bar_height + gap_below;
     const double label_box_height =
         fmax(0.0, config->display_height - params->margin_bottom - label_box_y);
 

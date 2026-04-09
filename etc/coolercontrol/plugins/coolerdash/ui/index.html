@@ -600,7 +600,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;).</span>
+                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is stored securely in <code>coolercontrol.json</code> (chmod 600) &mdash; this field will appear empty on the next load.</span>
                     <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
             </div>
@@ -620,8 +620,8 @@
 
                     <div class="form-group" id="circle_interval_group" style="display: none;">
                         <label class="form-label">Switch Interval (Seconds)</label>
-                        <span class="form-hint">How long each sensor is shown (Default: 5)</span>
                         <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
+                        <span class="form-hint">How long each sensor is shown (Default: 6)</span>
                     </div>
                     <div class="form-group" id="circle_extra_info_group" style="display: none;">
                         <label class="form-label">
@@ -655,7 +655,7 @@
 
                     <div class="form-group" id="sensor_slot_2_group">
                         <label class="form-label">Slot 2</label>
-                        <span class="form-hint">Default: Liquid (Circle only)</span>
+                        <span class="form-hint">Default: GPU (Circle only)</span>
                         <select name="display.sensor_slot_2" id="sensor_slot_2" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -668,7 +668,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Slot 3</label>
-                        <span class="form-hint">Default: GPU</span>
+                        <span class="form-hint">Default: Liquid</span>
                         <select name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -716,6 +716,14 @@
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label">Content Scale</label>
+                        <span class="form-hint">Default: 0.98</span>
+                        <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="form-group">
                         <label class="form-label">Width (Pixels)</label>
                         <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
                         <input type="number" name="display.width" class="form-control" min="0" max="1024">
@@ -725,12 +733,6 @@
                         <label class="form-label">Height (Pixels)</label>
                         <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
                         <input type="number" name="display.height" class="form-control" min="0" max="1024">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Content Scale</label>
-                        <span class="form-hint">Default: 0.98</span>
-                        <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
 
@@ -1061,10 +1063,6 @@
                             <span class="device-info-value mono" id="device-resolution">&mdash;</span>
                         </div>
                         <div class="device-info-row">
-                            <span class="device-info-label">Display Shape</span>
-                            <span class="device-info-value" id="device-shape">&mdash;</span>
-                        </div>
-                        <div class="device-info-row">
                             <span class="device-info-label">Firmware</span>
                             <span class="device-info-value mono" id="device-firmware">&mdash;</span>
                         </div>
@@ -1104,7 +1102,7 @@
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Website</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener">github.com/damachine/coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener" onclick="openExternalUrl('https://github.com/damachine/coolerdash'); return false;">github.com/damachine/coolerdash</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">License</div>
@@ -1121,15 +1119,15 @@
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Bug Reports &amp; Feature Requests</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener">GitHub Issues</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener" onclick="openExternalUrl('https://github.com/damachine/coolerdash/issues'); return false;">GitHub Issues</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Discussions</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener">GitHub Discussions</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener" onclick="openExternalUrl('https://github.com/damachine/coolerdash/discussions'); return false;">GitHub Discussions</a></div>
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Discord</div>
-                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener">CoolerControl Discord &mdash; #coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener" onclick="openExternalUrl('https://discord.com/channels/908873022105079848/1461781766791499981'); return false;">CoolerControl Discord &mdash; #coolerdash</a></div>
                     </div>
                 </div>
 
@@ -1180,7 +1178,7 @@
             },
             display: {
                 mode: "circle",
-                circle_switch_interval: 5,
+                circle_switch_interval: 6,
                 circle_show_extra_info: true,
                 refresh_interval: 2.5,
                 brightness: 80,
@@ -1191,8 +1189,8 @@
                 height: 0,
                 content_scale_factor: 0.98,
                 sensor_slot_1: "cpu",
-                sensor_slot_2: "liquid",
-                sensor_slot_3: "gpu"
+                sensor_slot_2: "gpu",
+                sensor_slot_3: "liquid"
             },
             layout: {
                 bar_height: 24,
@@ -1232,7 +1230,9 @@
                     threshold_3_color: { r: 255, g: 70, b: 0 },
                     threshold_4_color: { r: 255, g: 0, b: 0 },
                     offset_x: 0,
-                    offset_y: 0
+                    offset_y: 0,
+                    value_to_bar_gap: 0,
+                    label_to_bar_gap: 0
                 },
                 gpu: {
                     threshold_1: 55.0,
@@ -1246,7 +1246,9 @@
                     threshold_3_color: { r: 255, g: 70, b: 0 },
                     threshold_4_color: { r: 255, g: 0, b: 0 },
                     offset_x: 0,
-                    offset_y: 0
+                    offset_y: 0,
+                    value_to_bar_gap: 0,
+                    label_to_bar_gap: 0
                 },
                 liquid: {
                     threshold_1: 30.0,
@@ -1260,7 +1262,9 @@
                     threshold_3_color: { r: 255, g: 70, b: 0 },
                     threshold_4_color: { r: 255, g: 0, b: 0 },
                     offset_x: 0,
-                    offset_y: 0
+                    offset_y: 0,
+                    value_to_bar_gap: 0,
+                    label_to_bar_gap: 0
                 }
             },
             positioning: {
@@ -1277,6 +1281,18 @@
         let currentTab = 0;
         let discoveredSensors = [];
         let currentSensorConfig = {};
+
+        /**
+         * @brief Open an external URL — works inside CC4's iframe sandbox via postMessage.
+         */
+        function openExternalUrl(url) {
+            // CC4 listens for 'openUrl' postMessage to open links in the host browser
+            if (isInCoolerControl) {
+                window.parent.postMessage({ type: 'openUrl', body: { url: url } }, '*');
+            } else {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            }
+        }
 
         /**
          * @brief Escape HTML special characters to prevent XSS.
@@ -1796,7 +1812,8 @@
                 threshold_2_color: { r: 255, g: 140, b: 0 },
                 threshold_3_color: { r: 255, g: 70, b: 0 },
                 threshold_4_color: { r: 255, g: 0, b: 0 },
-                offset_x: 0, offset_y: 0
+                offset_x: 0, offset_y: 0,
+                value_to_bar_gap: 0, label_to_bar_gap: 0
             };
 
             if (sensorId === 'liquid') {
@@ -1931,6 +1948,8 @@
                 var eFontSize = Number(sc.font_size_temp) || 0;
                 var eOffsetX = Number(sc.offset_x) || 0;
                 var eOffsetY = Number(sc.offset_y) || 0;
+                var eValueGap = Number(sc.value_to_bar_gap) || 0;
+                var eLabelGap = Number(sc.label_to_bar_gap) || 0;
                 var eThresh1 = Number(sc.threshold_1 !== undefined ? sc.threshold_1 : defs.threshold_1);
                 var eThresh2 = Number(sc.threshold_2 !== undefined ? sc.threshold_2 : defs.threshold_2);
                 var eThresh3 = Number(sc.threshold_3 !== undefined ? sc.threshold_3 : defs.threshold_3);
@@ -1967,6 +1986,16 @@
                                     '<label class="form-label">Y Offset</label>' +
                                     '<span class="form-hint">Auto-layout fine-tuning only</span>' +
                                     '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + eOffsetY + '" step="1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Value Gap</label>' +
+                                    '<span class="form-hint">% of height above bar (0 = auto)</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="value_to_bar_gap" class="form-control sensor-field" value="' + eValueGap + '" min="0" max="100" step="0.1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Label Gap</label>' +
+                                    '<span class="form-hint">% of height below bar (0 = auto)</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="label_to_bar_gap" class="form-control sensor-field" value="' + eLabelGap + '" min="0" max="100" step="0.1">' +
                                 '</div>' +
                             '</div>' +
 
@@ -2192,14 +2221,18 @@
                     var width = lcdInfo ? (lcdInfo.screen_width || 0) : 0;
                     var height = lcdInfo ? (lcdInfo.screen_height || 0) : 0;
 
+                    // Fallback: use configured display dimensions if API doesn't report lcd_info
+                    if (width === 0 || height === 0) {
+                        var cfgW = parseInt((document.querySelector('[name="display.width"]') || {}).value, 10) || 0;
+                        var cfgH = parseInt((document.querySelector('[name="display.height"]') || {}).value, 10) || 0;
+                        if (cfgW > 0 && cfgH > 0) { width = cfgW; height = cfgH; }
+                    }
+
                     var resEl = document.getElementById('device-resolution');
-                    var shapeEl = document.getElementById('device-shape');
                     if (width > 0 && height > 0) {
                         resEl.textContent = width + ' \u00D7 ' + height + ' px';
-                        shapeEl.textContent = (width === height) ? 'Circular' : 'Rectangular';
                     } else {
                         resEl.textContent = 'Not available';
-                        shapeEl.textContent = 'Unknown';
                     }
 
                     document.getElementById('device-status').innerHTML =
@@ -2209,7 +2242,6 @@
                     document.getElementById('device-name').textContent = '\u2014';
                     document.getElementById('device-uid').textContent = '\u2014';
                     document.getElementById('device-resolution').textContent = '\u2014';
-                    document.getElementById('device-shape').textContent = '\u2014';
                     document.getElementById('device-firmware').textContent = '\u2014';
                     document.getElementById('device-liquidctl').textContent = '\u2014';
                     document.getElementById('device-status').innerHTML =
@@ -2309,7 +2341,7 @@
                 if (midSlot) midSlot.value = 'none';
             } else if (mode === 'circle') {
                 var midSlot = document.getElementById('sensor_slot_2');
-                if (midSlot && midSlot.value === 'none') midSlot.value = 'liquid';
+                if (midSlot && midSlot.value === 'none') midSlot.value = 'gpu';
             }
             validateSensorSlots();
         }
@@ -2479,7 +2511,7 @@
 
             // Sensor slot selects: ensure custom values are available as options
             var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'liquid', sensor_slot_3: 'gpu' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'liquid' };
             for (var sf = 0; sf < slotFields.length; sf++) {
                 var slotValue = config.display && config.display[slotFields[sf]];
                 if (slotValue) {
@@ -2643,19 +2675,19 @@
                 if (!sensors.hasOwnProperty(id)) continue;
                 // Remove corrupt numeric sensor IDs from old parseFloat bug
                 if (/^\d+$/.test(id)) continue;
-                var defaults = merged.sensors[id] || getDefaultSensorConfig(id);
-                merged.sensors[id] = Object.assign({}, defaults, sensors[id]);
+                var sensorDefaults = merged.sensors[id] || getDefaultSensorConfig(id);
+                merged.sensors[id] = Object.assign({}, sensorDefaults, sensors[id]);
                 // Deep merge color objects
                 var colorKeys = ['threshold_1_color', 'threshold_2_color', 'threshold_3_color', 'threshold_4_color'];
                 for (var c = 0; c < colorKeys.length; c++) {
                     if (sensors[id][colorKeys[c]]) {
-                        merged.sensors[id][colorKeys[c]] = Object.assign({}, defaults[colorKeys[c]] || {}, sensors[id][colorKeys[c]]);
+                        merged.sensors[id][colorKeys[c]] = Object.assign({}, sensorDefaults[colorKeys[c]] || {}, sensors[id][colorKeys[c]]);
                     }
                 }
             }
 
             // Sanitize corrupt numeric slot values (from old parseFloat bug)
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'liquid', sensor_slot_3: 'gpu' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'liquid' };
             for (var slotKey in slotDefaults) {
                 if (merged.display && merged.display[slotKey] !== undefined) {
                     var sv = String(merged.display[slotKey]);
