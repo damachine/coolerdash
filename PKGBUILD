@@ -42,7 +42,7 @@ build() {
     make
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
-    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons" "${srcdir}/etc/udev/rules.d"
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons"
     cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
     cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
@@ -74,7 +74,7 @@ package() {
     install -Dm644 "${srcdir}/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
     install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
     install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
-    install -Dm666 "${srcdir}/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
+    install -Dm600 "${srcdir}/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
 
     install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui"
     install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"

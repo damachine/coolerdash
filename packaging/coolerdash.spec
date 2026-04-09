@@ -76,7 +76,7 @@ fi
 
 %post
 if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
-    chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
+    chmod 600 /etc/coolercontrol/plugins/coolerdash/config.json
 fi
 # Remove legacy files
 rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service

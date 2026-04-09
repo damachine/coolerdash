@@ -346,10 +346,10 @@ install: check-deps $(TARGET)
 	@$(INSTALL_DATA) CHANGELOG.md "$(DESTDIR)$(PLUGINDIR)/CHANGELOG.md"
 	@$(INSTALL_DATA) VERSION "$(DESTDIR)$(PLUGINDIR)/VERSION"
 	@if [ -f "$(DESTDIR)$(PLUGINDIR)/config.json" ]; then \
-		$(INSTALL) -m 666 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json.new"; \
+		$(INSTALL) -m 600 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json.new"; \
 		printf "  $(YELLOW)Config:$(RESET) Existing config.json preserved. New defaults saved as config.json.new\n"; \
 	else \
-		$(INSTALL) -m 666 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json"; \
+		$(INSTALL) -m 600 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json"; \
 	fi
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
 	@$(INSTALL_DATA) etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
