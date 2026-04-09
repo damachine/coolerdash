@@ -1157,7 +1157,7 @@
         <!-- Restart Notice -->
         <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.05); border-left: 3px solid #ff8c00; border-radius: 4px;">
             <p style="margin: 0; color: var(--text-dim); font-size: 13px;">
-                <strong>Note:</strong> After saving, reload the config with <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px;">kill -HUP $(pgrep coolerdash)</code> or restart the service: <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px;">systemctl restart cc-plugin-coolerdash.service</code>
+                <strong>Note:</strong> Clicking <em>Save</em> will automatically apply the configuration and restart the plugin.
             </p>
         </div>
     </div>
@@ -1352,23 +1352,66 @@
         }
 
         // Fallback for getDevices() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
-        // Inside CC4's sandboxed iframe, cc-plugin-lib.js provides the real getDevices() via postMessage.
+        // Note: cc-plugin-lib defines functions with `const` (not var/window), so typeof check always
+        // triggers even when cc-plugin-lib is loaded. We therefore implement postMessage for CC4 context.
         if (typeof getDevices === 'undefined') {
             window.getDevices = async function() {
-                var headers = makeAuthHeaders(lastApiToken);
-                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
-                if (!res.ok) return { devices: [] };
-                return res.json();
+                if (isInCoolerControl) {
+                    return new Promise(function(resolve) {
+                        var handler = function(event) {
+                            if (event.data && event.data.type === 'devices') {
+                                window.removeEventListener('message', handler);
+                                var body = event.data.body || [];
+                                resolve({ devices: Array.isArray(body) ? body : (body.devices || []) });
+                            }
+                        };
+                        window.addEventListener('message', handler);
+                        window.parent.postMessage({ type: 'devices' }, document.location.origin);
+                        setTimeout(function() {
+                            window.removeEventListener('message', handler);
+                            resolve({ devices: [] });
+                        }, 3000);
+                    });
+                }
+                try {
+                    var headers = makeAuthHeaders(lastApiToken);
+                    var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
+                    if (!res.ok) return { devices: [] };
+                    return res.json();
+                } catch (e) {
+                    return { devices: [] };
+                }
             };
         }
 
         // Fallback for getStatus() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
         if (typeof getStatus === 'undefined') {
             window.getStatus = async function() {
-                var headers = makeAuthHeaders(lastApiToken);
-                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.json();
+                if (isInCoolerControl) {
+                    return new Promise(function(resolve) {
+                        var handler = function(event) {
+                            if (event.data && event.data.type === 'status') {
+                                window.removeEventListener('message', handler);
+                                var body = event.data.body;
+                                resolve(body || { devices: [] });
+                            }
+                        };
+                        window.addEventListener('message', handler);
+                        window.parent.postMessage({ type: 'status' }, document.location.origin);
+                        setTimeout(function() {
+                            window.removeEventListener('message', handler);
+                            resolve({ devices: [] });
+                        }, 3000);
+                    });
+                }
+                try {
+                    var headers = makeAuthHeaders(lastApiToken);
+                    var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
+                    if (!res.ok) return { devices: [] };
+                    return res.json();
+                } catch (e) {
+                    return { devices: [] };
+                }
             };
         }
 
@@ -1377,6 +1420,32 @@
             var t = (token || '').trim();
             if (t) return { 'Authorization': 'Bearer ' + t };
             return {};
+        }
+
+        // Normalize getDevices() return value: cc-plugin-lib returns an Array directly,
+        // the REST API and our fallback return { devices: [...] }.
+        function normalizeDevices(raw) {
+            if (!raw) return [];
+            if (Array.isArray(raw)) return raw;
+            if (Array.isArray(raw.devices)) return raw.devices;
+            return [];
+        }
+
+        // Normalize getStatus() return value: cc-plugin-lib returns a Map or { devices: [...] },
+        // the REST API returns { devices: [...] }.
+        function normalizeStatus(raw) {
+            if (!raw) return [];
+            if (Array.isArray(raw)) return raw;
+            if (raw instanceof Map) {
+                // Map keyed by uid, values are status objects
+                var arr = [];
+                raw.forEach(function(val, key) {
+                    arr.push(typeof val === 'object' ? Object.assign({ uid: key }, val) : { uid: key });
+                });
+                return arr;
+            }
+            if (Array.isArray(raw.devices)) return raw.devices;
+            return [];
         }
 
         function splitPatternList(patternList) {
@@ -1446,33 +1515,45 @@
         }
 
         function scoreDetectedDevice(device, detectionSettings) {
+            if (!device || !device.uid) return -1000;
             var lcdInfo = getDeviceLcdInfo(device);
-            if (!device || !device.uid || !lcdInfo) return -1000;
 
             if (candidateMatchesPatterns(device, detectionSettings.blocklist)) return -1000;
             if (candidateMatchesPatterns(device, detectionSettings.allowlist)) {
-                return 1000 + ((lcdInfo.screen_width || 0) * (lcdInfo.screen_height || 0));
+                return 1000 + ((lcdInfo ? (lcdInfo.screen_width || 0) * (lcdInfo.screen_height || 0) : 0));
             }
 
             var score = 0;
             var type = String(device.d_type || device.type || '');
             var name = String(device.name || '');
 
+            // Device type: Liquidctl = AIO cooler driver, others penalised
             if (type === 'Liquidctl') score += 30;
             else if (type === 'Hwmon' || type === 'CustomSensors' || type === 'CPU' || type === 'GPU') score -= 40;
             else if (type) score += 8;
 
-            if (ciContains(name, 'kraken') || ciContains(name, 'elite') || ciContains(name, 'hydro') ||
-                ciContains(name, 'capellix') || ciContains(name, 'lcd') || ciContains(name, 'display') ||
+            // Capability signals (independent of brand): has an 'lcd' channel key
+            var channels = (device.info && device.info.channels) ? device.info.channels : {};
+            if (Object.prototype.hasOwnProperty.call(channels, 'lcd')) score += 30;
+
+            // Has liquidctl firmware info → confirmed AIO cooler
+            if (device.lc_info && device.lc_info.driver_type) score += 15;
+
+            // Generic name hints only (no brand names)
+            if (ciContains(name, 'lcd') || ciContains(name, 'display') ||
                 ciContains(name, 'screen') || ciContains(name, 'aio')) {
-                score += 24;
+                score += 12;
             }
 
             if (looksLikeMainboardCandidate(name)) score -= 80;
 
-            if (lcdInfo.screen_width === lcdInfo.screen_height) score += 6;
-            else score += 3;
-            if (lcdInfo.screen_width >= 240 && lcdInfo.screen_height >= 240) score += 4;
+            // lcd_info dimensions (present after REST enrichment)
+            if (lcdInfo) {
+                score += 20; // has a real lcd_info → definitive LCD hardware
+                if (lcdInfo.screen_width === lcdInfo.screen_height) score += 6;
+                else score += 3;
+                if (lcdInfo.screen_width >= 240 && lcdInfo.screen_height >= 240) score += 4;
+            }
 
             if (detectionSettings.mode === 'relaxed') return Math.max(score, 0);
             if (detectionSettings.mode === 'balanced') return score >= 0 ? score : -1;
@@ -1525,14 +1606,14 @@
                 // Falls back to direct fetch in dev/browser mode via the fallback definitions above.
                 const devData = await getDevices();
                 const deviceNames = {};
-                for (const dev of (devData.devices || [])) {
+                for (const dev of normalizeDevices(devData)) {
                     if (dev.uid) deviceNames[dev.uid] = dev.name || dev.uid;
                 }
 
                 const statusData = await getStatus();
 
                 const sensors = [];
-                for (const dev of (statusData.devices || [])) {
+                for (const dev of normalizeStatus(statusData)) {
                     const uid = dev.uid || '';
                     const devName = deviceNames[uid] || uid;
                     const lastStatus = Array.isArray(dev.status_history) && dev.status_history.length > 0
@@ -2053,11 +2134,24 @@
             errorEl.style.display = 'none';
 
             try {
-                // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                // Use getDevices() — cc-plugin-lib postMessage path works in the CC4 sandbox;
+                // direct fetch() is blocked by the iframe sandbox.
                 var data = await getDevices();
 
-                var devices = data.devices || [];
-                var found = findBestDetectedDevice(devices, buildConfig());
+                var devices = normalizeDevices(data);
+
+                // Read detection settings directly from DOM to avoid buildConfig() dependency.
+                var modeEl = document.querySelector('[name="device_detection.mode"]');
+                var allowEl = document.querySelector('[name="device_detection.allowlist"]');
+                var blockEl = document.querySelector('[name="device_detection.blocklist"]');
+                var detectionCfg = {
+                    device_detection: {
+                        mode: modeEl ? modeEl.value : 'strict',
+                        allowlist: allowEl ? allowEl.value : '',
+                        blocklist: blockEl ? blockEl.value : ''
+                    }
+                };
+                var found = findBestDetectedDevice(devices, detectionCfg);
 
                 loadingEl.style.display = 'none';
 
@@ -2066,6 +2160,27 @@
                     var uid = found.uid || '\u2014';
                     document.getElementById('device-name').textContent = name;
                     document.getElementById('device-uid').textContent = uid;
+
+                    // cc-plugin-lib postMessage omits lc_info and lcd_info.
+                    // Try a direct REST fetch to fill in the missing fields (best-effort).
+                    if (found.uid && apiAddress) {
+                        try {
+                            var devHeaders = makeAuthHeaders(token);
+                            var fullRes = await fetch(apiAddress + '/devices', { headers: devHeaders });
+                            if (fullRes.ok) {
+                                var fullData = await fullRes.json();
+                                var fullDevices = normalizeDevices(fullData);
+                                for (var fi = 0; fi < fullDevices.length; fi++) {
+                                    if (fullDevices[fi].uid === found.uid) {
+                                        found = fullDevices[fi];
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (fetchErr) {
+                            console.debug('Full device fetch failed (sandbox), using postMessage data:', fetchErr);
+                        }
+                    }
 
                     var firmware = (found.lc_info && found.lc_info.firmware_version) || '\u2014';
                     document.getElementById('device-firmware').textContent = firmware;
@@ -2081,8 +2196,7 @@
                     var shapeEl = document.getElementById('device-shape');
                     if (width > 0 && height > 0) {
                         resEl.textContent = width + ' \u00D7 ' + height + ' px';
-                        var isCircular = name.includes('Kraken') && (width > 240 || height > 240);
-                        shapeEl.textContent = isCircular ? 'Circular' : 'Rectangular';
+                        shapeEl.textContent = (width === height) ? 'Circular' : 'Rectangular';
                     } else {
                         resEl.textContent = 'Not available';
                         shapeEl.textContent = 'Unknown';
@@ -2105,12 +2219,10 @@
             } catch (error) {
                 console.warn('Device detection failed:', error);
                 loadingEl.style.display = 'none';
-                document.getElementById('device-status').innerHTML =
-                    '<span class="device-status error"><span class="device-status-dot"></span> Detection failed</span>';
-                document.getElementById('device-error-text').textContent =
-                    'Could not connect to CoolerControl API (' + error.message + ').';
+                var statusEl = document.getElementById('device-status');
+                if (statusEl) statusEl.innerHTML =
+                    '<span class="device-status error"><span class="device-status-dot"></span> Detection failed: ' + (error && error.message ? error.message : String(error)) + '</span>';
                 contentEl.style.display = 'block';
-                errorEl.style.display = 'block';
             }
         }
 
@@ -2123,31 +2235,47 @@
                 lastApiAddress = apiAddress;
                 lastApiToken = token;
 
-                // /health has no cc-plugin-lib equivalent; only fetch it in dev/browser mode
+                // /health fetch isolated so a failure doesn't block the kernel lookup below.
+                // Also used as fallback in dev/browser mode where fetch() works.
+                var healthFetched = false;
                 if (!isInCoolerControl) {
-                    var headers = makeAuthHeaders(token);
-                    var healthRes = await fetch(apiAddress + '/health', { headers: headers });
-                    if (healthRes.ok) {
-                        var health = await healthRes.json();
-                        var ccVersion = (health.details && health.details.version) || '\u2014';
-                        document.getElementById('sys-cc-version').textContent = ccVersion;
+                    try {
+                        var headers = makeAuthHeaders(token);
+                        var healthRes = await fetch(apiAddress + '/health', { headers: headers });
+                        if (healthRes.ok) {
+                            var health = await healthRes.json();
+                            var ccVersion = (health.details && health.details.version) || '\u2014';
+                            document.getElementById('sys-cc-version').textContent = ccVersion;
+                            healthFetched = true;
+                        }
+                    } catch (healthErr) {
+                        console.warn('Health fetch failed:', healthErr);
                     }
                 }
 
                 // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                // CC version: device with drv_type='CoolerControl' carries driver_info.version = CC version.
+                // Kernel version: device with drv_type='Kernel' carries driver_info.version.
                 var data = await getDevices();
-                var devices = data.devices || [];
+                var devices = normalizeDevices(data);
                 var kernel = '';
+                var ccVer = '';
                 for (var i = 0; i < devices.length; i++) {
                     var drvType = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.drv_type;
                     var ver = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.version;
-                    if (drvType === 'Kernel' && ver) {
+                    if (drvType === 'Kernel' && ver && !kernel) {
                         kernel = ver;
-                        break;
                     }
+                    if (drvType === 'CoolerControl' && ver && !ccVer) {
+                        ccVer = ver;
+                    }
+                    if (kernel && ccVer) break;
                 }
                 if (kernel) {
                     document.getElementById('sys-kernel').textContent = kernel;
+                }
+                if (ccVer && !healthFetched) {
+                    document.getElementById('sys-cc-version').textContent = ccVer;
                 }
             } catch (error) {
                 console.warn('System info fetch failed:', error);
