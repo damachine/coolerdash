@@ -675,128 +675,8 @@ static const char *find_config_json(const char *custom_path)
     return NULL;
 }
 
-/* Forward declarations — defined below, used here before their definition */
+/* Forward declaration — defined below, used here before its definition */
 static void load_daemon_from_json(json_t *root, Config *config);
-static const char *find_coolercontrol_json(void);
-
-/**
- * @brief Migrate access_token from config.json to coolercontrol.json and strip it.
- * @details Called after loading config.json. If config.json contains a non-empty access_token
- *          that differs from the coolercontrol.json baseline, the token is written to
- *          coolercontrol.json (chmod 600) and removed from config.json (chmod 644).
- *          This ensures the token never persists in the world-readable config.json.
- */
-static void migrate_token_from_config_json(const char *config_json_path,
-                                           const char *new_token,
-                                           const char *cc_token)
-{
-    /* Only migrate if config.json had a non-empty token that differs from coolercontrol.json */
-    if (!new_token || new_token[0] == '\0')
-        return;
-    if (cc_token && strcmp(new_token, cc_token) == 0)
-        return;
-
-    /* 1. Write token to coolercontrol.json */
-    const char *cc_path = find_coolercontrol_json();
-    if (cc_path)
-    {
-        json_error_t error;
-        json_t *cc_root = json_load_file(cc_path, 0, &error);
-        if (cc_root)
-        {
-            json_t *daemon = json_object_get(cc_root, "daemon");
-            if (!daemon)
-            {
-                daemon = json_object();
-                json_object_set_new(cc_root, "daemon", daemon);
-            }
-            json_object_set_new(daemon, "access_token", json_string(new_token));
-            if (json_dump_file(cc_root, cc_path, JSON_INDENT(2)) == 0)
-                log_message(LOG_STATUS, "Access token migrated to coolercontrol.json (chmod 600)");
-            else
-                log_message(LOG_WARNING, "Failed to write token to coolercontrol.json");
-            json_decref(cc_root);
-        }
-        else
-        {
-            log_message(LOG_WARNING, "Cannot parse coolercontrol.json for migration: %s", error.text);
-        }
-    }
-    else
-    {
-        log_message(LOG_WARNING, "coolercontrol.json not found — token migration skipped");
-        return;
-    }
-
-    /* 2. Strip access_token from config.json */
-    if (!config_json_path)
-        return;
-    json_error_t error;
-    json_t *cfg_root = json_load_file(config_json_path, 0, &error);
-    if (!cfg_root)
-        return;
-    json_t *daemon = json_object_get(cfg_root, "daemon");
-    if (daemon && json_is_object(daemon))
-    {
-        json_object_del(daemon, "access_token");
-        /* Remove daemon section entirely if it only contained access_token */
-        if (json_object_size(daemon) == 0)
-            json_object_del(cfg_root, "daemon");
-    }
-    if (json_dump_file(cfg_root, config_json_path, JSON_INDENT(2)) == 0)
-        log_message(LOG_INFO, "access_token stripped from config.json");
-    else
-        log_message(LOG_WARNING, "Failed to strip access_token from config.json");
-    json_decref(cfg_root);
-}
-
-/**
- * @brief Try to locate coolercontrol.json (chmod 600, separate from config.json).
- * @details Contains the daemon section (address + access_token). Never overwritten by make install.
- */
-static const char *find_coolercontrol_json(void)
-{
-    static const char *cc_paths[] = {
-        "/etc/coolercontrol/plugins/coolerdash/coolercontrol.json",
-        NULL};
-
-    for (int i = 0; cc_paths[i] != NULL; i++)
-    {
-        FILE *fp = fopen(cc_paths[i], "r");
-        if (fp)
-        {
-            fclose(fp);
-            return cc_paths[i];
-        }
-    }
-
-    return NULL;
-}
-
-/**
- * @brief Load daemon section from coolercontrol.json (chmod 600).
- * @details Read before config.json so GUI saves in config.json override the baseline.
- */
-static void load_coolercontrol_json(Config *config)
-{
-    const char *cc_path = find_coolercontrol_json();
-    if (!cc_path)
-        return;
-
-    json_error_t error;
-    json_t *root = json_load_file(cc_path, 0, &error);
-    if (!root)
-    {
-        log_message(LOG_WARNING, "Failed to parse coolercontrol.json %s: %s (line %d)",
-                    cc_path, error.text, error.line);
-        return;
-    }
-
-    load_daemon_from_json(root, config);
-    log_message(LOG_INFO, "Daemon config loaded from coolercontrol.json");
-
-    json_decref(root);
-}
 
 /**
  * @brief Load daemon settings from JSON.
@@ -1397,22 +1277,14 @@ int load_plugin_config(Config *config, const char *config_path)
     config->display_degree_spacing = -1;
     // Note: All colors have is_set=0 after memset, so defaults will be applied
 
-    // Load coolercontrol.json (600) first — sets daemon baseline before config.json can override
-    load_coolercontrol_json(config);
-
-    // Remember token from coolercontrol.json before config.json may override it
-    char cc_token_baseline[CONFIG_MAX_TOKEN_LEN];
-    cc_token_baseline[0] = '\0';
-    SAFE_STRCPY(cc_token_baseline, config->access_token);
-
     // Try to find and load JSON config
     const char *json_path = find_config_json(config_path);
     int loaded_from_json = 0;
 
     if (json_path)
     {
-        /* Ensure config.json stays world-readable (CC4 overwrites as root on save) */
-        chmod(json_path, 0644);
+        /* Ensure config.json stays protected (contains access_token) */
+        chmod(json_path, 0600);
 
         log_message(LOG_INFO, "Loading plugin config from: %s", json_path);
 
@@ -1434,11 +1306,6 @@ int load_plugin_config(Config *config, const char *config_path)
             json_decref(root);
             loaded_from_json = 1;
             log_message(LOG_STATUS, "Plugin configuration loaded from JSON");
-
-            // If config.json delivered a token that differs from coolercontrol.json,
-            // migrate it to coolercontrol.json (600) and strip it from config.json (644)
-            if (config->access_token[0] != '\0')
-                migrate_token_from_config_json(json_path, config->access_token, cc_token_baseline);
         }
         else
         {

@@ -230,6 +230,85 @@ static int get_extra_info_line2(const monitor_sensor_data_t *data,
 }
 
 /**
+ * @brief Check if text at position starts with a known unit suffix.
+ * @details Recognises MHz, GHz, RPM (3-char) and W (1-char, only when
+ * followed by end-of-string, space, or another separator).
+ * @param text Pointer into the string to test
+ * @return Length of matched unit token, or 0 if no match
+ */
+static int match_unit_at(const char *text)
+{
+    if (strncmp(text, "MHz", 3) == 0)
+        return 3;
+    if (strncmp(text, "GHz", 3) == 0)
+        return 3;
+    if (strncmp(text, "RPM", 3) == 0)
+        return 3;
+    if (text[0] == 'W' && (text[1] == '\0' || text[1] == ' '))
+        return 1;
+    return 0;
+}
+
+/**
+ * @brief Render text with unit suffixes (MHz, GHz, W, RPM) at 2/3 font size.
+ * @details Walks the string, renders numeric/space segments at @p full_size
+ * and recognised unit tokens at 2/3 of @p full_size.  Uses Cairo's
+ * current-point advancement so no manual x-tracking is needed.
+ * @param cr      Cairo context (font face must already be selected)
+ * @param full_size  Font size for numeric parts
+ * @param x       Left start position
+ * @param y       Baseline position
+ * @param text    The combined info string (e.g. "1500 MHz  95W")
+ */
+static void render_text_with_small_units(cairo_t *cr, double full_size,
+                                         double x, double y,
+                                         const char *text)
+{
+    if (!cr || !text || text[0] == '\0')
+        return;
+
+    const double unit_size = full_size * (2.0 / 3.0);
+    const char *p = text;
+    char segment[64];
+
+    cairo_move_to(cr, x, y);
+    cairo_set_font_size(cr, full_size);
+
+    while (*p)
+    {
+        int unit_len = match_unit_at(p);
+        if (unit_len > 0)
+        {
+            if ((size_t)unit_len >= sizeof(segment))
+                unit_len = (int)(sizeof(segment) - 1);
+            memcpy(segment, p, (size_t)unit_len);
+            segment[unit_len] = '\0';
+
+            cairo_set_font_size(cr, unit_size);
+            cairo_show_text(cr, segment);
+            cairo_set_font_size(cr, full_size);
+
+            p += unit_len;
+        }
+        else
+        {
+            int len = 0;
+            while (p[len] && match_unit_at(p + len) == 0)
+                len++;
+            if ((size_t)len >= sizeof(segment))
+                len = (int)(sizeof(segment) - 1);
+            memcpy(segment, p, (size_t)len);
+            segment[len] = '\0';
+
+            cairo_set_font_size(cr, full_size);
+            cairo_show_text(cr, segment);
+
+            p += len;
+        }
+    }
+}
+
+/**
  * @brief Get the slot value for a given slot index.
  * @param config Configuration
  * @param slot_index 0=slot1, 1=slot2, 2=slot3
@@ -420,11 +499,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const double value_box_y = params->margin_top;
     const SensorConfig *sc_gap = get_sensor_config(config, slot_value);
     const double gap_above = (sc_gap && sc_gap->value_to_bar_gap > 0.0f)
-        ? available_height * (sc_gap->value_to_bar_gap / 100.0)
-        : value_bar_gap;
+                                 ? available_height * (sc_gap->value_to_bar_gap / 100.0)
+                                 : value_bar_gap;
     const double gap_below = (sc_gap && sc_gap->label_to_bar_gap > 0.0f)
-        ? available_height * (sc_gap->label_to_bar_gap / 100.0)
-        : region_gap;
+                                 ? available_height * (sc_gap->label_to_bar_gap / 100.0)
+                                 : region_gap;
     const double value_box_height = fmax(0.0, bar_y - gap_above - params->margin_top);
     const double label_box_y = bar_y + bar_height + gap_below;
     const double label_box_height =
@@ -684,8 +763,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                  ((double)params->safe_bar_width * left_margin_factor) +
                                  get_scaled_label_offset_x(config, params);
 
-                cairo_move_to(cr, extra_x, extra_y);
-                cairo_show_text(cr, extra_buf);
+                render_text_with_small_units(cr, extra_font_size,
+                                             extra_x, extra_y, extra_buf);
 
                 // Second line: fan RPM for CPU/GPU
                 char line2_buf[64];
@@ -719,8 +798,9 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                         config->display_height)
                     {
                         set_cairo_color(cr, value_col);
-                        cairo_move_to(cr, extra_x, line2_y);
-                        cairo_show_text(cr, line2_buf);
+                        render_text_with_small_units(cr, line2_font_size,
+                                                     extra_x, line2_y,
+                                                     line2_buf);
                     }
                 }
             }

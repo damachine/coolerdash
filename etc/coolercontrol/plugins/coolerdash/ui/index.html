@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoolerDash Settings</title>
-    <script type="text/javascript" src="/plugins/lib/cc-plugin-lib.js" onerror="console.warn('cc-plugin-lib.js not found, using fallback')"></script>
+    <script type="text/javascript" src="/plugins/lib/cc-plugin-lib.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -600,7 +600,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is stored securely in <code>coolercontrol.json</code> (chmod 600) &mdash; this field will appear empty on the next load.</span>
+                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is stored securely in <code>config.json</code> (chmod 600). If a token is already set, the field shows <strong>***</strong> &mdash; enter a new value to replace it, or leave <strong>***</strong> unchanged.</span>
                     <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
             </div>
@@ -668,7 +668,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Slot 3</label>
-                        <span class="form-hint">Default: Liquid</span>
+                        <span class="form-hint">Default: Liquid (Circle) / GPU (Dual)</span>
                         <select name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -2339,9 +2339,13 @@
             if (mode === 'dual') {
                 var midSlot = document.getElementById('sensor_slot_2');
                 if (midSlot) midSlot.value = 'none';
+                var slot3 = document.getElementById('sensor_slot_3');
+                if (slot3 && (slot3.value === 'liquid' || slot3.value === 'none')) slot3.value = 'gpu';
             } else if (mode === 'circle') {
                 var midSlot = document.getElementById('sensor_slot_2');
                 if (midSlot && midSlot.value === 'none') midSlot.value = 'gpu';
+                var slot3 = document.getElementById('sensor_slot_3');
+                if (slot3 && slot3.value === 'gpu') slot3.value = 'liquid';
             }
             validateSensorSlots();
         }
@@ -2480,7 +2484,9 @@
             var extraInfoCb = document.getElementById('circle_show_extra_info');
             config.display.circle_show_extra_info = extraInfoCb ? extraInfoCb.checked : false;
 
-            return mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+            var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+
+            return merged;
         }
 
         // ===== POPULATE FORM FROM CONFIG =====
@@ -2617,6 +2623,15 @@
         async function resetConfig() {
             try {
                 var factoryConfig = cloneConfig(RESET_CONFIG || DEFAULT_CONFIG || FACTORY_DEFAULTS);
+                // Preserve the existing access_token — never reset it to default
+                var tokenInput = document.querySelector('[name="daemon.access_token"]');
+                var existingToken = (tokenInput && tokenInput.dataset.realToken) || '';
+                if (existingToken) {
+                    if (!factoryConfig.daemon) factoryConfig.daemon = {};
+                    factoryConfig.daemon.access_token = existingToken;
+                } else if (factoryConfig.daemon) {
+                    delete factoryConfig.daemon.access_token;
+                }
                 await saveAndRestartConfig(factoryConfig);
                 populateForm(factoryConfig);
                 alert('Reset to factory defaults! Plugin will restart.');

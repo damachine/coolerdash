@@ -76,23 +76,7 @@ fi
 
 %post
 if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
-    chmod 644 /etc/coolercontrol/plugins/coolerdash/config.json
-fi
-# coolercontrol.json: create only if not present — never overwritten on update
-if [ ! -f /etc/coolercontrol/plugins/coolerdash/coolercontrol.json ]; then
-    cat > /etc/coolercontrol/plugins/coolerdash/coolercontrol.json << 'CCEOF'
-{
-  "_comment": "CoolerDash daemon configuration — chmod 600, never overwritten by updates",
-  "_info": "Edit this file as root. Changes take effect after plugin restart.",
-
-  "daemon": {
-    "address": "http://localhost:11987",
-    "access_token": "",
-    "_comment_token": "Create a token in CoolerControl UI -> Access Protection. Format: cc_<uuid>."
-  }
-}
-CCEOF
-    chmod 600 /etc/coolercontrol/plugins/coolerdash/coolercontrol.json
+    chmod 600 /etc/coolercontrol/plugins/coolerdash/config.json
 fi
 # Remove legacy files
 rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
@@ -155,7 +139,6 @@ fi
 /usr/libexec/coolerdash/coolerdash
 %dir /etc/coolercontrol/plugins/coolerdash
 %config(noreplace) /etc/coolercontrol/plugins/coolerdash/config.json
-%ghost /etc/coolercontrol/plugins/coolerdash/coolercontrol.json
 /etc/coolercontrol/plugins/coolerdash/manifest.toml
 %dir /etc/coolercontrol/plugins/coolerdash/ui
 /etc/coolercontrol/plugins/coolerdash/ui/index.html

@@ -1,6 +1,10 @@
 {
   "_comment": "CoolerDash Plugin Configuration - All values with defaults",
-  "_comment_daemon": "daemon section (address, access_token) is stored in coolercontrol.json (chmod 600)",
+
+  "daemon": {
+    "address": "http://localhost:11987",
+    "access_token": ""
+  },
 
   "device_detection": {
     "mode": "strict",

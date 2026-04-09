@@ -346,17 +346,11 @@ install: check-deps $(TARGET)
 	@$(INSTALL_DATA) CHANGELOG.md "$(DESTDIR)$(PLUGINDIR)/CHANGELOG.md"
 	@$(INSTALL_DATA) VERSION "$(DESTDIR)$(PLUGINDIR)/VERSION"
 	@if [ -f "$(DESTDIR)$(PLUGINDIR)/config.json" ]; then \
-		$(INSTALL) -m 644 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json.new"; \
-		chmod 644 "$(DESTDIR)$(PLUGINDIR)/config.json"; \
-		printf "  $(YELLOW)Config:$(RESET) Existing config.json preserved (permissions updated to 644). New defaults saved as config.json.new\n"; \
+		$(INSTALL) -m 600 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json.new"; \
+		chmod 600 "$(DESTDIR)$(PLUGINDIR)/config.json"; \
+		printf "  $(YELLOW)Config:$(RESET) Existing config.json preserved (permissions updated to 600). New defaults saved as config.json.new\n"; \
 	else \
-		$(INSTALL) -m 644 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json"; \
-	fi
-	@if [ -f "$(DESTDIR)$(PLUGINDIR)/coolercontrol.json" ]; then \
-		printf "  $(YELLOW)Daemon:$(RESET) Existing coolercontrol.json preserved\n"; \
-	else \
-		$(INSTALL) -m 600 etc/coolercontrol/plugins/coolerdash/coolercontrol.json "$(DESTDIR)$(PLUGINDIR)/coolercontrol.json"; \
-		printf "  $(GREEN)Daemon:$(RESET) $(DESTDIR)$(PLUGINDIR)/coolercontrol.json (chmod 600 — edit as root to set address + access_token)\n"; \
+		$(INSTALL) -m 600 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json"; \
 	fi
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
 	@$(INSTALL_DATA) etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
@@ -365,8 +359,7 @@ install: check-deps $(TARGET)
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)$(libexecdir)/coolerdash/coolerdash\n"
-	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/config.json (chmod 644)\n"
-	@printf "  $(GREEN)Daemon JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/coolercontrol.json (chmod 600)\n"
+	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/config.json (chmod 600)\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)$(PLUGINDIR)/ui/index.html\n"
 	@printf "  $(GREEN)Plugin Lib:$(RESET)   Served by CoolerControl at /plugins/lib/cc-plugin-lib.js\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)$(PLUGINDIR)/manifest.toml\n"
