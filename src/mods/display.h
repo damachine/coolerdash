@@ -88,6 +88,9 @@ typedef struct
  */
 void draw_display_image(const struct Config *config);
 
+/** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
+void reset_display_state(void);
+
 // ============================================================================
 // Shared Cairo Rendering Helpers
 // ============================================================================

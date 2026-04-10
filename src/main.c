@@ -8,8 +8,7 @@
  */
 
 /**
- * @brief Main entry point and daemon lifecycle.
- * @details Signal handling, PID management, version loading, main loop.
+ * @brief Daemon entry point: signal handling, version, main loop.
  */
 
 // Define POSIX constants
@@ -18,7 +17,9 @@
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
+#include <dirent.h>
 #include <errno.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -26,13 +27,15 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <curl/curl.h>
+#include <jansson.h>
 #include <time.h>
 #include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
 #include "device/config.h"
-#include "mods/circle.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -41,47 +44,24 @@
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
 #define VERSION_BUFFER_SIZE 32
+#define CC4_MODE_LOCK "/etc/coolercontrol/plugins/coolerdash/.cc4-mode"
+#define GH_UPDATE_URL "https://api.github.com/repos/damachine/coolerdash/releases/latest"
 
-/**
- * @brief Global variables for daemon management.
- * @details Used for controlling the main daemon loop and shutdown image logic.
- */
-static volatile sig_atomic_t running = 1;       // flag whether daemon is running
-static volatile sig_atomic_t reload_config = 0; // flag for SIGHUP config reload
+static volatile sig_atomic_t running = 1;
+static volatile sig_atomic_t reload_config = 0;
 
-/**
- * @brief File-scope storage for config reload.
- * @details Preserved across reload so reload_daemon_config() can re-read
- * config.json and re-apply CLI overrides.
- */
 static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
 
-/**
- * @brief Global logging control.
- * @details Controls whether detailed INFO logs are shown (enabled with --log
- * parameter).
- */
-int verbose_logging = 0; // Only ERROR and WARNING by default (exported)
+int verbose_logging = 0;
 
-/**
- * @brief Global pointer to configuration.
- * @details Points to the current configuration used by the daemon. Initialized
- * in main().
- */
 const Config *g_config_ptr = NULL;
 
-/**
- * @brief Validate and sanitize version string.
- * @details Checks version string validity and sets default if invalid.
- */
+/** @brief Strip whitespace and validate version string. Sets default on error. */
 static void validate_version_string(char *version_buffer, size_t buffer_size)
 {
-    // Remove trailing whitespace and newlines
     version_buffer[strcspn(version_buffer, "\n\r \t")] = '\0';
 
-    // Validate version string (manual bounded length calculation to avoid strnlen
-    // portability issues)
     size_t ver_len = 0;
     while (ver_len < 21 && version_buffer[ver_len] != '\0')
     {
@@ -94,29 +74,20 @@ static void validate_version_string(char *version_buffer, size_t buffer_size)
     }
 }
 
-/**
- * @brief Read version string from VERSION file with enhanced security.
- * @details Safely reads version from VERSION file with buffer overflow
- * protection and proper validation. Returns fallback version on error.
- */
+/** @brief Read version from VERSION file; returns cached value on repeat calls. */
 static const char *read_version_from_file(void)
 {
     static char version_buffer[VERSION_BUFFER_SIZE] = {0};
     static int version_loaded = 0;
 
-    // Return cached version if already loaded
     if (version_loaded)
     {
         return version_buffer[0] ? version_buffer : DEFAULT_VERSION;
     }
 
-    // Try to read from VERSION file
     FILE *fp = fopen("VERSION", "r");
     if (!fp)
-    {
-        // Try alternative path for installed version
         fp = fopen("/etc/coolercontrol/plugins/coolerdash/VERSION", "r");
-    }
 
     if (!fp)
     {
@@ -144,9 +115,241 @@ static const char *read_version_from_file(void)
     return version_buffer;
 }
 
+/** @brief Parse "X.Y.Z" semver into integers. Returns 1 on success. */
+static int parse_semver(const char *s, int *major, int *minor, int *patch)
+{
+    if (!s)
+        return 0;
+    if (*s == 'v' || *s == 'V')
+        s++;
+    return sscanf(s, "%d.%d.%d", major, minor, patch) == 3;
+}
+
+/** @brief Returns >0 if b is newer than a, 0 if equal, <0 if older. */
+static int semver_newer(const char *a, const char *b)
+{
+    int ma, mia, pa, mb, mib, pb;
+    if (!parse_semver(a, &ma, &mia, &pa) || !parse_semver(b, &mb, &mib, &pb))
+        return 0;
+    if (mb != ma)
+        return mb > ma ? 1 : -1;
+    if (mib != mia)
+        return mib > mia ? 1 : -1;
+    return pb > pa ? 1 : (pb < pa ? -1 : 0);
+}
+
+/** @brief Send desktop notification for available update; opens browser on click.
+ *  @details Runs as root (systemd service), so we must find the active desktop
+ *           user, set DBUS_SESSION_BUS_ADDRESS / XDG_RUNTIME_DIR, and drop
+ *           privileges before calling notify-send.
+ */
+static void send_update_notification(const char *current, const char *latest)
+{
+    if (access("/usr/bin/notify-send", X_OK) != 0)
+        return;
+
+    char body[128];
+    int n = snprintf(body, sizeof(body), "v%s → %s available", current, latest);
+    if (n < 0 || (size_t)n >= sizeof(body))
+        return;
+
+    char url[128];
+    n = snprintf(url, sizeof(url),
+                 "https://github.com/damachine/coolerdash/releases/tag/%s",
+                 latest);
+    if (n < 0 || (size_t)n >= sizeof(url))
+        return;
+
+    /* ── Find active desktop user via /run/user/<uid>/bus ── */
+    DIR *rundir = opendir("/run/user");
+    if (!rundir)
+        return;
+
+    uid_t target_uid = (uid_t)-1;
+    struct dirent *ent;
+    while ((ent = readdir(rundir)) != NULL)
+    {
+        if (ent->d_name[0] == '.')
+            continue;
+        char bus_path[280];
+        snprintf(bus_path, sizeof(bus_path),
+                 "/run/user/%s/bus", ent->d_name);
+        if (access(bus_path, F_OK) == 0)
+        {
+            target_uid = (uid_t)strtoul(ent->d_name, NULL, 10);
+            break;
+        }
+    }
+    closedir(rundir);
+
+    if (target_uid == (uid_t)-1)
+        return;
+
+    struct passwd *pw = getpwuid(target_uid);
+    if (!pw)
+        return;
+
+    pid_t pid = fork();
+    if (pid < 0)
+        return;
+
+    if (pid == 0)
+    {
+        /* Child: set D-Bus environment and drop to desktop user */
+        char dbus_addr[128];
+        snprintf(dbus_addr, sizeof(dbus_addr),
+                 "unix:path=/run/user/%u/bus", (unsigned)target_uid);
+        setenv("DBUS_SESSION_BUS_ADDRESS", dbus_addr, 1);
+
+        char xdg_dir[64];
+        snprintf(xdg_dir, sizeof(xdg_dir),
+                 "/run/user/%u", (unsigned)target_uid);
+        setenv("XDG_RUNTIME_DIR", xdg_dir, 1);
+        setenv("HOME", pw->pw_dir, 1);
+
+        /* Detect display server: Wayland socket or X11 fallback */
+        char wayland_path[128];
+        snprintf(wayland_path, sizeof(wayland_path),
+                 "/run/user/%u/wayland-0", (unsigned)target_uid);
+        if (access(wayland_path, F_OK) == 0)
+        {
+            setenv("WAYLAND_DISPLAY", "wayland-0", 1);
+        }
+        else
+        {
+            setenv("DISPLAY", ":0", 1);
+        }
+
+        /* Drop privileges to desktop user */
+        if (setgid(pw->pw_gid) != 0 || setuid(target_uid) != 0)
+            _exit(1);
+
+        /* Fork grandchild for notify-send with action pipe */
+        int pfd[2];
+        if (pipe(pfd) != 0)
+            _exit(1);
+
+        pid_t np = fork();
+        if (np < 0)
+            _exit(1);
+
+        if (np == 0)
+        {
+            /* Grandchild: exec notify-send, stdout → pipe */
+            close(pfd[0]);
+            dup2(pfd[1], STDOUT_FILENO);
+            close(pfd[1]);
+            execlp("notify-send", "notify-send",
+                   "--wait",
+                   "-t", "10000",
+                   "-i", "coolerdash",
+                   "-a", "CoolerDash",
+                   "-A", "open=Download",
+                   "CoolerDash Update", body,
+                   (char *)NULL);
+            _exit(1);
+        }
+
+        /* Child: read action from notify-send stdout */
+        close(pfd[1]);
+        char action[32] = {0};
+        ssize_t rd = read(pfd[0], action, sizeof(action) - 1);
+        close(pfd[0]);
+        waitpid(np, NULL, 0);
+
+        if (rd > 0)
+        {
+            action[strcspn(action, "\n")] = '\0';
+            if (strcmp(action, "open") == 0 &&
+                access("/usr/bin/xdg-open", X_OK) == 0)
+            {
+                execlp("xdg-open", "xdg-open", url, (char *)NULL);
+            }
+        }
+        _exit(0);
+    }
+
+    /* Parent: don't block — reap child asynchronously */
+    signal(SIGCHLD, SIG_IGN);
+}
+
+/** @brief Query GitHub Releases API and log if a newer version exists. */
+static void check_for_update(const char *current_version)
+{
+    if (!current_version || current_version[0] == '\0')
+        return;
+
+    CURL *curl = curl_easy_init();
+    if (!curl)
+        return;
+
+    http_response buf = {0};
+    if (!cc_init_response_buffer(&buf, 2048))
+    {
+        curl_easy_cleanup(curl);
+        return;
+    }
+
+    char user_agent[64];
+    snprintf(user_agent, sizeof(user_agent), "CoolerDash/%s", current_version);
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
+    headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
+
+    curl_easy_setopt(curl, CURLOPT_URL, GH_UPDATE_URL);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, (curl_write_callback)write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+
+    CURLcode res = curl_easy_perform(curl);
+    long http_code = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    if (res == CURLE_OK && http_code == 200 && buf.data)
+    {
+        json_error_t jerr;
+        json_t *root = json_loads(buf.data, 0, &jerr);
+        if (root)
+        {
+            const json_t *tag = json_object_get(root, "tag_name");
+            if (json_is_string(tag))
+            {
+                const char *latest = json_string_value(tag);
+                if (semver_newer(current_version, latest) > 0)
+                {
+                    log_message(LOG_STATUS,
+                                "Update available: v%s -> %s  "
+                                "https://github.com/damachine/coolerdash/releases",
+                                current_version, latest);
+                    send_update_notification(current_version, latest);
+                }
+                else
+                    log_message(LOG_STATUS,
+                                "CoolerDash v%s is up to date", current_version);
+            }
+            json_decref(root);
+        }
+    }
+    else
+    {
+        log_message(LOG_INFO, "Update check skipped (no network or API unavailable)");
+    }
+
+    cc_cleanup_response_buffer(&buf);
+    if (headers)
+        curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+}
+
 /**
- * @brief Detect if we were started by CoolerControl plugin system.
- * @details Checks INVOCATION_ID environment variable set by systemd/CoolerControl.
+ * @brief Detect if started by CoolerControl plugin system.
  */
 static int is_started_as_plugin(void)
 {
@@ -154,11 +357,7 @@ static int is_started_as_plugin(void)
     return (invocation_id && invocation_id[0]) ? 1 : 0;
 }
 
-/**
- * @brief Enhanced help display with improved formatting and security
- * information.
- * @details Prints comprehensive usage information and security recommendations.
- */
+/** @brief Print usage information and exit hints. */
 static void show_help(const char *program_name)
 {
     if (!program_name)
@@ -229,18 +428,12 @@ static void show_help(const char *program_name)
            "===========\n");
 }
 
-/**
- * @brief Display system information for diagnostics.
- * @details Shows display configuration, API validation results, and refresh
- * interval settings for system diagnostics.
- */
+/** @brief Log display dimensions and refresh interval. */
 static void show_system_diagnostics(const Config *config, int api_width,
                                     int api_height)
 {
     if (!config)
         return;
-
-    // Display configuration with API validation integrated
     if (api_width > 0 && api_height > 0)
     {
         if (api_width != config->display_width ||
@@ -270,13 +463,9 @@ static void show_system_diagnostics(const Config *config, int api_width,
                 config->display_refresh_interval);
 }
 
-/**
- * @brief Enhanced signal handler with atomic operations and secure shutdown.
- * @details Signal-safe implementation using only async-signal-safe functions.
- */
+/** @brief Async-signal-safe shutdown handler. */
 static void handle_shutdown_signal(int signum)
 {
-    // Use only async-signal-safe functions in signal handlers
     static const char term_msg[] =
         "Received SIGTERM - initiating graceful shutdown\n";
     static const char int_msg[] =
@@ -288,7 +477,6 @@ static void handle_shutdown_signal(int signum)
     const char *msg;
     size_t msg_len;
 
-    // Determine appropriate message based on signal
     switch (signum)
     {
     case SIGTERM:
@@ -309,20 +497,12 @@ static void handle_shutdown_signal(int signum)
         break;
     }
 
-    // Write message using async-signal-safe function
     ssize_t written = write(STDERR_FILENO, msg, msg_len);
-    (void)written; // Suppress unused variable warning
-
-    // Signal graceful shutdown atomically
-    // Note: File cleanup (PID, images) is handled in perform_cleanup()
+    (void)written;
     running = 0;
 }
 
-/**
- * @brief Signal handler for SIGHUP (config reload).
- * @details Sets the reload flag so the main loop re-reads config.json.
- * Only uses async-signal-safe functions.
- */
+/** @brief SIGHUP handler — sets reload flag. */
 static void handle_reload_signal(int signum)
 {
     (void)signum;
@@ -332,11 +512,7 @@ static void handle_reload_signal(int signum)
     reload_config = 1;
 }
 
-/**
- * @brief Setup enhanced signal handlers with comprehensive signal management.
- * @details Installs signal handlers for graceful shutdown and blocks unwanted
- * signals.
- */
+/** @brief Install signal handlers for SIGTERM/SIGINT/SIGQUIT/SIGHUP. */
 static void setup_enhanced_signal_handlers(void)
 {
     struct sigaction sa;
@@ -380,9 +556,8 @@ static void setup_enhanced_signal_handlers(void)
                     strerror(errno));
     }
 
-    // Block unwanted signals to prevent interference
     sigemptyset(&block_mask);
-    sigaddset(&block_mask, SIGPIPE); // Prevent broken pipe crashes
+    sigaddset(&block_mask, SIGPIPE);
 
     if (pthread_sigmask(SIG_BLOCK, &block_mask, NULL) != 0)
     {
@@ -390,26 +565,18 @@ static void setup_enhanced_signal_handlers(void)
     }
 }
 
-/**
- * @brief Reload configuration from config.json (SIGHUP handler).
- * @details Resets all module state, re-reads config.json, and re-initializes
- * CoolerControl session and device cache. On failure, logs error but the
- * daemon continues running with the previous configuration values.
- */
+/** @brief Re-read config.json on SIGHUP; re-init session and device cache. */
 static void reload_daemon_config(Config *config)
 {
     log_message(LOG_STATUS, "SIGHUP received — reloading configuration...");
 
-    // 1. Tear down module state (reverse order of init)
     cleanup_sensor_curl_handle();
     reset_coolercontrol_session();
     reset_device_cache();
-    reset_circle_state();
+    reset_display_state();
 
-    // 2. Re-read config.json into the existing struct
     load_plugin_config(config, s_config_path);
 
-    // 3. Re-apply CLI display mode override if it was set at startup
     if (s_display_mode_override[0] != '\0')
     {
         cc_safe_strcpy(config->display_mode, sizeof(config->display_mode),
@@ -434,17 +601,12 @@ static void reload_daemon_config(Config *config)
         return;
     }
 
-    // 6. Update LCD dimensions from device if config has width/height=0
     update_config_from_device(config);
 
     log_message(LOG_STATUS, "Configuration reloaded successfully");
 }
 
-/**
- * @brief Enhanced main daemon loop with improved timing and error handling.
- * @details Runs the main loop with precise timing, optimized sleep, and
- * graceful error recovery. Handles SIGHUP for live config reload.
- */
+/** @brief Main daemon loop: renders display on interval, handles SIGHUP. */
 static int run_daemon(Config *config)
 {
     if (!config)
@@ -453,8 +615,6 @@ static int run_daemon(Config *config)
         return -1;
     }
 
-    // Convert float seconds to timespec (e.g., 2.50 -> tv_sec=2,
-    // tv_nsec=500000000)
     long interval_sec = (long)config->display_refresh_interval;
     long interval_nsec =
         (long)((config->display_refresh_interval - interval_sec) * 1000000000);
@@ -471,13 +631,11 @@ static int run_daemon(Config *config)
 
     while (running)
     {
-        // Check for pending config reload (SIGHUP)
         if (reload_config)
         {
             reload_config = 0;
             reload_daemon_config(config);
 
-            // Recalculate interval from potentially changed refresh_interval
             interval_sec = (long)config->display_refresh_interval;
             interval_nsec = (long)((config->display_refresh_interval -
                                     interval_sec) *
@@ -486,7 +644,6 @@ static int run_daemon(Config *config)
             interval.tv_nsec = interval_nsec;
         }
 
-        // Calculate next execution time with overflow protection
         next_time.tv_sec += interval.tv_sec;
         next_time.tv_nsec += interval.tv_nsec;
         if (next_time.tv_nsec >= 1000000000L)
@@ -495,10 +652,8 @@ static int run_daemon(Config *config)
             next_time.tv_nsec -= 1000000000L;
         }
 
-        // Execute main rendering task
         draw_display_image(config);
 
-        // Sleep until absolute time with error handling
         int sleep_result =
             clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
         if (sleep_result != 0 && sleep_result != EINTR)
@@ -510,15 +665,12 @@ static int run_daemon(Config *config)
     return 0;
 }
 
-/**
- * @brief Parse command line arguments.
- * @details Processes command line options and returns config path.
- */
+/** @brief Parse CLI args; returns config path. */
 static const char *parse_arguments(int argc, char **argv,
                                    char *display_mode_override)
 {
     const char *config_path = "/etc/coolercontrol/plugins/coolerdash/config.json";
-    display_mode_override[0] = '\0'; // Initialize as empty
+    display_mode_override[0] = '\0';
 
     for (int i = 1; i < argc; i++)
     {
@@ -556,10 +708,7 @@ static const char *parse_arguments(int argc, char **argv,
     return config_path;
 }
 
-/**
- * @brief Verify plugin directory write permissions for generated images.
- * @details Ensures the plugin directory is writable by the current user.
- */
+/** @brief Check plugin dir is writable. */
 static int verify_plugin_dir_permissions(const char *plugin_dir)
 {
     if (!plugin_dir || !plugin_dir[0])
@@ -577,17 +726,10 @@ static int verify_plugin_dir_permissions(const char *plugin_dir)
     return 1;
 }
 
-/**
- * @brief Initialize configuration from plugin config.json.
- * @details Loads config using unified plugin.c system:
- *          1. Initialize defaults (hardcoded)
- *          2. Try to load config.json (overrides defaults)
- *          3. Apply remaining defaults for missing fields
- */
+/** @brief Load config.json and check dir permissions. */
 static int initialize_config_and_instance(const char *config_path,
                                           Config *config)
 {
-    // Load configuration from config.json (or defaults if not found)
     int json_loaded = load_plugin_config(config, config_path);
 
     if (!json_loaded)
@@ -599,7 +741,6 @@ static int initialize_config_and_instance(const char *config_path,
     log_message(LOG_INFO, "Running mode: %s",
                 is_plugin_mode ? "CoolerControl plugin" : "standalone");
 
-    // Verify plugin directory write permissions for image generation
     if (!verify_plugin_dir_permissions(config->paths_images))
     {
         log_message(LOG_ERROR, "Failed to verify plugin directory permissions");
@@ -609,10 +750,7 @@ static int initialize_config_and_instance(const char *config_path,
     return 1;
 }
 
-/**
- * @brief Initialize CoolerControl services.
- * @details Initializes session and device cache.
- */
+/** @brief Init CC session and device cache. */
 static int initialize_coolercontrol_services(const Config *config)
 {
     if (!init_coolercontrol_session(config))
@@ -647,10 +785,7 @@ static int initialize_coolercontrol_services(const Config *config)
     return 0;
 }
 
-/**
- * @brief Initialize and validate device information.
- * @details Retrieves device info and validates sensors.
- */
+/** @brief Fetch device info, validate sensors, log system state. */
 static void initialize_device_info(Config *config)
 {
     char device_uid[128] = {0};
@@ -697,39 +832,23 @@ static void initialize_device_info(Config *config)
     show_system_diagnostics(config, api_screen_width, api_screen_height);
 }
 
-/**
- * @brief Perform cleanup operations.
- * @details Closes CoolerControl session and frees resources.
- * The LCD image file is intentionally kept on disk so that CoolerControl
- * can still find it when applying saved settings on next startup
- * (coolerdash is started after CC applies settings).
- * Shutdown image is handled by CC4 natively via register_shutdown_image_with_cc().
- */
+/** @brief Cleanup CURL handles and log shutdown. */
 static void perform_cleanup(const Config *config)
 {
     (void)config;
     log_message(LOG_INFO, "Daemon shutdown initiated");
-
-    // Close CoolerControl session and free resources
     cleanup_coolercontrol_session();
     cleanup_sensor_curl_handle();
-
     running = 0;
     log_message(LOG_INFO, "CoolerDash shutdown complete");
 }
 
-/**
- * @brief Enhanced main entry point for CoolerDash with comprehensive error
- * handling.
- * @details Loads configuration, ensures single instance, initializes all
- * modules, and starts the main daemon loop.
- */
+/** @brief Daemon entry point. */
 int main(int argc, char **argv)
 {
     char display_mode_override[16] = {0};
     const char *config_path = parse_arguments(argc, argv, display_mode_override);
 
-    // Store in file-scope statics for SIGHUP reload
     s_config_path = config_path;
     cc_safe_strcpy(s_display_mode_override, sizeof(s_display_mode_override),
                    display_mode_override);
@@ -763,8 +882,21 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    /* CC4 lock file: disable helper service on next boot when token is set */
+    if (config.access_token[0] != '\0')
+    {
+        FILE *lf = fopen(CC4_MODE_LOCK, "w");
+        if (lf)
+            fclose(lf);
+    }
+    else
+    {
+        unlink(CC4_MODE_LOCK);
+    }
+
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
     initialize_device_info(&config);
+    check_for_update(read_version_from_file());
 
     // Render initial image immediately so the PNG exists on disk
     // before CC applies saved LCD settings (avoids startup race condition)

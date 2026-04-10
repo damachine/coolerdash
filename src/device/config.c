@@ -8,8 +8,7 @@
  */
 
 /**
- * @brief JSON configuration loader with hardcoded defaults.
- * @details Parses config.json, applies defaults for missing values.
+ * @brief JSON configuration loader.
  */
 
 #define _POSIX_C_SOURCE 200112L
@@ -33,9 +32,7 @@
 // Global Logging Implementation
 // ============================================================================
 
-/**
- * @brief Global logging implementation for all modules except main.c.
- */
+/** @brief Global log_message implementation for all modules except main.c. */
 void log_message(log_level_t level, const char *format, ...)
 {
     if (level == LOG_INFO && !verbose_logging)
@@ -284,10 +281,7 @@ static void load_device_detection_from_json(json_t *root, Config *config)
     }
 }
 
-/**
- * @brief Find or create a SensorConfig entry by sensor_id.
- * @return Pointer to entry, or NULL if array is full
- */
+/** @brief Find or create SensorConfig entry by sensor_id. Returns NULL if full. */
 static SensorConfig *ensure_sensor_config(Config *config, const char *sensor_id)
 {
     for (int i = 0; i < config->sensor_config_count; i++)
@@ -303,9 +297,7 @@ static SensorConfig *ensure_sensor_config(Config *config, const char *sensor_id)
     return sc;
 }
 
-/**
- * @brief Initialize a SensorConfig with defaults for a given category.
- */
+/** @brief Init per-sensor entry with category-specific thresholds. */
 void init_default_sensor_config(SensorConfig *sc, const char *sensor_id,
                                 int category)
 {

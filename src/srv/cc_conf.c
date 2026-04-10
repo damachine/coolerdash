@@ -9,7 +9,6 @@
 
 /**
  * @brief Device cache and display detection.
- * @details Caches device UID, detects LCD type (circular vs rectangular).
  */
 
 // Define POSIX constants
@@ -30,11 +29,7 @@
 #include "cc_conf.h"
 #include "cc_main.h"
 
-/**
- * @brief Secure string copy with bounds checking.
- * @details Performs safe string copying with buffer overflow protection and
- * null termination guarantee.
- */
+/** @brief Safe string copy with null-termination guarantee. */
 int cc_safe_strcpy(char *restrict dest, size_t dest_size,
                    const char *restrict src)
 {
@@ -55,11 +50,7 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size,
     return 0;
 }
 
-/**
- * @brief Static cache for device information (never changes during runtime).
- * @details Holds the device UID, name, display dimensions, and circular display
- * flag once fetched from the API.
- */
+/** @brief Device UID/name/dimensions cache (populated once at startup). */
 static struct
 {
     int initialized;
@@ -70,10 +61,7 @@ static struct
     int is_circular;
 } device_cache = {0};
 
-/**
- * @brief Cache for all device names and types (populated from /devices).
- * @details Maps device UID to display name and type string.
- */
+/** @brief Name/type cache for all devices (populated from /devices). */
 static struct
 {
     char uid[128];
@@ -82,10 +70,7 @@ static struct
 } device_name_cache[MAX_DEVICE_NAME_CACHE];
 static int device_name_cache_count = 0;
 
-/**
- * @brief Resets device cache for config reload (SIGHUP).
- * @details Clears all cached device data so it will be re-fetched from the API.
- */
+/** @brief Reset device cache for SIGHUP config reload. */
 void reset_device_cache(void)
 {
     memset(&device_cache, 0, sizeof(device_cache));
@@ -93,9 +78,7 @@ void reset_device_cache(void)
     device_name_cache_count = 0;
 }
 
-/**
- * @brief Get device display name by UID.
- */
+/** @brief Look up device display name by UID. */
 const char *get_device_name_by_uid(const char *device_uid)
 {
     if (!device_uid)
@@ -108,9 +91,7 @@ const char *get_device_name_by_uid(const char *device_uid)
     return "";
 }
 
-/**
- * @brief Get device type string by UID.
- */
+/** @brief Look up device type string by UID. */
 const char *get_device_type_by_uid(const char *device_uid)
 {
     if (!device_uid)
@@ -123,11 +104,7 @@ const char *get_device_type_by_uid(const char *device_uid)
     return NULL;
 }
 
-/**
- * @brief Extract device type from JSON device object.
- * @details Common helper function to extract device type string from JSON
- * device object. Checks "type" first (/devices), falls back to "d_type" (/status).
- */
+/** @brief Extract device type from JSON ("type" or fallback "d_type"). */
 const char *extract_device_type_from_json(const json_t *dev)
 {
     if (!dev)
@@ -145,11 +122,7 @@ const char *extract_device_type_from_json(const json_t *dev)
     return json_string_value(type_val);
 }
 
-/**
- * @brief Check if a device has a circular display based on device name/type.
- * @details Returns 1 if the device is known to have a circular/round LCD
- * display.
- */
+/** @brief Returns 1 if device has a circular LCD (Kraken or >240px display). */
 int is_circular_display_device(const char *device_name, int screen_width,
                                int screen_height)
 {

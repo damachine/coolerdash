@@ -1085,6 +1085,19 @@
 
             <!-- Tab 7: Info -->
             <div class="panel">
+                <h3 class="section-title">Version &amp; Update</h3>
+
+                <div class="device-info-card">
+                    <div class="info-item">
+                        <div class="info-item-label">Installed</div>
+                        <div class="info-item-value">CoolerDash v{{VERSION}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Latest Release</div>
+                        <div class="info-item-value" id="update-status">checking&hellip;</div>
+                    </div>
+                </div>
+
                 <h3 class="section-title">About CoolerDash</h3>
 
                 <div class="device-info-card">
@@ -1102,7 +1115,7 @@
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Website</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener" onclick="openExternalUrl('https://github.com/damachine/coolerdash'); return false;">github.com/damachine/coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener noreferrer">github.com/damachine/coolerdash</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">License</div>
@@ -1119,15 +1132,15 @@
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Bug Reports &amp; Feature Requests</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener" onclick="openExternalUrl('https://github.com/damachine/coolerdash/issues'); return false;">GitHub Issues</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Discussions</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener" onclick="openExternalUrl('https://github.com/damachine/coolerdash/discussions'); return false;">GitHub Discussions</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a></div>
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Discord</div>
-                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener" onclick="openExternalUrl('https://discord.com/channels/908873022105079848/1461781766791499981'); return false;">CoolerControl Discord &mdash; #coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener noreferrer">CoolerControl Discord &mdash; #coolerdash</a></div>
                     </div>
                 </div>
 
@@ -1281,18 +1294,6 @@
         let currentTab = 0;
         let discoveredSensors = [];
         let currentSensorConfig = {};
-
-        /**
-         * @brief Open an external URL — works inside CC4's iframe sandbox via postMessage.
-         */
-        function openExternalUrl(url) {
-            // CC4 listens for 'openUrl' postMessage to open links in the host browser
-            if (isInCoolerControl) {
-                window.parent.postMessage({ type: 'openUrl', body: { url: url } }, '*');
-            } else {
-                window.open(url, '_blank', 'noopener,noreferrer');
-            }
-        }
 
         /**
          * @brief Escape HTML special characters to prevent XSS.
@@ -2269,6 +2270,30 @@
         }
 
         async function fetchSystemInfo(apiAddress, token) {
+            // Update check via GitHub Releases API
+            (async function checkForUpdate() {
+                var el = document.getElementById('update-status');
+                if (!el) return;
+                var current = '{{VERSION}}';
+                try {
+                    var res = await fetch('https://api.github.com/repos/damachine/coolerdash/releases/latest', {
+                        headers: { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    var data = await res.json();
+                    var latest = (data.tag_name || '').replace(/^v/i, '');
+                    var dlUrl = 'https://github.com/damachine/coolerdash/releases/tag/' + (data.tag_name || 'latest');
+                    if (latest && latest !== current) {
+                        el.innerHTML = '<strong style="color:var(--warning,#f0a500)">v' + latest + ' available</strong> &mdash; '
+                            + '<a href="' + escapeHtml(dlUrl) + '" target="_blank" rel="noopener noreferrer">Download</a>';
+                    } else {
+                        el.textContent = 'v' + (latest || current) + ' (up to date)';
+                    }
+                } catch (e) {
+                    el.textContent = 'unavailable (no network?)';
+                }
+            })();
+
             try {
                 lastApiAddress = apiAddress;
                 lastApiToken = token;

@@ -1020,6 +1020,11 @@ float get_slot_font_size(const struct Config *config, const char *slot_value)
  * logic and mode-specific rendering.
  * @param config Configuration containing display mode and rendering parameters
  */
+void reset_display_state(void)
+{
+    reset_circle_state();
+}
+
 void draw_display_image(const struct Config *config)
 {
     if (!config)
