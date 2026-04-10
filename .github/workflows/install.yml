@@ -45,12 +45,12 @@ jobs:
           # openSUSE family
           - distro: "opensuse/tumbleweed"
             name: "openSUSE Tumbleweed"
-            pre_install: "zypper refresh"
+            pre_install: "zypper --gpg-auto-import-keys refresh || true"
             install_deps: "zypper install -y tar sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
 
           - distro: "opensuse/leap:16.0"
             name: "openSUSE Leap 16.0"
-            pre_install: "zypper refresh"
+            pre_install: "zypper --gpg-auto-import-keys refresh || true"
             install_deps: "zypper install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
 
     container:
@@ -125,12 +125,12 @@ jobs:
             exit 1
           fi
 
-          # Check CC-Plugin Lib JS files
+          # Check CC-Plugin Lib JS is NOT installed (served by CoolerControl)
           if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" ]; then
-            echo "✅ Plugin Lib JS files installed"
-          else
-            echo "❌ Plugin Lib JS files not found"
+            echo "❌ Plugin Lib JS should NOT be installed (served by CoolerControl)"
             exit 1
+          else
+            echo "✅ Plugin Lib JS correctly not installed (served by CoolerControl)"
           fi
 
           # Check desktop files

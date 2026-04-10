@@ -8,8 +8,7 @@
  */
 
 /**
- * @brief JSON configuration loader with hardcoded defaults.
- * @details Parses config.json, applies defaults for missing values.
+ * @brief JSON configuration loader.
  */
 
 #define _POSIX_C_SOURCE 200112L
@@ -19,6 +18,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <jansson.h>
 // cppcheck-suppress-end missingIncludeSystem
 
@@ -32,9 +32,7 @@
 // Global Logging Implementation
 // ============================================================================
 
-/**
- * @brief Global logging implementation for all modules except main.c.
- */
+/** @brief Global log_message implementation for all modules except main.c. */
 void log_message(log_level_t level, const char *format, ...)
 {
     if (level == LOG_INFO && !verbose_logging)
@@ -151,7 +149,7 @@ static void set_display_defaults(Config *config)
     try_set_lcd_dimensions(config);
 
     if (config->display_refresh_interval == 0.0f)
-        config->display_refresh_interval = 2.50f;
+        config->display_refresh_interval = 3.50f;
     if (config->lcd_brightness == 0)
         config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
@@ -162,7 +160,7 @@ static void set_display_defaults(Config *config)
         cc_safe_strcpy(config->display_background_image_fit,
                        sizeof(config->display_background_image_fit), "cover");
     if (config->circle_switch_interval == 0)
-        config->circle_switch_interval = 5;
+        config->circle_switch_interval = 8;
     if (config->circle_show_extra_info < 0)
         config->circle_show_extra_info = 1; // enabled by default
     if (config->display_content_scale_factor == 0.0f)
@@ -175,9 +173,9 @@ static void set_display_defaults(Config *config)
     if (config->sensor_slot_1[0] == '\0')
         cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
     if (config->sensor_slot_2[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "liquid");
+        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
     if (config->sensor_slot_3[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "liquid");
 }
 
 /**
@@ -283,10 +281,7 @@ static void load_device_detection_from_json(json_t *root, Config *config)
     }
 }
 
-/**
- * @brief Find or create a SensorConfig entry by sensor_id.
- * @return Pointer to entry, or NULL if array is full
- */
+/** @brief Find or create SensorConfig entry by sensor_id. Returns NULL if full. */
 static SensorConfig *ensure_sensor_config(Config *config, const char *sensor_id)
 {
     for (int i = 0; i < config->sensor_config_count; i++)
@@ -302,9 +297,7 @@ static SensorConfig *ensure_sensor_config(Config *config, const char *sensor_id)
     return sc;
 }
 
-/**
- * @brief Initialize a SensorConfig with defaults for a given category.
- */
+/** @brief Init per-sensor entry with category-specific thresholds. */
 void init_default_sensor_config(SensorConfig *sc, const char *sensor_id,
                                 int category)
 {
@@ -420,7 +413,7 @@ static void set_default_sensor_configs(Config *config)
         if (liquid->threshold_3 == 0.0f)
             liquid->threshold_3 = 40.0f;
         if (liquid->max_scale == 0.0f)
-            liquid->max_scale = 55.0f;
+            liquid->max_scale = 45.0f;
     }
 }
 
@@ -535,13 +528,13 @@ static void validate_sensor_slots(Config *config)
     }
     if (!is_valid_sensor_slot(config->sensor_slot_2))
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_2 value, using 'liquid'");
-        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "liquid");
+        log_message(LOG_WARNING, "Invalid sensor_slot_2 value, using 'gpu'");
+        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
     }
     if (!is_valid_sensor_slot(config->sensor_slot_3))
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_3 value, using 'gpu'");
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
+        log_message(LOG_WARNING, "Invalid sensor_slot_3 value, using 'liquid'");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "liquid");
     }
 
     // Check for duplicates (only among active slots, "none" can appear multiple times)
@@ -583,8 +576,8 @@ static void validate_sensor_slots(Config *config)
     if (reset_needed)
     {
         cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
-        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "liquid");
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
+        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "liquid");
         log_message(LOG_STATUS, "Sensor slots reset to defaults: 1=cpu, 2=liquid, 3=gpu");
     }
 }
@@ -673,6 +666,9 @@ static const char *find_config_json(const char *custom_path)
 
     return NULL;
 }
+
+/* Forward declaration — defined below, used here before its definition */
+static void load_daemon_from_json(json_t *root, Config *config);
 
 /**
  * @brief Load daemon settings from JSON.
@@ -1097,6 +1093,22 @@ static void load_sensor_config_from_json(json_t *obj, SensorConfig *sc)
     if (val && json_is_integer(val))
         sc->offset_y = (int)json_integer_value(val);
 
+    val = json_object_get(obj, "value_to_bar_gap");
+    if (val && json_is_number(val))
+    {
+        double v = json_number_value(val);
+        if (v >= 0.0 && v <= 100.0)
+            sc->value_to_bar_gap = (float)v;
+    }
+
+    val = json_object_get(obj, "label_to_bar_gap");
+    if (val && json_is_number(val))
+    {
+        double v = json_number_value(val);
+        if (v >= 0.0 && v <= 100.0)
+            sc->label_to_bar_gap = (float)v;
+    }
+
     val = json_object_get(obj, "font_size_temp");
     if (val && json_is_number(val))
         sc->font_size_temp = (float)json_number_value(val);
@@ -1212,6 +1224,18 @@ static void load_positioning_from_json(json_t *root, Config *config)
     {
         config->display_label_offset_y = (int)json_integer_value(label_offset_y);
     }
+
+    json_t *margin_top = json_object_get(positioning, "margin_top");
+    if (margin_top && json_is_integer(margin_top))
+    {
+        config->display_margin_top = (int)json_integer_value(margin_top);
+    }
+
+    json_t *margin_bottom = json_object_get(positioning, "margin_bottom");
+    if (margin_bottom && json_is_integer(margin_bottom))
+    {
+        config->display_margin_bottom = (int)json_integer_value(margin_bottom);
+    }
 }
 
 // ============================================================================
@@ -1251,6 +1275,9 @@ int load_plugin_config(Config *config, const char *config_path)
 
     if (json_path)
     {
+        /* Ensure config.json stays protected (contains access_token) */
+        chmod(json_path, 0600);
+
         log_message(LOG_INFO, "Loading plugin config from: %s", json_path);
 
         json_error_t error;

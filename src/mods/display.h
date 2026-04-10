@@ -60,6 +60,8 @@ typedef struct
     double inscribe_factor;     /**< 1.0 for rectangular, M_SQRT1_2 for circular */
     int safe_bar_width;         /**< Safe bar width for circular displays */
     double safe_content_margin; /**< Horizontal margin for safe content area */
+    double margin_top;          /**< Vertical top margin in pixels */
+    double margin_bottom;       /**< Vertical bottom margin in pixels */
     int is_circular;            /**< 1 if circular display, 0 if rectangular */
 } ScalingParams;
 
@@ -85,6 +87,9 @@ typedef struct
  * @param config Configuration containing display mode and rendering parameters
  */
 void draw_display_image(const struct Config *config);
+
+/** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
+void reset_display_state(void);
 
 // ============================================================================
 // Shared Cairo Rendering Helpers

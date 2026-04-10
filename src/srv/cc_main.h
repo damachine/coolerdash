@@ -9,7 +9,6 @@
 
 /**
  * @brief Session management, authentication, LCD image upload.
- * @details HTTP client for CoolerControl REST API.
  */
 
 #ifndef CC_MAIN_H
@@ -36,11 +35,7 @@
 struct Config;
 struct curl_slist;
 
-/**
- * @brief Response buffer for libcurl HTTP operations.
- * @details Structure to hold HTTP response data with dynamic memory management
- * for effiziente Datensammlung.
- */
+/** @brief Dynamic buffer for libcurl HTTP response data. */
 typedef struct http_response
 {
     char *data;
@@ -48,67 +43,36 @@ typedef struct http_response
     size_t capacity;
 } http_response;
 
-/**
- * @brief Initialize HTTP response buffer with specified capacity.
- * @details Allocates memory for HTTP response data with proper initialization.
- */
+/** @brief Init HTTP response buffer. */
 int cc_init_response_buffer(http_response *response, size_t initial_capacity);
 
-/**
- * @brief Cleanup HTTP response buffer and free memory.
- * @details Properly frees allocated memory and resets buffer state.
- */
+/** @brief Free HTTP response buffer. */
 void cc_cleanup_response_buffer(http_response *response);
 
-/**
- * @brief Callback for libcurl to write received data into a buffer.
- * @details This function is used by libcurl to store incoming HTTP response
- * data into a dynamically allocated buffer.
- */
+/** @brief libcurl write callback — appends received data to response buffer. */
 size_t write_callback(const void *contents, size_t size, size_t nmemb,
                       http_response *response);
 
-/**
- * @brief Initializes a CoolerControl session and authenticates with the daemon
- * using configuration.
- * @details Must be called before any other CoolerControl API function. Sets up
- * CURL session and performs authentication.
- */
+/** @brief Init CURL session; authenticates via Bearer token or Basic Auth. */
 int init_coolercontrol_session(const struct Config *config);
 
-/**
- * @brief Returns whether the session is initialized.
- * @details Checks if the session is ready for communication with the
- * CoolerControl daemon.
- */
+/** @brief Returns 1 if session is ready for API calls. */
 int is_session_initialized(void);
 
-/**
- * @brief Cleans up and terminates the CoolerControl session.
- * @details Frees all resources and closes the session.
- */
+/** @brief Free CURL resources and close session. */
 void cleanup_coolercontrol_session(void);
 
-/**
- * @brief Returns the active Bearer access token (empty string if not set).
- * @details Used by cc_conf and cc_sensor to attach auth headers.
- */
+/** @brief Destroy CURL handle for SIGHUP reload; allows re-init. */
+void reset_coolercontrol_session(void);
+
+/** @brief Returns active Bearer token (empty if not set). */
 const char *get_session_access_token(void);
 
-/**
- * @brief Sends an image directly to the LCD of the CoolerControl device.
- * @details Uploads an image to the LCD display using a multipart HTTP PUT
- * request with brightness and orientation settings.
- */
+/** @brief Upload image to LCD via JSON (CC4) or multipart (CC3). */
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
 
-/**
- * @brief Register shutdown image with CC4's persistent LCD shutdown endpoint.
- * @details Called once at daemon startup. CC4 will display the image
- * automatically whenever the coolercontrold daemon stops.
- * Silently skips on 404 when the endpoint is unavailable.
- */
+/** @brief Register shutdown image with CC4; called once at startup. */
 int register_shutdown_image_with_cc(const struct Config *config,
                                     const char *image_path,
                                     const char *device_uid);

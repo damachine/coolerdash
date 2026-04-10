@@ -3,9 +3,9 @@ set -e
 
 case "$1" in
     configure)
-        # Set config permissions
+        # Set permissions on config.json
         if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
-            chmod 666 /etc/coolercontrol/plugins/coolerdash/config.json
+            chmod 600 /etc/coolercontrol/plugins/coolerdash/config.json
         fi
 
         # Remove legacy files

@@ -8,9 +8,7 @@
  */
 
 /**
- * @brief Sensor monitoring via CoolerControl API.
- * @details Reads all sensor data (temps, RPM, duty, watts, freq) from
- * /status endpoint for all device types.
+ * @brief Sensor monitoring via CoolerControl /status endpoint.
  */
 
 // Include necessary headers
@@ -28,13 +26,10 @@
 #include "cc_main.h"
 #include "cc_sensor.h"
 
-/** @brief Cached CURL handle for reuse across polling cycles. */
+/** @brief Cached CURL handle for sensor polling. */
 static CURL *sensor_curl_handle = NULL;
 
-/**
- * @brief Initialize or retrieve cached CURL handle for sensor polling.
- * @return Cached CURL handle, or NULL on failure
- */
+/** @brief Init or return cached CURL handle. */
 static CURL *get_sensor_curl_handle(void)
 {
     if (!sensor_curl_handle)
@@ -46,10 +41,7 @@ static CURL *get_sensor_curl_handle(void)
     return sensor_curl_handle;
 }
 
-/**
- * @brief Cleanup cached sensor CURL handle.
- * @details Called during daemon shutdown to free resources.
- */
+/** @brief Free cached sensor CURL handle at daemon shutdown. */
 void cleanup_sensor_curl_handle(void)
 {
     if (sensor_curl_handle)
@@ -59,11 +51,7 @@ void cleanup_sensor_curl_handle(void)
     }
 }
 
-/**
- * @brief Add a sensor entry to the monitor data collection.
- * @details Helper to append a new sensor entry with bounds checking.
- * @return 1 if added, 0 if array full
- */
+/** @brief Append a sensor entry with bounds check. Returns 1 on success. */
 static int add_sensor_entry(monitor_sensor_data_t *data,
                             const char *name, const char *device_uid,
                             const char *device_type, sensor_category_t category,
@@ -90,10 +78,7 @@ static int add_sensor_entry(monitor_sensor_data_t *data,
     return 1;
 }
 
-/**
- * @brief Collect all temperature sensors from a device's latest status.
- * @details Iterates temps[] array in the last status_history entry.
- */
+/** @brief Collect temperature sensors from latest device status_history entry. */
 static void collect_device_temps(const json_t *device, const char *device_uid,
                                  const char *device_type,
                                  monitor_sensor_data_t *data)

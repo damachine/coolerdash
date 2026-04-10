@@ -9,7 +9,6 @@
 
 /**
  * @brief JSON configuration loader with hardcoded defaults.
- * @details Config struct, load/save functions, default values.
  */
 
 #ifndef CONFIG_H
@@ -28,11 +27,7 @@
 #define CONFIG_MAX_SENSOR_SLOT_LEN 256
 #define CONFIG_MAX_PATTERN_LIST_LEN 512
 
-/**
- * @brief Simple color structure.
- * @details Represents RGB color values with 8-bit components.
- *          The is_set flag indicates if color was explicitly configured.
- */
+/** @brief RGB color; is_set=0 uses default, is_set=1 uses custom value. */
 typedef struct
 {
     uint8_t r;
@@ -41,11 +36,7 @@ typedef struct
     uint8_t is_set; // 0 = use default, 1 = user-defined (allows all RGB values)
 } Color;
 
-/**
- * @brief Common log levels for all modules.
- * @details Defines standardized logging levels used throughout the application
- * for consistent message categorization.
- */
+/** @brief Log levels: INFO (verbose), STATUS/WARNING/ERROR (always shown). */
 typedef enum
 {
     LOG_INFO,
@@ -61,12 +52,7 @@ typedef enum
 #define MAX_SENSOR_CONFIGS 32
 #define SENSOR_CONFIG_ID_LEN 256
 
-/**
- * @brief Per-sensor display configuration.
- * @details Each configured sensor has its own thresholds, bar colors, and
- * display offsets. Sensor ID format: legacy "cpu"/"gpu"/"liquid" or
- * dynamic "device_uid:sensor_name".
- */
+/** @brief Per-sensor thresholds, colors, label and display offsets. */
 typedef struct
 {
     char sensor_id[SENSOR_CONFIG_ID_LEN]; /**< Sensor identifier */
@@ -82,13 +68,11 @@ typedef struct
     int offset_y;                         /**< Display Y offset for value text */
     float font_size_temp;                 /**< Per-sensor temp font size (0 = use global) */
     char label[32];                       /**< Custom display label (empty = auto) */
+    float value_to_bar_gap;               /**< Gap above bar as % of available_height (0 = auto) */
+    float label_to_bar_gap;               /**< Gap below bar as % of available_height (0 = auto) */
 } SensorConfig;
 
-/**
- * @brief Configuration structure.
- * @details Contains all settings for the CoolerDash system, including paths,
- * display settings, temperature thresholds, and visual styling options.
- */
+/** @brief All CoolerDash settings: daemon, paths, display, theme, sensors. */
 typedef struct Config
 {
     // Daemon configuration
@@ -152,42 +136,32 @@ typedef struct Config
     int display_degree_spacing;
     int display_label_offset_x;
     int display_label_offset_y;
+    int display_margin_top;    /**< Vertical top margin (0 = auto-detect) */
+    int display_margin_bottom; /**< Vertical bottom margin (0 = auto-detect) */
 
     // Per-sensor configuration (thresholds, colors, offsets)
     SensorConfig sensor_configs[MAX_SENSOR_CONFIGS]; /**< Sensor-specific configs */
     int sensor_config_count;                         /**< Number of valid entries */
 } Config;
 
-/**
- * @brief Global logging function for all modules except main.c.
- * @details Provides unified log output for info, status, warning and error messages.
- */
+/** @brief Global log function (implemented in config.c, used everywhere). */
 void log_message(log_level_t level, const char *format, ...);
 
-/**
- * @brief Global logging control from main.c.
- * @details External variable controlling verbose logging behavior across all modules.
- */
+/** @brief Verbose logging flag (set by --verbose CLI arg). */
 extern int verbose_logging;
 
 // ============================================================================
 // Helper Macros
 // ============================================================================
 
-/**
- * @brief Safe string copy macro using project's cc_safe_strcpy.
- * @details Automatically uses sizeof(dest) for bounds checking.
- */
+/** @brief Safe strcpy: copies src into dest[dest_size] with null-termination. */
 #define SAFE_STRCPY(dest, src)                       \
     do                                               \
     {                                                \
         cc_safe_strcpy((dest), sizeof(dest), (src)); \
     } while (0)
 
-/**
- * @brief Validate LCD orientation value.
- * @details Checks if orientation is one of: 0°, 90°, 180°, 270°.
- */
+/** @brief Returns 1 if orientation is 0, 90, 180, or 270. */
 static inline int is_valid_orientation(int orientation)
 {
     return (orientation == 0 || orientation == 90 || orientation == 180 ||
@@ -215,13 +189,7 @@ static inline int is_valid_orientation(int orientation)
  */
 int load_plugin_config(Config *config, const char *config_path);
 
-/**
- * @brief Find sensor configuration by sensor ID.
- * @details Searches sensor_configs[] for a matching sensor_id.
- * @param config Configuration struct
- * @param sensor_id Sensor identifier ("cpu", "gpu", "liquid", or "uid:name")
- * @return Pointer to matching SensorConfig, or NULL if not found
- */
+/** @brief Find SensorConfig by sensor_id; returns NULL if not found. */
 const SensorConfig *get_sensor_config(const Config *config, const char *sensor_id);
 
 /**

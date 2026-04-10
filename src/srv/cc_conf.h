@@ -57,6 +57,12 @@ int get_cached_lcd_device_data(const struct Config *config, char *device_uid,
 int init_device_cache(const struct Config *config);
 
 /**
+ * @brief Resets device cache for config reload (SIGHUP).
+ * @details Clears all cached device data so it will be re-fetched from the API.
+ */
+void reset_device_cache(void);
+
+/**
  * @brief Update config with device screen dimensions (only if not set in
  * config.json).
  * @details Reads screen dimensions from device cache and updates config ONLY if

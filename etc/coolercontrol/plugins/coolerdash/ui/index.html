@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CoolerDash Settings</title>
-    <script type="text/javascript" src="cc-plugin-lib.js" onerror="console.warn('cc-plugin-lib.js not found, using fallback')"></script>
+    <script type="text/javascript" src="/plugins/lib/cc-plugin-lib.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -600,7 +600,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;).</span>
+                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is stored securely in <code>config.json</code> (chmod 600). If a token is already set, the field shows <strong>***</strong> &mdash; enter a new value to replace it, or leave <strong>***</strong> unchanged.</span>
                     <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
             </div>
@@ -620,8 +620,8 @@
 
                     <div class="form-group" id="circle_interval_group" style="display: none;">
                         <label class="form-label">Switch Interval (Seconds)</label>
-                        <span class="form-hint">How long each sensor is shown (Default: 5)</span>
                         <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
+                        <span class="form-hint">How long each sensor is shown (Default: 6)</span>
                     </div>
                     <div class="form-group" id="circle_extra_info_group" style="display: none;">
                         <label class="form-label">
@@ -655,7 +655,7 @@
 
                     <div class="form-group" id="sensor_slot_2_group">
                         <label class="form-label">Slot 2</label>
-                        <span class="form-hint">Default: Liquid (Circle only)</span>
+                        <span class="form-hint">Default: GPU (Circle only)</span>
                         <select name="display.sensor_slot_2" id="sensor_slot_2" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -668,7 +668,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Slot 3</label>
-                        <span class="form-hint">Default: GPU</span>
+                        <span class="form-hint">Default: Liquid (Circle) / GPU (Dual)</span>
                         <select name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -716,6 +716,14 @@
                     </div>
 
                     <div class="form-group">
+                        <label class="form-label">Content Scale</label>
+                        <span class="form-hint">Default: 0.98</span>
+                        <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="form-group">
                         <label class="form-label">Width (Pixels)</label>
                         <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
                         <input type="number" name="display.width" class="form-control" min="0" max="1024">
@@ -725,12 +733,6 @@
                         <label class="form-label">Height (Pixels)</label>
                         <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
                         <input type="number" name="display.height" class="form-control" min="0" max="1024">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Content Scale</label>
-                        <span class="form-hint">Default: 0.98</span>
-                        <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
 
@@ -901,6 +903,18 @@
                                 <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="100">
                             </div>
                         </div>
+                        <div class="grid grid-2" style="margin-top: 12px;">
+                            <div class="form-group">
+                                <label class="form-label">Margin Top</label>
+                                <span class="form-hint">Vertical top margin in logical units. 0 = auto (circular ~3%, rectangular 0)</span>
+                                <input type="number" name="positioning.margin_top" class="form-control" step="1">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Margin Bottom</label>
+                                <span class="form-hint">Vertical bottom margin in logical units. 0 = auto (circular ~3%, rectangular 0)</span>
+                                <input type="number" name="positioning.margin_bottom" class="form-control" step="1">
+                            </div>
+                        </div>
                     </div>
                 </details>
 
@@ -1049,10 +1063,6 @@
                             <span class="device-info-value mono" id="device-resolution">&mdash;</span>
                         </div>
                         <div class="device-info-row">
-                            <span class="device-info-label">Display Shape</span>
-                            <span class="device-info-value" id="device-shape">&mdash;</span>
-                        </div>
-                        <div class="device-info-row">
                             <span class="device-info-label">Firmware</span>
                             <span class="device-info-value mono" id="device-firmware">&mdash;</span>
                         </div>
@@ -1075,6 +1085,19 @@
 
             <!-- Tab 7: Info -->
             <div class="panel">
+                <h3 class="section-title">Version &amp; Update</h3>
+
+                <div class="device-info-card">
+                    <div class="info-item">
+                        <div class="info-item-label">Installed</div>
+                        <div class="info-item-value">CoolerDash v{{VERSION}}</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-item-label">Latest Release</div>
+                        <div class="info-item-value" id="update-status">checking&hellip;</div>
+                    </div>
+                </div>
+
                 <h3 class="section-title">About CoolerDash</h3>
 
                 <div class="device-info-card">
@@ -1092,7 +1115,7 @@
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Website</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener">github.com/damachine/coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash" target="_blank" rel="noopener noreferrer">github.com/damachine/coolerdash</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">License</div>
@@ -1109,15 +1132,15 @@
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Bug Reports &amp; Feature Requests</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener">GitHub Issues</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Discussions</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener">GitHub Discussions</a></div>
+                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a></div>
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Discord</div>
-                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener">CoolerControl Discord &mdash; #coolerdash</a></div>
+                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener noreferrer">CoolerControl Discord &mdash; #coolerdash</a></div>
                     </div>
                 </div>
 
@@ -1145,7 +1168,7 @@
         <!-- Restart Notice -->
         <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.05); border-left: 3px solid #ff8c00; border-radius: 4px;">
             <p style="margin: 0; color: var(--text-dim); font-size: 13px;">
-                <strong>Note:</strong> After saving, the service must be restarted manually: <code style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; font-size: 12px;">systemctl restart cc-plugin-coolerdash.service</code>
+                <strong>Note:</strong> Clicking <em>Save</em> will automatically apply the configuration and restart the plugin.
             </p>
         </div>
     </div>
@@ -1168,9 +1191,9 @@
             },
             display: {
                 mode: "circle",
-                circle_switch_interval: 5,
+                circle_switch_interval: 8,
                 circle_show_extra_info: true,
-                refresh_interval: 2.5,
+                refresh_interval: 3.5,
                 brightness: 80,
                 orientation: 0,
                 background_image_fit: "cover",
@@ -1179,8 +1202,8 @@
                 height: 0,
                 content_scale_factor: 0.98,
                 sensor_slot_1: "cpu",
-                sensor_slot_2: "liquid",
-                sensor_slot_3: "gpu"
+                sensor_slot_2: "gpu",
+                sensor_slot_3: "liquid"
             },
             layout: {
                 bar_height: 24,
@@ -1220,7 +1243,9 @@
                     threshold_3_color: { r: 255, g: 70, b: 0 },
                     threshold_4_color: { r: 255, g: 0, b: 0 },
                     offset_x: 0,
-                    offset_y: 0
+                    offset_y: 0,
+                    value_to_bar_gap: 0,
+                    label_to_bar_gap: 0
                 },
                 gpu: {
                     threshold_1: 55.0,
@@ -1234,13 +1259,15 @@
                     threshold_3_color: { r: 255, g: 70, b: 0 },
                     threshold_4_color: { r: 255, g: 0, b: 0 },
                     offset_x: 0,
-                    offset_y: 0
+                    offset_y: 0,
+                    value_to_bar_gap: 0,
+                    label_to_bar_gap: 0
                 },
                 liquid: {
                     threshold_1: 30.0,
                     threshold_2: 35.0,
                     threshold_3: 40.0,
-                    max_scale: 55.0,
+                    max_scale: 45.0,
                     font_size_temp: 0,
                     label: '',
                     threshold_1_color: { r: 0, g: 255, b: 0 },
@@ -1248,13 +1275,17 @@
                     threshold_3_color: { r: 255, g: 70, b: 0 },
                     threshold_4_color: { r: 255, g: 0, b: 0 },
                     offset_x: 0,
-                    offset_y: 0
+                    offset_y: 0,
+                    value_to_bar_gap: 0,
+                    label_to_bar_gap: 0
                 }
             },
             positioning: {
                 degree_spacing: 16,
                 label_offset_x: 0,
-                label_offset_y: 0
+                label_offset_y: 0,
+                margin_top: 0,
+                margin_bottom: 0
             }
         };
 
@@ -1337,24 +1368,73 @@
             window.runPluginScript = function(mainFunction) { mainFunction(); };
         }
 
+        if (typeof getContext === 'undefined') {
+            window.getContext = async function() {
+                return { mode: isInCoolerControl ? 'full_page' : 'modal' };
+            };
+        }
+
         // Fallback for getDevices() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
-        // Inside CC4's sandboxed iframe, cc-plugin-lib.js provides the real getDevices() via postMessage.
+        // Note: cc-plugin-lib defines functions with `const` (not var/window), so typeof check always
+        // triggers even when cc-plugin-lib is loaded. We therefore implement postMessage for CC4 context.
         if (typeof getDevices === 'undefined') {
             window.getDevices = async function() {
-                var headers = makeAuthHeaders(lastApiToken);
-                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
-                if (!res.ok) return { devices: [] };
-                return res.json();
+                if (isInCoolerControl) {
+                    return new Promise(function(resolve) {
+                        var handler = function(event) {
+                            if (event.data && event.data.type === 'devices') {
+                                window.removeEventListener('message', handler);
+                                var body = event.data.body || [];
+                                resolve({ devices: Array.isArray(body) ? body : (body.devices || []) });
+                            }
+                        };
+                        window.addEventListener('message', handler);
+                        window.parent.postMessage({ type: 'devices' }, document.location.origin);
+                        setTimeout(function() {
+                            window.removeEventListener('message', handler);
+                            resolve({ devices: [] });
+                        }, 3000);
+                    });
+                }
+                try {
+                    var headers = makeAuthHeaders(lastApiToken);
+                    var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
+                    if (!res.ok) return { devices: [] };
+                    return res.json();
+                } catch (e) {
+                    return { devices: [] };
+                }
             };
         }
 
         // Fallback for getStatus() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
         if (typeof getStatus === 'undefined') {
             window.getStatus = async function() {
-                var headers = makeAuthHeaders(lastApiToken);
-                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-                return res.json();
+                if (isInCoolerControl) {
+                    return new Promise(function(resolve) {
+                        var handler = function(event) {
+                            if (event.data && event.data.type === 'status') {
+                                window.removeEventListener('message', handler);
+                                var body = event.data.body;
+                                resolve(body || { devices: [] });
+                            }
+                        };
+                        window.addEventListener('message', handler);
+                        window.parent.postMessage({ type: 'status' }, document.location.origin);
+                        setTimeout(function() {
+                            window.removeEventListener('message', handler);
+                            resolve({ devices: [] });
+                        }, 3000);
+                    });
+                }
+                try {
+                    var headers = makeAuthHeaders(lastApiToken);
+                    var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
+                    if (!res.ok) return { devices: [] };
+                    return res.json();
+                } catch (e) {
+                    return { devices: [] };
+                }
             };
         }
 
@@ -1363,6 +1443,32 @@
             var t = (token || '').trim();
             if (t) return { 'Authorization': 'Bearer ' + t };
             return {};
+        }
+
+        // Normalize getDevices() return value: cc-plugin-lib returns an Array directly,
+        // the REST API and our fallback return { devices: [...] }.
+        function normalizeDevices(raw) {
+            if (!raw) return [];
+            if (Array.isArray(raw)) return raw;
+            if (Array.isArray(raw.devices)) return raw.devices;
+            return [];
+        }
+
+        // Normalize getStatus() return value: cc-plugin-lib returns a Map or { devices: [...] },
+        // the REST API returns { devices: [...] }.
+        function normalizeStatus(raw) {
+            if (!raw) return [];
+            if (Array.isArray(raw)) return raw;
+            if (raw instanceof Map) {
+                // Map keyed by uid, values are status objects
+                var arr = [];
+                raw.forEach(function(val, key) {
+                    arr.push(typeof val === 'object' ? Object.assign({ uid: key }, val) : { uid: key });
+                });
+                return arr;
+            }
+            if (Array.isArray(raw.devices)) return raw.devices;
+            return [];
         }
 
         function splitPatternList(patternList) {
@@ -1432,33 +1538,45 @@
         }
 
         function scoreDetectedDevice(device, detectionSettings) {
+            if (!device || !device.uid) return -1000;
             var lcdInfo = getDeviceLcdInfo(device);
-            if (!device || !device.uid || !lcdInfo) return -1000;
 
             if (candidateMatchesPatterns(device, detectionSettings.blocklist)) return -1000;
             if (candidateMatchesPatterns(device, detectionSettings.allowlist)) {
-                return 1000 + ((lcdInfo.screen_width || 0) * (lcdInfo.screen_height || 0));
+                return 1000 + ((lcdInfo ? (lcdInfo.screen_width || 0) * (lcdInfo.screen_height || 0) : 0));
             }
 
             var score = 0;
             var type = String(device.d_type || device.type || '');
             var name = String(device.name || '');
 
+            // Device type: Liquidctl = AIO cooler driver, others penalised
             if (type === 'Liquidctl') score += 30;
             else if (type === 'Hwmon' || type === 'CustomSensors' || type === 'CPU' || type === 'GPU') score -= 40;
             else if (type) score += 8;
 
-            if (ciContains(name, 'kraken') || ciContains(name, 'elite') || ciContains(name, 'hydro') ||
-                ciContains(name, 'capellix') || ciContains(name, 'lcd') || ciContains(name, 'display') ||
+            // Capability signals (independent of brand): has an 'lcd' channel key
+            var channels = (device.info && device.info.channels) ? device.info.channels : {};
+            if (Object.prototype.hasOwnProperty.call(channels, 'lcd')) score += 30;
+
+            // Has liquidctl firmware info → confirmed AIO cooler
+            if (device.lc_info && device.lc_info.driver_type) score += 15;
+
+            // Generic name hints only (no brand names)
+            if (ciContains(name, 'lcd') || ciContains(name, 'display') ||
                 ciContains(name, 'screen') || ciContains(name, 'aio')) {
-                score += 24;
+                score += 12;
             }
 
             if (looksLikeMainboardCandidate(name)) score -= 80;
 
-            if (lcdInfo.screen_width === lcdInfo.screen_height) score += 6;
-            else score += 3;
-            if (lcdInfo.screen_width >= 240 && lcdInfo.screen_height >= 240) score += 4;
+            // lcd_info dimensions (present after REST enrichment)
+            if (lcdInfo) {
+                score += 20; // has a real lcd_info → definitive LCD hardware
+                if (lcdInfo.screen_width === lcdInfo.screen_height) score += 6;
+                else score += 3;
+                if (lcdInfo.screen_width >= 240 && lcdInfo.screen_height >= 240) score += 4;
+            }
 
             if (detectionSettings.mode === 'relaxed') return Math.max(score, 0);
             if (detectionSettings.mode === 'balanced') return score >= 0 ? score : -1;
@@ -1511,14 +1629,14 @@
                 // Falls back to direct fetch in dev/browser mode via the fallback definitions above.
                 const devData = await getDevices();
                 const deviceNames = {};
-                for (const dev of (devData.devices || [])) {
+                for (const dev of normalizeDevices(devData)) {
                     if (dev.uid) deviceNames[dev.uid] = dev.name || dev.uid;
                 }
 
                 const statusData = await getStatus();
 
                 const sensors = [];
-                for (const dev of (statusData.devices || [])) {
+                for (const dev of normalizeStatus(statusData)) {
                     const uid = dev.uid || '';
                     const devName = deviceNames[uid] || uid;
                     const lastStatus = Array.isArray(dev.status_history) && dev.status_history.length > 0
@@ -1701,14 +1819,15 @@
                 threshold_2_color: { r: 255, g: 140, b: 0 },
                 threshold_3_color: { r: 255, g: 70, b: 0 },
                 threshold_4_color: { r: 255, g: 0, b: 0 },
-                offset_x: 0, offset_y: 0
+                offset_x: 0, offset_y: 0,
+                value_to_bar_gap: 0, label_to_bar_gap: 0
             };
 
             if (sensorId === 'liquid') {
                 defaults.threshold_1 = 30.0;
                 defaults.threshold_2 = 35.0;
                 defaults.threshold_3 = 40.0;
-                defaults.max_scale = 55.0;
+                defaults.max_scale = 45.0;
             } else if (/RPM|rpm/.test(sensorId)) {
                 defaults.threshold_1 = 500;
                 defaults.threshold_2 = 1000;
@@ -1836,6 +1955,8 @@
                 var eFontSize = Number(sc.font_size_temp) || 0;
                 var eOffsetX = Number(sc.offset_x) || 0;
                 var eOffsetY = Number(sc.offset_y) || 0;
+                var eValueGap = Number(sc.value_to_bar_gap) || 0;
+                var eLabelGap = Number(sc.label_to_bar_gap) || 0;
                 var eThresh1 = Number(sc.threshold_1 !== undefined ? sc.threshold_1 : defs.threshold_1);
                 var eThresh2 = Number(sc.threshold_2 !== undefined ? sc.threshold_2 : defs.threshold_2);
                 var eThresh3 = Number(sc.threshold_3 !== undefined ? sc.threshold_3 : defs.threshold_3);
@@ -1872,6 +1993,16 @@
                                     '<label class="form-label">Y Offset</label>' +
                                     '<span class="form-hint">Auto-layout fine-tuning only</span>' +
                                     '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + eOffsetY + '" step="1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Value Gap</label>' +
+                                    '<span class="form-hint">% of height above bar (0 = auto)</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="value_to_bar_gap" class="form-control sensor-field" value="' + eValueGap + '" min="0" max="100" step="0.1">' +
+                                '</div>' +
+                                '<div class="form-group">' +
+                                    '<label class="form-label">Label Gap</label>' +
+                                    '<span class="form-hint">% of height below bar (0 = auto)</span>' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="label_to_bar_gap" class="form-control sensor-field" value="' + eLabelGap + '" min="0" max="100" step="0.1">' +
                                 '</div>' +
                             '</div>' +
 
@@ -2039,11 +2170,24 @@
             errorEl.style.display = 'none';
 
             try {
-                // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                // Use getDevices() — cc-plugin-lib postMessage path works in the CC4 sandbox;
+                // direct fetch() is blocked by the iframe sandbox.
                 var data = await getDevices();
 
-                var devices = data.devices || [];
-                var found = findBestDetectedDevice(devices, buildConfig());
+                var devices = normalizeDevices(data);
+
+                // Read detection settings directly from DOM to avoid buildConfig() dependency.
+                var modeEl = document.querySelector('[name="device_detection.mode"]');
+                var allowEl = document.querySelector('[name="device_detection.allowlist"]');
+                var blockEl = document.querySelector('[name="device_detection.blocklist"]');
+                var detectionCfg = {
+                    device_detection: {
+                        mode: modeEl ? modeEl.value : 'strict',
+                        allowlist: allowEl ? allowEl.value : '',
+                        blocklist: blockEl ? blockEl.value : ''
+                    }
+                };
+                var found = findBestDetectedDevice(devices, detectionCfg);
 
                 loadingEl.style.display = 'none';
 
@@ -2052,6 +2196,27 @@
                     var uid = found.uid || '\u2014';
                     document.getElementById('device-name').textContent = name;
                     document.getElementById('device-uid').textContent = uid;
+
+                    // cc-plugin-lib postMessage omits lc_info and lcd_info.
+                    // Try a direct REST fetch to fill in the missing fields (best-effort).
+                    if (found.uid && apiAddress) {
+                        try {
+                            var devHeaders = makeAuthHeaders(token);
+                            var fullRes = await fetch(apiAddress + '/devices', { headers: devHeaders });
+                            if (fullRes.ok) {
+                                var fullData = await fullRes.json();
+                                var fullDevices = normalizeDevices(fullData);
+                                for (var fi = 0; fi < fullDevices.length; fi++) {
+                                    if (fullDevices[fi].uid === found.uid) {
+                                        found = fullDevices[fi];
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (fetchErr) {
+                            console.debug('Full device fetch failed (sandbox), using postMessage data:', fetchErr);
+                        }
+                    }
 
                     var firmware = (found.lc_info && found.lc_info.firmware_version) || '\u2014';
                     document.getElementById('device-firmware').textContent = firmware;
@@ -2063,15 +2228,18 @@
                     var width = lcdInfo ? (lcdInfo.screen_width || 0) : 0;
                     var height = lcdInfo ? (lcdInfo.screen_height || 0) : 0;
 
+                    // Fallback: use configured display dimensions if API doesn't report lcd_info
+                    if (width === 0 || height === 0) {
+                        var cfgW = parseInt((document.querySelector('[name="display.width"]') || {}).value, 10) || 0;
+                        var cfgH = parseInt((document.querySelector('[name="display.height"]') || {}).value, 10) || 0;
+                        if (cfgW > 0 && cfgH > 0) { width = cfgW; height = cfgH; }
+                    }
+
                     var resEl = document.getElementById('device-resolution');
-                    var shapeEl = document.getElementById('device-shape');
                     if (width > 0 && height > 0) {
                         resEl.textContent = width + ' \u00D7 ' + height + ' px';
-                        var isCircular = name.includes('Kraken') && (width > 240 || height > 240);
-                        shapeEl.textContent = isCircular ? 'Circular' : 'Rectangular';
                     } else {
                         resEl.textContent = 'Not available';
-                        shapeEl.textContent = 'Unknown';
                     }
 
                     document.getElementById('device-status').innerHTML =
@@ -2081,7 +2249,6 @@
                     document.getElementById('device-name').textContent = '\u2014';
                     document.getElementById('device-uid').textContent = '\u2014';
                     document.getElementById('device-resolution').textContent = '\u2014';
-                    document.getElementById('device-shape').textContent = '\u2014';
                     document.getElementById('device-firmware').textContent = '\u2014';
                     document.getElementById('device-liquidctl').textContent = '\u2014';
                     document.getElementById('device-status').innerHTML =
@@ -2091,12 +2258,10 @@
             } catch (error) {
                 console.warn('Device detection failed:', error);
                 loadingEl.style.display = 'none';
-                document.getElementById('device-status').innerHTML =
-                    '<span class="device-status error"><span class="device-status-dot"></span> Detection failed</span>';
-                document.getElementById('device-error-text').textContent =
-                    'Could not connect to CoolerControl API (' + error.message + ').';
+                var statusEl = document.getElementById('device-status');
+                if (statusEl) statusEl.innerHTML =
+                    '<span class="device-status error"><span class="device-status-dot"></span> Detection failed: ' + (error && error.message ? error.message : String(error)) + '</span>';
                 contentEl.style.display = 'block';
-                errorEl.style.display = 'block';
             }
         }
 
@@ -2105,35 +2270,75 @@
         }
 
         async function fetchSystemInfo(apiAddress, token) {
+            // Update check via GitHub Releases API
+            (async function checkForUpdate() {
+                var el = document.getElementById('update-status');
+                if (!el) return;
+                var current = '{{VERSION}}';
+                try {
+                    var res = await fetch('https://api.github.com/repos/damachine/coolerdash/releases/latest', {
+                        headers: { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
+                    });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    var data = await res.json();
+                    var latest = (data.tag_name || '').replace(/^v/i, '');
+                    var dlUrl = 'https://github.com/damachine/coolerdash/releases/tag/' + (data.tag_name || 'latest');
+                    if (latest && latest !== current) {
+                        el.innerHTML = '<strong style="color:var(--warning,#f0a500)">v' + latest + ' available</strong> &mdash; '
+                            + '<a href="' + escapeHtml(dlUrl) + '" target="_blank" rel="noopener noreferrer">Download</a>';
+                    } else {
+                        el.textContent = 'v' + (latest || current) + ' (up to date)';
+                    }
+                } catch (e) {
+                    el.textContent = 'unavailable (no network?)';
+                }
+            })();
+
             try {
                 lastApiAddress = apiAddress;
                 lastApiToken = token;
 
-                // /health has no cc-plugin-lib equivalent; only fetch it in dev/browser mode
+                // /health fetch isolated so a failure doesn't block the kernel lookup below.
+                // Also used as fallback in dev/browser mode where fetch() works.
+                var healthFetched = false;
                 if (!isInCoolerControl) {
-                    var headers = makeAuthHeaders(token);
-                    var healthRes = await fetch(apiAddress + '/health', { headers: headers });
-                    if (healthRes.ok) {
-                        var health = await healthRes.json();
-                        var ccVersion = (health.details && health.details.version) || '\u2014';
-                        document.getElementById('sys-cc-version').textContent = ccVersion;
+                    try {
+                        var headers = makeAuthHeaders(token);
+                        var healthRes = await fetch(apiAddress + '/health', { headers: headers });
+                        if (healthRes.ok) {
+                            var health = await healthRes.json();
+                            var ccVersion = (health.details && health.details.version) || '\u2014';
+                            document.getElementById('sys-cc-version').textContent = ccVersion;
+                            healthFetched = true;
+                        }
+                    } catch (healthErr) {
+                        console.warn('Health fetch failed:', healthErr);
                     }
                 }
 
                 // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                // CC version: device with drv_type='CoolerControl' carries driver_info.version = CC version.
+                // Kernel version: device with drv_type='Kernel' carries driver_info.version.
                 var data = await getDevices();
-                var devices = data.devices || [];
+                var devices = normalizeDevices(data);
                 var kernel = '';
+                var ccVer = '';
                 for (var i = 0; i < devices.length; i++) {
                     var drvType = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.drv_type;
                     var ver = devices[i].info && devices[i].info.driver_info && devices[i].info.driver_info.version;
-                    if (drvType === 'Kernel' && ver) {
+                    if (drvType === 'Kernel' && ver && !kernel) {
                         kernel = ver;
-                        break;
                     }
+                    if (drvType === 'CoolerControl' && ver && !ccVer) {
+                        ccVer = ver;
+                    }
+                    if (kernel && ccVer) break;
                 }
                 if (kernel) {
                     document.getElementById('sys-kernel').textContent = kernel;
+                }
+                if (ccVer && !healthFetched) {
+                    document.getElementById('sys-cc-version').textContent = ccVer;
                 }
             } catch (error) {
                 console.warn('System info fetch failed:', error);
@@ -2165,9 +2370,13 @@
             if (mode === 'dual') {
                 var midSlot = document.getElementById('sensor_slot_2');
                 if (midSlot) midSlot.value = 'none';
+                var slot3 = document.getElementById('sensor_slot_3');
+                if (slot3 && (slot3.value === 'liquid' || slot3.value === 'none')) slot3.value = 'gpu';
             } else if (mode === 'circle') {
                 var midSlot = document.getElementById('sensor_slot_2');
-                if (midSlot && midSlot.value === 'none') midSlot.value = 'liquid';
+                if (midSlot && midSlot.value === 'none') midSlot.value = 'gpu';
+                var slot3 = document.getElementById('sensor_slot_3');
+                if (slot3 && slot3.value === 'gpu') slot3.value = 'liquid';
             }
             validateSensorSlots();
         }
@@ -2306,7 +2515,9 @@
             var extraInfoCb = document.getElementById('circle_show_extra_info');
             config.display.circle_show_extra_info = extraInfoCb ? extraInfoCb.checked : false;
 
-            return mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+            var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+
+            return merged;
         }
 
         // ===== POPULATE FORM FROM CONFIG =====
@@ -2337,7 +2548,7 @@
 
             // Sensor slot selects: ensure custom values are available as options
             var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'liquid', sensor_slot_3: 'gpu' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'liquid' };
             for (var sf = 0; sf < slotFields.length; sf++) {
                 var slotValue = config.display && config.display[slotFields[sf]];
                 if (slotValue) {
@@ -2443,6 +2654,15 @@
         async function resetConfig() {
             try {
                 var factoryConfig = cloneConfig(RESET_CONFIG || DEFAULT_CONFIG || FACTORY_DEFAULTS);
+                // Preserve the existing access_token — never reset it to default
+                var tokenInput = document.querySelector('[name="daemon.access_token"]');
+                var existingToken = (tokenInput && tokenInput.dataset.realToken) || '';
+                if (existingToken) {
+                    if (!factoryConfig.daemon) factoryConfig.daemon = {};
+                    factoryConfig.daemon.access_token = existingToken;
+                } else if (factoryConfig.daemon) {
+                    delete factoryConfig.daemon.access_token;
+                }
                 await saveAndRestartConfig(factoryConfig);
                 populateForm(factoryConfig);
                 alert('Reset to factory defaults! Plugin will restart.');
@@ -2501,19 +2721,19 @@
                 if (!sensors.hasOwnProperty(id)) continue;
                 // Remove corrupt numeric sensor IDs from old parseFloat bug
                 if (/^\d+$/.test(id)) continue;
-                var defaults = merged.sensors[id] || getDefaultSensorConfig(id);
-                merged.sensors[id] = Object.assign({}, defaults, sensors[id]);
+                var sensorDefaults = merged.sensors[id] || getDefaultSensorConfig(id);
+                merged.sensors[id] = Object.assign({}, sensorDefaults, sensors[id]);
                 // Deep merge color objects
                 var colorKeys = ['threshold_1_color', 'threshold_2_color', 'threshold_3_color', 'threshold_4_color'];
                 for (var c = 0; c < colorKeys.length; c++) {
                     if (sensors[id][colorKeys[c]]) {
-                        merged.sensors[id][colorKeys[c]] = Object.assign({}, defaults[colorKeys[c]] || {}, sensors[id][colorKeys[c]]);
+                        merged.sensors[id][colorKeys[c]] = Object.assign({}, sensorDefaults[colorKeys[c]] || {}, sensors[id][colorKeys[c]]);
                     }
                 }
             }
 
             // Sanitize corrupt numeric slot values (from old parseFloat bug)
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'liquid', sensor_slot_3: 'gpu' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'liquid' };
             for (var slotKey in slotDefaults) {
                 if (merged.display && merged.display[slotKey] !== undefined) {
                     var sv = String(merged.display[slotKey]);
@@ -2548,6 +2768,12 @@
         // ===== INITIALIZATION =====
         runPluginScript(async function() {
             try {
+                var ctx = await getContext();
+                if (ctx.mode === 'modal') {
+                    document.body.style.maxWidth = '600px';
+                    document.body.style.margin = '0 auto';
+                }
+
                 await loadDefaultConfig();
                 var config = await getPluginConfig();
 
