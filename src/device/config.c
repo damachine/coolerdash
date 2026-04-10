@@ -152,7 +152,7 @@ static void set_display_defaults(Config *config)
     try_set_lcd_dimensions(config);
 
     if (config->display_refresh_interval == 0.0f)
-        config->display_refresh_interval = 2.50f;
+        config->display_refresh_interval = 3.50f;
     if (config->lcd_brightness == 0)
         config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
@@ -163,7 +163,7 @@ static void set_display_defaults(Config *config)
         cc_safe_strcpy(config->display_background_image_fit,
                        sizeof(config->display_background_image_fit), "cover");
     if (config->circle_switch_interval == 0)
-        config->circle_switch_interval = 6;
+        config->circle_switch_interval = 8;
     if (config->circle_show_extra_info < 0)
         config->circle_show_extra_info = 1; // enabled by default
     if (config->display_content_scale_factor == 0.0f)
@@ -421,7 +421,7 @@ static void set_default_sensor_configs(Config *config)
         if (liquid->threshold_3 == 0.0f)
             liquid->threshold_3 = 40.0f;
         if (liquid->max_scale == 0.0f)
-            liquid->max_scale = 55.0f;
+            liquid->max_scale = 45.0f;
     }
 }
 

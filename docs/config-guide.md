@@ -1,25 +1,15 @@
 # CoolerDash Configuration Guide
 
-Complete guide for configuring CoolerDash through the `config.json` file.
+Config file: `/etc/coolercontrol/plugins/coolerdash/config.json`
 
-## Configuration File Location
-
-```
-/etc/coolercontrol/plugins/coolerdash/config.json
-```
-
-## Applying Changes
-
-Restaring CoolerControl reloads the plugin and picks up config changes:
+Restart to apply changes:
 ```bash
 sudo systemctl restart coolercontrold
 ```
 
 ---
 
-## Daemon Settings
-
-Connection to the CoolerControl daemon.
+## Daemon
 
 ```json
 "daemon": {
@@ -30,18 +20,13 @@ Connection to the CoolerControl daemon.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `address` | `http://localhost:11987` | API endpoint |
-| `access_token` | `""` | Bearer token from CoolerControl UI → Access Protection. Format: `cc_<uuid>`. Required for authenticated API access. |
-
-Generate a token in CoolerControl UI under **Access Protection** and paste it into `access_token`.
+| `address` | `http://localhost:11987` | CoolerControl API endpoint |
+| `access_token` | `""` | Bearer token (`cc_<uuid>`) from CoolerControl UI > Access Protection |
 
 ---
 
-## File Paths
+## Paths
 
-System file and directory locations.
-
-### Example
 ```json
 "paths": {
     "images": "/etc/coolercontrol/plugins/coolerdash",
@@ -50,140 +35,52 @@ System file and directory locations.
 }
 ```
 
-### Settings
-- **`images`**: Directory for generated display images
-- **`image_coolerdash`**: Generated display image path
-- **`image_shutdown`**: Image displayed on daemon shutdown
+| Key | Description |
+|-----|-------------|
+| `images` | Directory for generated images |
+| `image_coolerdash` | Generated display image path |
+| `image_shutdown` | Image shown on daemon shutdown |
 
 ---
 
-## 🖥️ Display Settings
+## Display
 
-LCD display configuration tested with NZXT Kraken 2023.
-
-### Basic Configuration
 ```json
 "display": {
     "mode": "dual",
     "width": 0,
     "height": 0,
-    "refresh_interval": 2.5,
+    "refresh_interval": 3.5,
     "brightness": 80,
     "orientation": 0,
     "shape": "auto",
-    "circle_switch_interval": 5,
+    "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
-    "inscribe_factor": 0.70710678
+    "inscribe_factor": 0.70710678,
+    "sensor_slot_1": "cpu",
+    "sensor_slot_2": "liquid",
+    "sensor_slot_3": "gpu"
 }
 ```
 
-> `width`/`height` set to `0` means CoolerDash queries the actual device dimensions from the API at startup.
+| Key | Default | Description |
+|-----|---------|-------------|
+| `mode` | `dual` | `dual` or `circle` |
+| `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
+| `refresh_interval` | `3.5` | Update interval in seconds (0.01–60.0) |
+| `brightness` | `80` | LCD brightness 0–100% |
+| `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
+| `shape` | `auto` | `auto`, `rectangular`, `circular` |
+| `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
+| `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
+| `inscribe_factor` | `0.70710678` | Inscribe factor for circular displays (1/√2) |
+| `sensor_slot_1/2/3` | `cpu`/`liquid`/`gpu` | Sensor assignment per slot |
 
-### Settings
-- **`mode`**: Display mode: `dual` (default) or `circle`
-- **`width`** / **`height`**: Screen dimensions in pixels; `0` = auto-detect from API
-- **`refresh_interval`**: Update interval in seconds (0.01–60.0, default: `2.5`)
-- **`brightness`**: LCD brightness 0–100% (default: `80`)
-- **`orientation`**: Screen rotation: `0`, `90`, `180`, `270` degrees
-- **`shape`**: Display shape: `auto` (default), `rectangular`, or `circular`
-- **`circle_switch_interval`**: Slot switch interval for circle mode in seconds (1–60, default: `5`)
-- **`content_scale_factor`**: Safe area percentage (0.5–1.0, default: `0.98`)
-- **`inscribe_factor`**: Inscribe factor for circular displays (default: `0.70710678` = 1/√2)
-- **`sensor_slot_1`**: Sensor for slot 1: `cpu`, `gpu`, or `liquid` (default: `cpu`)
-- **`sensor_slot_2`**: Sensor for slot 2 (default: `liquid`)
-- **`sensor_slot_3`**: Sensor for slot 3 (default: `gpu`)
-
-Sensor slots control which sensor appears in each display position for both dual and circle mode.
-
-### Brightness Examples
-```json
-"brightness": 40,   // dim for night use
-"brightness": 80,   // recommended default
-"brightness": 100   // maximum
-```
-
-### Refresh Rate Examples
-```json
-"refresh_interval": 1.0,  // fast
-"refresh_interval": 2.5,  // default
-"refresh_interval": 5.0   // power-saving
-```
-
-### Display Shape Override
-
-The `shape` parameter allows manual control of the **inscribe factor** used for layout calculations:
-
-- **`auto`** (default): Automatic detection based on device database
-- **`rectangular`**: Force inscribe factor = 1.0 (use full display width)
-- **`circular`**: Force inscribe factor = 0.7071 (inscribed square for round displays)
-
-**When to use:**
-- Testing different layouts on your display
-- Troubleshooting clipping issues on circular displays
-- Overriding auto-detection if it's incorrect for your device
-
-**Examples:**
-```json
-"shape": "auto"        // recommended
-"shape": "rectangular" // full width, inscribe_factor = 1.0
-"shape": "circular"    // inscribed square, inscribe_factor = 0.7071
-```
-
-**Priority:** `shape` config > auto-detection
-
-**Note:** See [Display Detection Guide](display-detection.md) for technical details about inscribe factors.
-
-#### Circle Mode Sensor Switching
-
-**Parameter:** `circle_switch_interval`
-
-Controls how frequently the circle mode rotates between available sensors:
-
-- **Range:** 1-60 seconds
-- **Default:** 5 seconds
-- **Applies to:** Circle mode only
-
-**Example:**
-```json
-"mode": "circle",
-"circle_switch_interval": 10
-```
-
-**Use Cases:**
-- **Fast switching (1-3s):** Quick overview of all sensors
-- **Moderate (5-8s):** Default balanced viewing
-- **Slow switching (10-60s):** Focus on individual sensors longer
-
-#### Content Scale Factor
-
-**Parameter:** `content_scale_factor`
-
-Controls the safe area percentage used for rendering content (determines margin/padding):
-
-- **Range:** 0.5-1.0 (50%-100%)
-- **Default:** 0.98 (98% = 2% margin)
-- **Applies to:** Both dual and circle modes
-
-**Example:**
-```json
-"content_scale_factor": 0.95
-```
-
-**Use Cases:**
-- **0.98-1.0:** Minimal margins, maximum screen usage
-- **0.90-0.97:** Comfortable padding, safe for text rendering
-- **0.70-0.89:** Extra margins, conservative layout
-- **0.5-0.69:** Large margins, centered content focus
-
-**Visual Impact:**
-- Higher values (0.95-1.0) = content fills more screen area, less padding
-- Lower values (0.5-0.8) = more white space around content, safer margins
+`shape` overrides auto-detection. Priority: `shape` config > auto-detection.
 
 ---
 
-## Visual Layout
-
-All values are in pixels unless noted. Positions are calculated dynamically from display dimensions.
+## Layout
 
 ```json
 "layout": {
@@ -202,20 +99,20 @@ All values are in pixels unless noted. Positions are calculated dynamically from
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `bar_height` | `24` | Bar height in pixels |
-| `bar_width` | `98` | Bar width in % of display width |
-| `bar_gap` | `12` | Gap between bars in pixels |
-| `bar_border` | `1.0` | Border thickness in pixels |
-| `bar_border_enabled` | `1` | Enable bar border (`1`/`0`) |
+| `bar_height` | `24` | Bar height (px) |
+| `bar_width` | `98` | Bar width (% of display width) |
+| `bar_gap` | `12` | Gap between bars (px) |
+| `bar_border` | `1.0` | Border thickness (px) |
+| `bar_border_enabled` | `1` | Border on/off (`1`/`0`) |
 | `label_margin_left` | `1` | Left label margin multiplier |
-| `label_margin_bar` | `1` | Margin between label and bar |
-| `bar_height_1/2/3` | `0` | Per-slot bar height override. `0` = use `bar_height` |
+| `label_margin_bar` | `1` | Label-to-bar margin multiplier |
+| `bar_height_1/2/3` | `0` | Per-slot height override. `0` = use `bar_height` |
 
 ---
 
 ## Colors
 
-RGB color values (0–255).
+RGB values (0–255):
 
 ```json
 "colors": {
@@ -228,26 +125,28 @@ RGB color values (0–255).
 
 ---
 
-## Font Settings
+## Font
 
 ```json
 "font": {
     "face": "Roboto Black",
     "size_temp": 0,
-    "size_labels": 0
+    "size_labels": 0,
+    "font_growth_factor": 1.33
 }
 ```
 
-- **`face`**: Font family name (must be installed, default: `Roboto Black`)
-- **`size_temp`** / **`size_labels`**: Font size in points. `0` = auto-scale based on display resolution
-  - 240×240: ~100pt temp / ~30pt labels
-  - Formula: `100.0 × (width + height) / (2 × 240.0)`
+| Key | Default | Description |
+|-----|---------|-------------|
+| `face` | `Roboto Black` | Font family (must be installed) |
+| `size_temp` / `size_labels` | `0` | Font size (pt). `0` = auto-scale from resolution |
+| `font_growth_factor` | `1.33` | Scaling multiplier for auto-sized fonts |
 
 ---
 
 ## Temperature Zones
 
-Four color zones based on temperature thresholds. Configured per-sensor in the `sensors` section.
+Four color zones per sensor. Bars transition through colors as temperature rises.
 
 ```json
 "sensors": {
@@ -259,39 +158,36 @@ Four color zones based on temperature thresholds. Configured per-sensor in the `
         "threshold_1_color": { "r": 0,   "g": 255, "b": 0 },
         "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
         "threshold_3_color": { "r": 255, "g": 70,  "b": 0 },
-        "threshold_4_color": { "r": 255, "g": 0,   "b": 0 }
-    },
-    "gpu": { ... }
+        "threshold_4_color": { "r": 255, "g": 0,   "b": 0 },
+        "offset_x": 0,
+        "offset_y": 0
+    }
 }
 ```
 
-`max_scale` sets the temperature at 100% bar fill. Bars transition through 4 color zones as temperature rises through the thresholds.
+`max_scale` = temperature at 100% bar fill. Same structure for `gpu` and `liquid`.
 
 ---
 
-## Complete Example
+## Positioning
 
-See the default config at `/etc/coolercontrol/plugins/coolerdash/config.json` for a full reference. The file is installed with all options and their defaults.
+```json
+"positioning": {
+    "degree_spacing": 16,
+    "label_offset_x": 0,
+    "label_offset_y": 0,
+    "margin_top": 0,
+    "margin_bottom": 0
+}
+```
 
 ---
 
 ## Troubleshooting
 
-1. **Display not updating**: Check `refresh_interval` and restart CoolerControl
-2. **Wrong colors**: Verify RGB values are 0–255
-3. **Text clipped on circular display**: Adjust `inscribe_factor` and `content_scale_factor`
-4. **Bars too wide**: Lower `bar_width` value
+- **Display not updating**: Check `refresh_interval`, restart CoolerControl
+- **Wrong colors**: RGB values must be 0–255
+- **Text clipped**: Adjust `inscribe_factor` and `content_scale_factor`
+- **Bars too wide**: Lower `bar_width`
 
-### Backup
-
-```bash
-sudo cp /etc/coolercontrol/plugins/coolerdash/config.json \
-        /etc/coolercontrol/plugins/coolerdash/config.json.backup
-```
-
-## Developer: Scaling Unit Test
-
-```bash
-gcc -std=c99 -Iinclude -I./src -o build/test_scaling tests/test_scaling.c -lm
-./build/test_scaling
-```
+Full default config: `/etc/coolercontrol/plugins/coolerdash/config.json`

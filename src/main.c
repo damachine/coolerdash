@@ -184,8 +184,7 @@ static void show_help(const char *program_name)
     printf(
         "  --dual            Force dual display mode (CPU+GPU simultaneously)\n");
     printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 "
-           "seconds)\n");
-    printf("  --develop         Developer mode: enable verbose logging\n\n");
+           "seconds)\n\n");
     printf("DISPLAY MODES:\n");
     printf(
         "  dual              Default mode - shows CPU and GPU simultaneously\n");
@@ -540,10 +539,6 @@ static const char *parse_arguments(int argc, char **argv,
         else if (strcmp(argv[i], "--circle") == 0)
         {
             cc_safe_strcpy(display_mode_override, 16, "circle");
-        }
-        else if (strcmp(argv[i], "--develop") == 0)
-        {
-            verbose_logging = 1; // Developer mode implies verbose logging
         }
         else if (argv[i][0] != '-')
         {

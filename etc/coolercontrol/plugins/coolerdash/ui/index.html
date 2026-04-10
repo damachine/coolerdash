@@ -1178,9 +1178,9 @@
             },
             display: {
                 mode: "circle",
-                circle_switch_interval: 6,
+                circle_switch_interval: 8,
                 circle_show_extra_info: true,
-                refresh_interval: 2.5,
+                refresh_interval: 3.5,
                 brightness: 80,
                 orientation: 0,
                 background_image_fit: "cover",
@@ -1254,7 +1254,7 @@
                     threshold_1: 30.0,
                     threshold_2: 35.0,
                     threshold_3: 40.0,
-                    max_scale: 55.0,
+                    max_scale: 45.0,
                     font_size_temp: 0,
                     label: '',
                     threshold_1_color: { r: 0, g: 255, b: 0 },
@@ -1365,6 +1365,12 @@
 
         if (typeof runPluginScript === 'undefined') {
             window.runPluginScript = function(mainFunction) { mainFunction(); };
+        }
+
+        if (typeof getContext === 'undefined') {
+            window.getContext = async function() {
+                return { mode: isInCoolerControl ? 'full_page' : 'modal' };
+            };
         }
 
         // Fallback for getDevices() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
@@ -1820,7 +1826,7 @@
                 defaults.threshold_1 = 30.0;
                 defaults.threshold_2 = 35.0;
                 defaults.threshold_3 = 40.0;
-                defaults.max_scale = 55.0;
+                defaults.max_scale = 45.0;
             } else if (/RPM|rpm/.test(sensorId)) {
                 defaults.threshold_1 = 500;
                 defaults.threshold_2 = 1000;
@@ -2737,6 +2743,12 @@
         // ===== INITIALIZATION =====
         runPluginScript(async function() {
             try {
+                var ctx = await getContext();
+                if (ctx.mode === 'modal') {
+                    document.body.style.maxWidth = '600px';
+                    document.body.style.margin = '0 auto';
+                }
+
                 await loadDefaultConfig();
                 var config = await getPluginConfig();
 
