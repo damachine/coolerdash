@@ -155,27 +155,6 @@ static int is_started_as_plugin(void)
 }
 
 /**
- * @brief Remove generated image file during cleanup.
- * @details Securely removes the generated PNG image file with proper error
- * reporting.
- */
-static void remove_image_file(const char *image_file)
-{
-    if (!image_file || !image_file[0])
-        return;
-
-    if (unlink(image_file) == 0)
-    {
-        log_message(LOG_INFO, "Image file removed");
-    }
-    else if (errno != ENOENT)
-    {
-        log_message(LOG_WARNING, "Could not remove image file '%s': %s", image_file,
-                    strerror(errno));
-    }
-}
-
-/**
  * @brief Enhanced help display with improved formatting and security
  * information.
  * @details Prints comprehensive usage information and security recommendations.
@@ -725,18 +704,21 @@ static void initialize_device_info(Config *config)
 
 /**
  * @brief Perform cleanup operations.
- * @details Removes image files and closes CoolerControl session.
+ * @details Closes CoolerControl session and frees resources.
+ * The LCD image file is intentionally kept on disk so that CoolerControl
+ * can still find it when applying saved settings on next startup
+ * (coolerdash is started after CC applies settings).
  * Shutdown image is handled by CC4 natively via register_shutdown_image_with_cc().
  */
 static void perform_cleanup(const Config *config)
 {
+    (void)config;
     log_message(LOG_INFO, "Daemon shutdown initiated");
 
     // Close CoolerControl session and free resources
     cleanup_coolercontrol_session();
     cleanup_sensor_curl_handle();
 
-    remove_image_file(config->paths_image_coolerdash);
     running = 0;
     log_message(LOG_INFO, "CoolerDash shutdown complete");
 }
@@ -788,6 +770,11 @@ int main(int argc, char **argv)
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
     initialize_device_info(&config);
+
+    // Render initial image immediately so the PNG exists on disk
+    // before CC applies saved LCD settings (avoids startup race condition)
+    log_message(LOG_INFO, "Rendering initial display image...");
+    draw_display_image(&config);
 
     /* CC4: Register shutdown.png once at startup so CoolerControl displays
      * it natively when the CC daemon stops (MR !417 / CC 4.0). */

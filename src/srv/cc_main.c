@@ -18,6 +18,7 @@
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <curl/curl.h>
+#include <jansson.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -480,9 +481,10 @@ static int check_upload_response(CURLcode res, long http_response_code,
 }
 
 /**
- * @brief Sends an image to the LCD display.
- * @details This function uploads an image to the LCD display using a multipart
- * HTTP PUT request.
+ * @brief Sends an image path to the LCD display via JSON settings endpoint.
+ * @details Instead of uploading the full image binary via multipart, this sends
+ * the file path to CoolerControl which reads the image directly from disk.
+ * Uses PUT /devices/{uid}/settings/lcd/lcd with LcdSettings JSON body.
  */
 int send_image_to_lcd(const Config *config, const char *image_path,
                       const char *device_uid)
@@ -491,24 +493,60 @@ int send_image_to_lcd(const Config *config, const char *image_path,
         return 0;
 
     char upload_url[CC_URL_SIZE];
-    snprintf(upload_url, sizeof(upload_url),
-             "%s/devices/%s/settings/lcd/lcd/images?log=false",
-             config->daemon_address, device_uid);
-
-    curl_mime *form = build_lcd_upload_form(config, image_path);
-    if (!form)
+    int written = snprintf(upload_url, sizeof(upload_url),
+                           "%s/devices/%s/settings/lcd/lcd",
+                           config->daemon_address, device_uid);
+    if (!validate_snprintf(written, sizeof(upload_url), upload_url))
+    {
+        log_message(LOG_ERROR, "LCD settings URL truncated");
         return 0;
+    }
+
+    // Build JSON body: LcdSettings with image_file_processed path
+    json_t *body = json_object();
+    if (!body)
+    {
+        log_message(LOG_ERROR, "Failed to create JSON object for LCD settings");
+        return 0;
+    }
+
+    json_object_set_new(body, "mode", json_string("image"));
+    json_object_set_new(body, "image_file_processed", json_string(image_path));
+    json_object_set_new(body, "brightness", json_integer(config->lcd_brightness));
+    json_object_set_new(body, "orientation", json_integer(config->lcd_orientation));
+    json_object_set_new(body, "colors", json_array());
+
+    char *json_str = json_dumps(body, JSON_COMPACT);
+    json_decref(body);
+    if (!json_str)
+    {
+        log_message(LOG_ERROR, "Failed to serialize LCD settings JSON");
+        return 0;
+    }
 
     http_response response = {0};
     if (!cc_init_response_buffer(&response, 4096))
     {
         log_message(LOG_ERROR, "Failed to initialize response buffer");
-        curl_mime_free(form);
+        free(json_str);
         return 0;
     }
 
-    struct curl_slist *headers =
-        configure_lcd_upload_curl(config, upload_url, form, &response);
+    // Configure CURL for JSON PUT request
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, upload_url);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, json_str);
+    curl_easy_setopt(
+        cc_session.curl_handle, CURLOPT_WRITEFUNCTION,
+        (size_t (*)(const void *, size_t, size_t, void *))write_callback);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = curl_slist_append(headers, "User-Agent: CoolerDash/1.0");
+    headers = curl_slist_append(headers, "Accept: application/json");
+    headers = curl_slist_append(headers, cc_session.access_token);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
 
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long http_response_code = -1;
@@ -517,11 +555,18 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 
     int success = check_upload_response(res, http_response_code, &response);
 
+    // Cleanup
     cc_cleanup_response_buffer(&response);
     if (headers)
         curl_slist_free_all(headers);
-    curl_mime_free(form);
-    cleanup_lcd_upload_curl();
+    free(json_str);
+
+    // Reset CURL options
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, NULL);
 
     return success;
 }

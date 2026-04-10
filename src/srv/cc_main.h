@@ -103,9 +103,10 @@ void reset_coolercontrol_session(void);
 const char *get_session_access_token(void);
 
 /**
- * @brief Sends an image directly to the LCD of the CoolerControl device.
- * @details Uploads an image to the LCD display using a multipart HTTP PUT
- * request with brightness and orientation settings.
+ * @brief Sends an image path to the LCD via JSON settings endpoint.
+ * @details Uses PUT /devices/{uid}/settings/lcd/lcd with LcdSettings JSON body
+ * containing image_file_processed path. CoolerControl reads the image directly
+ * from disk instead of receiving full binary data over HTTP.
  */
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
