@@ -18,7 +18,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <jansson.h>
 // cppcheck-suppress-end missingIncludeSystem
 
@@ -743,23 +742,11 @@ static void load_credentials_file(const char *config_json_path, Config *config)
     if (!get_credentials_path(config_json_path, cred_path, sizeof(cred_path)))
         return;
 
-    FILE *fp = fopen(cred_path, "r");
-    if (!fp)
-    {
-        log_message(LOG_INFO, "No credentials.json found at %s", cred_path);
-        return;
-    }
-    fclose(fp);
-
-    /* Ensure credentials file stays protected */
-    chmod(cred_path, 0600);
-
     json_error_t error;
     json_t *root = json_load_file(cred_path, 0, &error);
     if (!root)
     {
-        log_message(LOG_WARNING, "Failed to parse %s: %s (line %d)",
-                    cred_path, error.text, error.line);
+        log_message(LOG_INFO, "No credentials.json at %s", cred_path);
         return;
     }
 
@@ -836,7 +823,6 @@ static void save_credentials_file(const char *config_json_path, const Config *co
     }
 
     json_decref(root);
-    chmod(cred_path, 0600);
 
     if (token[0] != '\0')
         log_message(LOG_STATUS, "Access token persisted to credentials.json");
@@ -899,7 +885,6 @@ static void normalize_config_json(const char *json_path, json_t *root)
         fclose(fp);
     }
 
-    chmod(json_path, 0600);
     log_message(LOG_INFO, "Normalized config.json formatting");
 }
 
@@ -1478,9 +1463,6 @@ int load_plugin_config(Config *config, const char *config_path)
 
     if (json_path)
     {
-        /* Ensure config.json stays protected (contains access_token) */
-        chmod(json_path, 0600);
-
         log_message(LOG_INFO, "Loading plugin config from: %s", json_path);
 
         json_error_t error;
