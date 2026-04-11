@@ -15,7 +15,8 @@ license=('MIT')
 depends=('cairo' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config' 'git')
 optdepends=()
-backup=('etc/coolercontrol/plugins/coolerdash/config.json')
+backup=('etc/coolercontrol/plugins/coolerdash/config.json'
+        'etc/coolercontrol/plugins/coolerdash/credentials.json')
 install=coolerdash.install
 source=()
 sha256sums=()

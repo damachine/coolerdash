@@ -402,30 +402,39 @@ int is_legacy_sensor_slot(const char *slot_value)
 }
 
 /**
+ * @brief Map legacy slot name to device type string.
+ * @details Returns "CPU", "GPU", "Liquidctl" or NULL for unknown slots.
+ */
+static const char *get_legacy_slot_device_type(const char *slot_value)
+{
+    if (strcmp(slot_value, "cpu") == 0)
+        return "CPU";
+    if (strcmp(slot_value, "gpu") == 0)
+        return "GPU";
+    if (strcmp(slot_value, "liquid") == 0)
+        return "Liquidctl";
+    return NULL;
+}
+
+/**
  * @brief Resolve a legacy slot value to matching sensor entry.
- * @details Maps "cpu"→first CPU temp, "gpu"→first GPU temp,
- * "liquid"→first Liquidctl temp.
+ * @details Maps "cpu"→first CPU sensor, "gpu"→first GPU sensor,
+ * "liquid"→first Liquidctl sensor matching the given category.
  */
 static const sensor_entry_t *resolve_legacy_slot(
-    const monitor_sensor_data_t *data, const char *slot_value)
+    const monitor_sensor_data_t *data, const char *slot_value,
+    sensor_category_t category)
 {
     if (!data || !slot_value)
         return NULL;
 
-    const char *target_type = NULL;
-    if (strcmp(slot_value, "cpu") == 0)
-        target_type = "CPU";
-    else if (strcmp(slot_value, "gpu") == 0)
-        target_type = "GPU";
-    else if (strcmp(slot_value, "liquid") == 0)
-        target_type = "Liquidctl";
-    else
+    const char *target_type = get_legacy_slot_device_type(slot_value);
+    if (!target_type)
         return NULL;
 
-    /* Find first temperature sensor matching the device type */
     for (int i = 0; i < data->sensor_count; i++)
     {
-        if (data->sensors[i].category == SENSOR_CATEGORY_TEMP &&
+        if (data->sensors[i].category == category &&
             strcmp(data->sensors[i].device_type, target_type) == 0)
         {
             return &data->sensors[i];
@@ -438,7 +447,7 @@ static const sensor_entry_t *resolve_legacy_slot(
 /**
  * @brief Find sensor entry matching a slot value.
  * @details Handles both legacy ("cpu","gpu","liquid") and dynamic
- * ("uid:sensor_name") slot resolution.
+ * ("uid:sensor_name") slot resolution. Always matches temperature sensors.
  */
 const sensor_entry_t *find_sensor_for_slot(const monitor_sensor_data_t *data,
                                            const char *slot_value)
@@ -448,7 +457,7 @@ const sensor_entry_t *find_sensor_for_slot(const monitor_sensor_data_t *data,
 
     /* Legacy slot resolution */
     if (is_legacy_sensor_slot(slot_value))
-        return resolve_legacy_slot(data, slot_value);
+        return resolve_legacy_slot(data, slot_value, SENSOR_CATEGORY_TEMP);
 
     /* Dynamic slot: "device_uid:sensor_name" */
     const char *separator = strchr(slot_value, ':');
@@ -485,27 +494,7 @@ const sensor_entry_t *find_channel_sensor_for_slot(
 
     /* Legacy slot resolution with custom category */
     if (is_legacy_sensor_slot(slot_value))
-    {
-        const char *target_type = NULL;
-        if (strcmp(slot_value, "cpu") == 0)
-            target_type = "CPU";
-        else if (strcmp(slot_value, "gpu") == 0)
-            target_type = "GPU";
-        else if (strcmp(slot_value, "liquid") == 0)
-            target_type = "Liquidctl";
-        else
-            return NULL;
-
-        for (int i = 0; i < data->sensor_count; i++)
-        {
-            if (data->sensors[i].category == category &&
-                strcmp(data->sensors[i].device_type, target_type) == 0)
-            {
-                return &data->sensors[i];
-            }
-        }
-        return NULL;
-    }
+        return resolve_legacy_slot(data, slot_value, category);
 
     /* Dynamic slot: "device_uid:sensor_name" — match by uid + category */
     const char *separator = strchr(slot_value, ':');

@@ -2,8 +2,7 @@
   "_comment": "CoolerDash Plugin Configuration - All values with defaults",
 
   "daemon": {
-    "address": "http://localhost:11987",
-    "access_token": ""
+    "address": "http://localhost:11987"
   },
 
   "device_detection": {

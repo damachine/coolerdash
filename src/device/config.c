@@ -701,6 +701,209 @@ static void load_daemon_from_json(json_t *root, Config *config)
 }
 
 /**
+ * @brief Derive credentials.json path from config.json path.
+ * @param config_json_path Path to config.json
+ * @param cred_path Output buffer for credentials.json path
+ * @param cred_path_size Size of output buffer
+ * @return 1 on success, 0 on failure
+ */
+static int get_credentials_path(const char *config_json_path,
+                                char *cred_path, size_t cred_path_size)
+{
+    if (!config_json_path || !cred_path)
+        return 0;
+
+    const char *last_slash = strrchr(config_json_path, '/');
+    if (!last_slash)
+        return 0;
+
+    size_t dir_len = (size_t)(last_slash - config_json_path + 1);
+    if (dir_len + 17 > cred_path_size) /* 17 = strlen("credentials.json") + 1 */
+        return 0;
+
+    memcpy(cred_path, config_json_path, dir_len);
+    memcpy(cred_path + dir_len, "credentials.json", 17);
+    return 1;
+}
+
+/**
+ * @brief Load access_token from separate credentials.json file.
+ * @details Credentials are stored separately so package updates never
+ *          overwrite the user's access_token. The credentials file is
+ *          expected in the same directory as config.json.
+ * @param config_json_path Path to config.json (used to derive credentials path)
+ * @param config Config struct to populate
+ */
+static void load_credentials_file(const char *config_json_path, Config *config)
+{
+    if (!config_json_path || !config)
+        return;
+
+    char cred_path[CONFIG_MAX_PATH_LEN];
+    if (!get_credentials_path(config_json_path, cred_path, sizeof(cred_path)))
+        return;
+
+    FILE *fp = fopen(cred_path, "r");
+    if (!fp)
+    {
+        log_message(LOG_INFO, "No credentials.json found at %s", cred_path);
+        return;
+    }
+    fclose(fp);
+
+    /* Ensure credentials file stays protected */
+    chmod(cred_path, 0600);
+
+    json_error_t error;
+    json_t *root = json_load_file(cred_path, 0, &error);
+    if (!root)
+    {
+        log_message(LOG_WARNING, "Failed to parse %s: %s (line %d)",
+                    cred_path, error.text, error.line);
+        return;
+    }
+
+    json_t *token = json_object_get(root, "access_token");
+    if (token && json_is_string(token) && json_string_length(token) > 0)
+    {
+        const char *value = json_string_value(token);
+        if (value)
+        {
+            SAFE_STRCPY(config->access_token, value);
+            log_message(LOG_INFO, "Loaded access_token from credentials.json");
+        }
+    }
+
+    json_decref(root);
+}
+
+/**
+ * @brief Persist access_token to credentials.json for update safety.
+ * @details Called after config loading. Creates credentials.json if it
+ *          does not exist. If a non-empty token was loaded, ensures it
+ *          is always persisted so package updates that overwrite
+ *          config.json do not lose the token.
+ * @param config_json_path Path to config.json (used to derive credentials path)
+ * @param config Config with the loaded access_token
+ */
+static void save_credentials_file(const char *config_json_path, const Config *config)
+{
+    if (!config_json_path || !config)
+        return;
+
+    char cred_path[CONFIG_MAX_PATH_LEN];
+    if (!get_credentials_path(config_json_path, cred_path, sizeof(cred_path)))
+        return;
+
+    const char *token = config->access_token[0] != '\0'
+                            ? config->access_token
+                            : "";
+
+    /* Check if credentials.json already has the same token */
+    json_t *existing = json_load_file(cred_path, 0, NULL);
+    if (existing)
+    {
+        json_t *cur = json_object_get(existing, "access_token");
+        if (cur && json_is_string(cur))
+        {
+            const char *val = json_string_value(cur);
+            if (val && strcmp(val, token) == 0)
+            {
+                json_decref(existing);
+                return; /* Already up-to-date */
+            }
+        }
+        json_decref(existing);
+    }
+
+    /* Write credentials.json */
+    json_t *root = json_object();
+    if (!root)
+        return;
+
+    if (json_object_set_new(root, "access_token",
+                            json_string(token)) != 0)
+    {
+        json_decref(root);
+        return;
+    }
+
+    if (json_dump_file(root, cred_path, JSON_INDENT(2)) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to write credentials.json");
+        json_decref(root);
+        return;
+    }
+
+    json_decref(root);
+    chmod(cred_path, 0600);
+
+    if (token[0] != '\0')
+        log_message(LOG_STATUS, "Access token persisted to credentials.json");
+    else
+        log_message(LOG_STATUS, "Created credentials.json");
+}
+
+/**
+ * @brief Re-format config.json with proper indentation if needed.
+ * @details CoolerControl writes config.json as compact single-line JSON
+ *          without trailing newline. This normalizes it to pretty-printed
+ *          format so the file stays human-readable and reduces noise in
+ *          .pacnew diffs during package updates.
+ * @param json_path Path to config.json
+ * @param root Parsed JSON root (must still be valid, not yet freed)
+ */
+static void normalize_config_json(const char *json_path, json_t *root)
+{
+    if (!json_path || !root)
+        return;
+
+    /* Read existing file to check if it's already formatted */
+    FILE *fp = fopen(json_path, "r");
+    if (!fp)
+        return;
+
+    /* Check first 64 bytes — pretty JSON starts with "{\n  " */
+    char head[64];
+    size_t n = fread(head, 1, sizeof(head) - 1, fp);
+    fclose(fp);
+
+    if (n < 4)
+        return;
+
+    head[n] = '\0';
+
+    /* If it already starts with "{\n  " it's properly formatted */
+    if (head[0] == '{' && head[1] == '\n' && head[2] == ' ' && head[3] == ' ')
+        return;
+
+    /* Remove access_token before writing (belongs in credentials.json) */
+    json_t *daemon = json_object_get(root, "daemon");
+    if (daemon && json_is_object(daemon))
+    {
+        json_object_del(daemon, "access_token");
+    }
+
+    if (json_dump_file(root, json_path,
+                       JSON_INDENT(2) | JSON_PRESERVE_ORDER) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to normalize config.json format");
+        return;
+    }
+
+    /* Append trailing newline (json_dump_file doesn't add one) */
+    fp = fopen(json_path, "a");
+    if (fp)
+    {
+        fputc('\n', fp);
+        fclose(fp);
+    }
+
+    chmod(json_path, 0600);
+    log_message(LOG_INFO, "Normalized config.json formatting");
+}
+
+/**
  * @brief Load paths from JSON.
  */
 static void load_paths_from_json(json_t *root, Config *config)
@@ -1295,6 +1498,9 @@ int load_plugin_config(Config *config, const char *config_path)
             load_sensors_from_json(root, config);
             load_positioning_from_json(root, config);
 
+            /* Re-format config.json if CoolerControl wrote it compact */
+            normalize_config_json(json_path, root);
+
             json_decref(root);
             loaded_from_json = 1;
             log_message(LOG_STATUS, "Plugin configuration loaded from JSON");
@@ -1305,6 +1511,9 @@ int load_plugin_config(Config *config, const char *config_path)
                         json_path, error.text, error.line);
             log_message(LOG_STATUS, "Using hardcoded defaults");
         }
+
+        /* Load credentials.json (overrides access_token from config.json) */
+        load_credentials_file(json_path, config);
     }
     else
     {
@@ -1313,6 +1522,12 @@ int load_plugin_config(Config *config, const char *config_path)
 
     // Apply defaults for any missing fields
     apply_system_defaults(config);
+
+    /* Auto-persist token to credentials.json (survives config.json updates) */
+    if (json_path)
+    {
+        save_credentials_file(json_path, config);
+    }
 
     return loaded_from_json;
 }

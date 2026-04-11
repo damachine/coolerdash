@@ -12,7 +12,8 @@ url="https://github.com/damachine/coolerdash"
 license=('MIT')
 depends=('cairo' 'coolercontrol' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config' 'git')
-backup=('etc/coolercontrol/plugins/coolerdash/config.json')
+backup=('etc/coolercontrol/plugins/coolerdash/config.json'
+        'etc/coolercontrol/plugins/coolerdash/credentials.json')
 install=coolerdash.install
 _commit=
 source=("coolerdash-git::git+https://github.com/damachine/coolerdash.git#commit=${_commit}")
