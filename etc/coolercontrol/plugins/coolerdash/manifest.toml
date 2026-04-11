@@ -1,7 +1,7 @@
 id = "coolerdash"
 type = "integration"
 version = "{{VERSION}}"
-description = "Monitor telemetry data on an AIO liquid cooler with an integrated LCD display"
+description = "Plug-in for CoolerControl that extends the LCD functionality with additional features"
 executable = "/usr/libexec/coolerdash/coolerdash"
 #args = "--verbose"
 privileged = true

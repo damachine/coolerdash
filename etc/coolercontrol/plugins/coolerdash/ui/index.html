@@ -600,7 +600,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is stored securely in <code>config.json</code> (chmod 600). If a token is already set, the field shows <strong>***</strong> &mdash; enter a new value to replace it, or leave <strong>***</strong> unchanged.</span>
+                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is automatically persisted to <code>credentials.json</code> (chmod 600) so it survives package updates. If a token is already set, the field shows <strong>***</strong> &mdash; enter a new value to replace it, or leave <strong>***</strong> unchanged.</span>
                     <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
             </div>

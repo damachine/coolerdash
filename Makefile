@@ -352,6 +352,10 @@ install: check-deps $(TARGET)
 	else \
 		$(INSTALL) -m 600 etc/coolercontrol/plugins/coolerdash/config.json "$(DESTDIR)$(PLUGINDIR)/config.json"; \
 	fi
+	@if [ -f "$(DESTDIR)$(PLUGINDIR)/credentials.json" ]; then \
+		chmod 600 "$(DESTDIR)$(PLUGINDIR)/credentials.json"; \
+		printf "  $(GREEN)Credentials:$(RESET) Existing credentials.json preserved (chmod 600)\n"; \
+	fi
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
 	@$(INSTALL_DATA) etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
 	@$(INSTALL_DATA) images/shutdown.png "$(DESTDIR)$(PLUGINDIR)/shutdown.png"
@@ -360,6 +364,7 @@ install: check-deps $(TARGET)
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)$(libexecdir)/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/config.json (chmod 600)\n"
+	@printf "  $(GREEN)Credentials:$(RESET) $(DESTDIR)$(PLUGINDIR)/credentials.json (chmod 600)\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)$(PLUGINDIR)/ui/index.html\n"
 	@printf "  $(GREEN)Plugin Lib:$(RESET)   Served by CoolerControl at /plugins/lib/cc-plugin-lib.js\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)$(PLUGINDIR)/manifest.toml\n"
