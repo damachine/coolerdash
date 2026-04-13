@@ -903,22 +903,6 @@ int main(int argc, char **argv)
     log_message(LOG_INFO, "Rendering initial display image...");
     draw_display_image(&config);
 
-    /* CC4: Register shutdown.png once at startup so CoolerControl displays
-     * it natively when the CC daemon stops (MR !417 / CC 4.0). */
-    if (config.paths_image_shutdown[0])
-    {
-        char device_uid[128] = {0};
-        if (get_cached_lcd_device_data(&config, device_uid,
-                                       sizeof(device_uid), NULL, 0, NULL,
-                                       NULL) &&
-            device_uid[0])
-        {
-            register_shutdown_image_with_cc(&config,
-                                            config.paths_image_shutdown,
-                                            device_uid);
-        }
-    }
-
     log_message(LOG_STATUS, "Starting daemon");
     int result = run_daemon(&config);
 
