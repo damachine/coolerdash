@@ -72,9 +72,4 @@ const char *get_session_access_token(void);
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
 
-/** @brief Register shutdown image with CC4; called once at startup. */
-int register_shutdown_image_with_cc(const struct Config *config,
-                                    const char *image_path,
-                                    const char *device_uid);
-
 #endif // CC_MAIN_H
