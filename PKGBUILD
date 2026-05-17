@@ -15,8 +15,7 @@ license=('MIT')
 depends=('cairo' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
 makedepends=('gcc' 'make' 'pkg-config' 'git')
 optdepends=()
-backup=('etc/coolercontrol/plugins/coolerdash/config.json'
-        'etc/coolercontrol/plugins/coolerdash/credentials.json')
+backup=('var/lib/coolercontrol/plugins/coolerdash/config.json')
 install=coolerdash.install
 source=()
 sha256sums=()
@@ -43,14 +42,14 @@ build() {
     make
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
-    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons"
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons"
     cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
-    cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
-    cp -a etc/coolercontrol/plugins/coolerdash/ui/index.html "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/"
+    cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/"
+    cp -a etc/coolercontrol/plugins/coolerdash/ui/index.html "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/ui/"
     cp -a images/shutdown.png "${srcdir}/images/"
     cp -a man/coolerdash.1 "${srcdir}/man/"
-    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/etc/coolercontrol/plugins/coolerdash/"
+    cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/"
     cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
     cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
 }
@@ -69,21 +68,22 @@ check() {
 }
 
 package() {
-    # Binary to /usr/libexec, plugin data stays in /etc/coolercontrol/plugins/
-    install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash"
+    # Binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/
+    install -dm711 "${pkgdir}/var/lib/coolercontrol"
+    install -dm755 "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash"
     install -Dm755 "${srcdir}/bin/coolerdash" "${pkgdir}/usr/libexec/coolerdash/coolerdash"
-    install -Dm644 "${srcdir}/README.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/README.md"
-    install -Dm644 "${srcdir}/VERSION" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/VERSION"
-    install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md"
-    install -Dm600 "${srcdir}/etc/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/config.json"
+    install -Dm644 "${srcdir}/README.md" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/README.md"
+    install -Dm644 "${srcdir}/VERSION" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/VERSION"
+    install -Dm644 "${srcdir}/CHANGELOG.md" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/CHANGELOG.md"
+    install -Dm600 "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/config.json" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/config.json"
 
-    install -dm755 "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui"
-    install -m644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
-    install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/shutdown.png"
-    install -Dm644 "${srcdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
+    install -dm755 "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/ui"
+    install -m644 "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/ui/index.html" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/ui/index.html"
+    install -Dm644 "${srcdir}/images/shutdown.png" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/shutdown.png"
+    install -Dm644 "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/manifest.toml" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/manifest.toml"
 
-    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/manifest.toml"
-    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/etc/coolercontrol/plugins/coolerdash/ui/index.html"
+    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/manifest.toml"
+    sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/ui/index.html"
 
     install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
     install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"

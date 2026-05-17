@@ -332,7 +332,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 
     char upload_url[CC_URL_SIZE];
     int written = snprintf(upload_url, sizeof(upload_url),
-                           "%s/devices/%s/settings/lcd/lcd",
+                           "%s/devices/%s/settings/lcd/lcd?log=false",
                            config->daemon_address, device_uid);
     if (!validate_snprintf(written, sizeof(upload_url), upload_url))
     {

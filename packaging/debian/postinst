@@ -3,9 +3,17 @@ set -e
 
 case "$1" in
     configure)
+        if [ ! -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
+            mkdir -p /var/lib/coolercontrol/plugins/coolerdash
+            printf '{\n  "access_token": ""\n}\n' > /var/lib/coolercontrol/plugins/coolerdash/credentials.json
+        fi
+
         # Set permissions on config.json
-        if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
-            chmod 600 /etc/coolercontrol/plugins/coolerdash/config.json
+        if [ -f /var/lib/coolercontrol/plugins/coolerdash/config.json ]; then
+            chmod 600 /var/lib/coolercontrol/plugins/coolerdash/config.json
+        fi
+        if [ -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
+            chmod 600 /var/lib/coolercontrol/plugins/coolerdash/credentials.json
         fi
 
         # Remove legacy files
@@ -17,6 +25,10 @@ case "$1" in
 
         if command -v systemctl >/dev/null 2>&1; then
             systemctl daemon-reload
+            systemctl reset-failed cc-plugin-coolerdash.service >/dev/null 2>&1 || true
+            if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
+                systemctl restart cc-plugin-coolerdash.service || echo "Note: Plugin restart failed."
+            fi
             if systemctl is-active --quiet coolercontrold.service; then
                 systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
             fi

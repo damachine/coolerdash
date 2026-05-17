@@ -44,15 +44,12 @@ make install DESTDIR=%{buildroot} SUDO="" REALOS=no
 gzip -9 %{buildroot}/usr/share/man/man1/coolerdash.1
 
 %pre
-# Stop legacy service
 if command -v systemctl >/dev/null 2>&1; then
     if systemctl list-unit-files coolerdash.service | grep -q coolerdash; then
         systemctl stop coolerdash.service
         systemctl disable coolerdash.service
     fi
 fi
-
-# Remove legacy files
 rm -f /etc/systemd/system/coolerdash.service
 rm -f /etc/systemd/system/coolerdash-helperd.service
 rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
@@ -68,20 +65,43 @@ rm -f /etc/coolercontrol/plugins/coolerdash/coolerdash
 rm -f /usr/share/applications/coolerdash-settings.desktop
 rm -f /bin/coolerdash
 rm -f /usr/bin/coolerdash
-
-# Remove legacy user
 if id -u coolerdash >/dev/null 2>&1; then
     userdel -rf coolerdash
 fi
+if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ] && \
+   [ ! -f /var/lib/coolercontrol/plugins/coolerdash/config.json ]; then
+    mkdir -p /var/lib/coolercontrol/plugins/coolerdash
+    cp /etc/coolercontrol/plugins/coolerdash/config.json \
+       /var/lib/coolercontrol/plugins/coolerdash/config.json
+    chmod 600 /var/lib/coolercontrol/plugins/coolerdash/config.json
+fi
+if [ -f /etc/coolercontrol/plugins/coolerdash/credentials.json ] && \
+   [ ! -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
+    mkdir -p /var/lib/coolercontrol/plugins/coolerdash
+    cp /etc/coolercontrol/plugins/coolerdash/credentials.json \
+       /var/lib/coolercontrol/plugins/coolerdash/credentials.json
+    chmod 600 /var/lib/coolercontrol/plugins/coolerdash/credentials.json
+fi
+rm -f /etc/coolercontrol/plugins/coolerdash/manifest.toml
+rm -rf /etc/coolercontrol/plugins/coolerdash/ui
+rm -f /etc/coolercontrol/plugins/coolerdash/shutdown.png
+rm -f /etc/coolercontrol/plugins/coolerdash/README.md
+rm -f /etc/coolercontrol/plugins/coolerdash/CHANGELOG.md
+rm -f /etc/coolercontrol/plugins/coolerdash/VERSION
+# /etc/coolercontrol/plugins is a symlink to /var/lib/coolercontrol/plugins;
+# never rm -rf the directory — it would delete credentials.json via the symlink.
 
 %post
-if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ]; then
-    chmod 600 /etc/coolercontrol/plugins/coolerdash/config.json
+if [ ! -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
+    mkdir -p /var/lib/coolercontrol/plugins/coolerdash
+    printf '{\n  "access_token": ""\n}\n' > /var/lib/coolercontrol/plugins/coolerdash/credentials.json
 fi
-if [ -f /etc/coolercontrol/plugins/coolerdash/credentials.json ]; then
-    chmod 600 /etc/coolercontrol/plugins/coolerdash/credentials.json
+if [ -f /var/lib/coolercontrol/plugins/coolerdash/config.json ]; then
+    chmod 600 /var/lib/coolercontrol/plugins/coolerdash/config.json
 fi
-# Remove legacy files
+if [ -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
+    chmod 600 /var/lib/coolercontrol/plugins/coolerdash/credentials.json
+fi
 rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
 rm -f /etc/systemd/system/coolerdash-helperd.service
 rm -f /usr/lib/systemd/system/coolerdash-helperd.service
@@ -89,6 +109,10 @@ rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
 rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
 if command -v systemctl >/dev/null 2>&1; then
     systemctl daemon-reload
+    systemctl reset-failed cc-plugin-coolerdash.service >/dev/null 2>&1 || true
+    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
+        systemctl restart cc-plugin-coolerdash.service || echo "Note: Plugin restart failed."
+    fi
     if systemctl is-active --quiet coolercontrold.service; then
         systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
     fi
@@ -105,7 +129,6 @@ if command -v systemctl >/dev/null 2>&1; then
     fi
 fi
 
-# Remove legacy files
 if [ "$1" = "0" ]; then
     rm -f /etc/systemd/system/coolerdash-helperd.service
     rm -f /etc/systemd/system/coolerdash.service
@@ -120,7 +143,6 @@ if [ "$1" = "0" ]; then
     rm -f /usr/bin/coolerdash
     rm -rf /opt/coolerdash
     rm -rf /etc/coolerdash
-    # Remove legacy user
     if id -u coolerdash >/dev/null 2>&1; then
         userdel -rf coolerdash
     fi
@@ -140,15 +162,15 @@ fi
 %license /usr/share/licenses/%{name}/LICENSE
 %dir /usr/libexec/coolerdash
 /usr/libexec/coolerdash/coolerdash
-%dir /etc/coolercontrol/plugins/coolerdash
-%config(noreplace) /etc/coolercontrol/plugins/coolerdash/config.json
-/etc/coolercontrol/plugins/coolerdash/manifest.toml
-%dir /etc/coolercontrol/plugins/coolerdash/ui
-/etc/coolercontrol/plugins/coolerdash/ui/index.html
-/etc/coolercontrol/plugins/coolerdash/shutdown.png
-/etc/coolercontrol/plugins/coolerdash/README.md
-/etc/coolercontrol/plugins/coolerdash/CHANGELOG.md
-/etc/coolercontrol/plugins/coolerdash/VERSION
+%dir /var/lib/coolercontrol/plugins/coolerdash
+%config(noreplace) /var/lib/coolercontrol/plugins/coolerdash/config.json
+/var/lib/coolercontrol/plugins/coolerdash/manifest.toml
+%dir /var/lib/coolercontrol/plugins/coolerdash/ui
+/var/lib/coolercontrol/plugins/coolerdash/ui/index.html
+/var/lib/coolercontrol/plugins/coolerdash/shutdown.png
+/var/lib/coolercontrol/plugins/coolerdash/README.md
+/var/lib/coolercontrol/plugins/coolerdash/CHANGELOG.md
+/var/lib/coolercontrol/plugins/coolerdash/VERSION
 /usr/share/man/man1/coolerdash.1.gz
 /usr/share/applications/coolerdash.desktop
 /usr/share/icons/hicolor/scalable/apps/coolerdash.svg
