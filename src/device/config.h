@@ -95,7 +95,7 @@ typedef struct Config
     uint16_t display_height;
     float display_refresh_interval;
     uint8_t lcd_brightness;
-    uint8_t lcd_orientation;
+    uint16_t lcd_orientation; // 0/90/180/270
     char display_mode[16];
     char display_background_image_fit[16];
     uint16_t circle_switch_interval;
