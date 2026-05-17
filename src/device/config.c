@@ -26,6 +26,8 @@
 
 #define CONFIG_LAYOUT_U16_UNSET UINT16_MAX
 #define CONFIG_LAYOUT_U8_UNSET UINT8_MAX
+#define LEGACY_LCD_IMAGE_PATH "/etc/coolercontrol/lcd_image.png"
+#define DEFAULT_LCD_IMAGE_PATH "/var/lib/coolercontrol/plugins/coolerdash/coolerdash.png"
 
 // ============================================================================
 // Global Logging Implementation
@@ -83,7 +85,7 @@ static void set_paths_defaults(Config *config)
     }
     if (config->paths_image_coolerdash[0] == '\0')
     {
-        SAFE_STRCPY(config->paths_image_coolerdash, "/var/lib/coolercontrol/plugins/coolerdash/coolerdash.png");
+        SAFE_STRCPY(config->paths_image_coolerdash, DEFAULT_LCD_IMAGE_PATH);
     }
     if (config->paths_image_background[0] == '\0')
     {
@@ -957,7 +959,17 @@ static void load_paths_from_json(json_t *root, Config *config)
         const char *value = json_string_value(image_coolerdash);
         if (value)
         {
-            SAFE_STRCPY(config->paths_image_coolerdash, value);
+            if (strcmp(value, LEGACY_LCD_IMAGE_PATH) == 0)
+            {
+                log_message(LOG_WARNING,
+                            "Detected legacy image_coolerdash path '%s'. Using '%s' instead.",
+                            LEGACY_LCD_IMAGE_PATH, DEFAULT_LCD_IMAGE_PATH);
+                SAFE_STRCPY(config->paths_image_coolerdash, DEFAULT_LCD_IMAGE_PATH);
+            }
+            else
+            {
+                SAFE_STRCPY(config->paths_image_coolerdash, value);
+            }
         }
     }
 
