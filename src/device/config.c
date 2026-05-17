@@ -1072,7 +1072,7 @@ static void load_display_from_json(json_t *root, Config *config)
     {
         int val = (int)json_integer_value(orientation);
         if (is_valid_orientation(val))
-            config->lcd_orientation = (uint8_t)val;
+            config->lcd_orientation = (uint16_t)val;
     }
 
     json_t *width = json_object_get(display, "width");
