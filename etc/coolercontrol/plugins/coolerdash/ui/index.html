@@ -9,19 +9,21 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            --bg-primary: rgb(26, 26, 46);
-            --bg-secondary: rgb(22, 33, 62);
-            --bg-card: rgb(30, 35, 55);
-            --bg-input: rgb(20, 28, 48);
-            --border: rgb(45, 66, 99);
-            --border-light: rgb(55, 76, 109);
-            --text: rgb(234, 234, 234);
-            --text-dim: rgb(140, 145, 165);
-            --text-muted: rgb(100, 105, 125);
-            --accent: rgb(233, 69, 96);
-            --accent-hover: rgb(255, 89, 116);
-            --accent-glow: rgba(233, 69, 96, 0.15);
-            --success: rgb(34, 197, 94);
+            /* CoolerControl theme CSS variables.
+               These fallback values maintain the original dark theme in standalone/dev mode.
+               When runPluginScript() injects the CC parent stylesheet, CC's :root definitions
+               override these values, making the entire UI automatically adapt to the active theme. */
+            --bg-one: 26 26 46;
+            --bg-two: 30 35 55;
+            --text-color: 234 234 234;
+            --text-color-secondary: 140 145 165;
+            --border-one: 45 66 99;
+            --accent: 233 69 96;
+            --surface-hover: 38 48 78;
+            --success: 34 197 94;
+            --error: 233 69 96;
+            --warning: 255 140 0;
+            /* Structural — not theme-dependent */
             --radius: 10px;
             --radius-sm: 6px;
             --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
@@ -30,8 +32,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
-            color: var(--text);
+            background: linear-gradient(135deg, rgb(var(--bg-two)) 0%, rgb(var(--bg-one)) 100%);
+            color: rgb(var(--text-color));
             line-height: 1.6;
             padding: 24px;
             min-height: 100vh;
@@ -44,12 +46,12 @@
 
         /* Header */
         .header {
-            background: var(--bg-card);
+            background: rgb(var(--bg-two));
             border-radius: var(--radius);
             padding: 28px 32px;
             margin-bottom: 20px;
             box-shadow: var(--shadow);
-            border: 1px solid var(--border);
+            border: 1px solid rgb(var(--border-one));
         }
 
         .header h1 {
@@ -59,21 +61,21 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: linear-gradient(135deg, var(--text) 0%, var(--text-dim) 100%);
+            background: linear-gradient(135deg, rgb(var(--text-color)) 0%, rgb(var(--text-color-secondary)) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
 
         .header p {
-            color: var(--text-dim);
+            color: rgb(var(--text-color-secondary));
             font-size: 14px;
         }
 
         /* Device Tab */
         .device-info-card {
-            background: var(--bg-input);
-            border: 1px solid var(--border);
+            background: rgb(var(--bg-one));
+            border: 1px solid rgb(var(--border-one));
             border-radius: var(--radius);
             padding: 20px 24px;
             margin-bottom: 16px;
@@ -84,7 +86,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 10px 0;
-            border-bottom: 1px solid rgba(45, 66, 99, 0.4);
+            border-bottom: 1px solid rgb(var(--border-one) / 0.4);
         }
 
         .device-info-row:last-child {
@@ -93,14 +95,14 @@
 
         .device-info-label {
             font-size: 13px;
-            color: var(--text-dim);
+            color: rgb(var(--text-color-secondary));
             font-weight: 500;
         }
 
         .device-info-value {
             font-size: 14px;
             font-weight: 600;
-            color: var(--text);
+            color: rgb(var(--text-color));
         }
 
         .device-info-value.mono {
@@ -118,18 +120,18 @@
         }
 
         .device-status.connected {
-            background: rgba(34, 197, 94, 0.12);
-            color: var(--success);
+            background: rgb(var(--success) / 0.12);
+            color: rgb(var(--success));
         }
 
         .device-status.disconnected {
-            background: rgba(255, 140, 0, 0.12);
-            color: #ff8c00;
+            background: rgb(var(--warning) / 0.12);
+            color: rgb(var(--warning));
         }
 
         .device-status.error {
-            background: rgba(233, 69, 96, 0.12);
-            color: var(--accent);
+            background: rgb(var(--error) / 0.12);
+            color: rgb(var(--error));
         }
 
         .device-status-dot {
@@ -145,7 +147,7 @@
 
         .info-item-label {
             font-size: 11px;
-            color: var(--text-muted);
+            color: rgb(var(--text-color-secondary));
             text-transform: uppercase;
             letter-spacing: 0.8px;
             margin-bottom: 4px;
@@ -153,16 +155,17 @@
 
         .info-item-value {
             font-size: 14px;
-            color: var(--text);
+            color: rgb(var(--text-color));
         }
 
         .info-item-value a {
-            color: var(--accent);
+            color: rgb(var(--accent));
             text-decoration: none;
         }
 
         .info-item-value a:hover {
-            color: var(--accent-hover);
+            color: rgb(var(--accent));
+            opacity: 0.8;
             text-decoration: underline;
         }
 
@@ -171,13 +174,13 @@
             display: flex;
             gap: 6px;
             margin-bottom: 20px;
-            background: var(--bg-card);
+            background: rgb(var(--bg-two));
             padding: 10px;
             border-radius: var(--radius);
             box-shadow: var(--shadow-sm);
             overflow-x: auto;
             flex-wrap: wrap;
-            border: 1px solid var(--border);
+            border: 1px solid rgb(var(--border-one));
         }
 
         .tab {
@@ -187,7 +190,7 @@
             background: transparent;
             border: none;
             border-radius: var(--radius-sm);
-            color: var(--text-dim);
+            color: rgb(var(--text-color-secondary));
             cursor: pointer;
             font-size: 13px;
             font-weight: 500;
@@ -196,25 +199,25 @@
         }
 
         .tab:hover {
-            background: var(--accent-glow);
-            color: var(--text);
+            background: rgb(var(--surface-hover));
+            color: rgb(var(--text-color));
         }
 
         .tab.active {
-            background: var(--accent);
+            background: rgb(var(--accent));
             color: white;
-            box-shadow: 0 2px 8px rgba(233, 69, 96, 0.4);
+            box-shadow: 0 2px 8px rgb(var(--accent) / 0.4);
         }
 
         /* Panel */
         .panel {
             display: none;
-            background: var(--bg-card);
+            background: rgb(var(--bg-two));
             border-radius: var(--radius);
             padding: 28px 32px;
             box-shadow: var(--shadow);
             animation: fadeIn 0.3s ease;
-            border: 1px solid var(--border);
+            border: 1px solid rgb(var(--border-one));
         }
 
         .panel.active {
@@ -231,8 +234,8 @@
             margin: 32px 0 20px;
             font-size: 13px;
             font-weight: 600;
-            color: var(--accent);
-            border-bottom: 1px solid var(--border);
+            color: rgb(var(--accent));
+            border-bottom: 1px solid rgb(var(--border-one));
             padding-bottom: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
@@ -257,36 +260,37 @@
             font-weight: 500;
             margin-bottom: 8px;
             font-size: 13px;
-            color: var(--text);
+            color: rgb(var(--text-color));
         }
 
         .form-hint {
             display: block;
             font-size: 11px;
-            color: var(--text-muted);
+            color: rgb(var(--text-color-secondary));
             margin-bottom: 8px;
         }
 
         .form-control {
             width: 100%;
             padding: 11px 14px;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
+            background: rgb(var(--bg-one));
+            border: 1px solid rgb(var(--border-one));
             border-radius: var(--radius-sm);
-            color: var(--text);
+            color: rgb(var(--text-color));
             font-size: 14px;
             transition: all 0.2s ease;
         }
 
         .form-control:hover {
-            border-color: var(--border-light);
+            border-color: rgb(var(--border-one));
+            opacity: 0.9;
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-            background: var(--bg-secondary);
+            border-color: rgb(var(--accent));
+            box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
+            background: rgb(var(--bg-two));
         }
 
         .form-control[type="number"] {
@@ -335,21 +339,21 @@
             flex: 1;
             height: 6px;
             appearance: none;
-            background: var(--bg-input);
+            background: rgb(var(--bg-one));
             border-radius: 3px;
             outline: none;
             -webkit-appearance: none;
-            border: 1px solid var(--border);
+            border: 1px solid rgb(var(--border-one));
         }
 
         .range-input::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 20px;
             height: 20px;
-            background: var(--accent);
+            background: rgb(var(--accent));
             border-radius: 50%;
             cursor: pointer;
-            box-shadow: 0 2px 6px rgba(233, 69, 96, 0.4);
+            box-shadow: 0 2px 6px rgb(var(--accent) / 0.4);
             transition: transform 0.15s ease;
         }
 
@@ -361,7 +365,7 @@
             min-width: 55px;
             text-align: right;
             font-weight: 600;
-            color: var(--accent);
+            color: rgb(var(--accent));
             font-size: 14px;
             font-variant-numeric: tabular-nums;
         }
@@ -377,20 +381,21 @@
             width: 52px;
             height: 42px;
             border-radius: var(--radius-sm);
-            border: 2px solid var(--border);
+            border: 2px solid rgb(var(--border-one));
             cursor: pointer;
             transition: all 0.2s ease;
         }
 
         .color-swatch:hover {
             transform: scale(1.05);
-            border-color: var(--border-light);
+            border-color: rgb(var(--border-one));
+            opacity: 0.85;
         }
 
         .color-rgb {
             font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
             font-size: 12px;
-            color: var(--text-muted);
+            color: rgb(var(--text-color-secondary));
             letter-spacing: 0.3px;
         }
 
@@ -400,7 +405,7 @@
             gap: 14px;
             margin-top: 28px;
             padding-top: 28px;
-            border-top: 1px solid var(--border);
+            border-top: 1px solid rgb(var(--border-one));
         }
 
         .btn {
@@ -419,31 +424,33 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            background: rgb(var(--accent));
             color: white;
-            box-shadow: 0 4px 14px rgba(233, 69, 96, 0.35);
+            box-shadow: 0 4px 14px rgb(var(--accent) / 0.35);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(233, 69, 96, 0.45);
+            box-shadow: 0 6px 20px rgb(var(--accent) / 0.45);
+            opacity: 0.9;
         }
 
         .btn-secondary {
-            background: var(--bg-input);
-            color: var(--text);
-            border: 1px solid var(--border);
+            background: rgb(var(--bg-one));
+            color: rgb(var(--text-color));
+            border: 1px solid rgb(var(--border-one));
         }
 
         .btn-secondary:hover {
-            background: var(--bg-secondary);
-            border-color: var(--border-light);
+            background: rgb(var(--bg-two));
+            border-color: rgb(var(--border-one));
+            opacity: 0.9;
         }
 
         /* Alert */
         .alert {
-            background: var(--accent-glow);
-            border-left: 4px solid var(--accent);
+            background: rgb(var(--accent) / 0.12);
+            border-left: 4px solid rgb(var(--accent));
             padding: 14px 18px;
             border-radius: var(--radius-sm);
             margin-bottom: 24px;
@@ -453,19 +460,19 @@
         .alert strong {
             display: block;
             margin-bottom: 6px;
-            color: var(--text);
+            color: rgb(var(--text-color));
         }
 
         .alert-warning {
-            background: rgba(255, 140, 0, 0.12);
-            border-left-color: #ff8c00;
+            background: rgb(var(--warning) / 0.12);
+            border-left-color: rgb(var(--warning));
         }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: var(--bg-primary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        ::-webkit-scrollbar-track { background: rgb(var(--bg-one)); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgb(var(--border-one)); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(var(--accent)); }
 
         /* Sensor Config Sections */
         .sensor-config-section {
@@ -479,7 +486,7 @@
         /* Collapsible details (used in Sensors + Layout tabs) */
         .sensor-details,
         .collapsible-details {
-            border: 1px solid var(--border);
+            border: 1px solid rgb(var(--border-one));
             border-radius: 8px;
             overflow: hidden;
         }
@@ -487,11 +494,11 @@
         .sensor-details summary,
         .collapsible-details summary {
             padding: 12px 16px;
-            background: var(--bg-secondary);
+            background: rgb(var(--bg-two));
             cursor: pointer;
             font-weight: 600;
             font-size: 15px;
-            color: var(--text-primary);
+            color: rgb(var(--text-color));
             display: flex;
             align-items: center;
             gap: 8px;
@@ -509,7 +516,7 @@
             content: '\25B6';
             font-size: 10px;
             transition: transform 0.2s;
-            color: var(--text-dim);
+            color: rgb(var(--text-color-secondary));
         }
 
         .sensor-details[open] summary::before,
@@ -519,12 +526,12 @@
 
         .sensor-details[open] summary,
         .collapsible-details[open] summary {
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgb(var(--border-one));
         }
 
         .sensor-details summary:hover,
         .collapsible-details summary:hover {
-            background: var(--bg-primary);
+            background: rgb(var(--surface-hover));
         }
 
         .sensor-details-content,
@@ -536,12 +543,12 @@
         .collapsible-details .sub-section-title {
             font-size: 13px;
             font-weight: 600;
-            color: var(--accent);
+            color: rgb(var(--accent));
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin: 16px 0 8px 0;
             padding-bottom: 4px;
-            border-bottom: 1px solid rgba(255,107,129,0.15);
+            border-bottom: 1px solid rgb(var(--accent) / 0.15);
         }
 
         .sensor-details .sub-section-title:first-child,
@@ -556,7 +563,7 @@
         <div class="header">
             <h1>CoolerDash Configuration</h1>
             <p>Customize your LCD temperature dashboard &bull; Changes require plugin restart</p>
-            <p style="margin-top: 8px; font-size: 12px; color: var(--text-dim); opacity: 0.8;">
+            <p style="margin-top: 8px; font-size: 12px; color: rgb(var(--text-color-secondary)); opacity: 0.8;">
                 &#x1F4A1; <strong>Tip:</strong> After an update, click <em>Reset</em> to apply new default values. Feedback &amp; bug reports are welcome — see the <em>Info</em> tab for links.
             </p>
         </div>
@@ -590,7 +597,7 @@
                 <h3 class="section-title">Authentication &mdash; CC4 (Bearer Token)</h3>
                 <div class="alert alert-warning">
                     <strong>CoolerControl 4.0 requires API authentication.</strong>
-                    <ol style="margin: 10px 0 0 20px; padding: 0; font-size: 13px; color: var(--text-dim); line-height: 1.9;">
+                    <ol style="margin: 10px 0 0 20px; padding: 0; font-size: 13px; color: rgb(var(--text-color-secondary)); line-height: 1.9;">
                         <li>Open the <strong>CoolerControl UI</strong></li>
                         <li>Bottom-left corner &rarr; &#x1F512; <strong>Access Protection &rarr; Access Tokens</strong></li>
                         <li>Generate a new Access Token</li>
@@ -744,7 +751,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Shutdown Image Path</label>
-                    <span class="form-hint">Displayed on the LCD when the daemon stops. Default: /etc/coolercontrol/plugins/coolerdash/shutdown.png</span>
+                    <span class="form-hint">Displayed on the LCD when the daemon stops. Default: /var/lib/coolercontrol/plugins/coolerdash/shutdown.png</span>
                     <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
                 <div class="grid grid-2">
@@ -978,7 +985,7 @@
                 </div>
                 <div id="sensor-discovery-status" style="margin-bottom: 16px; display: none;"></div>
                 <div id="sensor-config-container">
-                    <p style="color: var(--text-dim); text-align: center; padding: 20px;">
+                    <p style="color: rgb(var(--text-color-secondary)); text-align: center; padding: 20px;">
                         Discovering sensors from CoolerControl API&hellip;
                     </p>
                 </div>
@@ -1107,7 +1114,7 @@
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Description</div>
-                        <div class="info-item-value" style="color: var(--text-dim);">Displays CPU, GPU, and Liquid temperatures on AIO liquid cooler LCD screens (NZXT Kraken, etc.)</div>
+                        <div class="info-item-value" style="color: rgb(var(--text-color-secondary));">Displays CPU, GPU, and Liquid temperatures on AIO liquid cooler LCD screens (NZXT Kraken, etc.)</div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Author</div>
@@ -1167,7 +1174,7 @@
 
         <!-- Restart Notice -->
         <div style="margin-top: 16px; padding: 12px; background: rgba(255, 140, 0, 0.05); border-left: 3px solid #ff8c00; border-radius: 4px;">
-            <p style="margin: 0; color: var(--text-dim); font-size: 13px;">
+            <p style="margin: 0; color: rgb(var(--text-color-secondary)); font-size: 13px;">
                 <strong>Note:</strong> Clicking <em>Save</em> will automatically apply the configuration and restart the plugin.
             </p>
         </div>
@@ -1186,8 +1193,10 @@
                 blocklist: "mainboard\nmotherboard\nchipset"
             },
             paths: {
+                images: "/var/lib/coolercontrol/plugins/coolerdash",
+                image_coolerdash: "/var/lib/coolercontrol/plugins/coolerdash/coolerdash.png",
                 image_background: "",
-                image_shutdown: "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
+                image_shutdown: "/var/lib/coolercontrol/plugins/coolerdash/shutdown.png"
             },
             display: {
                 mode: "circle",
@@ -1374,6 +1383,13 @@
             };
         }
 
+        if (typeof restartPlugin === 'undefined') {
+            window.restartPlugin = async function() {
+                console.info('restartPlugin: not in CoolerControl — skipping restart.');
+                return true;
+            };
+        }
+
         // Fallback for getDevices() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
         // Note: cc-plugin-lib defines functions with `const` (not var/window), so typeof check always
         // triggers even when cc-plugin-lib is loaded. We therefore implement postMessage for CC4 context.
@@ -1551,8 +1567,9 @@
             var name = String(device.name || '');
 
             // Device type: Liquidctl = AIO cooler driver, others penalised
+            // ServicePlugin = software daemon (CC v4.3.0+), never LCD hardware
             if (type === 'Liquidctl') score += 30;
-            else if (type === 'Hwmon' || type === 'CustomSensors' || type === 'CPU' || type === 'GPU') score -= 40;
+            else if (type === 'Hwmon' || type === 'CustomSensors' || type === 'CPU' || type === 'GPU' || type === 'ServicePlugin') score -= 40;
             else if (type) score += 8;
 
             // Capability signals (independent of brand): has an 'lcd' channel key
@@ -1707,21 +1724,21 @@
                 if (sensors.length === 0) {
                     setSensorDiscoveryStatus('warn',
                         '<strong>No extra sensors found</strong> &mdash; CoolerControl API is reachable, but returned no temperature or channel data.<br>' +
-                        '<span style="color:var(--text-dim)">Only Standard sensors (CPU, GPU, Liquid) are shown. ' +
-                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
+                        '<span style="color:rgb(var(--text-color-secondary))">Only Standard sensors (CPU, GPU, Liquid) are shown. ' +
+                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--accent));cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
                     );
                 } else {
                     setSensorDiscoveryStatus('ok',
                         '&#x2714; <strong>' + sensors.length + ' sensor(s) discovered</strong> from CoolerControl API &mdash; see &ldquo;CC4 Sensors&rdquo; section below. ' +
-                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:0;text-decoration:underline;">Refresh</button>'
+                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--text-color-secondary));cursor:pointer;font-size:12px;padding:0;text-decoration:underline;">Refresh</button>'
                     );
                 }
             } catch (error) {
                 console.warn('Sensor discovery failed:', error);
                 setSensorDiscoveryStatus('error',
                     '<strong>CC4 Sensor Discovery failed</strong> &mdash; ' + escapeHtml(error.message) + '.<br>' +
-                    '<span style="color:var(--text-dim)">Make sure CoolerControl is running and the API address in the <strong>Connection</strong> tab is correct. ' +
-                    '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
+                    '<span style="color:rgb(var(--text-color-secondary))">Make sure CoolerControl is running and the API address in the <strong>Connection</strong> tab is correct. ' +
+                    '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--accent));cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
                 );
             }
         }
@@ -1733,7 +1750,10 @@
             var addrInput = document.querySelector('[name="daemon.address"]');
             var tokenInput = document.querySelector('[name="daemon.access_token"]');
             if (addrInput && addrInput.value) apiAddr = addrInput.value;
-            if (tokenInput) apiToken = tokenInput.value;
+            if (tokenInput) {
+                var _tv = tokenInput.value;
+                apiToken = (_tv === '***' && tokenInput.dataset.realToken) ? tokenInput.dataset.realToken : _tv;
+            }
             var statusEl = document.getElementById('sensor-discovery-status');
             if (statusEl) {
                 statusEl.style.display = 'block';
@@ -1913,7 +1933,7 @@
             });
 
             if (sensorIds.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 20px;">No sensors found. Make sure CoolerControl is running and reachable.</p>';
+                container.innerHTML = '<p style="color: rgb(var(--text-color-secondary)); text-align: center; padding: 20px;">No sensors found. Make sure CoolerControl is running and reachable.</p>';
                 return;
             }
 
@@ -2284,7 +2304,7 @@
                     var latest = (data.tag_name || '').replace(/^v/i, '');
                     var dlUrl = 'https://github.com/damachine/coolerdash/releases/tag/' + (data.tag_name || 'latest');
                     if (latest && latest !== current) {
-                        el.innerHTML = '<strong style="color:var(--warning,#f0a500)">v' + latest + ' available</strong> &mdash; '
+                        el.innerHTML = '<strong style="color:rgb(var(--warning))">v' + latest + ' available</strong> &mdash; '
                             + '<a href="' + escapeHtml(dlUrl) + '" target="_blank" rel="noopener noreferrer">Download</a>';
                     } else {
                         el.textContent = 'v' + (latest || current) + ' (up to date)';
@@ -2295,9 +2315,6 @@
             })();
 
             try {
-                lastApiAddress = apiAddress;
-                lastApiToken = token;
-
                 // /health fetch isolated so a failure doesn't block the kernel lookup below.
                 // Also used as fallback in dev/browser mode where fetch() works.
                 var healthFetched = false;
@@ -2515,6 +2532,12 @@
             var extraInfoCb = document.getElementById('circle_show_extra_info');
             config.display.circle_show_extra_info = extraInfoCb ? extraInfoCb.checked : false;
 
+            // Restore real token if user left the *** placeholder unchanged
+            var _tokenInput = document.querySelector('[name="daemon.access_token"]');
+            if (_tokenInput && _tokenInput.value.trim() === '***' && _tokenInput.dataset.realToken) {
+                config.daemon.access_token = _tokenInput.dataset.realToken;
+            }
+
             var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
 
             return merged;
@@ -2533,8 +2556,18 @@
                         var value = fields[field];
                         var input = document.querySelector('[name="' + section + '.' + field + '"]');
                         if (input && typeof value !== 'object') {
-                            input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
-                            if (field === 'brightness') updateRangeValue('brightness', value);
+                            if (section === 'daemon' && field === 'access_token') {
+                                if (value && String(value).trim()) {
+                                    input.dataset.realToken = value;
+                                    input.value = '***';
+                                } else {
+                                    input.value = '';
+                                    delete input.dataset.realToken;
+                                }
+                            } else {
+                                input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
+                                if (field === 'brightness') updateRangeValue('brightness', value);
+                            }
                         }
                     }
                 }
@@ -2602,9 +2635,9 @@
 
             var config = buildConfig();
             try {
-                await saveAndRestartConfig(config);
-                alert("Configuration saved! Plugin will restart.");
-                setTimeout(function() { window.close(); }, 300);
+                await savePluginConfig(config);
+                await restartPlugin();
+                close();
             } catch (error) {
                 console.error("Save failed:", error);
                 alert("Save failed: " + error.message);
@@ -2631,25 +2664,7 @@
             }
         }
 
-        async function triggerPluginRestart(delayMs) {
-            delayMs = delayMs || 800;
 
-            if (delayMs > 0) {
-                await new Promise(function(resolve) { setTimeout(resolve, delayMs); });
-            }
-
-            if (typeof restart !== 'function') {
-                throw new Error('CoolerControl native restart API is unavailable in this context.');
-            }
-
-            restart();
-            return true;
-        }
-
-        async function saveAndRestartConfig(config, delayMs) {
-            await savePluginConfig(config);
-            return triggerPluginRestart(delayMs);
-        }
 
         async function resetConfig() {
             try {
@@ -2663,10 +2678,10 @@
                 } else if (factoryConfig.daemon) {
                     delete factoryConfig.daemon.access_token;
                 }
-                await saveAndRestartConfig(factoryConfig);
+                await savePluginConfig(factoryConfig);
                 populateForm(factoryConfig);
-                alert('Reset to factory defaults! Plugin will restart.');
-                setTimeout(function() { window.close(); }, 300);
+                await restartPlugin();
+                close();
             } catch (error) {
                 console.error("Reset failed:", error);
                 alert('Reset failed: ' + error.message);
@@ -2761,10 +2776,6 @@
             return merged;
         }
 
-        function migrateConfig(config) {
-            return mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
-        }
-
         // ===== INITIALIZATION =====
         runPluginScript(async function() {
             try {
@@ -2778,9 +2789,9 @@
                 var config = await getPluginConfig();
 
                 if (!config || Object.keys(config).length === 0) {
-                    config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                    config = cloneConfig(DEFAULT_CONFIG);
                 } else {
-                    config = migrateConfig(config);
+                    config = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
                 }
 
                 populateForm(config);

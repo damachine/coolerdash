@@ -110,11 +110,12 @@ const char *extract_device_type_from_json(const json_t *dev)
     if (!dev)
         return NULL;
 
-    const json_t *type_val = json_object_get(dev, "type");
+    /* Both DeviceDto (/devices) and DeviceStatusDto (/status) use the "d_type" field. */
+    const json_t *type_val = json_object_get(dev, "d_type");
     if (!type_val || !json_is_string(type_val))
     {
-        /* Fallback: /status endpoint uses "d_type" instead of "type" */
-        type_val = json_object_get(dev, "d_type");
+        /* Legacy fallback for older CC versions that may have used "type" */
+        type_val = json_object_get(dev, "type");
         if (!type_val || !json_is_string(type_val))
             return NULL;
     }
@@ -446,7 +447,8 @@ static int score_lcd_candidate(const Config *config, const char *device_uid,
     else if (type_str &&
              (strcmp(type_str, "Hwmon") == 0 ||
               strcmp(type_str, "CustomSensors") == 0 ||
-              strcmp(type_str, "CPU") == 0 || strcmp(type_str, "GPU") == 0))
+              strcmp(type_str, "CPU") == 0 || strcmp(type_str, "GPU") == 0 ||
+              strcmp(type_str, "ServicePlugin") == 0)) /* CC v4.3.0: plugins are never LCD hw */
         score -= 40;
     else if (type_str && type_str[0] != '\0')
         score += 8;

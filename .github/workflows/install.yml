@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Checkout CoolerDash code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Update package manager
         run: ${{ matrix.pre_install }}
@@ -102,7 +102,7 @@ jobs:
           fi
 
           # Check plugin files
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/config.json" ]; then
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then
             echo "✅ Config file installed (plugin mode)"
           else
             echo "❌ Config file not found"
@@ -110,7 +110,7 @@ jobs:
           fi
 
           # Check manifest.toml
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/manifest.toml" ]; then
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/manifest.toml" ]; then
             echo "✅ Plugin manifest installed"
           else
             echo "❌ Plugin manifest not found"
@@ -118,7 +118,7 @@ jobs:
           fi
 
           # Check UI files
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/ui/index.html" ]; then
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/ui/index.html" ]; then
             echo "✅ Plugin UI file installed"
           else
             echo "❌ Plugin UI file not found"
@@ -126,7 +126,7 @@ jobs:
           fi
 
           # Check CC-Plugin Lib JS is NOT installed (served by CoolerControl)
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" ]; then
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" ]; then
             echo "❌ Plugin Lib JS should NOT be installed (served by CoolerControl)"
             exit 1
           else
@@ -176,7 +176,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Arch Linux
         run: |
@@ -202,7 +202,7 @@ jobs:
           fi
 
           # Check plugin config
-          if [ -f "/tmp/install-test/etc/coolercontrol/plugins/coolerdash/config.json" ]; then
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then
             echo "✅ Config file installed"
           else
             echo "❌ Config file not found"

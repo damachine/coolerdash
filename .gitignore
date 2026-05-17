@@ -13,6 +13,7 @@ coolerdash-bin/
 *.old
 *.db
 *.files
+docs/
 src/
 pkg/
 bin/

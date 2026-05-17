@@ -60,8 +60,8 @@ INSTALL ?= install
 INSTALL_PROGRAM ?= $(INSTALL)
 INSTALL_DATA ?= $(INSTALL) -m 644
 
-# Plugin directory (derived)
-PLUGINDIR = $(sysconfdir)/coolercontrol/plugins/coolerdash
+# Plugin directory (canonical path per CoolerControl cc-plugins spec)
+PLUGINDIR = /var/lib/coolercontrol/plugins/coolerdash
 
 # Colors for terminal output
 RED = \033[0;31m
@@ -239,7 +239,7 @@ check: $(OBJDIR)
 	./$(OBJDIR)/test_scaling
 	@printf "$(GREEN)All tests passed$(RESET)\n"
 
-# Install binary to /usr/libexec, plugin data to /etc/coolercontrol/plugins/coolerdash/
+# Install binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/coolerdash/
 install: check-deps $(TARGET)
 	@printf "\n"
 	@printf "$(WHITE)=== COOLERDASH INSTALLATION ===$(RESET)\n"
@@ -322,6 +322,28 @@ install: check-deps $(TARGET)
 			printf "  $(BLUE)->$(RESET) No legacy files found (clean install)\n"; \
 		fi; \
 		printf "\n"; \
+		if [ -f /etc/coolercontrol/plugins/coolerdash/config.json ] && \
+		   [ ! -f "$(PLUGINDIR)/config.json" ]; then \
+			$(SUDO) mkdir -p "$(PLUGINDIR)"; \
+			$(SUDO) cp /etc/coolercontrol/plugins/coolerdash/config.json \
+			   "$(PLUGINDIR)/config.json"; \
+			$(SUDO) chmod 600 "$(PLUGINDIR)/config.json"; \
+			printf "  $(GREEN)Migrated:$(RESET) config.json to $(PLUGINDIR)/\n"; \
+		fi; \
+		if [ -f /etc/coolercontrol/plugins/coolerdash/credentials.json ] && \
+		   [ ! -f "$(PLUGINDIR)/credentials.json" ]; then \
+			$(SUDO) mkdir -p "$(PLUGINDIR)"; \
+			$(SUDO) cp /etc/coolercontrol/plugins/coolerdash/credentials.json \
+			   "$(PLUGINDIR)/credentials.json"; \
+			$(SUDO) chmod 600 "$(PLUGINDIR)/credentials.json"; \
+			printf "  $(GREEN)Migrated:$(RESET) credentials.json to $(PLUGINDIR)/\n"; \
+		fi; \
+		rm -f /etc/coolercontrol/plugins/coolerdash/manifest.toml; \
+		rm -rf /etc/coolercontrol/plugins/coolerdash/ui; \
+		rm -f /etc/coolercontrol/plugins/coolerdash/shutdown.png; \
+		rm -f /etc/coolercontrol/plugins/coolerdash/README.md; \
+		rm -f /etc/coolercontrol/plugins/coolerdash/CHANGELOG.md; \
+		rm -f /etc/coolercontrol/plugins/coolerdash/VERSION; \
 		COOLERDASH_COUNT=$$(pgrep -x coolerdash 2>/dev/null | wc -l); \
 		if [ "$$COOLERDASH_COUNT" -gt 0 ]; then \
 			printf "$(CYAN)Terminating running coolerdash process(es)...$(RESET)\n"; \
@@ -484,6 +506,8 @@ uninstall:
 		fi; \
 	fi
 	@$(SUDO) rm -rf "$(DESTDIR)$(PLUGINDIR)"
+	# Legacy path cleanup for users upgrading from older versions
+	@$(SUDO) rm -rf "$(DESTDIR)/etc/coolercontrol/plugins/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)$(libexecdir)/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
 	@$(SUDO) rm -f "$(DESTDIR)$(mandir)/man1/coolerdash.1"
