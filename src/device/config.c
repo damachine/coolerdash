@@ -27,7 +27,7 @@
 #define CONFIG_LAYOUT_U16_UNSET UINT16_MAX
 #define CONFIG_LAYOUT_U8_UNSET UINT8_MAX
 #define LEGACY_LCD_IMAGE_PATH "/etc/coolercontrol/lcd_image.png"
-#define DEFAULT_LCD_IMAGE_PATH "/var/lib/coolercontrol/plugins/coolerdash/coolerdash.png"
+#define DEFAULT_LCD_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/coolerdash.png"
 
 // ============================================================================
 // Global Logging Implementation
@@ -93,8 +93,7 @@ static void set_paths_defaults(Config *config)
     }
     if (config->paths_image_shutdown[0] == '\0')
     {
-        SAFE_STRCPY(config->paths_image_shutdown,
-                    "/var/lib/coolercontrol/plugins/coolerdash/shutdown.png");
+        SAFE_STRCPY(config->paths_image_shutdown, DEFAULT_SHUTDOWN_IMAGE_PATH);
     }
 }
 
@@ -874,6 +873,7 @@ static void save_credentials_file(const char *config_json_path, const Config *co
  * @param json_path Path to config.json
  * @param root Parsed JSON root (must still be valid, not yet freed)
  */
+
 static void normalize_config_json(const char *json_path, json_t *root)
 {
     if (!json_path || !root)

@@ -29,9 +29,9 @@ sudo systemctl restart coolercontrold
 
 ```json
 "paths": {
-    "images": "/etc/coolercontrol/plugins/coolerdash",
-    "image_coolerdash": "/etc/coolercontrol/plugins/coolerdash/coolerdash.png",
-    "image_shutdown": "/etc/coolercontrol/plugins/coolerdash/shutdown.png"
+    "images": "/var/lib/coolercontrol/plugins/coolerdash",
+    "image_coolerdash": "/var/lib/coolercontrol/plugins/coolerdash/coolerdash.png",
+    "image_shutdown": "/var/lib/coolercontrol/plugins/coolerdash/shutdown.png"
 }
 ```
 

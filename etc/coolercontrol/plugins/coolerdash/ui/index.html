@@ -607,7 +607,7 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token (cc_&hellip;). After saving, the token is automatically persisted to <code>credentials.json</code> (chmod 600) so it survives package updates. If a token is already set, the field shows <strong>***</strong> &mdash; enter a new value to replace it, or leave <strong>***</strong> unchanged.</span>
+                    <span class="form-hint">Enter a CC4 Bearer token.</span>
                     <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
             </div>
@@ -743,16 +743,11 @@
                     </div>
                 </div>
 
-                <h3 class="section-title">Background &amp; Shutdown Images</h3>
+                <h3 class="section-title">Background Image</h3>
                 <div class="form-group">
                     <label class="form-label">Background Image Path</label>
                     <span class="form-hint">Optional PNG file used as display background behind the sensor values. Leave empty to use the configured background color.</span>
                     <input type="text" name="paths.image_background" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Shutdown Image Path</label>
-                    <span class="form-hint">Displayed on the LCD when the daemon stops. Default: /var/lib/coolercontrol/plugins/coolerdash/shutdown.png</span>
-                    <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
                 <div class="grid grid-2">
                     <div class="form-group">
@@ -769,6 +764,13 @@
                         <span class="form-hint">0.0 = off, 1.0 = solid overlay using Display Background color</span>
                         <input type="number" name="display.background_overlay_opacity" class="form-control" min="0" max="1" step="0.05">
                     </div>
+                </div>
+
+                <h3 class="section-title">Shutdown Image</h3>
+                <div class="form-group">
+                    <label class="form-label">Shutdown Image Path</label>
+                    <span class="form-hint">Displayed on the LCD when CoolerControl shuts down. Default: /var/lib/coolercontrol/plugins/coolerdash/shutdown.png</span>
+                    <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
             </div>
 
@@ -1383,8 +1385,28 @@
             };
         }
 
+        // Note: cc-plugin-lib defines restartPlugin with `const`, so typeof check always triggers.
+        // In CC4 mode we implement the postMessage protocol manually (type: 'restartPlugin',
+        // response: 'pluginRestarted'). In standalone mode we skip the restart.
         if (typeof restartPlugin === 'undefined') {
             window.restartPlugin = async function() {
+                if (isInCoolerControl) {
+                    return new Promise(function(resolve) {
+                        var handler = function(event) {
+                            if (event.data && event.data.type === 'pluginRestarted') {
+                                window.removeEventListener('message', handler);
+                                resolve(event.data.body || true);
+                            }
+                        };
+                        window.addEventListener('message', handler);
+                        window.parent.postMessage({ type: 'restartPlugin' }, document.location.origin);
+                        // Resolve after 5 s in case the UI closes before we get a response
+                        setTimeout(function() {
+                            window.removeEventListener('message', handler);
+                            resolve(true);
+                        }, 5000);
+                    });
+                }
                 console.info('restartPlugin: not in CoolerControl — skipping restart.');
                 return true;
             };
@@ -1551,6 +1573,24 @@
             }
 
             return null;
+        }
+
+        function getDeviceLcdChannel(device) {
+            var channels = device && device.info && device.info.channels;
+            if (!channels) return 'lcd';
+            var preferredKeys = ['lcd', 'display', 'screen'];
+            for (var i = 0; i < preferredKeys.length; i++) {
+                var channel = channels[preferredKeys[i]];
+                if (channel && channel.lcd_info && channel.lcd_info.screen_width > 0 && channel.lcd_info.screen_height > 0) {
+                    return preferredKeys[i];
+                }
+            }
+            for (var key in channels) {
+                if (channels.hasOwnProperty(key) && channels[key] && channels[key].lcd_info && channels[key].lcd_info.screen_width > 0) {
+                    return key;
+                }
+            }
+            return 'lcd';
         }
 
         function scoreDetectedDevice(device, detectionSettings) {
@@ -2176,6 +2216,8 @@
         // ===== DEVICE DETECTION =====
         var lastApiAddress = '';
         var lastApiToken = '';
+        var detectedDeviceUid = '';
+        var detectedLcdChannel = 'lcd';
 
         async function fetchDeviceInfo(apiAddress, token) {
             lastApiAddress = apiAddress;
@@ -2245,6 +2287,8 @@
                     document.getElementById('device-liquidctl').textContent = liquidctlVer;
 
                     var lcdInfo = getDeviceLcdInfo(found);
+                    detectedDeviceUid = found.uid || '';
+                    detectedLcdChannel = getDeviceLcdChannel(found);
                     var width = lcdInfo ? (lcdInfo.screen_width || 0) : 0;
                     var height = lcdInfo ? (lcdInfo.screen_height || 0) : 0;
 
@@ -2266,6 +2310,8 @@
                         '<span class="device-status connected"><span class="device-status-dot"></span> Connected</span>';
                     contentEl.style.display = 'block';
                 } else {
+                    detectedDeviceUid = '';
+                    detectedLcdChannel = 'lcd';
                     document.getElementById('device-name').textContent = '\u2014';
                     document.getElementById('device-uid').textContent = '\u2014';
                     document.getElementById('device-resolution').textContent = '\u2014';
@@ -2295,6 +2341,12 @@
                 var el = document.getElementById('update-status');
                 if (!el) return;
                 var current = '{{VERSION}}';
+                var releasesUrl = 'https://github.com/damachine/coolerdash/releases';
+                if (isInCoolerControl) {
+                    /* CC iframe sandbox blocks external fetch — show static link */
+                    el.innerHTML = 'v' + current + ' &mdash; <a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
+                    return;
+                }
                 try {
                     var res = await fetch('https://api.github.com/repos/damachine/coolerdash/releases/latest', {
                         headers: { 'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }
@@ -2302,15 +2354,15 @@
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     var data = await res.json();
                     var latest = (data.tag_name || '').replace(/^v/i, '');
-                    var dlUrl = 'https://github.com/damachine/coolerdash/releases/tag/' + (data.tag_name || 'latest');
+                    var dlUrl = releasesUrl + '/tag/' + (data.tag_name || 'latest');
                     if (latest && latest !== current) {
                         el.innerHTML = '<strong style="color:rgb(var(--warning))">v' + latest + ' available</strong> &mdash; '
                             + '<a href="' + escapeHtml(dlUrl) + '" target="_blank" rel="noopener noreferrer">Download</a>';
                     } else {
-                        el.textContent = 'v' + (latest || current) + ' (up to date)';
+                        el.innerHTML = '<span style="color:var(--colors-success,#22c55e)">v' + (latest || current) + ' \u2713 up to date</span>';
                     }
                 } catch (e) {
-                    el.textContent = 'unavailable (no network?)';
+                    el.innerHTML = 'v' + current + ' &mdash; <a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
                 }
             })();
 
@@ -2534,7 +2586,7 @@
 
             // Restore real token if user left the *** placeholder unchanged
             var _tokenInput = document.querySelector('[name="daemon.access_token"]');
-            if (_tokenInput && _tokenInput.value.trim() === '***' && _tokenInput.dataset.realToken) {
+            if (_tokenInput && /^\*+$/.test(_tokenInput.value.trim()) && _tokenInput.dataset.realToken) {
                 config.daemon.access_token = _tokenInput.dataset.realToken;
             }
 
@@ -2559,7 +2611,7 @@
                             if (section === 'daemon' && field === 'access_token') {
                                 if (value && String(value).trim()) {
                                     input.dataset.realToken = value;
-                                    input.value = '***';
+                                    input.value = '*'.repeat(String(value).length);
                                 } else {
                                     input.value = '';
                                     delete input.dataset.realToken;

@@ -26,6 +26,8 @@
 #define CONFIG_MAX_FONT_NAME_LEN 64
 #define CONFIG_MAX_SENSOR_SLOT_LEN 256
 #define CONFIG_MAX_PATTERN_LIST_LEN 512
+#define DEFAULT_COOLERDASH_PLUGIN_DIR "/var/lib/coolercontrol/plugins/coolerdash"
+#define DEFAULT_SHUTDOWN_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/shutdown.png"
 
 /** @brief RGB color; is_set=0 uses default, is_set=1 uses custom value. */
 typedef struct

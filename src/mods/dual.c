@@ -413,16 +413,9 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
         double up_label_y = layout.up_bar_y - up_label_gap - font_ext.descent;
         up_label_y += get_scaled_label_offset_y(config, params);
 
-        const double up_label_right = label_x + fmax(up_label_ext.x_advance, up_label_ext.width);
-        const double up_safe_right = up_layout.active
-                                         ? (up_layout.block_left - scale_value_avg(params, 8.0))
-                                         : (layout.bar_x + layout.effective_bar_width);
-        if (up_label_right <= up_safe_right)
-        {
-            cairo_set_font_size(cr, label_font_size);
-            cairo_move_to(cr, label_x, up_label_y);
-            cairo_show_text(cr, label_up);
-        }
+        cairo_set_font_size(cr, label_font_size);
+        cairo_move_to(cr, label_x, up_label_y);
+        cairo_show_text(cr, label_up);
     }
 
     // Draw lower slot label (if active and has label)
@@ -466,17 +459,9 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
                               down_label_gap + font_ext.ascent;
         down_label_y += get_scaled_label_offset_y(config, params);
 
-        const double down_label_right =
-            label_x + fmax(down_label_ext.x_advance, down_label_ext.width);
-        const double down_safe_right = down_layout.active
-                                           ? (down_layout.block_left - scale_value_avg(params, 8.0))
-                                           : (layout.bar_x + layout.effective_bar_width);
-        if (down_label_right <= down_safe_right)
-        {
-            cairo_set_font_size(cr, label_font_size);
-            cairo_move_to(cr, label_x, down_label_y);
-            cairo_show_text(cr, label_down);
-        }
+        cairo_set_font_size(cr, label_font_size);
+        cairo_move_to(cr, label_x, down_label_y);
+        cairo_show_text(cr, label_down);
     }
 }
 

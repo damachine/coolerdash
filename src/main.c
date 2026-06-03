@@ -57,6 +57,27 @@ int verbose_logging = 0;
 
 const Config *g_config_ptr = NULL;
 
+/** @brief Resolve configured shutdown image path with silent fallback to shutdown.png. */
+static const char *resolve_shutdown_image_path(const Config *config)
+{
+    if (!config)
+        return NULL;
+
+    if (config->paths_image_shutdown[0] != '\0')
+    {
+        if (access(config->paths_image_shutdown, R_OK) == 0)
+            return config->paths_image_shutdown;
+    }
+
+    if (access(DEFAULT_SHUTDOWN_IMAGE_PATH, R_OK) == 0)
+        return DEFAULT_SHUTDOWN_IMAGE_PATH;
+
+    log_message(LOG_WARNING,
+                "No readable shutdown image available. Checked configured path and default shutdown image: %s",
+                DEFAULT_SHUTDOWN_IMAGE_PATH);
+    return NULL;
+}
+
 /** @brief Strip whitespace and validate version string. Sets default on error. */
 static void validate_version_string(char *version_buffer, size_t buffer_size)
 {
@@ -896,6 +917,41 @@ int main(int argc, char **argv)
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
     initialize_device_info(&config);
+
+    // Register shutdown image with CoolerControl at startup.
+    // CC stores it internally and applies it automatically when CC shuts down.
+    {
+        const char *shutdown_image_path = resolve_shutdown_image_path(&config);
+        if (shutdown_image_path)
+        {
+            char shutdown_uid[CC_UID_SIZE] = {0};
+            char shutdown_device_name[CONFIG_MAX_STRING_LEN] = {0};
+            int shutdown_w = 0, shutdown_h = 0;
+            if (get_cached_lcd_device_data(&config, shutdown_uid, sizeof(shutdown_uid),
+                                           shutdown_device_name,
+                                           sizeof(shutdown_device_name),
+                                           &shutdown_w, &shutdown_h) &&
+                shutdown_uid[0] != '\0')
+            {
+                if (strcmp(shutdown_image_path, DEFAULT_SHUTDOWN_IMAGE_PATH) != 0)
+                {
+                    log_message(LOG_INFO,
+                                "Registering custom shutdown image with CoolerControl: %s",
+                                shutdown_image_path);
+                }
+
+                register_lcd_shutdown_image_with_cc(&config,
+                                                    shutdown_image_path,
+                                                    shutdown_uid);
+            }
+            else
+            {
+                log_message(LOG_WARNING,
+                            "Skipping shutdown image registration because no LCD device UID was cached");
+            }
+        }
+    }
+
     check_for_update(read_version_from_file());
 
     // Render initial image immediately so the PNG exists on disk

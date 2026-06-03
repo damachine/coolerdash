@@ -402,3 +402,130 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 
     return success;
 }
+
+/**
+ * @brief Register shutdown image with CoolerControl's native LCD shutdown image API.
+ * @details Uploads the shutdown PNG to CC at daemon startup via multipart PUT to
+ *          /devices/{uid}/settings/lcd/lcd/shutdown-image.
+ *          CC stores the image internally and applies it automatically when the
+ *          CC daemon shuts down. Handles 404 gracefully (CC version too old).
+ */
+int register_lcd_shutdown_image_with_cc(const Config *config,
+                                        const char *image_path,
+                                        const char *device_uid)
+{
+    if (!validate_upload_params(image_path, device_uid))
+        return 0;
+
+    // Verify the shutdown image file exists before attempting upload
+    if (access(image_path, F_OK) != 0)
+    {
+        log_message(LOG_WARNING,
+                    "Shutdown image not found, skipping registration: %s",
+                    image_path);
+        return 0;
+    }
+
+    char url[CC_URL_SIZE];
+    int written = snprintf(url, sizeof(url),
+                           "%s/devices/%s/settings/lcd/lcd/shutdown-image",
+                           config->daemon_address, device_uid);
+    if (!validate_snprintf(written, sizeof(url), url))
+    {
+        log_message(LOG_ERROR, "Shutdown image URL truncated");
+        return 0;
+    }
+
+    curl_mime *mime = curl_mime_init(cc_session.curl_handle);
+    if (!mime)
+    {
+        log_message(LOG_ERROR, "Failed to init multipart form for shutdown image");
+        return 0;
+    }
+
+    // mode field
+    curl_mimepart *part = curl_mime_addpart(mime);
+    curl_mime_name(part, "mode");
+    curl_mime_data(part, "image", CURL_ZERO_TERMINATED);
+
+    // brightness field
+    char brightness_str[8];
+    int blen = snprintf(brightness_str, sizeof(brightness_str), "%u",
+                        (unsigned)config->lcd_brightness);
+    if (blen > 0 && (size_t)blen < sizeof(brightness_str))
+    {
+        part = curl_mime_addpart(mime);
+        curl_mime_name(part, "brightness");
+        curl_mime_data(part, brightness_str, CURL_ZERO_TERMINATED);
+    }
+
+    // orientation field
+    char orientation_str[8];
+    int olen = snprintf(orientation_str, sizeof(orientation_str), "%u",
+                        (unsigned)config->lcd_orientation);
+    if (olen > 0 && (size_t)olen < sizeof(orientation_str))
+    {
+        part = curl_mime_addpart(mime);
+        curl_mime_name(part, "orientation");
+        curl_mime_data(part, orientation_str, CURL_ZERO_TERMINATED);
+    }
+
+    // image file field — CC uses "images[]" as the multipart field name
+    part = curl_mime_addpart(mime);
+    curl_mime_name(part, "images[]");
+    curl_mime_filedata(part, image_path);
+    curl_mime_type(part, "image/png");
+
+    http_response response = {0};
+    if (!cc_init_response_buffer(&response, 4096))
+    {
+        curl_mime_free(mime);
+        return 0;
+    }
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, cc_session.access_token);
+
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, url);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, mime);
+    curl_easy_setopt(
+        cc_session.curl_handle, CURLOPT_WRITEFUNCTION,
+        (size_t (*)(const void *, size_t, size_t, void *))write_callback);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
+
+    CURLcode res = curl_easy_perform(cc_session.curl_handle);
+    long http_code = 0;
+    curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
+
+    int success = 0;
+    if (res == CURLE_OK && (http_code == 200 || http_code == 204))
+    {
+        log_message(LOG_STATUS,
+                    "Shutdown image registered with CoolerControl");
+        success = 1;
+    }
+    else if (res == CURLE_OK && http_code == 404)
+    {
+        // CC version too old — not a fatal error, coolerdash runs normally
+        log_message(LOG_INFO,
+                    "CC shutdown image API not available (requires CC >= 4.3)");
+        success = 1;
+    }
+    else
+    {
+        log_message(LOG_WARNING,
+                    "Shutdown image registration failed: CURL %d, HTTP %ld",
+                    (int)res, http_code);
+    }
+
+    // Cleanup: MIMEPOST must be cleared explicitly before reset_curl_request_options
+    cc_cleanup_response_buffer(&response);
+    if (headers)
+        curl_slist_free_all(headers);
+    curl_mime_free(mime);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
+    reset_curl_request_options();
+
+    return success;
+}

@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
-> See the [Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md) for confirmed working hardware. In principle, all devices supported by CoolerControl/[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) to help expand the list.
+> See the [Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md) for confirmed working hardware. In principle, all devices supported by CoolerControl/[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) to help expand the list.
 
 ---
 
@@ -209,12 +209,12 @@ liquidctl --version
 <details>
   <summary>Expand</summary>
 
-- **[Configuration Guide](https://github.com/damachine/coolerdash/blob/main/docs/config-guide.md)** - All configuration options
-- **[Supported Devices](https://github.com/damachine/coolerdash/blob/main/docs/devices.md)** - Confirmed working hardware
-- **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/main/docs/display-modes.md)** - Dual and Circle mode reference
-- **[Developer Guide](https://github.com/damachine/coolerdash/blob/main/docs/developer-guide.md)** - Architecture and API integration
-- **[Display Detection](https://github.com/damachine/coolerdash/blob/main/docs/display-detection.md)** - Display shape detection
-- **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/main/docs/coolercontrol-api.md)** - API module documentation
+- **[Configuration Guide](https://github.com/damachine/coolerdash/blob/master/docs/config-guide.md)** - All configuration options
+- **[Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md)** - Confirmed working hardware
+- **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/master/docs/display-modes.md)** - Dual and Circle mode reference
+- **[Developer Guide](https://github.com/damachine/coolerdash/blob/master/docs/developer-guide.md)** - Architecture and API integration
+- **[Display Detection](https://github.com/damachine/coolerdash/blob/master/docs/display-detection.md)** - Display shape detection
+- **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/master/docs/coolercontrol-api.md)** - API module documentation
 </details>
 
 ---

@@ -22,7 +22,11 @@ Registered once at startup via CC4 API:
 PUT /devices/{uid}/settings/lcd/lcd/shutdown-image
 ```
 
-CC4 stores the image and displays it when CoolerControl stops. No helper daemon needed.
+CC4 stores the image and displays it when CoolerControl stops. Configure a custom
+shutdown image via paths.image_shutdown, or keep the default file at
+/var/lib/coolercontrol/plugins/coolerdash/shutdown.png. No helper daemon needed.
+
+![Shutdown image preview](../images/shutdown.png)
 
 ## Plugin UI
 
