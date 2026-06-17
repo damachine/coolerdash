@@ -621,11 +621,53 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                 (safe_width * left_margin_factor);
                 double duty_y = value_layout.baseline_y;
 
-                /* Don't overlap with temperature block */
-                double duty_right = duty_x + duty_total_width +
-                                    scale_value_avg(params, 4.0);
-                if (duty_right <= value_layout.block_left)
+                const double overlap_padding =
+                    fmax(1.0, scale_value_avg(params, 2.0));
+                double duty_available_width =
+                    value_layout.block_left - duty_x - overlap_padding;
+                if (duty_available_width <= 0.0)
                 {
+                    duty_x = safe_x;
+                    duty_available_width =
+                        value_layout.block_left - duty_x - overlap_padding;
+                }
+
+                const double min_duty_font =
+                    fmax(8.0, value_layout.font_size * 0.32);
+                while (duty_total_width > duty_available_width &&
+                       duty_font > min_duty_font)
+                {
+                    duty_font *= 0.90;
+                    if (duty_font < min_duty_font)
+                        duty_font = min_duty_font;
+
+                    pct_font = duty_font / 2.05;
+                    cairo_set_font_size(cr, duty_font);
+                    cairo_font_extents(cr, &duty_fext);
+                    cairo_text_extents(cr, duty_buf, &duty_text_ext);
+
+                    cairo_set_font_size(cr, pct_font);
+                    cairo_text_extents(cr, "%", &pct_ext);
+                    cairo_set_font_size(cr, duty_font);
+
+                    duty_number_width =
+                        fmax(duty_text_ext.x_advance, duty_text_ext.width);
+                    duty_total_width = duty_number_width + pct_spacing +
+                                       fmax(pct_ext.x_advance, pct_ext.width);
+                }
+
+                if (duty_total_width > duty_available_width)
+                {
+                    duty_x = fmax(safe_x,
+                                  value_layout.block_left - duty_total_width -
+                                      overlap_padding);
+                    duty_available_width =
+                        value_layout.block_left - duty_x - overlap_padding;
+                }
+
+                if (duty_available_width > 0.0)
+                {
+                    cairo_set_font_size(cr, duty_font);
                     set_cairo_color(cr, value_color);
                     cairo_move_to(cr, duty_x, duty_y);
                     cairo_show_text(cr, duty_buf);

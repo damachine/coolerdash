@@ -13,6 +13,7 @@
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
+#include <ctype.h>
 #include <curl/curl.h>
 #include <jansson.h>
 #include <stdio.h>
@@ -28,6 +29,41 @@
 
 /** @brief Cached CURL handle for sensor polling. */
 static CURL *sensor_curl_handle = NULL;
+
+static int contains_ci(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle || needle[0] == '\0')
+        return 0;
+
+    const size_t needle_len = strlen(needle);
+    for (const char *p = haystack; *p; p++)
+    {
+        size_t i = 0;
+        while (i < needle_len && p[i] &&
+               tolower((unsigned char)p[i]) ==
+                   tolower((unsigned char)needle[i]))
+        {
+            i++;
+        }
+        if (i == needle_len)
+            return 1;
+    }
+    return 0;
+}
+
+static int is_cooling_duty_name(const char *name)
+{
+    return contains_ci(name, "fan") || contains_ci(name, "pump") ||
+           contains_ci(name, "cooler") || contains_ci(name, "cooling");
+}
+
+static int is_load_duty_name(const char *name)
+{
+    return contains_ci(name, "load") || contains_ci(name, "usage") ||
+           contains_ci(name, "util") || contains_ci(name, "activity") ||
+           contains_ci(name, "process") || contains_ci(name, "processor") ||
+           contains_ci(name, "gpu") || contains_ci(name, "cpu");
+}
 
 /** @brief Init or return cached CURL handle. */
 static CURL *get_sensor_curl_handle(void)
@@ -416,6 +452,41 @@ static const char *get_legacy_slot_device_type(const char *slot_value)
     return NULL;
 }
 
+static const sensor_entry_t *find_preferred_legacy_duty_sensor(
+    const monitor_sensor_data_t *data, const char *slot_value,
+    const char *target_type)
+{
+    const sensor_entry_t *first_matching = NULL;
+    const sensor_entry_t *first_non_cooling = NULL;
+
+    for (int i = 0; i < data->sensor_count; i++)
+    {
+        const sensor_entry_t *sensor = &data->sensors[i];
+        if (sensor->category != SENSOR_CATEGORY_DUTY ||
+            strcmp(sensor->device_type, target_type) != 0)
+            continue;
+
+        if (!first_matching)
+            first_matching = sensor;
+
+        if (!is_cooling_duty_name(sensor->name))
+        {
+            if (!first_non_cooling)
+                first_non_cooling = sensor;
+            if (is_load_duty_name(sensor->name))
+                return sensor;
+        }
+    }
+
+    if (strcmp(slot_value, "gpu") == 0)
+    {
+        /* Avoid rendering GPU fan duty as GPU processor utilisation. */
+        return first_non_cooling;
+    }
+
+    return first_non_cooling ? first_non_cooling : first_matching;
+}
+
 /**
  * @brief Resolve a legacy slot value to matching sensor entry.
  * @details Maps "cpu"→first CPU sensor, "gpu"→first GPU sensor,
@@ -431,6 +502,9 @@ static const sensor_entry_t *resolve_legacy_slot(
     const char *target_type = get_legacy_slot_device_type(slot_value);
     if (!target_type)
         return NULL;
+
+    if (category == SENSOR_CATEGORY_DUTY)
+        return find_preferred_legacy_duty_sensor(data, slot_value, target_type);
 
     for (int i = 0; i < data->sensor_count; i++)
     {

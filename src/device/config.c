@@ -412,8 +412,8 @@ static void set_default_sensor_configs(Config *config)
             liquid->threshold_2 = 35.0f;
         if (liquid->threshold_3 == 0.0f)
             liquid->threshold_3 = 40.0f;
-        if (liquid->max_scale == 0.0f)
-            liquid->max_scale = 45.0f;
+        if (liquid->max_scale == 0.0f || liquid->max_scale == 45.0f)
+            liquid->max_scale = 60.0f;
     }
 }
 
