@@ -92,7 +92,7 @@
       "threshold_1": 30.0,
       "threshold_2": 35.0,
       "threshold_3": 40.0,
-      "max_scale": 45.0,
+      "max_scale": 60.0,
       "threshold_1_color": { "r": 0, "g": 255, "b": 0 },
       "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
       "threshold_3_color": { "r": 255, "g": 70, "b": 0 },

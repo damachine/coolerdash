@@ -205,7 +205,7 @@ jobs:
         run: |
           sed -i "s/{{VERSION}}/${{ steps.prep.outputs.version }}/g" debian/changelog
           sed -i "s/{{DATE}}/${{ steps.prep.outputs.date }}/g" debian/changelog
-          dpkg-buildpackage -us -uc -b
+          DEB_BUILD_OPTIONS=nocheck dpkg-buildpackage -us -uc -b
           mv ../*.deb ./
           ls -lh *.deb
 

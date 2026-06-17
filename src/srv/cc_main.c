@@ -276,6 +276,7 @@ const char *get_session_access_token(void)
 static void reset_curl_request_options(void)
 {
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_POSTFIELDS, NULL);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEFUNCTION, NULL);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, NULL);
@@ -487,6 +488,7 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
     headers = curl_slist_append(headers, cc_session.access_token);
 
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, url);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, mime);
     curl_easy_setopt(
         cc_session.curl_handle, CURLOPT_WRITEFUNCTION,
