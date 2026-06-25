@@ -23,13 +23,6 @@ case "$1" in
             chmod 600 /var/lib/coolercontrol/plugins/coolerdash/credentials.json
         fi
 
-        # Remove legacy files
-        rm -f /etc/systemd/system/multi-user.target.wants/coolerdash-helperd.service
-        rm -f /etc/systemd/system/coolerdash-helperd.service
-        rm -f /usr/lib/systemd/system/coolerdash-helperd.service
-        rm -rf /etc/systemd/system/cc-plugin-coolerdash.service.d
-        rm -f /usr/lib/udev/rules.d/99-coolerdash.rules
-
         if command -v systemctl >/dev/null 2>&1; then
             systemctl daemon-reload
             systemctl reset-failed cc-plugin-coolerdash.service >/dev/null 2>&1 || true
@@ -39,6 +32,8 @@ case "$1" in
             if systemctl is-active --quiet coolercontrold.service; then
                 systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
             fi
+        elif command -v rc-service >/dev/null 2>&1 && [ -x /etc/init.d/coolercontrold ]; then
+            rc-service coolercontrold restart || echo "Note: CoolerControl restart failed."
         fi
         ;;
 esac

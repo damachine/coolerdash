@@ -37,7 +37,7 @@ https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
 > Version 2.0.4+ runs as a CoolerControl plugin.
 > This requires CoolerControl >=3.1.0 with plugin support.   
 
-- **OS**: Linux (systemd)
+- **OS**: Linux (systemd or OpenRC)
 - **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
 - **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
@@ -86,13 +86,18 @@ make install
 
 **Start CoolerControl Service (if not already enabled):**
 ```bash
+# systemd
 systemctl enable --now coolercontrold.service
+
+# OpenRC
+rc-update add coolercontrold default
+rc-service coolercontrold start
 ```
 
 **CoolerDash Configuration (optional):**
 
 In the CoolerControl settings menu, under the plugin tab (beta), you can now use the CoolerDash UI to make your custome settings.
-Please restart: `systemctl restart cc-plugin-coolerdash.service` to apply the changes.
+Restart CoolerControl to apply changes: `systemctl restart coolercontrold.service` or `rc-service coolercontrold restart`.
 
 <details>
   <summary>Screenshots</summary>
@@ -124,6 +129,8 @@ make help       # Show all options
 ```bash
 # 1. Check CoolerControl status
 systemctl status coolercontrold
+# or on OpenRC:
+rc-service coolercontrold status
 curl http://localhost:11987/devices
 
 # 2. Test CoolerDash manually (with clean output)
@@ -149,6 +156,7 @@ sudo install -Dm755 bin/coolerdash /usr/libexec/coolerdash/coolerdash
 
 # 5. Check plugin logs (STATUS messages always visible)
 journalctl -xeu coolercontrold.service -f
+# On OpenRC, inspect your configured system logger for CoolerControl/coolerdash output.
 
 # 6. View recent logs with context
 journalctl -u coolercontrold.service -n 50
@@ -168,13 +176,6 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 **Solution:**
 ```bash
 sudo make uninstall
-```
-
-Remove any leftover legacy files:
-```bash
-sudo rm -rf /opt/coolerdash/ \
-            /etc/coolerdash/ \
-            /etc/systemd/system/coolerdash.service
 ```
 
 #### Check CoolerControl devices
