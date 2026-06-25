@@ -219,11 +219,89 @@ jobs:
 
           echo "✅ Arch Linux installation test completed (reference)"
 
+  # Additional test for Gentoo with OpenRC
+  gentoo-openrc-install:
+    name: Test on Gentoo (OpenRC) (Reference)
+    runs-on: ubuntu-latest
+    container:
+      image: gentoo/stage3:latest
+      options: --privileged
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Gentoo OpenRC
+        run: |
+          emerge-webrsync || emerge --sync --quiet
+          emerge --getbinpkg --usepkg --noreplace \
+            virtual/pkgconfig \
+            x11-libs/cairo \
+            net-misc/curl \
+            dev-libs/jansson \
+            media-fonts/roboto \
+            sys-apps/file \
+            sys-apps/openrc
+
+      - name: Verify Gentoo OpenRC detection
+        run: |
+          test -f /etc/gentoo-release
+          command -v gcc
+          command -v make
+          command -v rc-service
+          ! command -v systemctl
+          test "$(make detect-distro)" = "gentoo"
+
+      - name: Test make install on Gentoo OpenRC
+        run: |
+          echo "🚀 Testing 'make install' on Gentoo OpenRC"
+
+          export DESTDIR=/tmp/install-test
+          mkdir -p /tmp/install-test
+          SUDO="" REALOS=yes make install DESTDIR=/tmp/install-test
+
+          # Verify binary installation
+          if [ -f "/tmp/install-test/usr/libexec/coolerdash/coolerdash" ]; then
+            echo "✅ Binary installed"
+            file /tmp/install-test/usr/libexec/coolerdash/coolerdash
+          else
+            echo "❌ Binary not found"
+            find /tmp/install-test -name "coolerdash" -type f
+            exit 1
+          fi
+
+          # Check plugin files
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then
+            echo "✅ Config file installed"
+          else
+            echo "❌ Config file not found"
+            exit 1
+          fi
+
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/manifest.toml" ]; then
+            echo "✅ Plugin manifest installed"
+          else
+            echo "❌ Plugin manifest not found"
+            exit 1
+          fi
+
+          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/ui/index.html" ]; then
+            echo "✅ Plugin UI file installed"
+          else
+            echo "❌ Plugin UI file not found"
+            exit 1
+          fi
+
+          # Check OpenRC can enumerate installed init scripts.
+          rc-service --list >/dev/null
+
+          echo "✅ Gentoo (OpenRC) installation test completed (reference)"
+
   # Summary report
   installation-summary:
     name: Multi-Distribution Installation Test Summary
     runs-on: ubuntu-latest
-    needs: [make-install, arch-install]
+    needs: [make-install, arch-install, gentoo-openrc-install]
     if: always() # Runs even if tests fail
 
     steps:
@@ -238,9 +316,11 @@ jobs:
           echo "- **RHEL-compatible**: CentOS Stream 9" >> $GITHUB_STEP_SUMMARY
           echo "- **openSUSE**: Tumbleweed, Leap 16.0" >> $GITHUB_STEP_SUMMARY
           echo "- **Arch Linux**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Gentoo**: stage3 with OpenRC" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test Coverage:" >> $GITHUB_STEP_SUMMARY
           echo "✅ Installation process (make install)" >> $GITHUB_STEP_SUMMARY
           echo "✅ File placement verification" >> $GITHUB_STEP_SUMMARY
+          echo "✅ OpenRC service-manager detection" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **View detailed logs above for distribution-specific results**" >> $GITHUB_STEP_SUMMARY
