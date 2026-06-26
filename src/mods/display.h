@@ -152,13 +152,6 @@ int get_scaled_degree_spacing(const struct Config *config,
                               const ScalingParams *params);
 
 /**
- * @brief Get the effective logical bar height for a slot.
- * @details Slot-specific values inherit the global bar height when set to 0.
- */
-uint16_t get_slot_bar_height(const struct Config *config,
-                             const char *slot_name);
-
-/**
  * @brief Get the scaled pixel bar height for a slot.
  */
 int get_scaled_slot_bar_height(const struct Config *config,

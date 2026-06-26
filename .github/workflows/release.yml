@@ -12,9 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  # ============================================================================
-  # STEP 1: Prepare version info (no tag/release yet)
-  # ============================================================================
+  # Prepare version info (no tag/release yet)
   prepare-version:
     name: Prepare Version Info
     runs-on: ubuntu-latest
@@ -67,9 +65,7 @@ jobs:
           echo "tag=$final_tag" >> $GITHUB_OUTPUT
           echo "release_msg=CoolerDash $final_tag" >> $GITHUB_OUTPUT
 
-  # ============================================================================
-  # STEP 2: Build all packages FIRST (before creating tag/release)
-  # ============================================================================
+  # Build all packages FIRST (before creating tag/release)
   build-packages:
     name: Build ${{ matrix.distro }} Package
     runs-on: ubuntu-latest
@@ -78,13 +74,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - distro: ubuntu:24.04
+          - distro: ubuntu:26.04
             type: deb
             name: debian-based
             pkg_name: coolerdash_${{ needs.prepare-version.outputs.version }}_amd64.deb
-          - distro: fedora:42
+          - distro: fedora:44
             type: rpm
-            name: fedora-42
+            name: fedora-44
             pkg_name: coolerdash-${{ needs.prepare-version.outputs.version }}-1.fedora.x86_64.rpm
           - distro: quay.io/centos/centos:stream9
             type: rpm
@@ -117,7 +113,7 @@ jobs:
             git
 
       - name: Install build dependencies (Fedora)
-        if: matrix.name == 'fedora-42'
+        if: matrix.name == 'fedora-44'
         run: |
           dnf install -y \
             rpm-build \
@@ -139,7 +135,7 @@ jobs:
         if: matrix.name == 'centos-stream9'
         run: |
           dnf update -y
-          dnf install -y epel-release
+          dnf install -y epel-release dnf-plugins-core
           dnf config-manager --set-enabled crb
           dnf makecache
           dnf install -y \
@@ -180,7 +176,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          ref: master
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       - name: Copy packaging files to root
@@ -231,27 +227,42 @@ jobs:
       - name: Verify package
         run: |
           if [ "${{ matrix.type }}" = "deb" ]; then
-            dpkg --info *.deb
+            pkg=$(ls ./*.deb)
+            dpkg --info "$pkg"
+            dpkg -c "$pkg" | tee package-contents.txt
+            grep -q "./usr/libexec/coolerdash/coolerdash$" package-contents.txt
+            grep -q "./var/lib/coolercontrol/plugins/coolerdash/config.json$" package-contents.txt
+            grep -q "./var/lib/coolercontrol/plugins/coolerdash/manifest.toml$" package-contents.txt
+            grep -q "./var/lib/coolercontrol/plugins/coolerdash/ui/index.html$" package-contents.txt
+            grep -q "./var/lib/coolercontrol/plugins/coolerdash/shutdown.png$" package-contents.txt
           else
-            rpm -qpi *.rpm
+            pkg=$(ls ./*.rpm)
+            rpm -qpi "$pkg"
+            rpm -qlp "$pkg" | tee package-contents.txt
+            grep -qx "/usr/libexec/coolerdash/coolerdash" package-contents.txt
+            grep -qx "/var/lib/coolercontrol/plugins/coolerdash/config.json" package-contents.txt
+            grep -qx "/var/lib/coolercontrol/plugins/coolerdash/manifest.toml" package-contents.txt
+            grep -qx "/var/lib/coolercontrol/plugins/coolerdash/ui/index.html" package-contents.txt
+            grep -qx "/var/lib/coolercontrol/plugins/coolerdash/shutdown.png" package-contents.txt
           fi
 
       - name: Rename package
         run: |
-          mv *.deb ${{ matrix.pkg_name }} 2>/dev/null || true
-          mv *.rpm ${{ matrix.pkg_name }} 2>/dev/null || true
+          if [ "${{ matrix.type }}" = "deb" ]; then
+            mv ./*.deb ${{ matrix.pkg_name }}
+          else
+            mv ./*.rpm ${{ matrix.pkg_name }}
+          fi
           ls -lh ${{ matrix.pkg_name }}
 
       - name: Upload package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.name }}-package
           path: ${{ matrix.pkg_name }}
           retention-days: 7
 
-  # ============================================================================
-  # STEP 3: Create Tag & Release ONLY after all builds succeed
-  # ============================================================================
+  # Create Tag & Release ONLY after all builds succeed
   create-release:
     name: Create Tag & Release
     runs-on: ubuntu-latest
@@ -308,7 +319,7 @@ jobs:
           git push origin "$TAG"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare-version.outputs.tag }}
           name: ${{ needs.prepare-version.outputs.release_msg }}
@@ -403,16 +414,14 @@ jobs:
             rm -rf "$GNUPGHOME"
           fi
 
-  # ============================================================================
-  # STEP 4: Upload packages to the release
-  # ============================================================================
+  # Upload packages to the release
   upload-packages:
     name: Upload Packages to Release
     runs-on: ubuntu-latest
     needs: [prepare-version, build-packages, create-release]
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: packages
 
@@ -445,7 +454,7 @@ jobs:
           ls -lh SHA256SUMS*
 
       - name: Upload packages to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare-version.outputs.tag }}
           files: |
@@ -456,9 +465,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ============================================================================
-  # STEP 5: Update AUR repository
-  # ============================================================================
+  # Update AUR repository
   aur-push:
     name: Update AUR Repository
     runs-on: ubuntu-latest
@@ -518,9 +525,7 @@ jobs:
           allow_empty_commits: false
           force_push: false
 
-  # ============================================================================
-  # STEP 6: Summary
-  # ============================================================================
+  # Summary
   release-summary:
     name: Release Summary
     runs-on: ubuntu-latest

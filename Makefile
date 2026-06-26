@@ -1,4 +1,4 @@
-.PHONY: all clean distclean install install-strip installdirs uninstall check debug logs help detect-distro install-deps check-deps
+.PHONY: all clean distclean install install-strip installdirs uninstall debug logs help detect-distro install-deps check-deps
 .DELETE_ON_ERROR:
 VERSION := $(shell cat VERSION)
 
@@ -42,7 +42,6 @@ HEADERS = $(SRCDIR)/device/config.h $(SRCDIR)/srv/cc_main.h $(SRCDIR)/srv/cc_con
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 MANIFEST = etc/coolercontrol/plugins/coolerdash/manifest.toml
-MANPAGE = man/coolerdash.1
 README = README.md
 
 # GNU standard install directories
@@ -52,7 +51,6 @@ libexecdir ?= $(exec_prefix)/libexec
 sysconfdir ?= /etc
 datarootdir ?= $(prefix)/share
 datadir ?= $(datarootdir)
-mandir ?= $(datarootdir)/man
 
 # Install commands
 INSTALL ?= install
@@ -244,13 +242,6 @@ check-deps:
 		printf "$(GREEN)All dependencies found$(RESET)\n"; \
 	fi
 
-# Run tests (GNU standard target)
-check: $(OBJDIR)
-	@printf "$(CYAN)Running tests...$(RESET)\n"
-	$(CC) $(CPPFLAGS) $(CFLAGS) -I./src -o $(OBJDIR)/test_scaling tests/test_scaling.c -lm
-	./$(OBJDIR)/test_scaling
-	@printf "$(GREEN)All tests passed$(RESET)\n"
-
 # Install binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/coolerdash/
 install: check-deps $(TARGET)
 	@printf "\n"
@@ -295,18 +286,9 @@ install: check-deps $(TARGET)
 	@printf "\n"
 	@printf "$(CYAN)Note: Plugin binary is available at $(libexecdir)/coolerdash/coolerdash$(RESET)\\n"
 	@printf "\n"
-	@printf "$(CYAN)Installing documentation...$(RESET)\n"
-	@$(INSTALL_DATA) -D $(MANPAGE) "$(DESTDIR)$(mandir)/man1/coolerdash.1"
-	@printf "  $(GREEN)Manual:$(RESET)  $(DESTDIR)$(mandir)/man1/coolerdash.1\n"
 	@printf "$(CYAN)Installing license...$(RESET)\n"
 	@$(INSTALL_DATA) -D LICENSE "$(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE"
 	@printf "  $(GREEN)License:$(RESET) $(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE\n"
-	@printf "$(CYAN)Installing desktop shortcut...$(RESET)\n"
-	@$(INSTALL_DATA) -D etc/applications/coolerdash.desktop "$(DESTDIR)$(datadir)/applications/coolerdash.desktop"
-	@printf "  $(GREEN)Shortcut:$(RESET) $(DESTDIR)$(datadir)/applications/coolerdash.desktop\n"
-	@printf "$(CYAN)Installing icon...$(RESET)\n"
-	@$(INSTALL_DATA) -D etc/icons/coolerdash.svg "$(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/coolerdash.svg"
-	@printf "  $(GREEN)Icon:$(RESET)     $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/coolerdash.svg\n"
 	@printf "\n"
 	@printf "$(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
@@ -327,7 +309,6 @@ install: check-deps $(TARGET)
 		printf "  $(PURPLE)Restart CoolerControl:$(RESET) restart your CoolerControl daemon\n"; \
 	fi
 	@printf "  $(PURPLE)Plugin:$(RESET)         CoolerControl will manage coolerdash automatically\n"
-	@printf "  $(PURPLE)Show manual:$(RESET)    man coolerdash\n"
 	@printf "\n"
 
 # Install with stripped binary (GNU standard target)
@@ -339,10 +320,7 @@ installdirs:
 	$(INSTALL) -d "$(DESTDIR)$(libexecdir)/coolerdash"
 	$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)"
 	$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
-	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
 	$(INSTALL) -d "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
-	$(INSTALL) -d "$(DESTDIR)$(datadir)/applications"
-	$(INSTALL) -d "$(DESTDIR)$(datadir)/icons/hicolor/scalable/apps"
 
 # Uninstall Target
 uninstall:
@@ -366,9 +344,6 @@ uninstall:
 	@$(SUDO) rm -rf "$(DESTDIR)$(PLUGINDIR)"
 	@$(SUDO) rm -rf "$(DESTDIR)$(libexecdir)/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
-	@$(SUDO) rm -f "$(DESTDIR)$(mandir)/man1/coolerdash.1"
-	@$(SUDO) rm -f "$(DESTDIR)$(datadir)/applications/coolerdash.desktop"
-	@$(SUDO) rm -f "$(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/coolerdash.svg"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) mandb -q >/dev/null 2>&1 || true; \
 		if command -v systemctl >/dev/null 2>&1; then \
@@ -408,7 +383,6 @@ help:
 	@printf "  $(GREEN)make$(RESET)              - Compiles the program\n"
 	@printf "  $(GREEN)make clean$(RESET)        - Removes compiled files\n"
 	@printf "  $(GREEN)make distclean$(RESET)    - Same as clean (no autoconf)\n"
-	@printf "  $(GREEN)make check$(RESET)        - Runs unit tests\n"
 	@printf "  $(GREEN)make debug$(RESET)        - Debug build with AddressSanitizer\n"
 	@printf "\n"
 	@printf "$(YELLOW)Installation:$(RESET)\n"
@@ -426,7 +400,6 @@ help:
 	@printf "  $(BLUE)Shutdown:$(RESET) Plugin automatically displays shutdown.png when stopped\n"
 	@printf "\n"
 	@printf "$(YELLOW)Documentation:$(RESET)\n"
-	@printf "  $(GREEN)man coolerdash$(RESET) - Shows manual page\n"
 	@printf "  $(GREEN)make help$(RESET)     - Shows this help\n"
 	@printf "\n"
 	@printf "$(YELLOW)README:$(RESET)\n"

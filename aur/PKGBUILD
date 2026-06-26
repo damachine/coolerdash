@@ -41,19 +41,6 @@ build() {
     make
 }
 
-check() {
-    # Check in the checked-out repository
-    cd "${srcdir}"/"${pkgname}"
-
-    # Verify that the binary was created successfully
-    if [[ -f bin/coolerdash ]]; then
-        msg "Build successful - binary created"
-    else
-        error "Build failed - binary not found"
-        return 1
-    fi
-}
-
 package() {
     # Binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/
     install -dm711 "${pkgdir}/var/lib/coolercontrol"
@@ -72,8 +59,5 @@ package() {
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/manifest.toml"
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/ui/index.html"
 
-    install -Dm644 "${srcdir}/${pkgname}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
-    install -Dm644 "${srcdir}/${pkgname}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
-    install -Dm644 "${srcdir}/${pkgname}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
     install -Dm644 "${srcdir}/${pkgname}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

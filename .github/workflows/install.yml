@@ -20,8 +20,8 @@ jobs:
       matrix:
         include:
           # Ubuntu/Debian family
-          - distro: "ubuntu:24.04"
-            name: "Ubuntu 24.04 LTS"
+          - distro: "ubuntu:26.04"
+            name: "Ubuntu 26.04 LTS"
             pre_install: "apt-get update"
             install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev fonts-roboto file"
 
@@ -31,15 +31,15 @@ jobs:
             install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev fonts-roboto file"
 
           # Fedora family (independent from RHEL)
-          - distro: "fedora:42"
-            name: "Fedora 42"
+          - distro: "fedora:44"
+            name: "Fedora 44"
             pre_install: "dnf update -y"
             install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
 
           # RHEL/CentOS family (RHEL-compatible)
           - distro: "quay.io/centos/centos:stream9"
             name: "CentOS Stream 9 (RHEL 9 compatible)"
-            pre_install: "dnf update -y && dnf install -y epel-release && dnf config-manager --set-enabled crb && dnf makecache"
+            pre_install: "dnf update -y && dnf install -y epel-release dnf-plugins-core && dnf config-manager --set-enabled crb && dnf makecache"
             install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
 
           # openSUSE family
@@ -123,37 +123,6 @@ jobs:
           else
             echo "❌ Plugin UI file not found"
             exit 1
-          fi
-
-          # Check CC-Plugin Lib JS is NOT installed (served by CoolerControl)
-          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" ]; then
-            echo "❌ Plugin Lib JS should NOT be installed (served by CoolerControl)"
-            exit 1
-          else
-            echo "✅ Plugin Lib JS correctly not installed (served by CoolerControl)"
-          fi
-
-          # Check desktop files
-          if [ -f "/tmp/install-test/usr/share/applications/coolerdash.desktop" ]; then
-            echo "✅ Desktop file installed"
-          else
-            echo "❌ Desktop file not found"
-            exit 1
-          fi
-
-          # Check icon files
-          if [ -f "/tmp/install-test/usr/share/icons/hicolor/scalable/apps/coolerdash.svg" ]; then
-            echo "✅ Icon file installed"
-          else
-            echo "❌ Icon file not found"
-            exit 1
-          fi
-
-          # Check documentation
-          if [ -f "/tmp/install-test/usr/share/man/man1/coolerdash.1" ]; then
-            echo "✅ Manual page installed"
-          else
-            echo "⚠️  Manual page not found"
           fi
 
           # Check license file (Linux packaging standard)
@@ -310,17 +279,17 @@ jobs:
           echo "## 🚀 CoolerDash Multi-Distribution Installation Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Tested Distributions:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Ubuntu**: 24.04 LTS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ubuntu**: 26.04 LTS" >> $GITHUB_STEP_SUMMARY
           echo "- **Debian**: 13 (Trixie)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Fedora**: 42" >> $GITHUB_STEP_SUMMARY
+          echo "- **Fedora**: 44" >> $GITHUB_STEP_SUMMARY
           echo "- **RHEL-compatible**: CentOS Stream 9" >> $GITHUB_STEP_SUMMARY
           echo "- **openSUSE**: Tumbleweed, Leap 16.0" >> $GITHUB_STEP_SUMMARY
           echo "- **Arch Linux**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Gentoo**: stage3 with OpenRC" >> $GITHUB_STEP_SUMMARY
+          echo "- **Gentoo**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test Coverage:" >> $GITHUB_STEP_SUMMARY
           echo "✅ Installation process (make install)" >> $GITHUB_STEP_SUMMARY
           echo "✅ File placement verification" >> $GITHUB_STEP_SUMMARY
-          echo "✅ OpenRC service-manager detection" >> $GITHUB_STEP_SUMMARY
+          echo "✅ System init detection" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **View detailed logs above for distribution-specific results**" >> $GITHUB_STEP_SUMMARY

@@ -8,8 +8,8 @@
  */
 
 /**
- * @brief Circle mode rendering (alternating CPU/GPU).
- * @details Single sensor display with automatic 2.5s switching.
+ * @brief Circle mode rendering (slot-based alternating display).
+ * @details Single-sensor display that cycles through configured active slots.
  */
 
 // Include necessary headers
@@ -34,6 +34,33 @@
  */
 static int current_slot_index = 0; // 0=slot1, 1=slot2, 2=slot3
 static time_t last_switch_time = 0;
+
+static int ascii_tolower(int c)
+{
+    return (c >= 'A' && c <= 'Z') ? (c + ('a' - 'A')) : c;
+}
+
+static int contains_ignore_case(const char *haystack, const char *needle)
+{
+    if (!haystack || !needle || needle[0] == '\0')
+        return 0;
+
+    for (const char *h = haystack; *h; h++)
+    {
+        const char *hp = h;
+        const char *np = needle;
+        while (*hp && *np && ascii_tolower((unsigned char)*hp) ==
+                                 ascii_tolower((unsigned char)*np))
+        {
+            hp++;
+            np++;
+        }
+        if (*np == '\0')
+            return 1;
+    }
+
+    return 0;
+}
 
 /**
  * @brief Resets circle mode state for config reload (SIGHUP).
@@ -66,8 +93,8 @@ static const sensor_entry_t *find_liquid_pump_rpm(
         if (strcmp(data->sensors[i].device_type, "Liquidctl") != 0)
             continue;
 
-        /* Prefer sensor with "pump" in the name */
-        if (strstr(data->sensors[i].name, "pump"))
+        /* Prefer sensor with "pump" in the name. */
+        if (contains_ignore_case(data->sensors[i].name, "pump"))
             return &data->sensors[i];
 
         if (!first_rpm)
@@ -75,6 +102,39 @@ static const sensor_entry_t *find_liquid_pump_rpm(
     }
 
     return first_rpm;
+}
+
+static void format_frequency(char *buf, size_t buf_size, float mhz)
+{
+    if (mhz >= 1000.0f)
+        snprintf(buf, buf_size, "%.1f GHz", mhz / 1000.0f);
+    else
+        snprintf(buf, buf_size, "%.0f MHz", mhz);
+}
+
+static int format_freq_watts(const sensor_entry_t *freq,
+                             const sensor_entry_t *watts,
+                             char *buf, size_t buf_size)
+{
+    if (!buf || buf_size == 0 || (!freq && !watts))
+        return 0;
+
+    if (freq && watts)
+    {
+        char freq_buf[24] = {0};
+        format_frequency(freq_buf, sizeof(freq_buf), freq->value);
+        snprintf(buf, buf_size, "%s  %.0fW", freq_buf, watts->value);
+    }
+    else if (freq)
+    {
+        format_frequency(buf, buf_size, freq->value);
+    }
+    else
+    {
+        snprintf(buf, buf_size, "%.0fW", watts->value);
+    }
+
+    return 1;
 }
 
 /**
@@ -105,27 +165,7 @@ static int get_extra_info_text(const monitor_sensor_data_t *data,
             data, slot_value, SENSOR_CATEGORY_FREQ);
         const sensor_entry_t *watts = find_channel_sensor_for_slot(
             data, slot_value, SENSOR_CATEGORY_WATTS);
-        if (!freq && !watts)
-            return 0;
-        if (freq && watts)
-        {
-            if (freq->value >= 1000.0f)
-                snprintf(buf, buf_size, "%.1f GHz  %.0fW",
-                         freq->value / 1000.0f, watts->value);
-            else
-                snprintf(buf, buf_size, "%.0f MHz  %.0fW",
-                         freq->value, watts->value);
-        }
-        else if (freq)
-        {
-            if (freq->value >= 1000.0f)
-                snprintf(buf, buf_size, "%.1f GHz", freq->value / 1000.0f);
-            else
-                snprintf(buf, buf_size, "%.0f MHz", freq->value);
-        }
-        else
-            snprintf(buf, buf_size, "%.0fW", watts->value);
-        return 1;
+        return format_freq_watts(freq, watts, buf, buf_size);
     }
 
     if (strcmp(slot_value, "gpu") == 0)
@@ -134,16 +174,7 @@ static int get_extra_info_text(const monitor_sensor_data_t *data,
             data, slot_value, SENSOR_CATEGORY_FREQ);
         const sensor_entry_t *watts = find_channel_sensor_for_slot(
             data, slot_value, SENSOR_CATEGORY_WATTS);
-        if (!freq && !watts)
-            return 0;
-        if (freq && watts)
-            snprintf(buf, buf_size, "%.0f MHz  %.0fW",
-                     freq->value, watts->value);
-        else if (freq)
-            snprintf(buf, buf_size, "%.0f MHz", freq->value);
-        else
-            snprintf(buf, buf_size, "%.0fW", watts->value);
-        return 1;
+        return format_freq_watts(freq, watts, buf, buf_size);
     }
 
     if (strcmp(slot_value, "liquid") == 0)
@@ -160,10 +191,7 @@ static int get_extra_info_text(const monitor_sensor_data_t *data,
         data, slot_value, SENSOR_CATEGORY_FREQ);
     if (s)
     {
-        if (s->value >= 1000.0f)
-            snprintf(buf, buf_size, "%.1f GHz", s->value / 1000.0f);
-        else
-            snprintf(buf, buf_size, "%.0f MHz", s->value);
+        format_frequency(buf, buf_size, s->value);
         return 1;
     }
 
@@ -757,42 +785,83 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     // Draw extra info (freq/watts/RPM) below the label if enabled
     if (config->circle_show_extra_info)
     {
-        char extra_buf[64];
-        if (get_extra_info_text(data, slot_value, extra_buf, sizeof(extra_buf)))
+        char extra_buf[64] = {0};
+        char line2_buf[64] = {0};
+        const int has_extra_line =
+            get_extra_info_text(data, slot_value, extra_buf, sizeof(extra_buf));
+        const int has_rpm_line =
+            get_extra_info_line2(data, slot_value, line2_buf, sizeof(line2_buf));
+
+        if (verbose_logging)
+        {
+            log_message(LOG_INFO, "Circle extra info: slot=%s line1=%s line2=%s",
+                        slot_value ? slot_value : "none",
+                        has_extra_line ? extra_buf : "none",
+                        has_rpm_line ? line2_buf : "none");
+        }
+
+        if (has_extra_line || has_rpm_line)
         {
             double extra_font_size = label_font_size * 2.2;
-            const double extra_padding_top = fmax(1.0, scale_value_avg(params, 3.0));
+            const double extra_padding_top =
+                fmax(1.0, scale_value_avg(params, 3.0));
+            const double extra_available_width =
+                fmax(24.0, (double)params->safe_bar_width * 0.96);
+            const double min_extra_font =
+                fmax(6.0, scale_value_avg(params, 6.0));
 
-            cairo_font_extents_t extra_font_ext = {0};
+            cairo_font_extents_t font_ext = {0};
             cairo_text_extents_t extra_text_ext = {0};
+            cairo_text_extents_t line2_text_ext = {0};
+            double extra_y = 0.0;
+            double line2_y = 0.0;
+            double rendered_bottom = 0.0;
+            const int line_count =
+                (has_extra_line ? 1 : 0) + (has_rpm_line ? 1 : 0);
 
             cairo_select_font_face(cr, config->font_face,
                                    CAIRO_FONT_SLANT_NORMAL,
                                    CAIRO_FONT_WEIGHT_BOLD);
-            cairo_set_font_size(cr, extra_font_size);
-            cairo_font_extents(cr, &extra_font_ext);
-            cairo_text_extents(cr, extra_buf, &extra_text_ext);
 
-            // Auto-shrink if text exceeds available width
-            const double extra_available_width =
-                fmax(24.0, (double)params->safe_bar_width * 0.96);
-            const double min_extra_font = label_font_size * 0.8;
-            while (fmax(extra_text_ext.x_advance, extra_text_ext.width) >
-                       extra_available_width &&
-                   extra_font_size > min_extra_font)
+            while (1)
             {
-                extra_font_size *= 0.94;
                 cairo_set_font_size(cr, extra_font_size);
-                cairo_font_extents(cr, &extra_font_ext);
-                cairo_text_extents(cr, extra_buf, &extra_text_ext);
+                cairo_font_extents(cr, &font_ext);
+                cairo_text_extents(cr, has_extra_line ? extra_buf : "",
+                                   &extra_text_ext);
+                cairo_text_extents(cr, has_rpm_line ? line2_buf : "",
+                                   &line2_text_ext);
+
+                const double line_height = font_ext.ascent + font_ext.descent;
+                const double block_top = label_box_y + label_font_ext.ascent +
+                                         label_font_ext.descent +
+                                         extra_padding_top;
+                const double block_height =
+                    (line_height * line_count) +
+                    (extra_padding_top * (line_count - 1));
+
+                extra_y = block_top + font_ext.ascent;
+                line2_y = has_extra_line
+                              ? extra_y + line_height + extra_padding_top
+                              : extra_y;
+                rendered_bottom = block_top + block_height;
+
+                const double max_text_width =
+                    fmax(fmax(extra_text_ext.x_advance, extra_text_ext.width),
+                         fmax(line2_text_ext.x_advance, line2_text_ext.width));
+
+                if ((max_text_width <= extra_available_width &&
+                     rendered_bottom <= config->display_height) ||
+                    extra_font_size <= min_extra_font)
+                    break;
+
+                extra_font_size *= 0.92;
+                if (extra_font_size < min_extra_font)
+                    extra_font_size = min_extra_font;
             }
 
-            double extra_y = label_box_y + label_font_ext.ascent +
-                             label_font_ext.descent +
-                             extra_padding_top + extra_font_ext.ascent;
-
-            // Only render if it fits within the display height
-            if (extra_y + extra_font_ext.descent <= config->display_height)
+            // Only render if it fits within the display height after autoshrink.
+            if (rendered_bottom <= config->display_height)
             {
                 const Color *value_col = &config->font_color_temp;
                 set_cairo_color(cr, value_col);
@@ -801,50 +870,25 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                     (config->layout_label_margin_left > 0)
                         ? (config->layout_label_margin_left / 100.0)
                         : 0.01;
-                double extra_x = (int)lround(params->safe_content_margin) +
-                                 ((double)params->safe_bar_width * left_margin_factor) +
-                                 get_scaled_label_offset_x(config, params);
+                double extra_x =
+                    (int)lround(params->safe_content_margin) +
+                    ((double)params->safe_bar_width * left_margin_factor) +
+                    get_scaled_label_offset_x(config, params);
 
-                render_text_with_small_units(cr, extra_font_size,
-                                             extra_x, extra_y, extra_buf);
+                if (has_extra_line)
+                    render_text_with_small_units(cr, extra_font_size,
+                                                 extra_x, extra_y, extra_buf);
 
-                // Second line: fan RPM for CPU/GPU
-                char line2_buf[64];
-                if (get_extra_info_line2(data, slot_value, line2_buf,
-                                         sizeof(line2_buf)))
-                {
-                    double line2_font_size = extra_font_size;
-                    cairo_font_extents_t line2_font_ext = {0};
-                    cairo_text_extents_t line2_text_ext = {0};
-
-                    cairo_set_font_size(cr, line2_font_size);
-                    cairo_font_extents(cr, &line2_font_ext);
-                    cairo_text_extents(cr, line2_buf, &line2_text_ext);
-
-                    // Auto-shrink for line 2
-                    while (fmax(line2_text_ext.x_advance,
-                                line2_text_ext.width) >
-                               extra_available_width &&
-                           line2_font_size > min_extra_font)
-                    {
-                        line2_font_size *= 0.94;
-                        cairo_set_font_size(cr, line2_font_size);
-                        cairo_font_extents(cr, &line2_font_ext);
-                        cairo_text_extents(cr, line2_buf, &line2_text_ext);
-                    }
-
-                    double line2_y = extra_y + extra_font_ext.descent +
-                                     extra_padding_top + line2_font_ext.ascent;
-
-                    if (line2_y + line2_font_ext.descent <=
-                        config->display_height)
-                    {
-                        set_cairo_color(cr, value_col);
-                        render_text_with_small_units(cr, line2_font_size,
-                                                     extra_x, line2_y,
-                                                     line2_buf);
-                    }
-                }
+                if (has_rpm_line)
+                    render_text_with_small_units(cr, extra_font_size,
+                                                 extra_x, line2_y, line2_buf);
+            }
+            else if (verbose_logging)
+            {
+                log_message(LOG_INFO,
+                            "Circle extra info skipped: slot=%s bottom=%.1f display_height=%u",
+                            slot_value ? slot_value : "none",
+                            rendered_bottom, config->display_height);
             }
         }
     }
@@ -893,8 +937,12 @@ static int render_circle_display(const struct Config *config,
         const char *slot_value = get_slot_value_by_index(config, current_slot_index);
         const char *label = get_slot_label(config, data, slot_value);
         float temp = get_slot_temperature(data, slot_value);
-        log_message(LOG_INFO, "Circle mode: rendering %s (%.1f)",
-                    label ? label : "unknown", temp);
+        log_message(LOG_INFO,
+                    "Circle mode: slot=%s label=%s temp=%.1f extra_info=%s font=%s",
+                    slot_value ? slot_value : "none",
+                    label ? label : "unknown", temp,
+                    config->circle_show_extra_info ? "on" : "off",
+                    config->font_face[0] ? config->font_face : "default");
     }
 
     cairo_surface_t *surface = NULL;
