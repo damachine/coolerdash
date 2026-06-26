@@ -20,8 +20,8 @@ jobs:
       matrix:
         include:
           # Ubuntu/Debian family
-          - distro: "ubuntu:24.04"
-            name: "Ubuntu 24.04 LTS"
+          - distro: "ubuntu:26.04"
+            name: "Ubuntu 26.04 LTS"
             pre_install: "apt-get update"
             install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev fonts-roboto file"
 
@@ -31,15 +31,15 @@ jobs:
             install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev build-essential pkg-config libjansson-dev fonts-roboto file"
 
           # Fedora family (independent from RHEL)
-          - distro: "fedora:42"
-            name: "Fedora 42"
+          - distro: "fedora:44"
+            name: "Fedora 44"
             pre_install: "dnf update -y"
             install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
 
           # RHEL/CentOS family (RHEL-compatible)
           - distro: "quay.io/centos/centos:stream9"
             name: "CentOS Stream 9 (RHEL 9 compatible)"
-            pre_install: "dnf update -y && dnf install -y epel-release && dnf config-manager --set-enabled crb && dnf makecache"
+            pre_install: "dnf update -y && dnf install -y epel-release dnf-plugins-core && dnf config-manager --set-enabled crb && dnf makecache"
             install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
 
           # openSUSE family
@@ -279,9 +279,9 @@ jobs:
           echo "## 🚀 CoolerDash Multi-Distribution Installation Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Tested Distributions:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Ubuntu**: 24.04 LTS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ubuntu**: 26.04 LTS" >> $GITHUB_STEP_SUMMARY
           echo "- **Debian**: 13 (Trixie)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Fedora**: 42" >> $GITHUB_STEP_SUMMARY
+          echo "- **Fedora**: 44" >> $GITHUB_STEP_SUMMARY
           echo "- **RHEL-compatible**: CentOS Stream 9" >> $GITHUB_STEP_SUMMARY
           echo "- **openSUSE**: Tumbleweed, Leap 16.0" >> $GITHUB_STEP_SUMMARY
           echo "- **Arch Linux**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
