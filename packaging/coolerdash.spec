@@ -41,7 +41,6 @@ make SUDO="" REALOS=no %{?_smp_mflags}
 
 %install
 make install DESTDIR=%{buildroot} SUDO="" REALOS=no
-gzip -9 %{buildroot}/usr/share/man/man1/coolerdash.1
 
 %post
 if [ ! -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
@@ -107,9 +106,6 @@ fi
 /var/lib/coolercontrol/plugins/coolerdash/README.md
 /var/lib/coolercontrol/plugins/coolerdash/CHANGELOG.md
 /var/lib/coolercontrol/plugins/coolerdash/VERSION
-/usr/share/man/man1/coolerdash.1.gz
-/usr/share/applications/coolerdash.desktop
-/usr/share/icons/hicolor/scalable/apps/coolerdash.svg
 
 %changelog
 * %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1

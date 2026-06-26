@@ -42,7 +42,6 @@ HEADERS = $(SRCDIR)/device/config.h $(SRCDIR)/srv/cc_main.h $(SRCDIR)/srv/cc_con
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 MANIFEST = etc/coolercontrol/plugins/coolerdash/manifest.toml
-MANPAGE = man/coolerdash.1
 README = README.md
 
 # GNU standard install directories
@@ -52,7 +51,6 @@ libexecdir ?= $(exec_prefix)/libexec
 sysconfdir ?= /etc
 datarootdir ?= $(prefix)/share
 datadir ?= $(datarootdir)
-mandir ?= $(datarootdir)/man
 
 # Install commands
 INSTALL ?= install
@@ -295,18 +293,9 @@ install: check-deps $(TARGET)
 	@printf "\n"
 	@printf "$(CYAN)Note: Plugin binary is available at $(libexecdir)/coolerdash/coolerdash$(RESET)\\n"
 	@printf "\n"
-	@printf "$(CYAN)Installing documentation...$(RESET)\n"
-	@$(INSTALL_DATA) -D $(MANPAGE) "$(DESTDIR)$(mandir)/man1/coolerdash.1"
-	@printf "  $(GREEN)Manual:$(RESET)  $(DESTDIR)$(mandir)/man1/coolerdash.1\n"
 	@printf "$(CYAN)Installing license...$(RESET)\n"
 	@$(INSTALL_DATA) -D LICENSE "$(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE"
 	@printf "  $(GREEN)License:$(RESET) $(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE\n"
-	@printf "$(CYAN)Installing desktop shortcut...$(RESET)\n"
-	@$(INSTALL_DATA) -D etc/applications/coolerdash.desktop "$(DESTDIR)$(datadir)/applications/coolerdash.desktop"
-	@printf "  $(GREEN)Shortcut:$(RESET) $(DESTDIR)$(datadir)/applications/coolerdash.desktop\n"
-	@printf "$(CYAN)Installing icon...$(RESET)\n"
-	@$(INSTALL_DATA) -D etc/icons/coolerdash.svg "$(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/coolerdash.svg"
-	@printf "  $(GREEN)Icon:$(RESET)     $(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/coolerdash.svg\n"
 	@printf "\n"
 	@printf "$(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
@@ -327,7 +316,6 @@ install: check-deps $(TARGET)
 		printf "  $(PURPLE)Restart CoolerControl:$(RESET) restart your CoolerControl daemon\n"; \
 	fi
 	@printf "  $(PURPLE)Plugin:$(RESET)         CoolerControl will manage coolerdash automatically\n"
-	@printf "  $(PURPLE)Show manual:$(RESET)    man coolerdash\n"
 	@printf "\n"
 
 # Install with stripped binary (GNU standard target)
@@ -339,10 +327,7 @@ installdirs:
 	$(INSTALL) -d "$(DESTDIR)$(libexecdir)/coolerdash"
 	$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)"
 	$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
-	$(INSTALL) -d "$(DESTDIR)$(mandir)/man1"
 	$(INSTALL) -d "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
-	$(INSTALL) -d "$(DESTDIR)$(datadir)/applications"
-	$(INSTALL) -d "$(DESTDIR)$(datadir)/icons/hicolor/scalable/apps"
 
 # Uninstall Target
 uninstall:
@@ -366,9 +351,6 @@ uninstall:
 	@$(SUDO) rm -rf "$(DESTDIR)$(PLUGINDIR)"
 	@$(SUDO) rm -rf "$(DESTDIR)$(libexecdir)/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
-	@$(SUDO) rm -f "$(DESTDIR)$(mandir)/man1/coolerdash.1"
-	@$(SUDO) rm -f "$(DESTDIR)$(datadir)/applications/coolerdash.desktop"
-	@$(SUDO) rm -f "$(DESTDIR)$(datadir)/icons/hicolor/scalable/apps/coolerdash.svg"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) mandb -q >/dev/null 2>&1 || true; \
 		if command -v systemctl >/dev/null 2>&1; then \

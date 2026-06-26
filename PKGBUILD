@@ -44,16 +44,13 @@ build() {
     make
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
-    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/man" "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/ui" "${srcdir}/etc/applications" "${srcdir}/etc/icons"
+    mkdir -p "${srcdir}/bin" "${srcdir}/images" "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/ui"
     cp -a bin/coolerdash "${srcdir}/bin/coolerdash"
     cp -a README.md CHANGELOG.md VERSION LICENSE "${srcdir}/"
     cp -a etc/coolercontrol/plugins/coolerdash/config.json "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/"
     cp -a etc/coolercontrol/plugins/coolerdash/ui/index.html "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/ui/"
     cp -a images/shutdown.png "${srcdir}/images/"
-    cp -a man/coolerdash.1 "${srcdir}/man/"
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/"
-    cp -a etc/applications/coolerdash.desktop "${srcdir}/etc/applications/"
-    cp -a etc/icons/coolerdash.svg "${srcdir}/etc/icons/"
 }
 
 check() {
@@ -87,8 +84,5 @@ package() {
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/manifest.toml"
     sed -i "s/{{VERSION}}/${pkgver}/g" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/ui/index.html"
 
-    install -Dm644 "${srcdir}/man/coolerdash.1" "${pkgdir}/usr/share/man/man1/coolerdash.1"
-    install -Dm644 "${srcdir}/etc/applications/coolerdash.desktop" "${pkgdir}/usr/share/applications/coolerdash.desktop"
-    install -Dm644 "${srcdir}/etc/icons/coolerdash.svg" "${pkgdir}/usr/share/icons/hicolor/scalable/apps/coolerdash.svg"
     install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

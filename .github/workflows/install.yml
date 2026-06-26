@@ -125,37 +125,6 @@ jobs:
             exit 1
           fi
 
-          # Check CC-Plugin Lib JS is NOT installed (served by CoolerControl)
-          if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/ui/cc-plugin-lib.js" ]; then
-            echo "❌ Plugin Lib JS should NOT be installed (served by CoolerControl)"
-            exit 1
-          else
-            echo "✅ Plugin Lib JS correctly not installed (served by CoolerControl)"
-          fi
-
-          # Check desktop files
-          if [ -f "/tmp/install-test/usr/share/applications/coolerdash.desktop" ]; then
-            echo "✅ Desktop file installed"
-          else
-            echo "❌ Desktop file not found"
-            exit 1
-          fi
-
-          # Check icon files
-          if [ -f "/tmp/install-test/usr/share/icons/hicolor/scalable/apps/coolerdash.svg" ]; then
-            echo "✅ Icon file installed"
-          else
-            echo "❌ Icon file not found"
-            exit 1
-          fi
-
-          # Check documentation
-          if [ -f "/tmp/install-test/usr/share/man/man1/coolerdash.1" ]; then
-            echo "✅ Manual page installed"
-          else
-            echo "⚠️  Manual page not found"
-          fi
-
           # Check license file (Linux packaging standard)
           if [ -f "/tmp/install-test/usr/share/licenses/coolerdash/LICENSE" ]; then
             echo "✅ License file installed (/usr/share/licenses/)"
