@@ -443,7 +443,6 @@ static void show_help(const char *program_name)
     printf("  - Communicates via CoolerControl's HTTP API (no direct device "
            "access)\n");
     printf("  - Automatically started/stopped with CoolerControl\n");
-    printf("For detailed documentation: man coolerdash\n");
     printf("Project repository: https://github.com/damachine/coolerdash\n");
     printf("====================================================================="
            "===========\n");

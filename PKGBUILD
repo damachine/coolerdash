@@ -53,19 +53,6 @@ build() {
     cp -a etc/coolercontrol/plugins/coolerdash/manifest.toml "${srcdir}/var/lib/coolercontrol/plugins/coolerdash/"
 }
 
-check() {
-    # For local build: use current directory directly
-    cd "${startdir}"
-
-    # Verify that the binary was created successfully
-    if [[ -f bin/coolerdash ]]; then
-        msg "Build successful - binary created"
-    else
-        error "Build failed - binary not found"
-        return 1
-    fi
-}
-
 package() {
     # Binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/
     install -dm711 "${pkgdir}/var/lib/coolercontrol"

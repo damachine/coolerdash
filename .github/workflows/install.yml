@@ -285,11 +285,11 @@ jobs:
           echo "- **RHEL-compatible**: CentOS Stream 9" >> $GITHUB_STEP_SUMMARY
           echo "- **openSUSE**: Tumbleweed, Leap 16.0" >> $GITHUB_STEP_SUMMARY
           echo "- **Arch Linux**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Gentoo**: stage3 with OpenRC" >> $GITHUB_STEP_SUMMARY
+          echo "- **Gentoo**: Latest (reference)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test Coverage:" >> $GITHUB_STEP_SUMMARY
           echo "✅ Installation process (make install)" >> $GITHUB_STEP_SUMMARY
           echo "✅ File placement verification" >> $GITHUB_STEP_SUMMARY
-          echo "✅ OpenRC service-manager detection" >> $GITHUB_STEP_SUMMARY
+          echo "✅ System init detection" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 **View detailed logs above for distribution-specific results**" >> $GITHUB_STEP_SUMMARY

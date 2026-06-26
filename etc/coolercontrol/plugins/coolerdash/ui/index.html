@@ -1323,157 +1323,153 @@
             return JSON.parse(JSON.stringify(config));
         }
 
-        // ===== FALLBACK FUNCTIONS =====
+        // ===== COOLERCONTROL CONTEXT =====
         const isInCoolerControl = window.parent !== window;
 
-        if (typeof savePluginConfig === 'undefined') {
-            window.savePluginConfig = async function(config) {
-                if (isInCoolerControl) {
-                    return new Promise((resolve, reject) => {
-                        const messageHandler = (event) => {
-                            if (event.data.type === 'configSaved') {
-                                window.removeEventListener('message', messageHandler);
-                                if (event.data.body) resolve(event.data.body);
-                                else reject(new Error('Config save failed'));
-                            }
-                        };
-                        window.addEventListener('message', messageHandler);
-                        window.parent.postMessage({ type: 'saveConfig', body: config }, document.location.origin);
-                        setTimeout(() => {
-                            window.removeEventListener('message', messageHandler);
-                            reject(new Error('Save timeout'));
-                        }, 5000);
-                    });
-                } else {
-                    localStorage.setItem('coolerdash_config', JSON.stringify(config));
-                    return Promise.resolve(config);
-                }
-            };
-        }
-
-        if (typeof getPluginConfig === 'undefined') {
-            window.getPluginConfig = async function() {
-                if (isInCoolerControl) {
-                    return new Promise((resolve) => {
-                        const messageHandler = (event) => {
-                            if (event.data.type === 'config') {
-                                window.removeEventListener('message', messageHandler);
-                                resolve(event.data.body || {});
-                            }
-                        };
-                        window.addEventListener('message', messageHandler);
-                        window.parent.postMessage({ type: 'loadConfig' }, document.location.origin);
-                        setTimeout(() => {
-                            window.removeEventListener('message', messageHandler);
-                            resolve({});
-                        }, 3000);
-                    });
-                } else {
-                    const saved = localStorage.getItem('coolerdash_config');
-                    return Promise.resolve(saved ? JSON.parse(saved) : {});
-                }
-            };
-        }
-
-        if (typeof runPluginScript === 'undefined') {
-            window.runPluginScript = function(mainFunction) { mainFunction(); };
-        }
-
-        if (typeof getContext === 'undefined') {
-            window.getContext = async function() {
-                return { mode: isInCoolerControl ? 'full_page' : 'modal' };
-            };
-        }
-
-        // Note: cc-plugin-lib defines restartPlugin with `const`, so typeof check always triggers.
-        // In CC4 mode we implement the postMessage protocol manually (type: 'restartPlugin',
-        // response: 'pluginRestarted'). In standalone mode we skip the restart.
-        if (typeof restartPlugin === 'undefined') {
-            window.restartPlugin = async function() {
-                if (isInCoolerControl) {
-                    return new Promise(function(resolve) {
-                        var handler = function(event) {
-                            if (event.data && event.data.type === 'pluginRestarted') {
-                                window.removeEventListener('message', handler);
-                                resolve(event.data.body || true);
-                            }
-                        };
-                        window.addEventListener('message', handler);
-                        window.parent.postMessage({ type: 'restartPlugin' }, document.location.origin);
-                        // Resolve after 5 s in case the UI closes before we get a response
-                        setTimeout(function() {
-                            window.removeEventListener('message', handler);
-                            resolve(true);
-                        }, 5000);
-                    });
-                }
-                console.info('restartPlugin: not in CoolerControl — skipping restart.');
-                return true;
-            };
-        }
-
-        // Fallback for getDevices() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
-        // Note: cc-plugin-lib defines functions with `const` (not var/window), so typeof check always
-        // triggers even when cc-plugin-lib is loaded. We therefore implement postMessage for CC4 context.
-        if (typeof getDevices === 'undefined') {
-            window.getDevices = async function() {
-                if (isInCoolerControl) {
-                    return new Promise(function(resolve) {
-                        var handler = function(event) {
-                            if (event.data && event.data.type === 'devices') {
-                                window.removeEventListener('message', handler);
-                                var body = event.data.body || [];
-                                resolve({ devices: Array.isArray(body) ? body : (body.devices || []) });
-                            }
-                        };
-                        window.addEventListener('message', handler);
-                        window.parent.postMessage({ type: 'devices' }, document.location.origin);
-                        setTimeout(function() {
-                            window.removeEventListener('message', handler);
-                            resolve({ devices: [] });
-                        }, 3000);
-                    });
-                }
+        function normalizePluginConfigPayload(raw) {
+            if (typeof raw === 'string') {
                 try {
-                    var headers = makeAuthHeaders(lastApiToken);
-                    var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
-                    if (!res.ok) return { devices: [] };
-                    return res.json();
+                    raw = JSON.parse(raw);
                 } catch (e) {
-                    return { devices: [] };
+                    return {};
                 }
-            };
+            }
+            if (!raw || typeof raw !== 'object') return {};
+            if (raw.config && typeof raw.config === 'object') return raw.config;
+            if (raw.body && typeof raw.body === 'object') return raw.body;
+            return raw;
         }
 
-        // Fallback for getStatus() — used when cc-plugin-lib.js is not loaded (dev/browser mode)
-        if (typeof getStatus === 'undefined') {
-            window.getStatus = async function() {
-                if (isInCoolerControl) {
-                    return new Promise(function(resolve) {
-                        var handler = function(event) {
-                            if (event.data && event.data.type === 'status') {
-                                window.removeEventListener('message', handler);
-                                var body = event.data.body;
-                                resolve(body || { devices: [] });
-                            }
-                        };
-                        window.addEventListener('message', handler);
-                        window.parent.postMessage({ type: 'status' }, document.location.origin);
-                        setTimeout(function() {
-                            window.removeEventListener('message', handler);
-                            resolve({ devices: [] });
-                        }, 3000);
-                    });
-                }
-                try {
-                    var headers = makeAuthHeaders(lastApiToken);
-                    var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
-                    if (!res.ok) return { devices: [] };
-                    return res.json();
-                } catch (e) {
-                    return { devices: [] };
-                }
-            };
+        function waitForParentMessage(request, responseType, timeoutMs, timeoutValue, responseDefault) {
+            return new Promise(function(resolve, reject) {
+                var settled = false;
+                var timer = null;
+                var handler = function(event) {
+                    if (!event.data || event.data.type !== responseType) return;
+                    settled = true;
+                    window.removeEventListener('message', handler);
+                    if (timer) clearTimeout(timer);
+                    resolve(event.data.body !== undefined ? event.data.body : responseDefault);
+                };
+
+                window.addEventListener('message', handler);
+                window.parent.postMessage(request, document.location.origin);
+
+                timer = setTimeout(function() {
+                    window.removeEventListener('message', handler);
+                    if (settled) return;
+                    if (timeoutValue instanceof Error) reject(timeoutValue);
+                    else resolve(timeoutValue);
+                }, timeoutMs);
+            });
+        }
+
+        async function ccGetPluginConfig() {
+            if (typeof getPluginConfig === 'function') {
+                return normalizePluginConfigPayload(await getPluginConfig());
+            }
+
+            if (isInCoolerControl) {
+                return normalizePluginConfigPayload(
+                    await waitForParentMessage({ type: 'loadConfig' }, 'config', 3000, {}, {})
+                );
+            }
+
+            var saved = localStorage.getItem('coolerdash_config');
+            return saved ? JSON.parse(saved) : {};
+        }
+
+        async function ccSavePluginConfig(config) {
+            if (typeof savePluginConfig === 'function') {
+                return savePluginConfig(config);
+            }
+
+            if (isInCoolerControl) {
+                var result = await waitForParentMessage(
+                    { type: 'saveConfig', body: config },
+                    'configSaved',
+                    5000,
+                    new Error('Save timeout'),
+                    true
+                );
+                if (!result) throw new Error('Config save failed');
+                return result;
+            }
+
+            localStorage.setItem('coolerdash_config', JSON.stringify(config));
+            return config;
+        }
+
+        async function ccRestartPlugin() {
+            if (typeof restartPlugin === 'function') {
+                return restartPlugin();
+            }
+
+            if (isInCoolerControl) {
+                return waitForParentMessage(
+                    { type: 'restartPlugin' },
+                    'pluginRestarted',
+                    5000,
+                    true
+                );
+            }
+
+            return true;
+        }
+
+        function ccRunPluginScript(mainFunction) {
+            if (typeof runPluginScript === 'function') {
+                return runPluginScript(mainFunction);
+            }
+
+            return mainFunction();
+        }
+
+        async function ccGetContext() {
+            if (typeof getContext === 'function') {
+                return getContext();
+            }
+
+            return { mode: isInCoolerControl ? 'full_page' : 'modal' };
+        }
+
+        async function ccGetDevices() {
+            if (typeof getDevices === 'function') {
+                return getDevices();
+            }
+
+            if (isInCoolerControl) {
+                var body = await waitForParentMessage({ type: 'devices' }, 'devices', 3000, [], []);
+                return { devices: Array.isArray(body) ? body : (body.devices || []) };
+            }
+
+            try {
+                var headers = makeAuthHeaders(lastApiToken);
+                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/devices', { headers: headers });
+                if (!res.ok) return { devices: [] };
+                return res.json();
+            } catch (e) {
+                return { devices: [] };
+            }
+        }
+
+        async function ccGetStatus() {
+            if (typeof getStatus === 'function') {
+                return getStatus();
+            }
+
+            if (isInCoolerControl) {
+                return waitForParentMessage({ type: 'status' }, 'status', 3000, { devices: [] }, { devices: [] });
+            }
+
+            try {
+                var headers = makeAuthHeaders(lastApiToken);
+                var res = await fetch((lastApiAddress || 'http://localhost:11987') + '/status', { headers: headers });
+                if (!res.ok) return { devices: [] };
+                return res.json();
+            } catch (e) {
+                return { devices: [] };
+            }
         }
 
         // ===== AUTH HEADER HELPER =====
@@ -1484,7 +1480,7 @@
         }
 
         // Normalize getDevices() return value: cc-plugin-lib returns an Array directly,
-        // the REST API and our fallback return { devices: [...] }.
+        // while REST-shaped responses use { devices: [...] }.
         function normalizeDevices(raw) {
             if (!raw) return [];
             if (Array.isArray(raw)) return raw;
@@ -1677,20 +1673,19 @@
         }
 
         async function discoverSensors(apiAddress, token) {
-            // Keep global auth state in sync so that getDevices/getStatus fallbacks can use it
+            // Keep global auth state in sync for refresh actions and best-effort REST requests.
             lastApiAddress = apiAddress;
             lastApiToken = token;
 
             try {
                 // Use cc-plugin-lib functions (bypasses CORS sandbox in CC4 iframe).
-                // Falls back to direct fetch in dev/browser mode via the fallback definitions above.
-                const devData = await getDevices();
+                const devData = await ccGetDevices();
                 const deviceNames = {};
                 for (const dev of normalizeDevices(devData)) {
                     if (dev.uid) deviceNames[dev.uid] = dev.name || dev.uid;
                 }
 
-                const statusData = await getStatus();
+                const statusData = await ccGetStatus();
 
                 const sensors = [];
                 for (const dev of normalizeStatus(statusData)) {
@@ -2232,9 +2227,8 @@
             errorEl.style.display = 'none';
 
             try {
-                // Use getDevices() — cc-plugin-lib postMessage path works in the CC4 sandbox;
-                // direct fetch() is blocked by the iframe sandbox.
-                var data = await getDevices();
+                // Use cc-plugin-lib via the local adapter; direct fetch() is blocked by the iframe sandbox.
+                var data = await ccGetDevices();
 
                 var devices = normalizeDevices(data);
 
@@ -2368,7 +2362,6 @@
 
             try {
                 // /health fetch isolated so a failure doesn't block the kernel lookup below.
-                // Also used as fallback in dev/browser mode where fetch() works.
                 var healthFetched = false;
                 if (!isInCoolerControl) {
                     try {
@@ -2385,10 +2378,10 @@
                     }
                 }
 
-                // Use cc-plugin-lib (bypasses CORS sandbox); falls back to direct fetch in dev mode.
+                // Use cc-plugin-lib to bypass the CoolerControl iframe sandbox.
                 // CC version: device with drv_type='CoolerControl' carries driver_info.version = CC version.
                 // Kernel version: device with drv_type='Kernel' carries driver_info.version.
-                var data = await getDevices();
+                var data = await ccGetDevices();
                 var devices = normalizeDevices(data);
                 var kernel = '';
                 var ccVer = '';
@@ -2530,7 +2523,7 @@
                 }
 
                 var parsedConfig = JSON.parse(await response.text());
-                RESET_CONFIG = cloneConfig(parsedConfig);
+                RESET_CONFIG = cloneConfig(fallbackDefaults);
                 DEFAULT_CONFIG = mergeConfigWithDefaults(parsedConfig, fallbackDefaults);
                 return DEFAULT_CONFIG;
             } catch (error) {
@@ -2687,8 +2680,8 @@
 
             var config = buildConfig();
             try {
-                await savePluginConfig(config);
-                await restartPlugin();
+                await ccSavePluginConfig(config);
+                await ccRestartPlugin();
                 close();
             } catch (error) {
                 console.error("Save failed:", error);
@@ -2730,9 +2723,9 @@
                 } else if (factoryConfig.daemon) {
                     delete factoryConfig.daemon.access_token;
                 }
-                await savePluginConfig(factoryConfig);
+                await ccSavePluginConfig(factoryConfig);
                 populateForm(factoryConfig);
-                await restartPlugin();
+                await ccRestartPlugin();
                 close();
             } catch (error) {
                 console.error("Reset failed:", error);
@@ -2829,16 +2822,16 @@
         }
 
         // ===== INITIALIZATION =====
-        runPluginScript(async function() {
+        ccRunPluginScript(async function() {
             try {
-                var ctx = await getContext();
+                var ctx = await ccGetContext();
                 if (ctx.mode === 'modal') {
                     document.body.style.maxWidth = '600px';
                     document.body.style.margin = '0 auto';
                 }
 
                 await loadDefaultConfig();
-                var config = await getPluginConfig();
+                var config = await ccGetPluginConfig();
 
                 if (!config || Object.keys(config).length === 0) {
                     config = cloneConfig(DEFAULT_CONFIG);

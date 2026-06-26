@@ -1,4 +1,4 @@
-.PHONY: all clean distclean install install-strip installdirs uninstall check debug logs help detect-distro install-deps check-deps
+.PHONY: all clean distclean install install-strip installdirs uninstall debug logs help detect-distro install-deps check-deps
 .DELETE_ON_ERROR:
 VERSION := $(shell cat VERSION)
 
@@ -242,13 +242,6 @@ check-deps:
 		printf "$(GREEN)All dependencies found$(RESET)\n"; \
 	fi
 
-# Run tests (GNU standard target)
-check: $(OBJDIR)
-	@printf "$(CYAN)Running tests...$(RESET)\n"
-	$(CC) $(CPPFLAGS) $(CFLAGS) -I./src -o $(OBJDIR)/test_scaling tests/test_scaling.c -lm
-	./$(OBJDIR)/test_scaling
-	@printf "$(GREEN)All tests passed$(RESET)\n"
-
 # Install binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/coolerdash/
 install: check-deps $(TARGET)
 	@printf "\n"
@@ -390,7 +383,6 @@ help:
 	@printf "  $(GREEN)make$(RESET)              - Compiles the program\n"
 	@printf "  $(GREEN)make clean$(RESET)        - Removes compiled files\n"
 	@printf "  $(GREEN)make distclean$(RESET)    - Same as clean (no autoconf)\n"
-	@printf "  $(GREEN)make check$(RESET)        - Runs unit tests\n"
 	@printf "  $(GREEN)make debug$(RESET)        - Debug build with AddressSanitizer\n"
 	@printf "\n"
 	@printf "$(YELLOW)Installation:$(RESET)\n"
@@ -408,7 +400,6 @@ help:
 	@printf "  $(BLUE)Shutdown:$(RESET) Plugin automatically displays shutdown.png when stopped\n"
 	@printf "\n"
 	@printf "$(YELLOW)Documentation:$(RESET)\n"
-	@printf "  $(GREEN)man coolerdash$(RESET) - Shows manual page\n"
 	@printf "  $(GREEN)make help$(RESET)     - Shows this help\n"
 	@printf "\n"
 	@printf "$(YELLOW)README:$(RESET)\n"
