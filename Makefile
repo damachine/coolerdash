@@ -1,4 +1,4 @@
-.PHONY: all clean distclean install install-strip installdirs uninstall debug logs help detect-distro install-deps check-deps
+.PHONY: all clean install uninstall debug help detect-distro install-deps check-deps
 .DELETE_ON_ERROR:
 VERSION := $(shell cat VERSION)
 
@@ -126,9 +126,6 @@ clean:
 	rm -f $(BINDIR)/$(TARGET) $(OBJECTS) *.o
 	rm -rf $(OBJDIR) $(BINDIR)
 	@printf "$(GREEN)Cleanup completed$(RESET)\n"
-
-# GNU standard: distclean removes everything clean does (no autoconf here)
-distclean: clean
 
 # Detect Linux distro via release files, os-release as fallback
 detect-distro:
@@ -311,17 +308,6 @@ install: check-deps $(TARGET)
 	@printf "  $(PURPLE)Plugin:$(RESET)         CoolerControl will manage coolerdash automatically\n"
 	@printf "\n"
 
-# Install with stripped binary (GNU standard target)
-install-strip:
-	$(MAKE) install INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s'
-
-# Create install directories without installing (GNU standard target)
-installdirs:
-	$(INSTALL) -d "$(DESTDIR)$(libexecdir)/coolerdash"
-	$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)"
-	$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
-	$(INSTALL) -d "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
-
 # Uninstall Target
 uninstall:
 	@printf "\n"
@@ -363,15 +349,6 @@ debug: LDFLAGS += -fsanitize=address
 debug: $(TARGET)
 	@printf "$(GREEN)Debug build created with AddressSanitizer: $(BINDIR)/$(TARGET)$(RESET)\n"
 
-logs:
-	@printf "$(CYAN)Live logs (Ctrl+C to exit):$(RESET)\n"
-	@if command -v journalctl >/dev/null 2>&1; then \
-		journalctl -u $(COOLERDASH_PLUGIN_SERVICE).service -f; \
-	else \
-		printf "$(YELLOW)journalctl not found.$(RESET) On OpenRC, inspect your system logger for CoolerControl/coolerdash output.\n"; \
-		rc-service $(COOLERCONTROL_SERVICE) status 2>/dev/null || true; \
-	fi
-
 # Help
 help:
 	@printf "\n"
@@ -382,20 +359,16 @@ help:
 	@printf "$(YELLOW)Build Targets:$(RESET)\n"
 	@printf "  $(GREEN)make$(RESET)              - Compiles the program\n"
 	@printf "  $(GREEN)make clean$(RESET)        - Removes compiled files\n"
-	@printf "  $(GREEN)make distclean$(RESET)    - Same as clean (no autoconf)\n"
 	@printf "  $(GREEN)make debug$(RESET)        - Debug build with AddressSanitizer\n"
 	@printf "\n"
 	@printf "$(YELLOW)Installation:$(RESET)\n"
 	@printf "  $(GREEN)make install$(RESET)      - Installs binary + plugin data\n"
-	@printf "  $(GREEN)make install-strip$(RESET)- Installs with stripped binary\n"
-	@printf "  $(GREEN)make installdirs$(RESET) - Creates install directories only\n"
 	@printf "  $(GREEN)make uninstall$(RESET)   - Uninstalls the program\n"
 	@printf "\n"
 	@printf "$(YELLOW)Plugin Management:$(RESET)\n"
 	@printf "  $(GREEN)systemctl enable --now $(COOLERCONTROL_SERVICE).service$(RESET)    - Start CoolerControl on systemd\n"
 	@printf "  $(GREEN)rc-update add $(COOLERCONTROL_SERVICE) default$(RESET)       - Enable CoolerControl on OpenRC\n"
 	@printf "  $(GREEN)rc-service $(COOLERCONTROL_SERVICE) start$(RESET)            - Start CoolerControl on OpenRC\n"
-	@printf "  $(GREEN)make logs$(RESET)                         - Shows plugin logs when journalctl is available\n"
 	@printf "  $(BLUE)Note:$(RESET) CoolerControl automatically manages coolerdash lifecycle\n"
 	@printf "  $(BLUE)Shutdown:$(RESET) Plugin automatically displays shutdown.png when stopped\n"
 	@printf "\n"
