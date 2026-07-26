@@ -1,8 +1,7 @@
 /**
- * @author damachine (damachin3 at proton dot me)
- * @Maintainer: damachine (damachin3 at proton dot me)
+ * @author Christian Kühn (damachin3 at proton dot me)
+ * @Maintainer: Christian Kühn (damachin3 at proton dot me)
  * @website https://github.com/damachine/coolerdash
- * @copyright (c) 2025 damachine
  * @license MIT
  */
 

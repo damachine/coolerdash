@@ -6,5 +6,5 @@ executable = "/usr/libexec/coolerdash/coolerdash"
 #args = "--verbose"
 privileged = true
 url = "https://github.com/damachine/coolerdash"
-author = "damachine"
+author = "Christian Kühn"
 license = "MIT"

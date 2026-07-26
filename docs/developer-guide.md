@@ -1,7 +1,7 @@
 # CoolerDash Developer Guide
 
 **C99** | **Linux x86-64-v3** | **MIT License**
-Author: damachine (damachin3@proton.me)
+Author: Christian Kühn (damachin3@proton.me)
 Repository: https://github.com/damachine/coolerdash
 
 ---

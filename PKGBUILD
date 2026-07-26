@@ -1,4 +1,4 @@
-# Maintainer: Christian Kühn (damachine3 at proton dot me)
+# Maintainer: Christian Kühn (damachin3 at proton dot me)
 # Website: https://github.com/damachine/coolerdash
 
 # This PKGBUILD is for building the coolerdash package from local source.

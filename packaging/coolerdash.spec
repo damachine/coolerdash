@@ -109,5 +109,5 @@ fi
 /var/lib/coolercontrol/plugins/coolerdash/VERSION
 
 %changelog
-* %(date "+%a %b %d %Y") damachine <damachin3@proton.me> - %{version}-1
+* %(date "+%a %b %d %Y") Christian Kühn <damachin3@proton.me> - %{version}-1
 - Automated release via GitHub Actions

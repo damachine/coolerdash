@@ -1,7 +1,7 @@
 Source: coolerdash
 Section: utils
 Priority: optional
-Maintainer: damachine <damachin3@proton.me>
+Maintainer: Christian Kühn <damachin3@proton.me>
 Build-Depends: debhelper-compat (= 13),
                gcc,
                make,

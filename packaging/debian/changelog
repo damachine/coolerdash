@@ -2,4 +2,4 @@ coolerdash ({{VERSION}}-1) unstable; urgency=medium
 
   * Automated release via GitHub Actions
 
- -- damachine <damachin3@proton.me>  {{DATE}}
+ -- Christian Kühn <damachin3@proton.me>  {{DATE}}
