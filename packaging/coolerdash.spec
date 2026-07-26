@@ -97,6 +97,7 @@ fi
 %license /usr/share/licenses/%{name}/LICENSE
 %dir /usr/libexec/coolerdash
 /usr/libexec/coolerdash/coolerdash
+/usr/bin/coolerdash
 %dir /var/lib/coolercontrol/plugins/coolerdash
 %config(noreplace) /var/lib/coolercontrol/plugins/coolerdash/config.json
 /var/lib/coolercontrol/plugins/coolerdash/manifest.toml

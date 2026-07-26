@@ -2,6 +2,23 @@
 
 If CoolerDash works (or not) on your device, submit a [Device Confirmation Issue](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).
 
+Before opening the issue, collect the technical device data:
+
+~~~bash
+coolerdash --hardware-report
+~~~
+
+This creates a sanitized JSON report and Markdown summary in your home
+directory. Review the files, attach the JSON report, and paste the Markdown
+summary into the issue. CoolerDash does not upload either file automatically.
+
+For an explicitly confirmed display test, first stop or disable any running
+CoolerDash plugin instance and run:
+
+~~~bash
+coolerdash --hardware-report --test-lcd
+~~~
+
 ## Confirmed Devices
 
 | Manufacturer | Model | Status | Tester | Date |

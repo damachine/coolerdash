@@ -36,6 +36,7 @@
 
 // Include project headers
 #include "device/config.h"
+#include "device/hwreport.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -52,6 +53,14 @@ static volatile sig_atomic_t reload_config = 0;
 
 static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
+
+typedef struct CliOptions
+{
+    const char *config_path;
+    char display_mode_override[16];
+    int hardware_report;
+    HardwareReportOptions report;
+} CliOptions;
 
 int verbose_logging = 0;
 
@@ -404,7 +413,12 @@ static void show_help(const char *program_name)
     printf(
         "  --dual            Force dual display mode (CPU+GPU simultaneously)\n");
     printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 "
-           "seconds)\n\n");
+           "seconds)\n");
+    printf("  --hardware-report Collect a sanitized hardware report and exit\n");
+    printf("  --test-lcd        With --hardware-report: confirm and run an LCD test\n\n");
+    printf("ADVANCED REPORT OPTIONS:\n");
+    printf("  --output-dir DIR  Report destination (default: invoking user's home)\n");
+    printf("  --device UID      Limit report/test to one LCD (default: report all)\n\n");
     printf("DISPLAY MODES:\n");
     printf(
         "  dual              Default mode - shows CPU and GPU simultaneously\n");
@@ -426,6 +440,10 @@ static void show_help(const char *program_name)
            program_name);
     printf("  %s /custom/config.json            # Start with custom "
            "configuration\n\n",
+           program_name);
+    printf("  %s --hardware-report              # Write JSON + Markdown report to home\n",
+           program_name);
+    printf("  %s --hardware-report --test-lcd   # Report plus confirmed LCD test\n\n",
            program_name);
     printf("FILES:\n");
     printf("  /usr/libexec/coolerdash/coolerdash            # Main executable\n");
@@ -685,12 +703,12 @@ static int run_daemon(Config *config)
     return 0;
 }
 
-/** @brief Parse CLI args; returns config path. */
-static const char *parse_arguments(int argc, char **argv,
-                                   char *display_mode_override)
+/** @brief Parse CLI arguments. */
+static void parse_arguments(int argc, char **argv, CliOptions *options)
 {
-    const char *config_path = "/etc/coolercontrol/plugins/coolerdash/config.json";
-    display_mode_override[0] = '\0';
+    memset(options, 0, sizeof(*options));
+    options->config_path =
+        "/etc/coolercontrol/plugins/coolerdash/config.json";
 
     for (int i = 1; i < argc; i++)
     {
@@ -706,15 +724,43 @@ static const char *parse_arguments(int argc, char **argv,
         }
         else if (strcmp(argv[i], "--dual") == 0)
         {
-            cc_safe_strcpy(display_mode_override, 16, "dual");
+            cc_safe_strcpy(options->display_mode_override,
+                           sizeof(options->display_mode_override), "dual");
         }
         else if (strcmp(argv[i], "--circle") == 0)
         {
-            cc_safe_strcpy(display_mode_override, 16, "circle");
+            cc_safe_strcpy(options->display_mode_override,
+                           sizeof(options->display_mode_override), "circle");
+        }
+        else if (strcmp(argv[i], "--hardware-report") == 0)
+        {
+            options->hardware_report = 1;
+        }
+        else if (strcmp(argv[i], "--test-lcd") == 0)
+        {
+            options->report.test_lcd = 1;
+        }
+        else if (strcmp(argv[i], "--output-dir") == 0)
+        {
+            if (++i >= argc)
+            {
+                fprintf(stderr, "Error: --output-dir requires a directory\n");
+                exit(EXIT_FAILURE);
+            }
+            options->report.output_dir = argv[i];
+        }
+        else if (strcmp(argv[i], "--device") == 0)
+        {
+            if (++i >= argc)
+            {
+                fprintf(stderr, "Error: --device requires a UID\n");
+                exit(EXIT_FAILURE);
+            }
+            options->report.device_uid = argv[i];
         }
         else if (argv[i][0] != '-')
         {
-            config_path = argv[i];
+            options->config_path = argv[i];
         }
         else
         {
@@ -725,7 +771,15 @@ static const char *parse_arguments(int argc, char **argv,
         }
     }
 
-    return config_path;
+    if (!options->hardware_report &&
+        (options->report.test_lcd || options->report.output_dir ||
+         options->report.device_uid))
+    {
+        fprintf(stderr,
+                "Error: --test-lcd, --output-dir, and --device require "
+                "--hardware-report\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 /** @brief Check plugin dir is writable. */
@@ -866,12 +920,12 @@ static void perform_cleanup(const Config *config)
 /** @brief Daemon entry point. */
 int main(int argc, char **argv)
 {
-    char display_mode_override[16] = {0};
-    const char *config_path = parse_arguments(argc, argv, display_mode_override);
+    CliOptions cli;
+    parse_arguments(argc, argv, &cli);
 
-    s_config_path = config_path;
+    s_config_path = cli.config_path;
     cc_safe_strcpy(s_display_mode_override, sizeof(s_display_mode_override),
-                   display_mode_override);
+                   cli.display_mode_override);
 
     log_message(LOG_STATUS, "CoolerDash v%s starting up...",
                 read_version_from_file());
@@ -879,7 +933,20 @@ int main(int argc, char **argv)
     Config config = {0};
     log_message(LOG_STATUS, "Loading configuration...");
 
-    if (!initialize_config_and_instance(config_path, &config))
+    if (cli.hardware_report)
+    {
+        int loaded =
+            load_plugin_config_read_only(&config, cli.config_path);
+        if (!loaded)
+            log_message(LOG_INFO,
+                        "Using hardcoded defaults (no config.json found)");
+        int success = run_hardware_report(
+            &config, &cli.report, read_version_from_file());
+        memset(config.access_token, 0, sizeof(config.access_token));
+        return success ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
+
+    if (!initialize_config_and_instance(cli.config_path, &config))
     {
         return EXIT_FAILURE;
     }

@@ -101,6 +101,9 @@ jobs:
             exit 1
           fi
 
+          test -L /tmp/install-test/usr/bin/coolerdash
+          test "$(readlink /tmp/install-test/usr/bin/coolerdash)" = "../libexec/coolerdash/coolerdash"
+
           # Check plugin files
           if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then
             echo "✅ Config file installed (plugin mode)"
@@ -170,6 +173,9 @@ jobs:
             exit 1
           fi
 
+          test -L /tmp/install-test/usr/bin/coolerdash
+          test "$(readlink /tmp/install-test/usr/bin/coolerdash)" = "../libexec/coolerdash/coolerdash"
+
           # Check plugin config
           if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then
             echo "✅ Config file installed"
@@ -238,6 +244,9 @@ jobs:
             find /tmp/install-test -name "coolerdash" -type f
             exit 1
           fi
+
+          test -L /tmp/install-test/usr/bin/coolerdash
+          test "$(readlink /tmp/install-test/usr/bin/coolerdash)" = "../libexec/coolerdash/coolerdash"
 
           # Check plugin files
           if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then

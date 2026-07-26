@@ -1,4 +1,5 @@
 usr/libexec/coolerdash/coolerdash
+usr/bin/coolerdash
 usr/share/licenses/coolerdash/LICENSE
 var/lib/coolercontrol/plugins/coolerdash/config.json
 var/lib/coolercontrol/plugins/coolerdash/manifest.toml

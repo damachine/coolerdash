@@ -108,6 +108,47 @@ Restart CoolerControl to apply changes: `systemctl restart coolercontrold.servic
 
 ---
 
+## Hardware Reports
+
+If an AIO LCD is unsupported or only partially working, create a sanitized
+hardware report:
+
+~~~bash
+coolerdash --hardware-report
+~~~
+
+CoolerDash writes a JSON report and a Markdown summary to your home directory.
+Nothing is uploaded automatically. Review both files before attaching the JSON
+and pasting the Markdown summary into a
+[Device Confirmation Issue](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml).
+
+An optional LCD test is available when no other CoolerDash instance is running:
+
+~~~bash
+coolerdash --hardware-report --test-lcd
+~~~
+
+The test requires an explicit **TEST** confirmation, temporarily displays a test
+image with geometry guides, records the visible panel shape and centering, and
+then restores the previous LCD settings. For a new or unknown LCD model, use
+this form so the report contains enough evidence for a display profile.
+
+Advanced overrides:
+
+~~~bash
+coolerdash --hardware-report --output-dir /path/to/reports
+coolerdash --hardware-report --test-lcd --device DEVICE_UID
+coolerdash --hardware-report /custom/config.json
+~~~
+
+The report omits access tokens, serial numbers, raw device UIDs, host/user names,
+IP addresses, and personal paths. It includes sanitized CoolerControl and
+liquidctl metadata plus matching USB device, interface, and endpoint
+descriptors. These descriptors identify available HID/bulk paths but do not
+capture USB traffic or reveal an unknown pixel protocol.
+
+---
+
 ## Advanced Usage
 
 <details>

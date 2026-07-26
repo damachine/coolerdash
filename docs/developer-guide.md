@@ -29,7 +29,8 @@ src/
 ├── main.c              # Daemon lifecycle, signal handling, PID management
 ├── device/
 │   ├── config.c/h          # JSON config loader + defaults
-│   └── profile.c/h         # LCD geometry and transport metadata
+│   ├── profile.c/h         # LCD geometry and transport metadata
+│   └── hwreport.c/h        # Sanitized hardware reporting + LCD test
 ├── srv/
 │   ├── cc_main.c/h     # Session management, auth, LCD upload
 │   ├── cc_conf.c/h     # Device cache, display detection
@@ -45,6 +46,7 @@ src/
 | main.c | `main()` |
 | device/config | `load_plugin_config()` |
 | device/profile | `resolve_display_profile()`, `calculate_circle_chord_bounds()` |
+| device/hwreport | `run_hardware_report()` |
 | srv/cc_main | `init_coolercontrol_session()`, `is_session_initialized()`, `cleanup_coolercontrol_session()`, `send_image_to_lcd()` |
 | srv/cc_conf | `init_device_cache()`, `get_cached_lcd_device_data()`, `update_config_from_device()`, `is_circular_display_device()` |
 | srv/cc_sensor | `get_temperature_monitor_data()` |

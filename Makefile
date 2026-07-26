@@ -37,8 +37,8 @@ BINDIR = bin
 
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
-SRC_MODULES = $(SRCDIR)/device/config.c $(SRCDIR)/device/profile.c $(SRCDIR)/srv/cc_main.c $(SRCDIR)/srv/cc_conf.c $(SRCDIR)/srv/cc_sensor.c $(SRCDIR)/mods/display.c $(SRCDIR)/mods/dual.c $(SRCDIR)/mods/circle.c
-HEADERS = $(SRCDIR)/device/config.h $(SRCDIR)/device/profile.h $(SRCDIR)/srv/cc_main.h $(SRCDIR)/srv/cc_conf.h $(SRCDIR)/srv/cc_sensor.h $(SRCDIR)/mods/display.h $(SRCDIR)/mods/dual.h $(SRCDIR)/mods/circle.h
+SRC_MODULES = $(SRCDIR)/device/config.c $(SRCDIR)/device/profile.c $(SRCDIR)/device/hwreport.c $(SRCDIR)/srv/cc_main.c $(SRCDIR)/srv/cc_conf.c $(SRCDIR)/srv/cc_sensor.c $(SRCDIR)/mods/display.c $(SRCDIR)/mods/dual.c $(SRCDIR)/mods/circle.c
+HEADERS = $(SRCDIR)/device/config.h $(SRCDIR)/device/profile.h $(SRCDIR)/device/hwreport.h $(SRCDIR)/srv/cc_main.h $(SRCDIR)/srv/cc_conf.h $(SRCDIR)/srv/cc_sensor.h $(SRCDIR)/mods/display.h $(SRCDIR)/mods/dual.h $(SRCDIR)/mods/circle.h
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 MANIFEST = etc/coolercontrol/plugins/coolerdash/manifest.toml
@@ -47,6 +47,7 @@ README = README.md
 # GNU standard install directories
 prefix ?= /usr
 exec_prefix ?= $(prefix)
+bindir ?= $(exec_prefix)/bin
 libexecdir ?= $(exec_prefix)/libexec
 sysconfdir ?= /etc
 datarootdir ?= $(prefix)/share
@@ -252,6 +253,8 @@ install: check-deps $(TARGET)
 	@printf "$(CYAN)Installing plugin files...$(RESET)\n"
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)"
 	@$(INSTALL_PROGRAM) -D $(BINDIR)/$(TARGET) "$(DESTDIR)$(libexecdir)/coolerdash/coolerdash"
+	@$(INSTALL) -d "$(DESTDIR)$(bindir)"
+	@ln -sfn "../libexec/coolerdash/coolerdash" "$(DESTDIR)$(bindir)/coolerdash"
 	@$(INSTALL_DATA) $(README) "$(DESTDIR)$(PLUGINDIR)/README.md"
 	@$(INSTALL_DATA) CHANGELOG.md "$(DESTDIR)$(PLUGINDIR)/CHANGELOG.md"
 	@$(INSTALL_DATA) VERSION "$(DESTDIR)$(PLUGINDIR)/VERSION"
@@ -273,6 +276,7 @@ install: check-deps $(TARGET)
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)$(libexecdir)/coolerdash/coolerdash\n"
+	@printf "  $(GREEN)CLI:$(RESET)          $(DESTDIR)$(bindir)/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/config.json (chmod 600)\n"
 	@printf "  $(GREEN)Credentials:$(RESET) $(DESTDIR)$(PLUGINDIR)/credentials.json (chmod 600)\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)$(PLUGINDIR)/ui/index.html\n"
@@ -329,6 +333,7 @@ uninstall:
 	fi
 	@$(SUDO) rm -rf "$(DESTDIR)$(PLUGINDIR)"
 	@$(SUDO) rm -rf "$(DESTDIR)$(libexecdir)/coolerdash"
+	@$(SUDO) rm -f "$(DESTDIR)$(bindir)/coolerdash"
 	@$(SUDO) rm -rf "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) mandb -q >/dev/null 2>&1 || true; \

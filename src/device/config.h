@@ -191,6 +191,14 @@ static inline int is_valid_orientation(int orientation)
  */
 int load_plugin_config(Config *config, const char *config_path);
 
+/**
+ * @brief Load configuration without normalizing or writing config/credentials.
+ * @param config Pointer to Config struct to populate
+ * @param config_path Optional path to config.json
+ * @return 1 when config.json was loaded, 0 when defaults are used
+ */
+int load_plugin_config_read_only(Config *config, const char *config_path);
+
 /** @brief Find SensorConfig by sensor_id; returns NULL if not found. */
 const SensorConfig *get_sensor_config(const Config *config, const char *sensor_id);
 

@@ -231,6 +231,7 @@ jobs:
             dpkg --info "$pkg"
             dpkg -c "$pkg" | tee package-contents.txt
             grep -q "./usr/libexec/coolerdash/coolerdash$" package-contents.txt
+            grep -q "./usr/bin/coolerdash" package-contents.txt
             grep -q "./var/lib/coolercontrol/plugins/coolerdash/config.json$" package-contents.txt
             grep -q "./var/lib/coolercontrol/plugins/coolerdash/manifest.toml$" package-contents.txt
             grep -q "./var/lib/coolercontrol/plugins/coolerdash/ui/index.html$" package-contents.txt
@@ -240,6 +241,7 @@ jobs:
             rpm -qpi "$pkg"
             rpm -qlp "$pkg" | tee package-contents.txt
             grep -qx "/usr/libexec/coolerdash/coolerdash" package-contents.txt
+            grep -qx "/usr/bin/coolerdash" package-contents.txt
             grep -qx "/var/lib/coolercontrol/plugins/coolerdash/config.json" package-contents.txt
             grep -qx "/var/lib/coolercontrol/plugins/coolerdash/manifest.toml" package-contents.txt
             grep -qx "/var/lib/coolercontrol/plugins/coolerdash/ui/index.html" package-contents.txt

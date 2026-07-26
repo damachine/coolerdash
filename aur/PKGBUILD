@@ -46,6 +46,8 @@ package() {
     install -dm711 "${pkgdir}/var/lib/coolercontrol"
     install -dm755 "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash"
     install -Dm755 "${srcdir}/${pkgname}/bin/coolerdash" "${pkgdir}/usr/libexec/coolerdash/coolerdash"
+    install -dm755 "${pkgdir}/usr/bin"
+    ln -s ../libexec/coolerdash/coolerdash "${pkgdir}/usr/bin/coolerdash"
     install -m644 "${srcdir}/${pkgname}/README.md" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/README.md"
     install -m644 "${srcdir}/${pkgname}/VERSION" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/VERSION"
     install -m644 "${srcdir}/${pkgname}/CHANGELOG.md" "${pkgdir}/var/lib/coolercontrol/plugins/coolerdash/CHANGELOG.md"

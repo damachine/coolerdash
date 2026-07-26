@@ -1544,7 +1544,8 @@ static void write_token_sentinel_to_config(const char *json_path, const Config *
 /**
  * @brief Load complete configuration from config.json with hardcoded defaults.
  */
-int load_plugin_config(Config *config, const char *config_path)
+static int load_plugin_config_internal(Config *config, const char *config_path,
+                                       int allow_writes)
 {
     if (!config)
     {
@@ -1591,8 +1592,9 @@ int load_plugin_config(Config *config, const char *config_path)
             load_sensors_from_json(root, config);
             load_positioning_from_json(root, config);
 
-            /* Re-format config.json if CoolerControl wrote it compact */
-            normalize_config_json(json_path, root);
+            /* Normal daemon startup keeps the config human-readable. */
+            if (allow_writes)
+                normalize_config_json(json_path, root);
 
             json_decref(root);
             loaded_from_json = 1;
@@ -1607,7 +1609,8 @@ int load_plugin_config(Config *config, const char *config_path)
 
         /* If config.json delivered a new token (user saved via UI), persist it
          * to credentials.json NOW — before reading credentials.json as authority. */
-        save_credentials_file(json_path, config);
+        if (allow_writes)
+            save_credentials_file(json_path, config);
 
         /* Load credentials.json as the single authoritative source for access_token.
          * This always wins — it is the persisted, update-safe store. */
@@ -1616,7 +1619,7 @@ int load_plugin_config(Config *config, const char *config_path)
         /* If a token is now active, write the "***" sentinel back to config.json
          * so the UI (getPluginConfig) can show that a token is configured
          * without exposing the real value. */
-        if (config->access_token[0] != '\0')
+        if (allow_writes && config->access_token[0] != '\0')
             write_token_sentinel_to_config(json_path, config);
     }
     else
@@ -1628,4 +1631,14 @@ int load_plugin_config(Config *config, const char *config_path)
     apply_system_defaults(config);
 
     return loaded_from_json;
+}
+
+int load_plugin_config(Config *config, const char *config_path)
+{
+    return load_plugin_config_internal(config, config_path, 1);
+}
+
+int load_plugin_config_read_only(Config *config, const char *config_path)
+{
+    return load_plugin_config_internal(config, config_path, 0);
 }
