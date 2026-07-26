@@ -57,8 +57,10 @@ typedef struct
 {
     int up_active;
     int down_active;
-    int bar_x;
-    int effective_bar_width;
+    int up_bar_x;
+    int up_bar_width;
+    int down_bar_x;
+    int down_bar_width;
     int bar_gap;
     int up_bar_y;
     int down_bar_y;
@@ -80,8 +82,10 @@ static int calculate_dual_layout(const struct Config *config,
 
     memset(layout, 0, sizeof(*layout));
 
-    layout->effective_bar_width = params->safe_bar_width;
-    layout->bar_x = (int)lround(params->safe_content_margin);
+    layout->up_bar_width = params->safe_bar_width;
+    layout->down_bar_width = params->safe_bar_width;
+    layout->up_bar_x = (int)lround(params->safe_content_margin);
+    layout->down_bar_x = layout->up_bar_x;
     layout->up_active = slot_is_active(config->sensor_slot_1);
     layout->down_active = slot_is_active(config->sensor_slot_3);
     layout->bar_height_up = (uint16_t)get_scaled_slot_bar_height(config, params, "1");
@@ -111,6 +115,15 @@ static int calculate_dual_layout(const struct Config *config,
     if (!layout->up_active && layout->down_active)
         layout->down_bar_y = start_y;
 
+    if (layout->up_active)
+        calculate_bar_bounds(config, params, layout->up_bar_y,
+                             layout->bar_height_up, &layout->up_bar_x,
+                             &layout->up_bar_width);
+    if (layout->down_active)
+        calculate_bar_bounds(config, params, layout->down_bar_y,
+                             layout->bar_height_down, &layout->down_bar_x,
+                             &layout->down_bar_width);
+
     layout->label_spacing = get_effective_label_spacing(config, params);
     const double value_bar_gap = layout->label_spacing * 0.05;
 
@@ -137,13 +150,15 @@ static int calculate_dual_layout(const struct Config *config,
     {
         log_message(
             LOG_INFO,
-            "Dual layout: logical(up=%u, down=%u, gap=%u) scaled(up=%u, down=%u, gap=%d) start_y=%d up_y=%d down_y=%d label_spacing=%.1f value_gap=%.1f safe_width=%d margin=%.1f",
+            "Dual layout: logical(up=%u, down=%u, gap=%u) "
+            "scaled(up=%u, down=%u, gap=%d) start_y=%d up_y=%d down_y=%d "
+            "label_spacing=%.1f value_gap=%.1f bar_widths=(%d,%d)",
             get_slot_bar_height(config, "1"),
             get_slot_bar_height(config, "3"), config->layout_bar_gap,
             layout->bar_height_up, layout->bar_height_down, layout->bar_gap,
             start_y, layout->up_bar_y, layout->down_bar_y,
-            layout->label_spacing, value_bar_gap, layout->effective_bar_width,
-            params->safe_content_margin);
+            layout->label_spacing, value_bar_gap, layout->up_bar_width,
+            layout->down_bar_width);
     }
 
     return 1;
@@ -172,12 +187,12 @@ static void draw_temperature_displays(cairo_t *cr,
 
     if (layout.up_active && layout.top_value_box_height > 0.0)
     {
-        double safe_x = layout.bar_x;
-        double safe_width = layout.effective_bar_width;
+        double safe_x = layout.up_bar_x;
+        double safe_width = layout.up_bar_width;
         calculate_text_lane_bounds(config, params, layout.top_value_box_y,
                                    layout.top_value_box_height, 0,
-                                   layout.bar_x,
-                                   layout.effective_bar_width, &safe_x,
+                                   layout.up_bar_x,
+                                   layout.up_bar_width, &safe_x,
                                    &safe_width);
         SlotValueLayout up_layout;
         layout_and_render_slot_value(cr, data, config, params, slot_up,
@@ -190,12 +205,12 @@ static void draw_temperature_displays(cairo_t *cr,
 
     if (layout.down_active && layout.bottom_value_box_height > 0.0)
     {
-        double safe_x = layout.bar_x;
-        double safe_width = layout.effective_bar_width;
+        double safe_x = layout.down_bar_x;
+        double safe_width = layout.down_bar_width;
         calculate_text_lane_bounds(config, params, layout.bottom_value_box_y,
                                    layout.bottom_value_box_height,
                                    1,
-                                   layout.bar_x, layout.effective_bar_width,
+                                   layout.down_bar_x, layout.down_bar_width,
                                    &safe_x, &safe_width);
         SlotValueLayout down_layout;
         layout_and_render_slot_value(cr, data, config, params, slot_down,
@@ -281,8 +296,8 @@ static void draw_temperature_bars(cairo_t *cr,
     {
         float temp_up = get_slot_temperature(data, slot_up);
         draw_single_temperature_bar_slot(cr, config, params, slot_up, temp_up,
-                                         layout.bar_x, layout.up_bar_y,
-                                         layout.effective_bar_width,
+                                         layout.up_bar_x, layout.up_bar_y,
+                                         layout.up_bar_width,
                                          layout.bar_height_up);
     }
 
@@ -290,8 +305,8 @@ static void draw_temperature_bars(cairo_t *cr,
     {
         float temp_down = get_slot_temperature(data, slot_down);
         draw_single_temperature_bar_slot(cr, config, params, slot_down, temp_down,
-                                         layout.bar_x, layout.down_bar_y,
-                                         layout.effective_bar_width,
+                                         layout.down_bar_x, layout.down_bar_y,
+                                         layout.down_bar_width,
                                          layout.bar_height_down);
     }
 }
@@ -330,12 +345,12 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
     SlotValueLayout down_layout = {0};
     if (layout.up_active && layout.top_value_box_height > 0.0)
     {
-        double safe_x = layout.bar_x;
-        double safe_width = layout.effective_bar_width;
+        double safe_x = layout.up_bar_x;
+        double safe_width = layout.up_bar_width;
         calculate_text_lane_bounds(config, params, layout.top_value_box_y,
                                    layout.top_value_box_height, 0,
-                                   layout.bar_x,
-                                   layout.effective_bar_width, &safe_x,
+                                   layout.up_bar_x,
+                                   layout.up_bar_width, &safe_x,
                                    &safe_width);
         layout_and_render_slot_value(cr, data, config, params, slot_up,
                                      get_slot_temperature(data, slot_up),
@@ -346,12 +361,12 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
     }
     if (layout.down_active && layout.bottom_value_box_height > 0.0)
     {
-        double safe_x = layout.bar_x;
-        double safe_width = layout.effective_bar_width;
+        double safe_x = layout.down_bar_x;
+        double safe_width = layout.down_bar_width;
         calculate_text_lane_bounds(config, params, layout.bottom_value_box_y,
                                    layout.bottom_value_box_height,
                                    1,
-                                   layout.bar_x, layout.effective_bar_width,
+                                   layout.down_bar_x, layout.down_bar_width,
                                    &safe_x, &safe_width);
         layout_and_render_slot_value(cr, data, config, params, slot_down,
                                      get_slot_temperature(data, slot_down),
@@ -366,11 +381,13 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
         (config->layout_label_margin_left > 0)
             ? (config->layout_label_margin_left / 100.0)
             : 0.01;
-    double label_x = params->safe_content_margin +
-                     (layout.effective_bar_width * left_margin_factor);
-
-    // Apply user-defined X offset if set
-    label_x += get_scaled_label_offset_x(config, params);
+    const double label_offset_x = get_scaled_label_offset_x(config, params);
+    const double up_label_x = layout.up_bar_x +
+                              (layout.up_bar_width * left_margin_factor) +
+                              label_offset_x;
+    const double down_label_x = layout.down_bar_x +
+                                (layout.down_bar_width * left_margin_factor) +
+                                label_offset_x;
 
     cairo_font_extents_t font_ext;
     cairo_font_extents(cr, &font_ext);
@@ -394,8 +411,9 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
 
             const double up_safe_right = up_layout.active
                                              ? (up_layout.block_left - scale_value_avg(params, 8.0))
-                                             : (layout.bar_x + layout.effective_bar_width);
-            const double up_available_width = fmax(8.0, up_safe_right - label_x);
+                                             : (layout.up_bar_x + layout.up_bar_width);
+            const double up_available_width =
+                fmax(8.0, up_safe_right - up_label_x);
 
             if (fmax(up_label_ext.x_advance, up_label_ext.width) <= up_available_width ||
                 label_font_size <= min_label_font_size)
@@ -414,7 +432,7 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
         up_label_y += get_scaled_label_offset_y(config, params);
 
         cairo_set_font_size(cr, label_font_size);
-        cairo_move_to(cr, label_x, up_label_y);
+        cairo_move_to(cr, up_label_x, up_label_y);
         cairo_show_text(cr, label_up);
     }
 
@@ -437,9 +455,9 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
 
             const double down_safe_right = down_layout.active
                                                ? (down_layout.block_left - scale_value_avg(params, 8.0))
-                                               : (layout.bar_x + layout.effective_bar_width);
+                                               : (layout.down_bar_x + layout.down_bar_width);
             const double down_available_width =
-                fmax(8.0, down_safe_right - label_x);
+                fmax(8.0, down_safe_right - down_label_x);
 
             if (fmax(down_label_ext.x_advance, down_label_ext.width) <=
                     down_available_width ||
@@ -460,7 +478,7 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
         down_label_y += get_scaled_label_offset_y(config, params);
 
         cairo_set_font_size(cr, label_font_size);
-        cairo_move_to(cr, label_x, down_label_y);
+        cairo_move_to(cr, down_label_x, down_label_y);
         cairo_show_text(cr, label_down);
     }
 }
@@ -509,16 +527,16 @@ static int render_dual_display(const struct Config *config,
     if (scaling_params.is_circular)
     {
         log_message(LOG_INFO,
-                    "Circular display detected (device: %s, inscribe factor: %.4f)",
+                    "Circular display detected (device: %s, profile: %s)",
                     device_name ? device_name : "unknown",
-                    scaling_params.inscribe_factor);
+                    scaling_params.profile_name);
     }
     else
     {
         log_message(
             LOG_INFO,
-            "Rectangular display detected (device: %s, inscribe factor: %.4f)",
-            device_name ? device_name : "unknown", scaling_params.inscribe_factor);
+            "Rectangular display detected (device: %s, profile: %s)",
+            device_name ? device_name : "unknown", scaling_params.profile_name);
     }
 
     cairo_surface_t *surface = NULL;

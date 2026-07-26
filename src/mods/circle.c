@@ -465,10 +465,10 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const char *label_text = get_slot_label(config, data, slot_value);
     const float max_temp = get_slot_max_scale(config, slot_value);
 
-    const int effective_bar_width = params->safe_bar_width;
+    int effective_bar_width = params->safe_bar_width;
     const int bar_height = get_scaled_slot_bar_height(
         config, params, get_slot_name_by_index(current_slot_index));
-    const int bar_x = (int)lround(params->safe_content_margin);
+    int bar_x = (int)lround(params->safe_content_margin);
 
     const double region_gap = get_effective_label_spacing(config, params);
     const double label_padding = fmax(2.0, scale_value_avg(params, 4.0));
@@ -522,6 +522,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const int bar_y =
         (int)lround(fmax(0.0, params->margin_top +
                                   (available_height - grouped_height) / 2.0));
+    calculate_bar_bounds(config, params, bar_y, bar_height,
+                         &bar_x, &effective_bar_width);
     const double value_bar_gap = region_gap * 0.05;
 
     const double value_box_y = params->margin_top;
@@ -541,7 +543,10 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     {
         log_message(
             LOG_INFO,
-            "Circle layout: slot=%s logical(height=%u gap=%u) scaled(height=%d gap=%.1f) bar_y=%d grouped_height=%.1f value_gap=%.1f value_box=%.1fx%.1f label_box_y=%.1f label_box_h=%.1f safe_width=%d",
+            "Circle layout: slot=%s logical(height=%u gap=%u) "
+            "scaled(height=%d gap=%.1f) bar_y=%d grouped_height=%.1f "
+            "value_gap=%.1f value_box=%.1fx%.1f label_box_y=%.1f "
+            "label_box_h=%.1f safe_width=%d",
             get_slot_name_by_index(current_slot_index),
             get_slot_bar_height(config, get_slot_name_by_index(current_slot_index)),
             config->layout_bar_gap, bar_height, region_gap, bar_y,
@@ -805,8 +810,9 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
             double extra_font_size = label_font_size * 2.2;
             const double extra_padding_top =
                 fmax(1.0, scale_value_avg(params, 3.0));
-            const double extra_available_width =
-                fmax(24.0, (double)params->safe_bar_width * 0.96);
+            double extra_safe_x = bar_x;
+            double extra_available_width =
+                fmax(24.0, (double)effective_bar_width * 0.96);
             const double min_extra_font =
                 fmax(6.0, scale_value_avg(params, 6.0));
 
@@ -840,6 +846,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                     (line_height * line_count) +
                     (extra_padding_top * (line_count - 1));
 
+                calculate_safe_region_bounds(
+                    params, block_top, block_height, 0.96,
+                    bar_x, effective_bar_width,
+                    &extra_safe_x, &extra_available_width);
+
                 extra_y = block_top + font_ext.ascent;
                 line2_y = has_extra_line
                               ? extra_y + line_height + extra_padding_top
@@ -871,8 +882,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                         ? (config->layout_label_margin_left / 100.0)
                         : 0.01;
                 double extra_x =
-                    (int)lround(params->safe_content_margin) +
-                    ((double)params->safe_bar_width * left_margin_factor) +
+                    extra_safe_x +
+                    (extra_available_width * left_margin_factor) +
                     get_scaled_label_offset_x(config, params);
 
                 if (has_extra_line)

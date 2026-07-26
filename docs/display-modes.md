@@ -43,17 +43,21 @@ CPU and GPU temperatures side-by-side.
 
 ```c
 typedef struct {
-    double scale_x, scale_y;
+    double scale_x, scale_y, scale_uniform;
     double corner_radius;
-    double inscribe_factor;     // 1.0 (rectangular) or M_SQRT1_2 (circular)
+    double circle_center_x, circle_center_y;
+    double circle_radius;
     int safe_bar_width;
     double safe_content_margin;
     int is_circular;
+    DisplayShape shape;
+    const char *profile_name;
 } ScalingParams;
 ```
 
 Base resolution: 240×240. Scales dynamically.
-Circular displays: `safe_area = display_width × inscribe_factor × content_scale_factor`
+Circular displays use a position-dependent chord calculated from each rendered
+region's Y position and height.
 
 ### Rendering Flow
 

@@ -1,77 +1,72 @@
-# Display Shape Detection
+# Display Geometry Detection
 
-Determines whether a display is circular or rectangular. Affects inscribe factor and layout calculations.
+CoolerDash resolves known LCD geometry from immutable device profiles in
+`src/device/profile.c`. The profile controls shape, native resolution,
+visible diameter, center point, and preferred integration transport metadata.
 
-## Config Override
+## Match Priority
 
-```json
-"display": {
-    "shape": "auto"
-}
+1. USB VID:PID, when the device API exposes it
+2. Model-name tokens plus exact native resolution
+3. Legacy size fallback for unknown devices
+
+CoolerControl's current `/devices` response does not expose USB IDs, so the
+second path is normally used today. Keeping VID:PID in the same profile makes
+the first path available without redesigning the renderer later.
+
+## Included NZXT Profiles
+
+| USB ID | Model | Resolution | Shape | Preferred integration transport |
+|--------|-------|------------|-------|----------------------------|
+| `1e71:3008` | Kraken Z series | 320×320 | circular | image upload |
+| `1e71:300c` | Kraken 2023 Elite | 640×640 | circular | image upload |
+| `1e71:300e` | Kraken 2023 | 240×240 | rectangular | image upload |
+| `1e71:3012` | Kraken Elite (2024), RGB and non-RGB | 640×640 | circular | image upload |
+| `1e71:3014` | Kraken Plus (2025), RGB and non-RGB | 240×240 | rectangular | image upload |
+
+Transport values are capability metadata only. CoolerDash still sends rendered
+PNG files through CoolerControl.
+
+The USB IDs and native resolutions follow liquidctl's device table. Product
+generation names and panel specifications follow NZXT's published specs. Panel
+refresh rate is not the same as a safe image-upload rate, so
+`recommended_fps` remains `0` until continuous updates have been verified on
+real hardware.
+
+## Circular Safe Area
+
+Circular layouts use the actual vertical position and height of each element.
+For a region spanning `y_top` to `y_bottom`, the limiting distance is:
+
+```text
+d = max(abs(y_top - center_y), abs(y_bottom - center_y))
+width = 2 × sqrt(radius² - d²)
 ```
 
-Values: `"auto"` (default), `"rectangular"`, `"circular"`
+This gives each bar the widest chord that remains inside the visible circle.
+Elements near the center can use more width; elements near the top or bottom
+are narrowed automatically. `content_scale_factor` remains the global inset.
 
-Priority: `shape` config > auto-detection.
+## Adding a Device
 
-## Auto-Detection
+Add one `DisplayProfile` entry in `src/device/profile.c` with:
 
-### NZXT Kraken (resolution-based)
+- canonical VID:PID
+- exact native width and height
+- shape
+- visible diameter and center ratios
+- preferred transport metadata
+- conservative model-name match tokens
 
-```c
-// ≤240×240 → rectangular (inscribe_factor = 1.0)
-// >240×240  → circular   (inscribe_factor = 0.7071)
-```
+Use `recommended_fps = 0` until a stable rate has been verified on hardware.
+Unknown displays retain the old `>240px = circular` fallback to avoid breaking
+existing installations.
 
-### Other Devices
-
-Checked against `circular_devices[]` database in `cc_conf.c`. Unknown devices default to rectangular.
-
-## Inscribe Factor (1/√2)
-
-Circular displays need content within an inscribed square to prevent clipping.
-
-```
-Circle radius = R
-Inscribed square side = R × √2
-Ratio = 1/√2 ≈ 0.7071
-```
-
-Configurable via `inscribe_factor` in `config.json` (default: 0.70710678, `0` = auto).
-
-### Calculation
-
-| Display | Resolution | Shape | inscribe_factor | safe_area | margin |
-|---------|-----------|-------|-----------------|-----------|--------|
-| Kraken 2023 | 240×240 | rectangular | 1.0 | 240px | ~2px |
-| Kraken Z | 320×320 | circular | 0.7071 | ~226px | ~47px |
-
-## Adding Devices
-
-### Circular (non-Kraken)
-
-Add to `circular_devices[]` in `src/srv/cc_conf.c`:
-
-```c
-const char *circular_devices[] = {
-    "Your Device Name",
-};
-```
-
-Name matching uses `strstr` — partial matches work.
-
-### NZXT Kraken
-
-No database entry needed. Resolution-based detection is automatic.
-
-### Rectangular
-
-No action needed. Unknown devices default to rectangular.
-
-## Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| Clipping on circular display | Set `"shape": "circular"` in config |
-| Too much padding on rectangular | Set `"shape": "rectangular"` in config |
-| Unknown device | Set `shape` manually or add to database |
+Ask the contributor to run `coolerdash --hardware-report --test-lcd`. Report
+schema 2 includes the CoolerControl model, driver and LCD capabilities,
+liquidctl VID:PID/release/driver data, USB device/interface/endpoint
+descriptors, firmware, and the contributor's observations of display shape,
+visible calibration circle, centering, rotation, and distortion. USB
+descriptors can confirm the available HID/bulk paths, but they cannot reveal
+the pixel encoding or upload commands; those still require an upstream driver
+implementation or a separately captured and reviewed protocol trace.

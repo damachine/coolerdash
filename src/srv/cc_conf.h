@@ -71,11 +71,9 @@ void reset_device_cache(void);
 int update_config_from_device(struct Config *config);
 
 /**
- * @brief Check if a device has a circular display based on device name/type.
- * @details Returns true if the device is known to have a circular/round LCD
- * display. For NZXT Kraken devices, resolution determines shape:
- *          - 240x240 or smaller = rectangular
- *          - Larger than 240x240 = circular
+ * @brief Check if a device has a circular display.
+ * @details Known hardware uses device profiles. Unknown devices retain the
+ * legacy resolution fallback for backwards compatibility.
  */
 int is_circular_display_device(const char *device_name, int screen_width,
                                int screen_height);

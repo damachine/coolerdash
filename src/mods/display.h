@@ -25,6 +25,7 @@
 
 // Include for Config and Color types
 #include "../device/config.h"
+#include "../device/profile.h"
 // Include for monitor_sensor_data_t
 #include "../srv/cc_sensor.h"
 
@@ -57,12 +58,16 @@ typedef struct
     double scale_y;
     double scale_uniform;
     double corner_radius;
-    double inscribe_factor;     /**< 1.0 for rectangular, M_SQRT1_2 for circular */
-    int safe_bar_width;         /**< Safe bar width for circular displays */
-    double safe_content_margin; /**< Horizontal margin for safe content area */
+    double circle_center_x;     /**< Physical circle center in pixels */
+    double circle_center_y;     /**< Physical circle center in pixels */
+    double circle_radius;       /**< Content-safe circle radius in pixels */
+    int safe_bar_width;         /**< Center-lane bar width fallback */
+    double safe_content_margin; /**< Center-lane horizontal margin */
     double margin_top;          /**< Vertical top margin in pixels */
     double margin_bottom;       /**< Vertical bottom margin in pixels */
     int is_circular;            /**< 1 if circular display, 0 if rectangular */
+    DisplayShape shape;         /**< Resolved profile/fallback geometry */
+    const char *profile_name;   /**< Static profile name or legacy fallback */
 } ScalingParams;
 
 /**
@@ -232,6 +237,23 @@ void calculate_text_lane_bounds(const struct Config *config,
                                 int align_bottom,
                                 double fallback_x, double fallback_width,
                                 double *safe_x, double *safe_width);
+
+/**
+ * @brief Calculate horizontal bounds for an actual rendered region.
+ * @details Circular displays use the narrowest chord touching the region's
+ * top or bottom edge. width_factor is clamped to 0..1.
+ */
+void calculate_safe_region_bounds(const ScalingParams *params,
+                                  double region_y, double region_height,
+                                  double width_factor,
+                                  double fallback_x, double fallback_width,
+                                  double *safe_x, double *safe_width);
+
+/** @brief Calculate a position-aware temperature bar width. */
+void calculate_bar_bounds(const struct Config *config,
+                          const ScalingParams *params,
+                          double bar_y, double bar_height,
+                          int *bar_x, int *bar_width);
 
 /**
  * @brief Paint display background from optional PNG image or fallback color.

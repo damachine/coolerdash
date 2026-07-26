@@ -28,7 +28,8 @@ main.c
 src/
 ├── main.c              # Daemon lifecycle, signal handling, PID management
 ├── device/
-│   └── config.c/h      # JSON config loader + defaults
+│   ├── config.c/h          # JSON config loader + defaults
+│   └── profile.c/h         # LCD geometry and transport metadata
 ├── srv/
 │   ├── cc_main.c/h     # Session management, auth, LCD upload
 │   ├── cc_conf.c/h     # Device cache, display detection
@@ -43,6 +44,7 @@ src/
 |--------|------------|
 | main.c | `main()` |
 | device/config | `load_plugin_config()` |
+| device/profile | `resolve_display_profile()`, `calculate_circle_chord_bounds()` |
 | srv/cc_main | `init_coolercontrol_session()`, `is_session_initialized()`, `cleanup_coolercontrol_session()`, `send_image_to_lcd()` |
 | srv/cc_conf | `init_device_cache()`, `get_cached_lcd_device_data()`, `update_config_from_device()`, `is_circular_display_device()` |
 | srv/cc_sensor | `get_temperature_monitor_data()` |
@@ -108,14 +110,15 @@ draw_display_image(config)
 
 ### Display Shape
 
-- NZXT Kraken ≤240×240 → rectangular (inscribe_factor = 1.0)
-- NZXT Kraken >240×240 → circular (inscribe_factor = 1/√2 ≈ 0.7071)
-- Override via `config.json`: `"shape": "rectangular"` or `"circular"`
+- Known devices resolve through `device/profile.c`.
+- VID:PID is canonical; model tokens plus exact resolution are the current API fallback.
+- Unknown devices retain the legacy resolution heuristic for compatibility.
 
 ### Scaling
 
 Base resolution: 240×240. Content scales dynamically.
-Circular displays: `safe_area = display_width × inscribe_factor`
+Circular bars use `2 × sqrt(radius² - distance²)` at their actual vertical
+position. Text lanes and extra information use the same circle geometry.
 
 ---
 

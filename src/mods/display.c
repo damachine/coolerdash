@@ -32,11 +32,6 @@
 #include "display.h"
 #include "dual.h"
 
-// Circle inscribe factor for circular displays (1/sqrt(2) ~ 0.7071)
-#ifndef M_SQRT1_2
-#define M_SQRT1_2 0.7071067811865476
-#endif
-
 static double clamp_double(double value, double min_value, double max_value)
 {
     if (value < min_value)
@@ -463,35 +458,52 @@ void calculate_text_lane_bounds(const struct Config *config,
     if (!config || !params || !params->is_circular || box_height <= 0.0)
         return;
 
-    const double min_dimension =
-        (config->display_width < config->display_height)
-            ? (double)config->display_width
-            : (double)config->display_height;
-    const double content_scale =
-        (config->display_content_scale_factor > 0.0f &&
-         config->display_content_scale_factor <= 1.0f)
-            ? config->display_content_scale_factor
-            : 0.98;
-    const double radius = (min_dimension * 0.5) * content_scale;
-    const double center_x = config->display_width / 2.0;
-    const double center_y = config->display_height / 2.0;
     const double anchor_ratio = align_bottom ? 0.82 : 0.18;
     const double sample_y = box_y + (box_height * anchor_ratio);
-    const double limiting_distance = fabs(sample_y - center_y);
+    calculate_safe_region_bounds(params, sample_y, 0.0, 1.0,
+                                 fallback_x, fallback_width,
+                                 safe_x, safe_width);
+}
 
-    if (limiting_distance >= radius)
+void calculate_safe_region_bounds(const ScalingParams *params,
+                                  double region_y, double region_height,
+                                  double width_factor,
+                                  double fallback_x, double fallback_width,
+                                  double *safe_x, double *safe_width)
+{
+    if (!safe_x || !safe_width)
         return;
 
-    const double half_width = sqrt((radius * radius) -
-                                   (limiting_distance * limiting_distance));
-    const double candidate_x = center_x - half_width;
-    const double candidate_width = half_width * 2.0;
+    *safe_x = fallback_x;
+    *safe_width = fallback_width;
 
-    if (candidate_width > 0.0)
-    {
-        *safe_x = candidate_x;
-        *safe_width = candidate_width;
-    }
+    if (!params || !params->is_circular || params->circle_radius <= 0.0)
+        return;
+
+    calculate_circle_chord_bounds(
+        params->circle_center_x, params->circle_center_y,
+        params->circle_radius, region_y, region_height, width_factor,
+        safe_x, safe_width);
+}
+
+void calculate_bar_bounds(const struct Config *config,
+                          const ScalingParams *params,
+                          double bar_y, double bar_height,
+                          int *bar_x, int *bar_width)
+{
+    if (!config || !params || !bar_x || !bar_width)
+        return;
+
+    double safe_x = params->safe_content_margin;
+    double safe_width = params->safe_bar_width;
+    const double bar_width_factor = (config->layout_bar_width > 0)
+                                        ? config->layout_bar_width / 100.0
+                                        : 0.98;
+
+    calculate_safe_region_bounds(params, bar_y, bar_height, bar_width_factor,
+                                 safe_x, safe_width, &safe_x, &safe_width);
+    *bar_x = (int)lround(safe_x);
+    *bar_width = (int)lround(safe_width);
 }
 
 /**
@@ -674,7 +686,8 @@ cairo_t *create_cairo_context(const struct Config *config,
 
 /**
  * @brief Calculate dynamic scaling parameters based on display dimensions.
- * @details Display shape detection: NZXT Kraken 240x240=rect, >240=circular.
+ * @details Known devices use profiles; unknown devices retain the legacy
+ * resolution fallback.
  */
 void calculate_scaling_params(const struct Config *config,
                               ScalingParams *params, const char *device_name)
@@ -693,23 +706,37 @@ void calculate_scaling_params(const struct Config *config,
     params->scale_uniform =
         (base_min_dimension > 0.0) ? (min_dimension / base_min_dimension) : 1.0;
 
-    params->is_circular = is_circular_display_device(
-        device_name, config->display_width, config->display_height);
-    params->inscribe_factor = params->is_circular ? M_SQRT1_2 : 1.0;
+    const DisplayProfile *profile = resolve_display_profile(
+        0, 0, device_name, config->display_width, config->display_height);
+    params->shape = profile ? profile->shape
+                            : (is_circular_display_device(
+                                   device_name, config->display_width,
+                                   config->display_height)
+                                   ? DISPLAY_SHAPE_CIRCULAR
+                                   : DISPLAY_SHAPE_RECTANGULAR);
+    params->is_circular = params->shape == DISPLAY_SHAPE_CIRCULAR;
+    params->profile_name = profile ? profile->name : "legacy-fallback";
 
-    // Calculate safe area width from detected device geometry only.
-    const double safe_area_width =
-        config->display_width * params->inscribe_factor;
     const float content_scale = (config->display_content_scale_factor > 0.0f &&
                                  config->display_content_scale_factor <= 1.0f)
                                     ? config->display_content_scale_factor
                                     : 0.98f; // Fallback: 98%
-    // Apply bar_width percentage
+    const double center_x_ratio = profile ? profile->center_x_ratio : 0.5;
+    const double center_y_ratio = profile ? profile->center_y_ratio : 0.5;
+    const double diameter_ratio = profile ? profile->visible_diameter_ratio : 1.0;
+    params->circle_center_x = config->display_width * center_x_ratio;
+    params->circle_center_y = config->display_height * center_y_ratio;
+    params->circle_radius = params->is_circular
+                                ? min_dimension * 0.5 * diameter_ratio * content_scale
+                                : 0.0;
+
+    const double safe_area_width = params->is_circular
+                                       ? params->circle_radius * 2.0
+                                       : config->display_width * content_scale;
     const double bar_width_factor = (config->layout_bar_width > 0)
                                         ? (config->layout_bar_width / 100.0)
                                         : 0.98;
-    params->safe_bar_width =
-        (int)(safe_area_width * content_scale * bar_width_factor);
+    params->safe_bar_width = (int)(safe_area_width * bar_width_factor);
     params->safe_content_margin =
         (config->display_width - params->safe_bar_width) / 2.0;
 
@@ -733,11 +760,15 @@ void calculate_scaling_params(const struct Config *config,
     // Log detailed scaling calculations
     log_message(
         LOG_INFO,
-        "Scaling: display=%ux%u scale=(%.3f, %.3f) uniform=%.3f shape=%s inscribe=%.4f content=%.3f safe_area=%.0fpx bar_width=%dpx (%.0f%%) margin=%.1fpx margin_v=(%.1f, %.1f)",
+        "Scaling: display=%ux%u scale=(%.3f, %.3f) uniform=%.3f "
+        "profile=%s shape=%s content=%.3f radius=%.1fpx "
+        "center=(%.1f,%.1f) center_bar=%dpx (%.0f%%) margin=%.1fpx "
+        "margin_v=(%.1f, %.1f)",
         config->display_width, config->display_height, params->scale_x,
-        params->scale_y, params->scale_uniform,
-        params->is_circular ? "circular" : "rectangular",
-        params->inscribe_factor, content_scale, safe_area_width,
+        params->scale_y, params->scale_uniform, params->profile_name,
+        display_shape_name(params->shape), content_scale,
+        params->circle_radius, params->circle_center_x,
+        params->circle_center_y,
         params->safe_bar_width, bar_width_factor * 100.0,
         params->safe_content_margin,
         params->margin_top, params->margin_bottom);

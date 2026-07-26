@@ -53,10 +53,8 @@ sudo systemctl restart coolercontrold
     "refresh_interval": 3.5,
     "brightness": 80,
     "orientation": 0,
-    "shape": "auto",
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
-    "inscribe_factor": 0.70710678,
     "sensor_slot_1": "cpu",
     "sensor_slot_2": "liquid",
     "sensor_slot_3": "gpu"
@@ -70,13 +68,9 @@ sudo systemctl restart coolercontrold
 | `refresh_interval` | `3.5` | Update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
-| `shape` | `auto` | `auto`, `rectangular`, `circular` |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
-| `inscribe_factor` | `0.70710678` | Inscribe factor for circular displays (1/√2) |
 | `sensor_slot_1/2/3` | `cpu`/`liquid`/`gpu` | Sensor assignment per slot |
-
-`shape` overrides auto-detection. Priority: `shape` config > auto-detection.
 
 ---
 
@@ -187,7 +181,7 @@ Four color zones per sensor. Bars transition through colors as temperature rises
 
 - **Display not updating**: Check `refresh_interval`, restart CoolerControl
 - **Wrong colors**: RGB values must be 0–255
-- **Text clipped**: Adjust `inscribe_factor` and `content_scale_factor`
+- **Text clipped**: Lower `content_scale_factor`
 - **Bars too wide**: Lower `bar_width`
 
 Full default config: `/etc/coolercontrol/plugins/coolerdash/config.json`

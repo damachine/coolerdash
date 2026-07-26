@@ -26,6 +26,7 @@
 
 // Include project headers
 #include "../device/config.h"
+#include "../device/profile.h"
 #include "cc_conf.h"
 #include "cc_main.h"
 
@@ -123,22 +124,19 @@ const char *extract_device_type_from_json(const json_t *dev)
     return json_string_value(type_val);
 }
 
-/** @brief Returns 1 if device has a circular LCD (Kraken or >240px display). */
+/** @brief Returns 1 if a profile or legacy fallback identifies a circular LCD. */
 int is_circular_display_device(const char *device_name, int screen_width,
                                int screen_height)
 {
     if (!device_name)
         return 0;
 
-    const int is_kraken = (strstr(device_name, "Kraken") != NULL);
+    const DisplayProfile *profile = resolve_display_profile(
+        0, 0, device_name, screen_width, screen_height);
+    if (profile)
+        return profile->shape == DISPLAY_SHAPE_CIRCULAR;
 
-    if (is_kraken)
-    {
-        const int is_large_display = (screen_width > 240 || screen_height > 240);
-        return is_large_display ? 1 : 0;
-    }
-
-    // Unknown device: detect by display size (>240px = circular LCD)
+    /* Preserve compatibility for unknown devices until a profile is added. */
     return (screen_width > 240 || screen_height > 240) ? 1 : 0;
 }
 
@@ -724,9 +722,15 @@ static int process_device_cache_response(const Config *config,
     if (result && found_lcd_device)
     {
         device_cache.initialized = 1;
-        device_cache.is_circular = is_circular_display_device(
-            device_cache.device_name, device_cache.screen_width,
+        const DisplayProfile *profile = resolve_display_profile(
+            0, 0, device_cache.device_name, device_cache.screen_width,
             device_cache.screen_height);
+        device_cache.is_circular = profile
+                                       ? profile->shape == DISPLAY_SHAPE_CIRCULAR
+                                       : is_circular_display_device(
+                                             device_cache.device_name,
+                                             device_cache.screen_width,
+                                             device_cache.screen_height);
 
         const char *shape_mode = device_cache.is_circular
                                      ? "scaled (circular)"
@@ -734,6 +738,19 @@ static int process_device_cache_response(const Config *config,
         log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel, %s)",
                     device_cache.device_name, device_cache.screen_width,
                     device_cache.screen_height, shape_mode);
+        if (profile)
+        {
+            log_message(LOG_INFO,
+                        "Display profile: %s [%04x:%04x, %s, preferred=%s]",
+                        profile->name, profile->vendor_id, profile->product_id,
+                        display_shape_name(profile->shape),
+                        display_transport_name(profile->preferred_transport));
+        }
+        else
+        {
+            log_message(LOG_INFO,
+                        "Display profile: unknown device, using legacy size fallback");
+        }
         return 1;
     }
 

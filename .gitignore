@@ -14,7 +14,7 @@ coolerdash-bin/
 *.db
 *.files
 docs/
-src/
+tests/
 pkg/
 bin/
 build/
