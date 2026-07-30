@@ -67,8 +67,6 @@ yay -S coolerdash-git
 
 #### Manual installation: All distributions
 
-[![Multi-Distribution Installation Test](https://github.com/damachine/coolerdash/actions/workflows/install.yml/badge.svg)](https://github.com/damachine/coolerdash/actions/workflows/install.yml)
-
 ```bash
 # STEP 1: Clone repository
 git clone https://github.com/damachine/coolerdash.git
@@ -110,6 +108,11 @@ Restart CoolerControl to apply changes: `systemctl restart coolercontrold.servic
 
 ## Hardware Reports
 
+<details>
+  <summary>Expand</summary>
+
+## Usage
+
 If an AIO LCD is unsupported or only partially working, create a sanitized
 hardware report:
 
@@ -135,17 +138,18 @@ this form so the report contains enough evidence for a display profile.
 
 Advanced overrides:
 
-~~~bash
+```bash
 coolerdash --hardware-report --output-dir /path/to/reports
 coolerdash --hardware-report --test-lcd --device DEVICE_UID
 coolerdash --hardware-report /custom/config.json
-~~~
+```
 
 The report omits access tokens, serial numbers, raw device UIDs, host/user names,
 IP addresses, and personal paths. It includes sanitized CoolerControl and
 liquidctl metadata plus matching USB device, interface, and endpoint
 descriptors. These descriptors identify available HID/bulk paths but do not
 capture USB traffic or reveal an unknown pixel protocol.
+</details>
 
 ---
 
