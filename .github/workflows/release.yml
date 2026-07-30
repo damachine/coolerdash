@@ -157,7 +157,9 @@ jobs:
       - name: Install build dependencies (openSUSE)
         if: matrix.name == 'opensuse-tumbleweed'
         run: |
-          zypper install -y \
+          zypper --gpg-auto-import-keys refresh
+          zypper --non-interactive dup
+          zypper --non-interactive install \
             tar \
             rpm-build \
             rpmdevtools \

@@ -45,8 +45,8 @@ jobs:
           # openSUSE family
           - distro: "opensuse/tumbleweed"
             name: "openSUSE Tumbleweed"
-            pre_install: "zypper --gpg-auto-import-keys refresh || true"
-            install_deps: "zypper install -y tar sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
+            pre_install: "zypper --gpg-auto-import-keys refresh && zypper --non-interactive dup"
+            install_deps: "zypper --non-interactive install tar sudo systemd cairo-devel libcurl-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
 
           - distro: "opensuse/leap:16.0"
             name: "openSUSE Leap 16.0"
