@@ -731,7 +731,7 @@ void calculate_scaling_params(const struct Config *config,
 
     const double safe_area_width = params->is_circular
                                        ? params->circle_radius * 2.0
-                                       : config->display_width * content_scale;
+                                       : (double)config->display_width * content_scale;
     const double bar_width_factor = (config->layout_bar_width > 0)
                                         ? (config->layout_bar_width / 100.0)
                                         : 0.98;
