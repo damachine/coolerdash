@@ -8,7 +8,7 @@
 
 /**
  * @brief Display mode dispatcher and shared rendering utilities.
- * @details Routes to dual or circle rendering module, provides shared Cairo
+ * @details Routes to dual, circle, or split rendering modules, provides shared Cairo
  * helpers and sensor slot functions used by all display modes.
  */
 
@@ -30,6 +30,7 @@
 #include "circle.h"
 #include "display.h"
 #include "dual.h"
+#include "split.h"
 
 static double clamp_double(double value, double min_value, double max_value)
 {
@@ -1045,8 +1046,8 @@ float get_slot_font_size(const struct Config *config, const char *slot_value)
 
 /**
  * @brief Main display dispatcher - routes to appropriate rendering mode.
- * @details Examines display_mode configuration and dispatches to either dual or
- * circle renderer. This provides a clean separation between mode selection
+ * @details Examines display_mode configuration and dispatches to dual, circle,
+ * or split renderer. This provides a clean separation between mode selection
  * logic and mode-specific rendering.
  * @param config Configuration containing display mode and rendering parameters
  */
@@ -1064,11 +1065,15 @@ void draw_display_image(const struct Config *config)
     }
 
     // Check display mode and dispatch to appropriate renderer
-    if (config->display_mode[0] != '\0' &&
-        strcmp(config->display_mode, "circle") == 0)
+    if (strcmp(config->display_mode, "circle") == 0)
     {
         // Circle mode: alternating single sensor display
         draw_circle_image(config);
+    }
+    else if (strcmp(config->display_mode, "split") == 0)
+    {
+        // Split mode: CPU/GPU columns without bars
+        draw_split_image(config);
     }
     else
     {

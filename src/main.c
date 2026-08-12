@@ -411,8 +411,8 @@ static void show_help(const char *program_name)
            "messages)\n");
     printf(
         "  --dual            Force dual display mode (CPU+GPU simultaneously)\n");
-    printf("  --circle          Force circle mode (alternating CPU/GPU every 2.5 "
-           "seconds)\n");
+    printf("  --split           Force split mode (CPU/GPU columns without bars)\n");
+    printf("  --circle          Force circle mode (alternating sensor display)\n");
     printf("  --hardware-report Collect a sanitized hardware report and exit\n");
     printf("  --test-lcd        With --hardware-report: confirm and run an LCD test\n\n");
     printf("ADVANCED REPORT OPTIONS:\n");
@@ -420,22 +420,24 @@ static void show_help(const char *program_name)
     printf("  --device UID      Limit report/test to one LCD (default: report all)\n\n");
     printf("DISPLAY MODES:\n");
     printf(
-        "  dual              Default mode - shows CPU and GPU simultaneously\n");
-    printf("  circle            Alternating mode - switches between CPU/GPU "
-           "every 2.5 seconds\n");
+        "  dual              Shows two sensor values with temperature bars\n");
+    printf("  split             Shows CPU and GPU in two bar-free columns\n");
+    printf("  circle            Alternating mode using the configured interval\n");
     printf("                    Configure via config.json [display] "
-           "mode=dual|circle or CLI flags\n\n");
+           "mode=dual|split|circle or CLI flags\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl restart coolercontrold     # Restart CoolerControl "
            "(reloads plugin)\n");
-    printf("  %s                                # Standalone start with default "
-           "config (dual mode)\n",
+    printf("  %s                                # Standalone start with configured "
+           "display mode\n",
            program_name);
     printf("  %s --circle                       # Standalone with circle mode "
            "(alternating display)\n",
            program_name);
     printf("  %s --dual --verbose               # Force dual mode with detailed "
            "logging\n",
+           program_name);
+    printf("  %s --split                        # Two-column CPU/GPU display\n",
            program_name);
     printf("  %s /custom/config.json            # Start with custom "
            "configuration\n\n",
@@ -725,6 +727,11 @@ static void parse_arguments(int argc, char **argv, CliOptions *options)
         {
             cc_safe_strcpy(options->display_mode_override,
                            sizeof(options->display_mode_override), "dual");
+        }
+        else if (strcmp(argv[i], "--split") == 0)
+        {
+            cc_safe_strcpy(options->display_mode_override,
+                           sizeof(options->display_mode_override), "split");
         }
         else if (strcmp(argv[i], "--circle") == 0)
         {
