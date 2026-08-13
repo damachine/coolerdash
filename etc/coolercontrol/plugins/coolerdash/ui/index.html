@@ -370,6 +370,15 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .range-limits {
+            display: flex;
+            justify-content: space-between;
+            padding-right: 71px;
+            margin-top: 2px;
+            font-size: 11px;
+            color: rgb(var(--text-color-secondary));
+        }
+
         /* Color Picker */
         .color-group {
             display: flex;
@@ -619,16 +628,27 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Display Mode</label>
-                        <select name="display.mode" id="display_mode" class="form-control" onchange="toggleCircleInterval()">
+                        <span class="form-hint">Select how sensors are arranged on the display.</span>
+                        <select name="display.mode" id="display_mode" class="form-control" onchange="toggleDisplayModeFields()">
                             <option value="dual">Dual (CPU + GPU simultaneously)</option>
+                            <option value="split">Split (CPU + GPU columns)</option>
                             <option value="circle">Circle (Alternating display)</option>
                         </select>
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">Brightness (%)</label>
+                        <span class="form-hint">Default: 80%</span>
+                        <div class="range-group">
+                            <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
+                            <span class="range-value" id="brightness_value">80%</span>
+                        </div>
+                    </div>
+
                     <div class="form-group" id="circle_interval_group" style="display: none;">
                         <label class="form-label">Switch Interval (Seconds)</label>
-                        <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
                         <span class="form-hint">How long each sensor is shown (Default: 8)</span>
+                        <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
                     </div>
                     <div class="form-group" id="circle_extra_info_group" style="display: none;">
                         <label class="form-label">
@@ -639,17 +659,22 @@
                     </div>
                 </div>
 
-                <h3 class="section-title">Sensor Slots</h3>
+                <h3 class="section-title">Sensors</h3>
                 <div class="alert">
                     <strong>Sensor Assignment</strong>
                     Assign sensors to display positions. Use &ldquo;None&rdquo; to disable a slot.
                     Discovered sensors from CoolerControl API appear automatically.
                 </div>
 
-                <div class="grid grid-3">
+                <div class="grid grid-4" id="sensor_grid">
                     <div class="form-group">
-                        <label class="form-label">Slot 1</label>
-                        <span class="form-hint">Default: CPU</span>
+                        <label class="form-label">Refresh Interval (Seconds)</label>
+                        <span class="form-hint">0.2 - 60 seconds (Default: 2.5)</span>
+                        <input type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
+                    </div>
+                    <div class="form-group" id="sensor_slot_1_group">
+                        <label class="form-label" id="sensor_slot_1_label">Slot 1</label>
+                        <span class="form-hint" id="sensor_slot_1_hint">Default: CPU</span>
                         <select name="display.sensor_slot_1" id="sensor_slot_1" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -661,8 +686,8 @@
                     </div>
 
                     <div class="form-group" id="sensor_slot_2_group">
-                        <label class="form-label">Slot 2</label>
-                        <span class="form-hint">Default: GPU (Circle only)</span>
+                        <label class="form-label" id="sensor_slot_2_label">Slot 2</label>
+                        <span class="form-hint" id="sensor_slot_2_hint">Default: GPU (Circle only)</span>
                         <select name="display.sensor_slot_2" id="sensor_slot_2" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -673,9 +698,9 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Slot 3</label>
-                        <span class="form-hint">Default: Liquid (Circle) / GPU (Dual)</span>
+                    <div class="form-group" id="sensor_slot_3_group">
+                        <label class="form-label" id="sensor_slot_3_label">Slot 3</label>
+                        <span class="form-hint" id="sensor_slot_3_hint">Default: Liquid (Circle) / GPU (Dual)</span>
                         <select name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
@@ -689,24 +714,6 @@
                 <div id="sensor_slot_warning" class="alert alert-warning" style="display: none;">
                     <strong>Warning</strong>
                     <span id="sensor_slot_warning_text"></span>
-                </div>
-
-                <h3 class="section-title">Timing &amp; Brightness</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Refresh Interval (Seconds)</label>
-                        <span class="form-hint">0.2 - 60 seconds (Default: 2.5)</span>
-                        <input type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Brightness (%)</label>
-                        <span class="form-hint">Default: 80%</span>
-                        <div class="range-group">
-                            <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
-                            <span class="range-value" id="brightness_value">80%</span>
-                        </div>
-                    </div>
                 </div>
 
                 <h3 class="section-title">Display Geometry</h3>
@@ -723,8 +730,8 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Content Scale</label>
-                        <span class="form-hint">Default: 0.98</span>
+                        <label class="form-label">Safe Area Scale</label>
+                        <span class="form-hint">Base layout safety area. Default: 0.98</span>
                         <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                     </div>
                 </div>
@@ -762,7 +769,20 @@
                     <div class="form-group">
                         <label class="form-label">Image Overlay Opacity</label>
                         <span class="form-hint">0.0 = off, 1.0 = solid overlay using Display Background color</span>
-                        <input type="number" name="display.background_overlay_opacity" class="form-control" min="0" max="1" step="0.05">
+                        <div class="range-group">
+                            <input type="range" name="display.background_overlay_opacity" id="background_overlay" class="range-input" min="0" max="1" step="0.05" oninput="updateRangeValue('background_overlay', this.value, '', 2)">
+                            <span class="range-value" id="background_overlay_value">0.00</span>
+                        </div>
+                        <div class="range-limits"><span>0.0</span><span>1.0</span></div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Background Image Zoom</label>
+                        <span class="form-hint">Scales the fitted image around the display center. Auto keeps the selected fit.</span>
+                        <div class="range-group">
+                            <input type="range" name="display.background_image_scale_factor" id="background_image_scale" class="range-input" min="0" max="2" step="0.05" oninput="updateAutoValue('background_image_scale', this.value, 100, '%')">
+                            <span class="range-value" id="background_image_scale_value">Auto</span>
+                        </div>
+                        <div class="range-limits"><span>Auto</span><span>200%</span></div>
                     </div>
                 </div>
 
@@ -777,15 +797,15 @@
             <!-- Tab 2: Layout -->
             <div class="panel">
 
-                <div class="alert" style="margin-bottom: 12px;">
+                <div class="alert" id="layout_mode_hint" style="margin-bottom: 12px;">
                     <strong>Resolution-aware layout</strong>
                     Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.
                 </div>
 
-                <details class="collapsible-details">
+                <details class="collapsible-details bar-mode-only">
                     <summary>Bar Dimensions</summary>
                     <div class="collapsible-details-content">
-                        <div class="grid grid-3">
+                        <div class="grid grid-2">
                             <div class="form-group">
                                 <label class="form-label">Default Bar Height</label>
                                 <span class="form-hint">Logical base units at 240x240. Default: 24</span>
@@ -805,7 +825,7 @@
                     </div>
                 </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
+                <details class="collapsible-details bar-mode-only" style="margin-top: 12px;">
                     <summary>Individual Bar Heights</summary>
                     <div class="collapsible-details-content">
                         <span class="form-hint" style="margin-bottom: 12px; display: block;">Set to 0 to use default bar height</span>
@@ -829,7 +849,7 @@
                     </div>
                 </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
+                <details class="collapsible-details bar-mode-only" style="margin-top: 12px;">
                     <summary>Border &amp; Margins</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
@@ -875,14 +895,40 @@
                                 <input type="text" name="font.face" class="form-control">
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Temperature Size (Global)</label>
-                                   <span class="form-hint">Default: auto (0 = dynamic, per-sensor override in Sensors tab)</span>
-                                   <input type="number" name="font.size_temp" class="form-control" min="0" max="200" step="1">
+                                <label class="form-label">Temperature Size</label>
+                                <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
+                                <div class="range-group">
+                                    <input type="range" name="font.size_temp" id="font_size_temp" class="range-input" min="0" max="200" step="1" oninput="updateAutoValue('font_size_temp', this.value, 1, ' px')">
+                                    <span class="range-value" id="font_size_temp_value">Auto</span>
+                                </div>
+                                <div class="range-limits"><span>Auto</span><span>200 px</span></div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Size</label>
-                                   <span class="form-hint">Default: auto (0 = dynamic)</span>
-                                   <input type="number" name="font.size_labels" class="form-control" min="0" max="100" step="1">
+                                <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
+                                <div class="range-group">
+                                    <input type="range" name="font.size_labels" id="font_size_labels" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_labels', this.value, 1, ' px')">
+                                    <span class="range-value" id="font_size_labels_value">Auto</span>
+                                </div>
+                                <div class="range-limits"><span>Auto</span><span>100 px</span></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Utilization Size</label>
+                                <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
+                                <div class="range-group">
+                                    <input type="range" name="font.size_duty" id="font_size_duty" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_duty', this.value, 1, ' px')">
+                                    <span class="range-value" id="font_size_duty_value">Auto</span>
+                                </div>
+                                <div class="range-limits"><span>Auto</span><span>100 px</span></div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Power / Extra Info Size</label>
+                                <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
+                                <div class="range-group">
+                                    <input type="range" name="font.size_watts" id="font_size_watts" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_watts', this.value, 1, ' px')">
+                                    <span class="range-value" id="font_size_watts_value">Auto</span>
+                                </div>
+                                <div class="range-limits"><span>Auto</span><span>100 px</span></div>
                             </div>
                         </div>
                     </div>
@@ -941,7 +987,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group bar-mode-only">
                         <label class="form-label">Bar Background</label>
                         <div class="color-group">
                             <input type="color" id="color_bar_background" class="color-swatch" onchange="updateColorRGB('color_bar_background', 'rgb_bar_background')">
@@ -949,7 +995,7 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group bar-mode-only">
                         <label class="form-label">Bar Border</label>
                         <div class="color-group">
                             <input type="color" id="color_bar_border" class="color-swatch" onchange="updateColorRGB('color_bar_border', 'rgb_bar_border')">
@@ -982,7 +1028,7 @@
             <div class="panel">
                 <div class="alert">
                     <strong>Sensor Configuration</strong>
-                    Configure thresholds, bar colors, and position offsets for every sensor.
+                    Configure thresholds, value colors, and position offsets for every sensor.
                     Standard sensors (CPU, GPU, Liquid) are always shown at the top. All sensors discovered from the CC4 API are listed automatically below.
                 </div>
                 <div id="sensor-discovery-status" style="margin-bottom: 16px; display: none;"></div>
@@ -1201,26 +1247,27 @@
                 image_shutdown: "/var/lib/coolercontrol/plugins/coolerdash/shutdown.png"
             },
             display: {
-                mode: "circle",
+                mode: "split",
                 circle_switch_interval: 8,
                 circle_show_extra_info: true,
                 refresh_interval: 3.5,
                 brightness: 80,
                 orientation: 0,
                 background_image_fit: "cover",
+                background_image_scale_factor: 0.0,
                 background_overlay_opacity: 0.0,
                 width: 0,
                 height: 0,
                 content_scale_factor: 0.98,
                 sensor_slot_1: "cpu",
                 sensor_slot_2: "gpu",
-                sensor_slot_3: "liquid"
+                sensor_slot_3: "none"
             },
             layout: {
-                bar_height: 24,
+                bar_height: 20,
                 bar_width: 98,
-                bar_gap: 12,
-                bar_border: 1.0,
+                bar_gap: 10,
+                bar_border: 0.6,
                 bar_opacity: 1.0,
                 bar_border_enabled: 1,
                 label_margin_left: 1,
@@ -1239,7 +1286,9 @@
             font: {
                 face: "Roboto Black",
                 size_temp: 0.0,
-                size_labels: 0.0
+                size_labels: 0.0,
+                size_duty: 0.0,
+                size_watts: 0.0
             },
             sensors: {
                 cpu: {
@@ -1292,7 +1341,7 @@
                 }
             },
             positioning: {
-                degree_spacing: 16,
+                degree_spacing: 12,
                 label_offset_x: 0,
                 label_offset_y: 0,
                 margin_top: 0,
@@ -2086,8 +2135,8 @@
                                 '</div>' +
                             '</div>' +
 
-                            // Bar Colors section
-                            '<div class="sub-section-title">Bar Colors</div>' +
+                            // Threshold colors drive bars and Split temperature text.
+                            '<div class="sub-section-title">Threshold Colors</div>' +
                             '<div class="grid grid-4">' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">&lt; Threshold 1</label>' +
@@ -2420,25 +2469,58 @@
             currentTab = index;
         }
 
-        function toggleCircleInterval() {
+        function toggleDisplayModeFields() {
             var mode = document.getElementById('display_mode').value;
             var isCircle = mode === 'circle';
+            var isSplit = mode === 'split';
+            var sensorGrid = document.getElementById('sensor_grid');
             document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
             document.getElementById('circle_extra_info_group').style.display = isCircle ? 'block' : 'none';
+            sensorGrid.classList.toggle('grid-4', isCircle);
+            sensorGrid.classList.toggle('grid-3', !isCircle);
+            var slot1Group = document.getElementById('sensor_slot_1_group');
             var midSlotGroup = document.getElementById('sensor_slot_2_group');
+            var slot3Group = document.getElementById('sensor_slot_3_group');
             var midBarHeightGroup = document.getElementById('bar_height_2_group');
-            if (midSlotGroup) midSlotGroup.style.display = isCircle ? 'block' : 'none';
+            if (slot1Group) slot1Group.style.display = 'block';
+            if (midSlotGroup) midSlotGroup.style.display = (isCircle || isSplit) ? 'block' : 'none';
+            if (slot3Group) slot3Group.style.display = isSplit ? 'none' : 'block';
             if (midBarHeightGroup) midBarHeightGroup.style.display = isCircle ? 'block' : 'none';
+            var barControls = document.querySelectorAll('.bar-mode-only');
+            for (var b = 0; b < barControls.length; b++) {
+                barControls[b].style.display = isSplit ? 'none' : '';
+            }
+            var layoutHint = document.getElementById('layout_mode_hint');
+            if (layoutHint) {
+                layoutHint.innerHTML = isSplit
+                    ? '<strong>Resolution-aware split layout</strong> The divider and both text columns adapt automatically to the detected LCD shape and size. Temperature values use each sensor\'s threshold colors.'
+                    : '<strong>Resolution-aware layout</strong> Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.';
+            }
+            var slot1Label = document.getElementById('sensor_slot_1_label');
+            var slot2Label = document.getElementById('sensor_slot_2_label');
+            var slot1Hint = document.getElementById('sensor_slot_1_hint');
+            var slot2Hint = document.getElementById('sensor_slot_2_hint');
+            if (slot1Label) slot1Label.textContent = isSplit ? 'Left' : 'Slot 1';
+            if (slot2Label) slot2Label.textContent = isSplit ? 'Right' : 'Slot 2';
+            if (slot1Hint) slot1Hint.textContent = isSplit ? 'Default: CPU' : 'Default: CPU';
+            if (slot2Hint) slot2Hint.textContent = isSplit ? 'Default: GPU' : 'Default: GPU (Circle only)';
             if (mode === 'dual') {
                 var midSlot = document.getElementById('sensor_slot_2');
                 if (midSlot) midSlot.value = 'none';
                 var slot3 = document.getElementById('sensor_slot_3');
                 if (slot3 && (slot3.value === 'liquid' || slot3.value === 'none')) slot3.value = 'gpu';
+            } else if (mode === 'split') {
+                var leftSlot = document.getElementById('sensor_slot_1');
+                if (leftSlot && leftSlot.value === 'none') leftSlot.value = 'cpu';
+                var rightSlot = document.getElementById('sensor_slot_2');
+                if (rightSlot && (rightSlot.value === 'liquid' || rightSlot.value === 'none')) rightSlot.value = 'gpu';
+                var slot3 = document.getElementById('sensor_slot_3');
+                if (slot3) slot3.value = 'none';
             } else if (mode === 'circle') {
                 var midSlot = document.getElementById('sensor_slot_2');
                 if (midSlot && midSlot.value === 'none') midSlot.value = 'gpu';
                 var slot3 = document.getElementById('sensor_slot_3');
-                if (slot3 && slot3.value === 'gpu') slot3.value = 'liquid';
+                if (slot3 && (slot3.value === 'gpu' || slot3.value === 'none')) slot3.value = 'liquid';
             }
             validateSensorSlots();
         }
@@ -2454,9 +2536,9 @@
             var warnings = [];
 
             var activeSlots = [];
-            if (slotUp !== 'none') activeSlots.push({ name: 'Slot 1', value: slotUp });
-            if (mode === 'circle' && slotMid !== 'none') activeSlots.push({ name: 'Slot 2', value: slotMid });
-            if (slotDown !== 'none') activeSlots.push({ name: 'Slot 3', value: slotDown });
+            if (slotUp !== 'none') activeSlots.push({ name: mode === 'split' ? 'Left' : 'Slot 1', value: slotUp });
+            if ((mode === 'circle' || mode === 'split') && slotMid !== 'none') activeSlots.push({ name: mode === 'split' ? 'Right' : 'Slot 2', value: slotMid });
+            if (mode !== 'split' && slotDown !== 'none') activeSlots.push({ name: 'Slot 3', value: slotDown });
 
             if (activeSlots.length === 0) warnings.push('At least one sensor slot must be active.');
 
@@ -2478,8 +2560,18 @@
             return warnings.length === 0;
         }
 
-        function updateRangeValue(id, value) {
-            document.getElementById(id + '_value').textContent = value + '%';
+        function updateRangeValue(id, value, suffix, decimals) {
+            var displayValue = decimals === undefined
+                ? value
+                : Number(value).toFixed(decimals);
+            document.getElementById(id + '_value').textContent = displayValue + (suffix === undefined ? '%' : suffix);
+        }
+
+        function updateAutoValue(id, value, multiplier, suffix) {
+            var numericValue = Number(value);
+            document.getElementById(id + '_value').textContent = numericValue === 0
+                ? 'Auto'
+                : Math.round(numericValue * multiplier) + (suffix || '');
         }
 
         function rgbToHex(rgb) {
@@ -2584,12 +2676,23 @@
             }
 
             var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+            if (merged.display) {
+                delete merged.display.split_scale_factor;
+                delete merged.display.text_scale_factor;
+                delete merged.display.content_zoom_factor;
+            }
 
             return merged;
         }
 
         // ===== POPULATE FORM FROM CONFIG =====
         function populateForm(config) {
+            if (config.display) {
+                delete config.display.split_scale_factor;
+                delete config.display.text_scale_factor;
+                delete config.display.content_zoom_factor;
+            }
+
             // Standard form fields (non-sensor, non-color)
             for (var section in config) {
                 if (!config.hasOwnProperty(section)) continue;
@@ -2612,6 +2715,12 @@
                             } else {
                                 input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
                                 if (field === 'brightness') updateRangeValue('brightness', value);
+                                if (field === 'background_overlay_opacity') updateRangeValue('background_overlay', value, '', 2);
+                                if (field === 'background_image_scale_factor') updateAutoValue('background_image_scale', value, 100, '%');
+                                if (section === 'font' && field === 'size_temp') updateAutoValue('font_size_temp', value, 1, ' px');
+                                if (section === 'font' && field === 'size_labels') updateAutoValue('font_size_labels', value, 1, ' px');
+                                if (section === 'font' && field === 'size_duty') updateAutoValue('font_size_duty', value, 1, ' px');
+                                if (section === 'font' && field === 'size_watts') updateAutoValue('font_size_watts', value, 1, ' px');
                             }
                         }
                     }
@@ -2626,7 +2735,7 @@
 
             // Sensor slot selects: ensure custom values are available as options
             var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'liquid' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none' };
             for (var sf = 0; sf < slotFields.length; sf++) {
                 var slotValue = config.display && config.display[slotFields[sf]];
                 if (slotValue) {
@@ -2667,7 +2776,7 @@
             currentSensorConfig = config.sensors || {};
             renderSensorConfigs(config);
 
-            toggleCircleInterval();
+            toggleDisplayModeFields();
             validateSensorSlots();
         }
 
@@ -2793,7 +2902,7 @@
             }
 
             // Sanitize corrupt numeric slot values (from old parseFloat bug)
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'liquid' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none' };
             for (var slotKey in slotDefaults) {
                 if (merged.display && merged.display[slotKey] !== undefined) {
                     var sv = String(merged.display[slotKey]);

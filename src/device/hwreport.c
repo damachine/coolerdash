@@ -1539,6 +1539,8 @@ static json_t *collect_display_config(const Config *config)
                         json_real(config->display_refresh_interval));
     json_object_set_new(display, "content_scale_factor",
                         json_real(config->display_content_scale_factor));
+    json_object_set_new(display, "background_image_scale_factor",
+                        json_real(config->background_image_scale_factor));
     return display;
 }
 

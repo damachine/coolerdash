@@ -47,7 +47,7 @@ sudo systemctl restart coolercontrold
 
 ```json
 "display": {
-    "mode": "dual",
+    "mode": "split",
     "width": 0,
     "height": 0,
     "refresh_interval": 3.5,
@@ -56,21 +56,21 @@ sudo systemctl restart coolercontrold
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
     "sensor_slot_1": "cpu",
-    "sensor_slot_2": "liquid",
-    "sensor_slot_3": "gpu"
+    "sensor_slot_2": "gpu",
+    "sensor_slot_3": "none"
 }
 ```
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `dual` | `dual` or `circle` |
+| `mode` | `split` | `split`, `dual`, or `circle` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
-| `sensor_slot_1/2/3` | `cpu`/`liquid`/`gpu` | Sensor assignment per slot |
+| `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot |
 
 ---
 
@@ -93,10 +93,10 @@ sudo systemctl restart coolercontrold
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `bar_height` | `24` | Bar height (px) |
+| `bar_height` | `20` | Bar height (px) |
 | `bar_width` | `98` | Bar width (% of display width) |
-| `bar_gap` | `12` | Gap between bars (px) |
-| `bar_border` | `1.0` | Border thickness (px) |
+| `bar_gap` | `10` | Gap between bars (px) |
+| `bar_border` | `0.6` | Border thickness (px) |
 | `bar_border_enabled` | `1` | Border on/off (`1`/`0`) |
 | `label_margin_left` | `1` | Left label margin multiplier |
 | `label_margin_bar` | `1` | Label-to-bar margin multiplier |

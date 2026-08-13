@@ -1,8 +1,8 @@
 # Display Modes
 
-Two modes: **dual** (default) and **circle**.
+Three modes: **split** (default), **dual**, and **circle**.
 
-Mode selection: `config.json` → `"display": { "mode": "dual" }` or CLI `--dual` / `--circle`.
+Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, or `--circle`.
 
 ## Files
 
@@ -10,7 +10,8 @@ Mode selection: `config.json` → `"display": { "mode": "dual" }` or CLI `--dual
 src/mods/
 ├── display.c/h    # Mode dispatcher
 ├── dual.c/h       # Dual mode
-└── circle.c/h     # Circle mode
+├── circle.c/h     # Circle mode
+└── split.c/h      # Split mode
 ```
 
 Dispatcher (`display.c`):
@@ -18,6 +19,8 @@ Dispatcher (`display.c`):
 void draw_display_image(const struct Config *config) {
     if (strcmp(config->display_mode, "circle") == 0)
         draw_circle_image(config);
+    else if (strcmp(config->display_mode, "split") == 0)
+        draw_split_image(config);
     else
         draw_dual_image(config);
 }

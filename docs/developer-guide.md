@@ -16,7 +16,7 @@ main.c
  ├─ Shutdown image register  (srv/cc_main.c, CC4)
  ├─ Main loop
  │   ├─ Temperature reading  (srv/cc_sensor.c)
- │   ├─ Image rendering      (mods/display.c → dual.c | circle.c)
+ │   ├─ Image rendering      (mods/display.c → split.c | dual.c | circle.c)
  │   └─ LCD upload           (srv/cc_main.c)
  ├─ Signal handling          (SIGTERM/SIGINT → graceful stop)
  └─ Cleanup                  (session + image files)
@@ -51,6 +51,7 @@ src/
 | srv/cc_conf | `init_device_cache()`, `get_cached_lcd_device_data()`, `update_config_from_device()`, `is_circular_display_device()` |
 | srv/cc_sensor | `get_temperature_monitor_data()` |
 | mods/display | `draw_display_image()` |
+| mods/split | `draw_split_image()` |
 | mods/dual | `draw_dual_image()` |
 | mods/circle | `draw_circle_image()` |
 

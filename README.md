@@ -20,8 +20,9 @@
 - **Support for additional sensor values (CPU/GPU/Liquid)**
 - **Integrated UI interface for customizing all settings**  
 - **Display modes - for now**
-  - **Dual Mode (default):** Shows CPU and GPU temperatures simultaneously
-  - **Circle Mode (beta):** Alternates between CPU and GPU switch every 5 sec
+  - **Split Mode (default):** Shows CPU and GPU in two compact columns
+  - **Dual Mode:** Shows CPU and GPU temperatures with bars
+  - **Circle Mode (beta):** Alternates between configured sensor slots
 
 > ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
 
@@ -257,7 +258,7 @@ liquidctl --version
 
 - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/master/docs/config-guide.md)** - All configuration options
 - **[Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md)** - Confirmed working hardware
-- **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/master/docs/display-modes.md)** - Dual and Circle mode reference
+- **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/master/docs/display-modes.md)** - Dual, Split, and Circle mode reference
 - **[Developer Guide](https://github.com/damachine/coolerdash/blob/master/docs/developer-guide.md)** - Architecture and API integration
 - **[Display Detection](https://github.com/damachine/coolerdash/blob/master/docs/display-detection.md)** - Display shape detection
 - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/master/docs/coolercontrol-api.md)** - API module documentation

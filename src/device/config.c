@@ -154,7 +154,7 @@ static void set_display_defaults(Config *config)
     if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0;
     if (config->display_mode[0] == '\0')
-        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "circle");
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "split");
     if (config->display_background_image_fit[0] == '\0')
         cc_safe_strcpy(config->display_background_image_fit,
                        sizeof(config->display_background_image_fit), "cover");
@@ -164,6 +164,10 @@ static void set_display_defaults(Config *config)
         config->circle_show_extra_info = 1; // enabled by default
     if (config->display_content_scale_factor == 0.0f)
         config->display_content_scale_factor = 0.98f;
+    if (config->background_image_scale_factor < 0.0f)
+        config->background_image_scale_factor = 0.0f; // use fitted size
+    else if (config->background_image_scale_factor > 2.0f)
+        config->background_image_scale_factor = 2.0f;
     if (config->display_background_overlay_opacity < 0.0f ||
         config->display_background_overlay_opacity > 1.0f)
         config->display_background_overlay_opacity = 0.0f;
@@ -174,7 +178,7 @@ static void set_display_defaults(Config *config)
     if (config->sensor_slot_2[0] == '\0')
         cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
     if (config->sensor_slot_3[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "liquid");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
 }
 
 /**
@@ -189,12 +193,12 @@ static void set_layout_defaults(Config *config)
     if (config->layout_label_margin_bar == CONFIG_LAYOUT_U8_UNSET)
         config->layout_label_margin_bar = 1;
     if (config->layout_bar_height == CONFIG_LAYOUT_U16_UNSET)
-        config->layout_bar_height = 24;
+        config->layout_bar_height = 20;
     if (config->layout_bar_gap == CONFIG_LAYOUT_U16_UNSET)
-        config->layout_bar_gap = 12.0f;
-    // bar_border: -1 = use default (1.0), 0 = explicitly disabled, >0 = custom value
+        config->layout_bar_gap = 10.0f;
+    // bar_border: -1 = use default (0.6), 0 = explicitly disabled, >0 = custom value
     if (config->layout_bar_border < 0.0f)
-        config->layout_bar_border = 1.0f;
+        config->layout_bar_border = 0.6f;
     if (config->layout_bar_opacity < 0.0f || config->layout_bar_opacity > 1.0f)
         config->layout_bar_opacity = 1.0f;
     // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
@@ -219,7 +223,7 @@ static void set_display_positioning_defaults(Config *config)
     // Note: All offset values default to 0, which means automatic positioning
 
     if (config->display_degree_spacing < 0)
-        config->display_degree_spacing = 16;
+        config->display_degree_spacing = 12;
 }
 
 /**
@@ -238,8 +242,13 @@ static void set_font_defaults(Config *config)
         log_message(LOG_INFO,
                     "Font size (labels): automatic renderer sizing enabled");
 
-    if (config->font_growth_factor < 1.0f)
-        config->font_growth_factor = 1.33f;
+    if (config->font_size_duty == 0.0f)
+        log_message(LOG_INFO,
+                    "Font size (duty): automatic renderer sizing enabled");
+
+    if (config->font_size_watts == 0.0f)
+        log_message(LOG_INFO,
+                    "Font size (watts): automatic renderer sizing enabled");
 
     set_display_positioning_defaults(config);
 }
@@ -532,8 +541,8 @@ static void validate_sensor_slots(Config *config)
     }
     if (!is_valid_sensor_slot(config->sensor_slot_3))
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_3 value, using 'liquid'");
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "liquid");
+        log_message(LOG_WARNING, "Invalid sensor_slot_3 value, using 'none'");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
     }
 
     // Check for duplicates (only among active slots, "none" can appear multiple times)
@@ -576,8 +585,8 @@ static void validate_sensor_slots(Config *config)
     {
         cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
         cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "liquid");
-        log_message(LOG_STATUS, "Sensor slots reset to defaults: 1=cpu, 2=liquid, 3=gpu");
+        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
+        log_message(LOG_STATUS, "Sensor slots reset to defaults: 1=cpu, 2=gpu, 3=none");
     }
 }
 
@@ -1041,6 +1050,16 @@ static void load_display_from_json(json_t *root, Config *config)
         }
     }
 
+    json_t *background_scale =
+        json_object_get(display, "background_image_scale_factor");
+    if (background_scale && json_is_number(background_scale))
+    {
+        double val = json_number_value(background_scale);
+        if (val >= 0.0)
+            config->background_image_scale_factor =
+                (float)(val > 2.0 ? 2.0 : val);
+    }
+
     json_t *background_overlay =
         json_object_get(display, "background_overlay_opacity");
     if (background_overlay && json_is_number(background_overlay))
@@ -1275,7 +1294,7 @@ static void load_font_from_json(json_t *root, Config *config)
     if (size_temp && json_is_number(size_temp))
     {
         double val = json_number_value(size_temp);
-        if (val >= 10.0 && val <= 500.0)
+        if (val >= 0.0 && val <= 500.0)
             config->font_size_temp = (float)val;
     }
 
@@ -1283,16 +1302,24 @@ static void load_font_from_json(json_t *root, Config *config)
     if (size_labels && json_is_number(size_labels))
     {
         double val = json_number_value(size_labels);
-        if (val >= 5.0 && val <= 100.0)
+        if (val >= 0.0 && val <= 100.0)
             config->font_size_labels = (float)val;
     }
 
-    json_t *growth = json_object_get(font, "font_growth_factor");
-    if (growth && json_is_number(growth))
+    json_t *size_duty = json_object_get(font, "size_duty");
+    if (size_duty && json_is_number(size_duty))
     {
-        double val = json_number_value(growth);
-        if (val >= 1.0)
-            config->font_growth_factor = (float)val;
+        double val = json_number_value(size_duty);
+        if (val >= 0.0 && val <= 100.0)
+            config->font_size_duty = (float)val;
+    }
+
+    json_t *size_watts = json_object_get(font, "size_watts");
+    if (size_watts && json_is_number(size_watts))
+    {
+        double val = json_number_value(size_watts);
+        if (val >= 0.0 && val <= 100.0)
+            config->font_size_watts = (float)val;
     }
 }
 

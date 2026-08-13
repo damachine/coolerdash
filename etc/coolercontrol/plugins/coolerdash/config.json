@@ -19,28 +19,29 @@
   },
 
   "display": {
-    "mode": "circle",
+    "mode": "split",
     "circle_switch_interval": 8,
     "circle_show_extra_info": true,
     "refresh_interval": 3.5,
     "brightness": 80,
     "orientation": 0,
     "background_image_fit": "cover",
-    "background_overlay_opacity": 0.0,
+    "background_image_scale_factor": 0,
+    "background_overlay_opacity": 0,
     "width": 0,
     "height": 0,
     "content_scale_factor": 0.98,
     "sensor_slot_1": "cpu",
     "sensor_slot_2": "gpu",
-    "sensor_slot_3": "liquid"
+    "sensor_slot_3": "none"
   },
 
   "layout": {
-    "bar_height": 24,
+    "bar_height": 20,
     "bar_width": 98,
-    "bar_gap": 12,
-    "bar_border": 1.0,
-    "bar_opacity": 1.0,
+    "bar_gap": 10,
+    "bar_border": 0.6,
+    "bar_opacity": 1,
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,
@@ -50,6 +51,7 @@
   },
 
   "colors": {
+    "display_background": { "r": 0, "g": 0, "b": 0 },
     "bar_background": { "r": 52, "g": 52, "b": 52 },
     "bar_border": { "r": 192, "g": 192, "b": 192 },
     "font_temp": { "r": 255, "g": 255, "b": 255 },
@@ -58,52 +60,65 @@
 
   "font": {
     "face": "Roboto Black",
-    "size_temp": 0.0,
-    "size_labels": 0.0,
-    "font_growth_factor": 1.33
+    "size_temp": 0,
+    "size_labels": 0,
+    "size_duty": 0,
+    "size_watts": 0
   },
 
   "sensors": {
     "cpu": {
-      "threshold_1": 55.0,
-      "threshold_2": 65.0,
-      "threshold_3": 75.0,
-      "max_scale": 115.0,
+      "threshold_1": 55,
+      "threshold_2": 65,
+      "threshold_3": 75,
+      "max_scale": 115,
       "threshold_1_color": { "r": 0, "g": 255, "b": 0 },
       "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
       "threshold_3_color": { "r": 255, "g": 70, "b": 0 },
       "threshold_4_color": { "r": 255, "g": 0, "b": 0 },
+      "font_size_temp": 0,
+      "label": "",
+      "label_to_bar_gap": 0,
+      "value_to_bar_gap": 0,
       "offset_x": 0,
       "offset_y": 0
     },
     "gpu": {
-      "threshold_1": 55.0,
-      "threshold_2": 65.0,
-      "threshold_3": 75.0,
-      "max_scale": 115.0,
+      "threshold_1": 55,
+      "threshold_2": 65,
+      "threshold_3": 75,
+      "max_scale": 115,
       "threshold_1_color": { "r": 0, "g": 255, "b": 0 },
       "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
       "threshold_3_color": { "r": 255, "g": 70, "b": 0 },
       "threshold_4_color": { "r": 255, "g": 0, "b": 0 },
+      "font_size_temp": 0,
+      "label": "",
+      "label_to_bar_gap": 0,
+      "value_to_bar_gap": 0,
       "offset_x": 0,
       "offset_y": 0
     },
     "liquid": {
-      "threshold_1": 30.0,
-      "threshold_2": 35.0,
-      "threshold_3": 40.0,
-      "max_scale": 60.0,
+      "threshold_1": 30,
+      "threshold_2": 35,
+      "threshold_3": 40,
+      "max_scale": 60,
       "threshold_1_color": { "r": 0, "g": 255, "b": 0 },
       "threshold_2_color": { "r": 255, "g": 140, "b": 0 },
       "threshold_3_color": { "r": 255, "g": 70, "b": 0 },
       "threshold_4_color": { "r": 255, "g": 0, "b": 0 },
+      "font_size_temp": 0,
+      "label": "",
+      "label_to_bar_gap": 0,
+      "value_to_bar_gap": 0,
       "offset_x": 0,
       "offset_y": 0
     }
   },
 
   "positioning": {
-    "degree_spacing": 16,
+    "degree_spacing": 12,
     "label_offset_x": 0,
     "label_offset_y": 0,
     "margin_top": 0,

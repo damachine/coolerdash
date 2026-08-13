@@ -102,6 +102,7 @@ typedef struct Config
     uint16_t circle_switch_interval;
     int circle_show_extra_info;
     float display_content_scale_factor;
+    float background_image_scale_factor; /**< 0 = fitted size, 0.05..2 = centered zoom */
     float display_background_overlay_opacity;
 
     // Sensor slot configuration (flexible sensor assignment)
@@ -127,9 +128,10 @@ typedef struct Config
 
     // Font configuration
     char font_face[CONFIG_MAX_FONT_NAME_LEN];
-    float font_size_temp;
-    float font_size_labels;
-    float font_growth_factor;
+    float font_size_temp;   /**< Primary value size; 0 = automatic */
+    float font_size_labels; /**< Sensor label size; 0 = automatic */
+    float font_size_duty;   /**< Utilization value size; 0 = automatic */
+    float font_size_watts;  /**< Power and extra info size; 0 = automatic */
     Color font_color_temp;
     Color font_color_label;
 
