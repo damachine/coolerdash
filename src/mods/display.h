@@ -8,7 +8,7 @@
 
 /**
  * @brief Display mode dispatcher and shared rendering utilities.
- * @details Routes to dual or circle rendering module, provides common Cairo
+ * @details Routes to dual, circle, or split rendering modules, provides common Cairo
  * helpers and sensor slot functions shared by all display modes.
  */
 
@@ -69,6 +69,19 @@ typedef struct
     const char *profile_name;   /**< Static profile name or legacy fallback */
 } ScalingParams;
 
+/** @brief Shared visible content geometry used by every display mode. */
+typedef struct
+{
+    double left;
+    double top;
+    double right;
+    double bottom;
+    double width;
+    double height;
+    double center_x;
+    double center_y;
+} LayoutContext;
+
 /**
  * @brief Measured layout for a rendered sensor value block.
  */
@@ -86,8 +99,8 @@ typedef struct
 /**
  * @brief Main display dispatcher - routes to appropriate rendering mode.
  * @details High-level entry point that examines configuration and dispatches to
- * either dual mode (CPU+GPU simultaneously) or circle mode (alternating
- * display). This is the primary interface called by the main daemon loop.
+ * dual mode, circle mode, or split mode. This is the primary interface called
+ * by the main daemon loop.
  * @param config Configuration containing display mode and rendering parameters
  */
 void draw_display_image(const struct Config *config);
@@ -108,6 +121,11 @@ void reset_display_state(void);
  */
 void calculate_scaling_params(const struct Config *config,
                               ScalingParams *params, const char *device_name);
+
+/** @brief Resolve the visible, margin-adjusted content area. */
+int calculate_layout_context(const struct Config *config,
+                             const ScalingParams *params,
+                             LayoutContext *layout);
 
 /**
  * @brief Create cairo surface and context for display rendering.
@@ -133,6 +151,11 @@ void set_cairo_color(cairo_t *cr, const Color *color);
  * @brief Set cairo source color from Color structure with alpha.
  */
 void set_cairo_color_alpha(cairo_t *cr, const Color *color, double alpha);
+
+/** @brief Proportionally fit text into a box by changing only its font size. */
+double fit_text_font_size(cairo_t *cr, const char *text,
+                          double preferred_size, double max_width,
+                          double max_height, double minimum_size);
 
 /**
  * @brief Scale a design-space X value based on detected display width.

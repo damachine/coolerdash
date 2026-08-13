@@ -69,6 +69,44 @@ void set_cairo_color_alpha(cairo_t *cr, const Color *color, double alpha)
                           cairo_color_convert(color->b), alpha);
 }
 
+double fit_text_font_size(cairo_t *cr, const char *text,
+                          double preferred_size, double max_width,
+                          double max_height, double minimum_size)
+{
+    if (!cr || !text || max_width <= 0.0 || max_height <= 0.0)
+        return fmax(1.0, minimum_size);
+
+    double size = fmax(1.0, preferred_size);
+    const double floor_size = fmax(1.0, minimum_size);
+
+    while (size > floor_size)
+    {
+        cairo_text_extents_t text_ext = {0};
+        cairo_set_font_size(cr, size);
+        cairo_text_extents(cr, text, &text_ext);
+
+        if (fmax(text_ext.x_advance, text_ext.width) <= max_width &&
+            text_ext.height <= max_height)
+            return size;
+
+        size *= 0.92;
+    }
+
+    /* The lower bound is soft: geometry must remain valid on tiny displays. */
+    size = floor_size;
+    while (size > 1.0)
+    {
+        cairo_text_extents_t text_ext = {0};
+        cairo_set_font_size(cr, size);
+        cairo_text_extents(cr, text, &text_ext);
+        if (fmax(text_ext.x_advance, text_ext.width) <= max_width &&
+            text_ext.height <= max_height)
+            break;
+        size *= 0.92;
+    }
+    return fmax(1.0, size);
+}
+
 /**
  * @brief Scale a design-space X value based on display width.
  */
@@ -140,7 +178,8 @@ double get_preferred_label_font_size(const struct Config *config,
     if (config->font_size_labels > 0.0f)
         return scale_value_avg(params, (double)config->font_size_labels);
 
-    return scale_value_avg(params, 28.0);
+    /* Auto starts deliberately large; each mode fits it to its own region. */
+    return scale_value_avg(params, 400.0);
 }
 
 /**
@@ -193,7 +232,7 @@ double get_effective_label_spacing(const struct Config *config,
         return 0.0;
 
     const double spacing_factor =
-        config->layout_label_margin_bar / 100.0;
+        fmax(0.01, config->layout_label_margin_bar / 100.0);
     const double min_dimension =
         (config->display_width < config->display_height)
             ? (double)config->display_width
@@ -263,14 +302,10 @@ void layout_and_render_slot_value(cairo_t *cr,
                                                 0.0, box_width * 0.015);
     const double inner_padding_y = clamp_double(scale_value_avg(params, 0.25),
                                                 0.0, box_height * 0.02);
-    const double growth_factor =
-        (config->font_growth_factor >= 1.0f)
-            ? (double)config->font_growth_factor
-            : 1.0;
     const double available_width =
-        fmax(16.0, (box_width - inner_padding_x - right_margin) * growth_factor);
+        fmax(1.0, box_width - inner_padding_x - right_margin);
     const double available_height =
-        fmax(12.0, (box_height - inner_padding_y) * growth_factor);
+        fmax(1.0, box_height - inner_padding_y);
     const double configured_font_size = get_slot_font_size(config, slot_value);
     const double configured_scaled_font_size =
         (configured_font_size > 0.0)
@@ -282,14 +317,8 @@ void layout_and_render_slot_value(cairo_t *cr,
         (configured_scaled_font_size > 0.0)
             ? configured_scaled_font_size
             : auto_font_size;
-    const double min_font_size =
-        (configured_scaled_font_size > 0.0)
-            ? fmax(8.0, scale_value_avg(params, 8.0))
-            : fmax(12.0, scale_value_avg(params, 14.0));
-
     cairo_text_extents_t number_ext = {0};
     cairo_text_extents_t degree_ext = {0};
-    cairo_font_extents_t font_ext = {0};
     double font_size = preferred_font_size;
     double degree_font_size = font_size / 2.05;
     double total_width = 0.0;
@@ -299,7 +328,6 @@ void layout_and_render_slot_value(cairo_t *cr,
     while (1)
     {
         cairo_set_font_size(cr, font_size);
-        cairo_font_extents(cr, &font_ext);
         cairo_text_extents(cr, value_text, &number_ext);
         number_width = fmax(number_ext.x_advance, number_ext.width);
 
@@ -317,17 +345,19 @@ void layout_and_render_slot_value(cairo_t *cr,
                            ? (degree_spacing +
                               fmax(degree_ext.x_advance, degree_ext.width))
                            : 0.0);
-        content_height = fmax(number_ext.height,
-                              font_ext.ascent + font_ext.descent);
+        content_height = number_ext.height;
+        if (is_temp)
+            content_height = fmax(content_height,
+                                  number_ext.height * 0.08 + degree_ext.height);
 
         if ((total_width <= available_width &&
              content_height <= available_height) ||
-            font_size <= min_font_size)
+            font_size <= 1.0)
             break;
 
         font_size *= 0.93;
-        if (font_size < min_font_size)
-            font_size = min_font_size;
+        if (font_size < 1.0)
+            font_size = 1.0;
     }
 
     if (configured_scaled_font_size <= 0.0)
@@ -341,14 +371,12 @@ void layout_and_render_slot_value(cairo_t *cr,
                 const double candidate_font_size = font_size + growth_step;
                 cairo_text_extents_t candidate_number_ext = {0};
                 cairo_text_extents_t candidate_degree_ext = {0};
-                cairo_font_extents_t candidate_font_ext = {0};
                 double candidate_number_width = 0.0;
                 double candidate_total_width = 0.0;
                 double candidate_content_height = 0.0;
                 double candidate_degree_font_size = candidate_font_size / 2.05;
 
                 cairo_set_font_size(cr, candidate_font_size);
-                cairo_font_extents(cr, &candidate_font_ext);
                 cairo_text_extents(cr, value_text, &candidate_number_ext);
                 candidate_number_width =
                     fmax(candidate_number_ext.x_advance,
@@ -367,10 +395,12 @@ void layout_and_render_slot_value(cairo_t *cr,
                                                 fmax(candidate_degree_ext.x_advance,
                                                      candidate_degree_ext.width))
                                              : 0.0);
-                candidate_content_height =
-                    fmax(candidate_number_ext.height,
-                         candidate_font_ext.ascent +
-                             candidate_font_ext.descent);
+                candidate_content_height = candidate_number_ext.height;
+                if (is_temp)
+                    candidate_content_height =
+                        fmax(candidate_content_height,
+                             candidate_number_ext.height * 0.08 +
+                                 candidate_degree_ext.height);
 
                 if (candidate_total_width > available_width ||
                     candidate_content_height > available_height)
@@ -380,7 +410,6 @@ void layout_and_render_slot_value(cairo_t *cr,
                 degree_font_size = candidate_degree_font_size;
                 number_ext = candidate_number_ext;
                 degree_ext = candidate_degree_ext;
-                font_ext = candidate_font_ext;
                 number_width = candidate_number_width;
                 total_width = candidate_total_width;
                 content_height = candidate_content_height;
@@ -390,35 +419,67 @@ void layout_and_render_slot_value(cairo_t *cr,
         }
     }
 
+    degree_font_size = font_size / 2.05;
+    cairo_set_font_size(cr, font_size);
+    cairo_text_extents(cr, value_text, &number_ext);
+    number_width = fmax(number_ext.x_advance, number_ext.width);
+    degree_ext = (cairo_text_extents_t){0};
+    if (is_temp)
+    {
+        cairo_set_font_size(cr, degree_font_size);
+        cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
+        cairo_set_font_size(cr, font_size);
+    }
+    total_width = number_width +
+                  (is_temp
+                       ? degree_spacing +
+                             fmax(degree_ext.x_advance, degree_ext.width)
+                       : 0.0);
+    content_height = number_ext.height;
+    if (is_temp)
+        content_height = fmax(content_height,
+                              number_ext.height * 0.08 + degree_ext.height);
+
     const double requested_right =
         box_x + box_width - right_margin + offset_x;
+    const double minimum_left = box_x + inner_padding_x;
+    const double maximum_left =
+        fmax(minimum_left,
+             box_x + box_width - right_margin - total_width);
     const double block_left =
-        fmax(box_x + inner_padding_x + offset_x, requested_right - total_width);
-    const double number_x = block_left - number_ext.x_bearing;
+        clamp_double(requested_right - total_width,
+                     minimum_left, maximum_left);
 
-    double baseline_y;
+    double block_top;
     if (align_bottom)
     {
         const double ink_bottom =
             box_y + box_height - inner_padding_y + offset_y;
-        baseline_y = ink_bottom - (number_ext.y_bearing + number_ext.height);
+        block_top = ink_bottom - content_height;
     }
     else
     {
-        const double ink_top = box_y + inner_padding_y + offset_y;
-        baseline_y = ink_top - number_ext.y_bearing;
+        block_top = box_y + inner_padding_y + offset_y;
     }
+
+    const double minimum_top = box_y + inner_padding_y;
+    const double maximum_top =
+        fmax(minimum_top,
+             box_y + box_height - inner_padding_y - content_height);
+    block_top = clamp_double(block_top, minimum_top, maximum_top);
+
+    const double local_baseline = -number_ext.y_bearing;
+    const double baseline_y = block_top + local_baseline;
 
     if (draw_output)
     {
         cairo_set_font_size(cr, font_size);
-        cairo_move_to(cr, number_x, baseline_y);
+        cairo_move_to(cr, block_left - number_ext.x_bearing, baseline_y);
         cairo_show_text(cr, value_text);
 
         if (is_temp)
         {
-            const double number_top = baseline_y + number_ext.y_bearing;
-            const double degree_top = number_top + (number_ext.height * 0.08);
+            const double degree_top = block_top + number_ext.height * 0.08;
             const double degree_x =
                 block_left + number_width + degree_spacing - degree_ext.x_bearing;
             const double degree_y = degree_top - degree_ext.y_bearing;
@@ -433,8 +494,8 @@ void layout_and_render_slot_value(cairo_t *cr,
     layout->active = 1;
     layout->block_left = block_left;
     layout->block_right = block_left + total_width;
-    layout->block_top = baseline_y + number_ext.y_bearing;
-    layout->block_bottom = layout->block_top + number_ext.height;
+    layout->block_top = block_top;
+    layout->block_bottom = block_top + content_height;
     layout->baseline_y = baseline_y;
     layout->font_size = font_size;
 }
@@ -458,9 +519,10 @@ void calculate_text_lane_bounds(const struct Config *config,
     if (!config || !params || !params->is_circular || box_height <= 0.0)
         return;
 
-    const double anchor_ratio = align_bottom ? 0.82 : 0.18;
-    const double sample_y = box_y + (box_height * anchor_ratio);
-    calculate_safe_region_bounds(params, sample_y, 0.0, 1.0,
+    const double band_ratio = 0.36;
+    const double band_height = box_height * band_ratio;
+    const double band_y = align_bottom ? box_y + box_height - band_height : box_y;
+    calculate_safe_region_bounds(params, band_y, band_height, 1.0,
                                  fallback_x, fallback_width,
                                  safe_x, safe_width);
 }
@@ -579,7 +641,17 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
                     offset_y = ((double)config->display_height - image_height * scale) / 2.0;
                 }
 
+                const double image_zoom =
+                    config->background_image_scale_factor > 0.0f
+                        ? config->background_image_scale_factor
+                        : 1.0;
+                const double center_x = config->display_width / 2.0;
+                const double center_y = config->display_height / 2.0;
+
                 cairo_save(cr);
+                cairo_translate(cr, center_x, center_y);
+                cairo_scale(cr, image_zoom, image_zoom);
+                cairo_translate(cr, -center_x, -center_y);
                 cairo_translate(cr, offset_x, offset_y);
                 cairo_scale(cr, scale_x, scale_y);
                 cairo_set_source_surface(cr, background, 0.0, 0.0);
@@ -729,7 +801,6 @@ void calculate_scaling_params(const struct Config *config,
     params->circle_radius = params->is_circular
                                 ? min_dimension * 0.5 * diameter_ratio * content_scale
                                 : 0.0;
-
     const double safe_area_width = params->is_circular
                                        ? params->circle_radius * 2.0
                                        : (double)config->display_width * content_scale;
@@ -772,6 +843,42 @@ void calculate_scaling_params(const struct Config *config,
         params->safe_bar_width, bar_width_factor * 100.0,
         params->safe_content_margin,
         params->margin_top, params->margin_bottom);
+}
+
+int calculate_layout_context(const struct Config *config,
+                             const ScalingParams *params,
+                             LayoutContext *layout)
+{
+    if (!config || !params || !layout || config->display_width == 0 ||
+        config->display_height == 0)
+        return 0;
+
+    memset(layout, 0, sizeof(*layout));
+    if (params->is_circular && params->circle_radius > 0.0)
+    {
+        layout->left = fmax(0.0, params->circle_center_x - params->circle_radius);
+        layout->right = fmin((double)config->display_width,
+                             params->circle_center_x + params->circle_radius);
+        layout->top = fmax(params->margin_top,
+                           params->circle_center_y - params->circle_radius);
+        layout->bottom = fmin((double)config->display_height - params->margin_bottom,
+                              params->circle_center_y + params->circle_radius);
+        layout->center_x = params->circle_center_x;
+        layout->center_y = params->circle_center_y;
+    }
+    else
+    {
+        layout->left = params->safe_content_margin;
+        layout->right = config->display_width - params->safe_content_margin;
+        layout->top = params->margin_top;
+        layout->bottom = config->display_height - params->margin_bottom;
+        layout->center_x = config->display_width / 2.0;
+        layout->center_y = config->display_height / 2.0;
+    }
+
+    layout->width = layout->right - layout->left;
+    layout->height = layout->bottom - layout->top;
+    return layout->width > 0.0 && layout->height > 0.0;
 }
 
 /**
@@ -912,7 +1019,7 @@ float get_slot_max_scale(const struct Config *config, const char *slot_value)
 uint16_t get_slot_bar_height(const struct Config *config, const char *slot_name)
 {
     if (!config || !slot_name)
-        return 24;
+        return 20;
 
     if (strcmp(slot_name, "1") == 0)
     {
