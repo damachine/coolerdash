@@ -256,6 +256,91 @@ static int get_extra_info_line2(const monitor_sensor_data_t *data,
     return 0;
 }
 
+typedef struct
+{
+    int active;
+    char number[16];
+    double font_size;
+    double percent_font_size;
+    double number_width;
+    double percent_width;
+    double spacing;
+    double total_width;
+    cairo_text_extents_t number_ext;
+    cairo_text_extents_t percent_ext;
+} DutyLayout;
+
+static void calculate_duty_layout(cairo_t *cr, const struct Config *config,
+                                  const ScalingParams *params,
+                                  const monitor_sensor_data_t *data,
+                                  const char *slot_value, double max_width,
+                                  double max_height,
+                                  double preferred_font_size,
+                                  DutyLayout *layout)
+{
+    if (!cr || !config || !params || !data || !slot_value || !layout)
+        return;
+
+    memset(layout, 0, sizeof(*layout));
+    if (strcmp(slot_value, "cpu") != 0 && strcmp(slot_value, "gpu") != 0)
+        return;
+
+    const sensor_entry_t *duty = find_channel_sensor_for_slot(
+        data, slot_value, SENSOR_CATEGORY_DUTY);
+    if (!duty)
+        return;
+
+    snprintf(layout->number, sizeof(layout->number), "%.0f", duty->value);
+    const double configured_temp = get_slot_font_size(config, slot_value);
+    const double preferred_temp =
+        configured_temp > 0.0f
+            ? scale_value_avg(params, configured_temp)
+            : fmax(scale_value_avg(params, 220.0), max_height * 7.4);
+    layout->font_size = preferred_font_size > 0.0
+                            ? preferred_font_size
+                            : (config->font_size_duty > 0.0f
+                                   ? scale_value_avg(params,
+                                                     config->font_size_duty)
+                                   : preferred_temp * 0.5);
+    layout->spacing = fmax(1.0, scale_value_avg(params, 1.0));
+
+    while (layout->font_size > 1.0)
+    {
+        layout->percent_font_size = layout->font_size / 2.05;
+        cairo_set_font_size(cr, layout->font_size);
+        cairo_text_extents(cr, layout->number, &layout->number_ext);
+        cairo_set_font_size(cr, layout->percent_font_size);
+        cairo_text_extents(cr, "%", &layout->percent_ext);
+
+        layout->number_width =
+            fmax(layout->number_ext.x_advance, layout->number_ext.width);
+        layout->percent_width =
+            fmax(layout->percent_ext.x_advance, layout->percent_ext.width);
+        layout->total_width = layout->number_width + layout->spacing +
+                              layout->percent_width;
+        const double height =
+            fmax(layout->number_ext.height,
+                 layout->number_ext.height * 0.08 + layout->percent_ext.height);
+        if (layout->total_width <= max_width && height <= max_height)
+            break;
+        layout->font_size *= 0.92;
+    }
+
+    layout->font_size = fmax(1.0, layout->font_size);
+    layout->percent_font_size = layout->font_size / 2.05;
+    cairo_set_font_size(cr, layout->font_size);
+    cairo_text_extents(cr, layout->number, &layout->number_ext);
+    cairo_set_font_size(cr, layout->percent_font_size);
+    cairo_text_extents(cr, "%", &layout->percent_ext);
+    layout->number_width =
+        fmax(layout->number_ext.x_advance, layout->number_ext.width);
+    layout->percent_width =
+        fmax(layout->percent_ext.x_advance, layout->percent_ext.width);
+    layout->total_width = layout->number_width + layout->spacing +
+                          layout->percent_width;
+    layout->active = layout->total_width > 0.0;
+}
+
 /**
  * @brief Check if text at position starts with a known unit suffix.
  * @details Recognises MHz, GHz, RPM (3-char) and W (1-char, only when
@@ -455,6 +540,10 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     if (!cr || !config || !params || !data || !slot_value)
         return;
 
+    LayoutContext geometry = {0};
+    if (!calculate_layout_context(config, params, &geometry))
+        return;
+
     // Skip if slot is not active
     if (!slot_is_active(slot_value))
         return;
@@ -470,86 +559,50 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     int bar_x = (int)lround(params->safe_content_margin);
 
     const double region_gap = get_effective_label_spacing(config, params);
-    const double label_padding = fmax(2.0, scale_value_avg(params, 4.0));
-
-    double label_band_height = 0.0;
+    const double circle_minimum_gap =
+        fmin((double)config->display_width,
+             (double)config->display_height) * 0.04;
+    const double circle_bar_gap = fmax(region_gap, circle_minimum_gap);
     double label_font_size = get_preferred_label_font_size(config, params);
-    cairo_font_extents_t label_font_ext = {0};
     cairo_text_extents_t label_text_ext = {0};
+    double label_ink_bottom = 0.0;
 
-    if (label_text)
-    {
-        const double left_margin_factor =
-            (config->layout_label_margin_left > 0)
-                ? (config->layout_label_margin_left / 100.0)
-                : 0.01;
-        const double label_left_padding = effective_bar_width * left_margin_factor;
-        const double available_label_width =
-            fmax(24.0, effective_bar_width - label_left_padding);
-        const double min_label_font_size =
-            (config->font_size_labels > 0.0f)
-                ? fmax(12.0, scale_value_avg(params,
-                                             (double)config->font_size_labels) *
-                                 0.70)
-                : fmax(12.0, scale_value_avg(params, 12.0));
-
-        cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
-                               CAIRO_FONT_WEIGHT_NORMAL);
-        while (1)
-        {
-            cairo_set_font_size(cr, label_font_size);
-            cairo_font_extents(cr, &label_font_ext);
-            cairo_text_extents(cr, label_text, &label_text_ext);
-            if (fmax(label_text_ext.x_advance, label_text_ext.width) <=
-                    available_label_width ||
-                label_font_size <= min_label_font_size)
-                break;
-
-            label_font_size *= 0.94;
-            if (label_font_size < min_label_font_size)
-                label_font_size = min_label_font_size;
-        }
-
-        label_band_height = label_font_ext.ascent + label_font_ext.descent +
-                            (2.0 * label_padding);
-    }
-
-    const double grouped_height =
-        bar_height + (label_text ? (region_gap + label_band_height) : 0.0);
-    const double available_height =
-        config->display_height - params->margin_top - params->margin_bottom;
+    const double available_height = geometry.height;
     const int bar_y =
-        (int)lround(fmax(0.0, params->margin_top +
-                                  (available_height - grouped_height) / 2.0));
+        (int)lround(geometry.center_y - bar_height / 2.0);
     calculate_bar_bounds(config, params, bar_y, bar_height,
                          &bar_x, &effective_bar_width);
-    const double value_bar_gap = region_gap * 0.05;
+    const double value_bar_gap = circle_bar_gap;
 
-    const double value_box_y = params->margin_top;
+    const double value_box_y = geometry.top;
     const SensorConfig *sc_gap = get_sensor_config(config, slot_value);
     const double gap_above = (sc_gap && sc_gap->value_to_bar_gap > 0.0f)
-                                 ? available_height * (sc_gap->value_to_bar_gap / 100.0)
+                                 ? fmax(value_bar_gap,
+                                        available_height *
+                                            (sc_gap->value_to_bar_gap / 100.0))
                                  : value_bar_gap;
     const double gap_below = (sc_gap && sc_gap->label_to_bar_gap > 0.0f)
-                                 ? available_height * (sc_gap->label_to_bar_gap / 100.0)
-                                 : region_gap;
-    const double value_box_height = fmax(0.0, bar_y - gap_above - params->margin_top);
+                                 ? fmax(circle_bar_gap,
+                                        available_height *
+                                            (sc_gap->label_to_bar_gap / 100.0))
+                                 : circle_bar_gap;
+    const double value_box_height = fmax(0.0, bar_y - gap_above - geometry.top);
     const double label_box_y = bar_y + bar_height + gap_below;
     const double label_box_height =
-        fmax(0.0, config->display_height - params->margin_bottom - label_box_y);
+        fmax(0.0, geometry.bottom - label_box_y);
 
     if (verbose_logging)
     {
         log_message(
             LOG_INFO,
             "Circle layout: slot=%s logical(height=%u gap=%u) "
-            "scaled(height=%d gap=%.1f) bar_y=%d grouped_height=%.1f "
+            "scaled(height=%d gap=%.1f) bar_y=%d center_y=%.1f "
             "value_gap=%.1f value_box=%.1fx%.1f label_box_y=%.1f "
             "label_box_h=%.1f safe_width=%d",
             get_slot_name_by_index(current_slot_index),
             get_slot_bar_height(config, get_slot_name_by_index(current_slot_index)),
             config->layout_bar_gap, bar_height, region_gap, bar_y,
-            grouped_height, value_bar_gap, value_box_y, value_box_height, label_box_y,
+            geometry.center_y, value_bar_gap, value_box_y, value_box_height, label_box_y,
             label_box_height, effective_bar_width);
     }
 
@@ -600,124 +653,91 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         double safe_x = bar_x;
         double safe_width = effective_bar_width;
         calculate_text_lane_bounds(config, params, value_box_y,
-                                   value_box_height, 0, bar_x,
+                                   value_box_height, 1, bar_x,
                                    effective_bar_width, &safe_x,
                                    &safe_width);
+        const double left_margin_factor =
+            (config->layout_label_margin_left > 0)
+                ? config->layout_label_margin_left / 100.0
+                : 0.01;
+        const double row_x = safe_x + safe_width * left_margin_factor;
+        const double row_width =
+            fmax(1.0, safe_x + safe_width - row_x);
+        const double element_gap = fmax(1.0, circle_minimum_gap);
+        /* Measure both values before assigning their disjoint row regions. */
+        SlotValueLayout natural_value_layout = {0};
         layout_and_render_slot_value(cr, data, config, params, slot_value,
-                                     temp_value, safe_x, value_box_y,
-                                     safe_width, value_box_height, 0,
+                                     temp_value, row_x, value_box_y,
+                                     row_width, value_box_height, 1,
+                                     0, &natural_value_layout);
+        DutyLayout duty_layout = {0};
+        calculate_duty_layout(cr, config, params, data, slot_value,
+                              row_width, value_box_height,
+                              natural_value_layout.font_size * 0.5,
+                              &duty_layout);
+
+        double duty_region_width = 0.0;
+        double value_x = row_x;
+        double value_width = row_width;
+        if (duty_layout.active && natural_value_layout.active)
+        {
+            const double available_width = fmax(2.0, row_width - element_gap);
+            const double natural_value_width =
+                natural_value_layout.block_right -
+                natural_value_layout.block_left;
+            const double natural_total =
+                duty_layout.total_width + natural_value_width;
+            duty_region_width =
+                natural_total > 0.0
+                    ? available_width *
+                          (duty_layout.total_width / natural_total)
+                    : available_width * 0.5;
+            duty_region_width =
+                fmax(1.0, fmin(available_width - 1.0, duty_region_width));
+
+            calculate_duty_layout(cr, config, params, data, slot_value,
+                                  duty_region_width, value_box_height,
+                                  natural_value_layout.font_size * 0.5,
+                                  &duty_layout);
+            value_x = row_x + duty_region_width + element_gap;
+            value_width = fmax(1.0, row_x + row_width - value_x);
+
+            layout_and_render_slot_value(cr, data, config, params, slot_value,
+                                         temp_value, value_x, value_box_y,
+                                         value_width, value_box_height, 1,
+                                         0, &natural_value_layout);
+            calculate_duty_layout(cr, config, params, data, slot_value,
+                                  duty_region_width, value_box_height,
+                                  natural_value_layout.font_size * 0.5,
+                                  &duty_layout);
+        }
+
+        layout_and_render_slot_value(cr, data, config, params, slot_value,
+                                     temp_value, value_x, value_box_y,
+                                     value_width, value_box_height, 1,
                                      1, &value_layout);
 
-        /* Duty % rendered left-aligned at half temp font size */
-        if (value_layout.active &&
-            (strcmp(slot_value, "cpu") == 0 ||
-             strcmp(slot_value, "gpu") == 0))
+        if (value_layout.active && duty_layout.active)
         {
-            const sensor_entry_t *duty_s = find_channel_sensor_for_slot(
-                data, slot_value, SENSOR_CATEGORY_DUTY);
-            if (duty_s)
-            {
-                char duty_buf[16];
-                snprintf(duty_buf, sizeof(duty_buf), "%.0f",
-                         duty_s->value);
+            const double duty_y = value_layout.baseline_y;
+            cairo_set_font_size(cr, duty_layout.font_size);
+            set_cairo_color(cr, value_color);
+            cairo_move_to(cr, row_x - duty_layout.number_ext.x_bearing,
+                          duty_y);
+            cairo_show_text(cr, duty_layout.number);
 
-                double duty_font = value_layout.font_size * 0.5;
-                double pct_font = duty_font / 2.05;
-                cairo_font_extents_t duty_fext = {0};
-                cairo_text_extents_t duty_text_ext = {0};
-                cairo_text_extents_t pct_ext = {0};
-
-                cairo_select_font_face(cr, config->font_face,
-                                       CAIRO_FONT_SLANT_NORMAL,
-                                       CAIRO_FONT_WEIGHT_BOLD);
-                cairo_set_font_size(cr, duty_font);
-                cairo_font_extents(cr, &duty_fext);
-                cairo_text_extents(cr, duty_buf, &duty_text_ext);
-
-                cairo_set_font_size(cr, pct_font);
-                cairo_text_extents(cr, "%", &pct_ext);
-                cairo_set_font_size(cr, duty_font);
-
-                const double pct_spacing = fmax(1.0, scale_value_avg(params, 1.0));
-                double duty_number_width =
-                    fmax(duty_text_ext.x_advance, duty_text_ext.width);
-                double duty_total_width = duty_number_width + pct_spacing +
-                                          fmax(pct_ext.x_advance, pct_ext.width);
-
-                /* Position: left margin, vertically centered with temp */
-                const double left_margin_factor =
-                    (config->layout_label_margin_left > 0)
-                        ? (config->layout_label_margin_left / 100.0)
-                        : 0.01;
-                double duty_x = safe_x +
-                                (safe_width * left_margin_factor);
-                double duty_y = value_layout.baseline_y;
-
-                const double overlap_padding =
-                    fmax(1.0, scale_value_avg(params, 2.0));
-                double duty_available_width =
-                    value_layout.block_left - duty_x - overlap_padding;
-                if (duty_available_width <= 0.0)
-                {
-                    duty_x = safe_x;
-                    duty_available_width =
-                        value_layout.block_left - duty_x - overlap_padding;
-                }
-
-                const double min_duty_font =
-                    fmax(8.0, value_layout.font_size * 0.32);
-                while (duty_total_width > duty_available_width &&
-                       duty_font > min_duty_font)
-                {
-                    duty_font *= 0.90;
-                    if (duty_font < min_duty_font)
-                        duty_font = min_duty_font;
-
-                    pct_font = duty_font / 2.05;
-                    cairo_set_font_size(cr, duty_font);
-                    cairo_font_extents(cr, &duty_fext);
-                    cairo_text_extents(cr, duty_buf, &duty_text_ext);
-
-                    cairo_set_font_size(cr, pct_font);
-                    cairo_text_extents(cr, "%", &pct_ext);
-                    cairo_set_font_size(cr, duty_font);
-
-                    duty_number_width =
-                        fmax(duty_text_ext.x_advance, duty_text_ext.width);
-                    duty_total_width = duty_number_width + pct_spacing +
-                                       fmax(pct_ext.x_advance, pct_ext.width);
-                }
-
-                if (duty_total_width > duty_available_width)
-                {
-                    duty_x = fmax(safe_x,
-                                  value_layout.block_left - duty_total_width -
-                                      overlap_padding);
-                    duty_available_width =
-                        value_layout.block_left - duty_x - overlap_padding;
-                }
-
-                if (duty_available_width > 0.0)
-                {
-                    cairo_set_font_size(cr, duty_font);
-                    set_cairo_color(cr, value_color);
-                    cairo_move_to(cr, duty_x, duty_y);
-                    cairo_show_text(cr, duty_buf);
-
-                    /* Render % as superscript at ~49% of duty font */
-                    const double num_top = duty_y + duty_text_ext.y_bearing;
-                    const double pct_top = num_top +
-                                           (duty_text_ext.height * 0.08);
-                    const double pct_x = duty_x + duty_number_width +
-                                         pct_spacing - pct_ext.x_bearing;
-                    const double pct_y = pct_top - pct_ext.y_bearing;
-
-                    cairo_set_font_size(cr, pct_font);
-                    cairo_move_to(cr, pct_x, pct_y);
-                    cairo_show_text(cr, "%");
-                    cairo_set_font_size(cr, duty_font);
-                }
-            }
+            const double number_top =
+                duty_y + duty_layout.number_ext.y_bearing;
+            const double percent_top =
+                number_top + duty_layout.number_ext.height * 0.08;
+            const double percent_x = row_x + duty_layout.number_width +
+                                     duty_layout.spacing -
+                                     duty_layout.percent_ext.x_bearing;
+            const double percent_y =
+                percent_top - duty_layout.percent_ext.y_bearing;
+            cairo_set_font_size(cr, duty_layout.percent_font_size);
+            cairo_move_to(cr, percent_x, percent_y);
+            cairo_show_text(cr, "%");
         }
     }
 
@@ -738,12 +758,10 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                    &label_safe_width);
 
         const double label_left_padding = label_safe_width * left_margin_factor;
-        const double label_inner_padding_y =
-            fmax(2.0, scale_value_avg(params, 4.0));
         const double available_label_width =
             fmax(24.0, label_safe_width - label_left_padding);
         const double available_label_height =
-            fmax(12.0, label_box_height - (2.0 * label_inner_padding_y));
+            fmax(1.0, label_box_height);
         const double min_label_font_size =
             (config->font_size_labels > 0.0f)
                 ? fmax(12.0, scale_value_avg(params,
@@ -754,36 +772,40 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
                                CAIRO_FONT_WEIGHT_NORMAL);
 
-        while (1)
-        {
-            cairo_set_font_size(cr, label_font_size);
-            cairo_font_extents(cr, &label_font_ext);
-            cairo_text_extents(cr, label_text, &label_text_ext);
-
-            if ((fmax(label_text_ext.x_advance, label_text_ext.width) <=
-                     available_label_width &&
-                 (label_font_ext.ascent + label_font_ext.descent) <=
-                     available_label_height) ||
-                label_font_size <= min_label_font_size)
-                break;
-
-            label_font_size *= 0.94;
-            if (label_font_size < min_label_font_size)
-                label_font_size = min_label_font_size;
-        }
+        label_font_size = fit_text_font_size(
+            cr, label_text, label_font_size, available_label_width,
+            available_label_height * 0.30, min_label_font_size);
+        cairo_set_font_size(cr, label_font_size);
+        cairo_text_extents(cr, label_text, &label_text_ext);
 
         set_cairo_color(cr, label_color);
 
         double label_x = label_safe_x + (label_safe_width * left_margin_factor);
-        double final_label_y =
-            label_box_y + label_inner_padding_y + label_font_ext.ascent;
+        double final_label_y = label_box_y - label_text_ext.y_bearing;
 
         // Apply user-defined offsets using the uniform layout scale.
         label_x += get_scaled_label_offset_x(config, params);
         final_label_y += get_scaled_label_offset_y(config, params);
+        const double minimum_label_y = label_box_y - label_text_ext.y_bearing;
+        const double maximum_label_y =
+            fmax(minimum_label_y,
+                 geometry.bottom - label_text_ext.y_bearing -
+                     label_text_ext.height);
+        final_label_y = fmin(fmax(final_label_y, minimum_label_y),
+                             maximum_label_y);
+        const double label_width =
+            fmax(label_text_ext.x_advance, label_text_ext.width);
+        const double minimum_label_x = label_safe_x - label_text_ext.x_bearing;
+        const double maximum_label_x =
+            fmax(minimum_label_x,
+                 label_safe_x + label_safe_width - label_width -
+                     label_text_ext.x_bearing);
+        label_x = fmin(fmax(label_x, minimum_label_x), maximum_label_x);
 
         cairo_move_to(cr, label_x, final_label_y);
         cairo_show_text(cr, label_text);
+        label_ink_bottom = final_label_y + label_text_ext.y_bearing +
+                           label_text_ext.height;
     }
 
     // Draw extra info (freq/watts/RPM) below the label if enabled
@@ -806,9 +828,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
         if (has_extra_line || has_rpm_line)
         {
-            double extra_font_size = label_font_size * 2.2;
-            const double extra_padding_top =
-                fmax(1.0, scale_value_avg(params, 3.0));
+            double extra_font_size = config->font_size_watts > 0.0f
+                                         ? scale_value_avg(params,
+                                                           config->font_size_watts)
+                                         : label_font_size * 2.2;
+            const double extra_padding_top = region_gap;
             double extra_safe_x = bar_x;
             double extra_available_width =
                 fmax(24.0, (double)effective_bar_width * 0.96);
@@ -838,9 +862,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                    &line2_text_ext);
 
                 const double line_height = font_ext.ascent + font_ext.descent;
-                const double block_top = label_box_y + label_font_ext.ascent +
-                                         label_font_ext.descent +
-                                         extra_padding_top;
+                const double block_top =
+                    fmax(label_box_y, label_ink_bottom) + extra_padding_top;
                 const double block_height =
                     (line_height * line_count) +
                     (extra_padding_top * (line_count - 1));
@@ -861,7 +884,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                          fmax(line2_text_ext.x_advance, line2_text_ext.width));
 
                 if ((max_text_width <= extra_available_width &&
-                     rendered_bottom <= config->display_height) ||
+                     rendered_bottom <= geometry.bottom) ||
                     extra_font_size <= min_extra_font)
                     break;
 
@@ -870,8 +893,26 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                     extra_font_size = min_extra_font;
             }
 
+            cairo_set_font_size(cr, extra_font_size);
+            cairo_font_extents(cr, &font_ext);
+            cairo_text_extents(cr, has_extra_line ? extra_buf : "",
+                               &extra_text_ext);
+            cairo_text_extents(cr, has_rpm_line ? line2_buf : "",
+                               &line2_text_ext);
+            const double scaled_line_height =
+                font_ext.ascent + font_ext.descent;
+            const double scaled_block_top =
+                fmax(label_box_y, label_ink_bottom) + extra_padding_top;
+            extra_y = scaled_block_top + font_ext.ascent;
+            line2_y = has_extra_line
+                          ? extra_y + scaled_line_height + extra_padding_top
+                          : extra_y;
+            rendered_bottom =
+                scaled_block_top + (scaled_line_height * line_count) +
+                (extra_padding_top * (line_count - 1));
+
             // Only render if it fits within the display height after autoshrink.
-            if (rendered_bottom <= config->display_height)
+            if (rendered_bottom <= geometry.bottom)
             {
                 const Color *value_col = &config->font_color_temp;
                 set_cairo_color(cr, value_col);
