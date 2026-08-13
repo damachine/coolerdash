@@ -15,7 +15,7 @@ arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
 depends=('cairo' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
-makedepends=('gcc' 'make' 'pkg-config' 'git')
+makedepends=('gcc' 'make' 'pkg-config')
 optdepends=()
 backup=('var/lib/coolercontrol/plugins/coolerdash/config.json')
 install=coolerdash.install
@@ -25,12 +25,6 @@ sha256sums=()
 build() {
     # For local build: use current directory directly
     cd "${startdir}"
-
-    # Fetch latest tags if in git repo
-    if git rev-parse --git-dir >/dev/null 2>&1; then
-        echo "Fetching latest tags..."
-        git fetch --tags
-    fi
 
     # Remove all previous tarball builds
     rm -f "${pkgname}"-*.pkg.tar.*
