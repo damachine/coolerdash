@@ -6,7 +6,7 @@
   <a href="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg"></a>
 </p>
 
----
+<br>
 
 # CoolerDash 🐧
 
@@ -14,7 +14,8 @@
 
 > Use it successfully myself – maybe it will help you too! ❤️
 
----
+<br>
+
 ## Features
 - **Plug-In that extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)**
 - **Support for additional sensor values (CPU/GPU/Liquid)**
@@ -30,7 +31,7 @@
 
 https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
 
----
+<br>
 
 ## System Requirements
 
@@ -45,7 +46,7 @@ https://github.com/user-attachments/assets/3fc71b81-8c6a-4e81-a600-4b2dcff2452a
 
 > See the [Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md) for confirmed working hardware. In principle, all devices supported by CoolerControl/[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) to help expand the list.
 
----
+<br>
 
 ## Installation
 
@@ -79,7 +80,7 @@ make install
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
 
----
+<br>
 
 ## Configuration
 
@@ -105,7 +106,7 @@ Restart CoolerControl to apply changes: `systemctl restart coolercontrold.servic
 
 </details>
 
----
+<br>
 
 ## Hardware Reports
 
@@ -152,7 +153,7 @@ descriptors. These descriptors identify available HID/bulk paths but do not
 capture USB traffic or reveal an unknown pixel protocol.
 </details>
 
----
+<br>
 
 ## Advanced Usage
 
@@ -209,7 +210,7 @@ journalctl -u coolercontrold.service -n 50
 ```
 </details>
 
----
+<br>
 
 ## Troubleshooting
 
@@ -223,6 +224,8 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 ```bash
 sudo make uninstall
 ```
+
+<br>
 
 #### Check CoolerControl devices
 
@@ -250,7 +253,8 @@ liquidctl --version
   ```
 </details>
 
----
+<br>
+
 ## Documentation
 
 <details>
@@ -264,7 +268,7 @@ liquidctl --version
 - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/master/docs/coolercontrol-api.md)** - API module documentation
 </details>
 
----
+<br>
 
 ## Community & Support
 
@@ -273,10 +277,12 @@ liquidctl --version
 <a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
 
 **Support the project:**
-• ⭐ Star this repo
-• 🐛 Report bugs
-• 🔄 Share with others
-• 📝 Contribute
-• [![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors)](https://github.com/sponsors/damachine)
 
-[![Stargazers over time](https://starchart.cc/damachine/coolerdash.svg?variant=adaptive)](https://starchart.cc/damachine/coolerdash)
+<p align="center">
+  <a href="https://github.com/damachine/coolerdash/stargazers">⭐ Star this repo</a> ·
+  <a href="https://github.com/damachine/coolerdash/issues">🐛 Report bugs</a> ·
+  <a href="https://github.com/damachine/coolerdash">🔄 Share with others</a> ·
+  <a href="https://github.com/damachine/coolerdash/pulls">📝 Contribute</a> ·
+  <a href="https://github.com/sponsors/damachine"><img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" alt="Sponsor"></a>
+  <a href="https://github.com/damachine/coolerdash/stargazers"><img src="https://img.shields.io/github/stars/damachine/coolerdash?style=flat&logo=github&label=Stars" alt="GitHub stars"></a>
+</p>
