@@ -13,12 +13,12 @@
                These fallback values maintain the original dark theme in standalone/dev mode.
                When runPluginScript() injects the CC parent stylesheet, CC's :root definitions
                override these values, making the entire UI automatically adapt to the active theme. */
-            --bg-one: 26 26 46;
-            --bg-two: 30 35 55;
+            --bg-one: 27 30 35;
+            --bg-two: 44 49 60;
             --text-color: 234 234 234;
             --text-color-secondary: 140 145 165;
             --border-one: 45 66 99;
-            --accent: 233 69 96;
+            --accent: 86 138 242;
             --surface-hover: 38 48 78;
             --success: 34 197 94;
             --error: 233 69 96;
@@ -32,7 +32,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
-            background: linear-gradient(135deg, rgb(var(--bg-two)) 0%, rgb(var(--bg-one)) 100%);
+            background: rgb(var(--bg-one));
             color: rgb(var(--text-color));
             line-height: 1.6;
             padding: 24px;
@@ -247,7 +247,19 @@
 
         /* Form Elements */
         .form-group {
-            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            height: 100%;
+            align-self: stretch;
+        }
+
+        .grid > .form-group > .form-control,
+        .grid > .form-group > select,
+        .grid > .form-group > textarea,
+        .grid > .form-group > .range-group,
+        .grid > .form-group > .color-group {
+            margin-top: auto;
         }
 
         /* Spacing between form-groups outside of grids */
@@ -258,6 +270,7 @@
         .form-label {
             display: block;
             font-weight: 500;
+            margin-top: 8px;
             margin-bottom: 8px;
             font-size: 13px;
             color: rgb(var(--text-color));
@@ -306,6 +319,7 @@
         /* Grid Layout */
         .grid {
             display: grid;
+            align-items: stretch;
             gap: 20px 28px;
             margin-bottom: 20px;
         }
@@ -333,6 +347,7 @@
             display: flex;
             align-items: center;
             gap: 16px;
+            padding: 10px;
         }
 
         .range-input {
