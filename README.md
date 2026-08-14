@@ -48,19 +48,18 @@ Shows CPU and GPU temperatures with bars.
   <img width="120" height="120" alt="circle_3" src="https://github.com/user-attachments/assets/caaf8f4d-773c-434f-a646-7e1cd84a8add" />
 </p>
 
-> ##### Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl
+> **Officially listed by CoolerControl as a [2nd Party (Trusted) Plugin](https://docs.coolercontrol.org/automation/plugins.html#_2nd-party-trusted-plugins).**  
+> Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl.
+
+Join the CoolerDash channel on the official CoolerControl Discord:
 
 <a href="https://discord.com/channels/908873022105079848/1461781766791499981"><img src="https://img.shields.io/badge/Discord-Join%20CoolerDash%20Discussion-blue?logo=discord"></a>
 
 ## System Requirements
 
-> [!WARNING]
-> CoolerDash 2.0.4+ runs as a CoolerControl plug-in.
-> This requires CoolerControl >= 3.1.0 with plug-in support.   
-
-- **OS**: Linux (systemd or OpenRC)
+- **OS**: Linux (systemd or openrc)
 - **CoolerControl**: Version >=3.1.0 REQUIRED - must be installed and running [Installation Guide](https://gitlab.com/coolercontrol/coolercontrol/-/blob/main/README.md)
-- **CPU**: x86-64-v3 compatible (Intel Haswell+ / AMD Excavator+)
+- **CPU**: x86-64
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
 > See the [Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md) for confirmed working hardware. In principle, all devices supported by CoolerControl/[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) to help expand the list.
@@ -72,7 +71,7 @@ Shows CPU and GPU temperatures with bars.
 [![AUR](https://img.shields.io/aur/version/coolerdash-git?color=blue&label=AUR)](https://aur.archlinux.org/packages/coolerdash-git)
 
 ```bash
-# STEP 1: Install
+# Install with an AUR helper
 yay -S coolerdash-git
 #OR any other AUR helper
 ```
@@ -99,27 +98,17 @@ make install
 
 ## Configuration
 
-**Start CoolerControl Service (if not already enabled):**
-```bash
-# systemd
-systemctl enable --now coolercontrold.service
+**Required: Access Token**
 
-# OpenRC
-rc-update add coolercontrold default
-rc-service coolercontrold start
-```
+1. In CoolerControl, open **Access Protection → Access Tokens**.
+2. Create a token with **Write Access** enabled (for example, named `coolerdash`) and copy it.
+3. Open **Plugins → CoolerDash → Connection**, paste it into **Access Token**, and save.
 
-**CoolerDash Configuration (optional):**
+> CoolerDash only reads sensor data and does not change sensor settings. Write Access is required solely to update the LCD through CoolerControl. See the [CoolerControl access token documentation](https://docs.coolercontrol.org/daemon/access-protection.html#access-tokens).
 
-In the CoolerControl settings menu, under the plugin tab (beta), you can now use the CoolerDash UI to make your custom settings.
-Restart CoolerControl to apply changes: `systemctl restart coolercontrold.service` or `rc-service coolercontrold restart`.
+**Optional:** Customize other settings in the CoolerDash UI.
 
-<details>
-  <summary>Screenshots</summary>
-  
-  Coming soon...
-
-</details>
+![CoolerDash configuration](images/configuration.png)
 
 ## Hardware Reports
 
