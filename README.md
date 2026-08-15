@@ -6,11 +6,11 @@
   <a href="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg"></a>
 </p>
 
-# CoolerDash 🐧
+# CoolerDash
 
-#### CoolerDash extends AIO liquid cooler LCD functionality with real-time telemetry and customizable display modes.
+### Linux LCD telemetry for supported AIO liquid coolers through CoolerControl, tested on multiple NZXT Kraken models.
 
-> I use it successfully myself — maybe it will help you too! ❤️
+**Display real-time CPU, GPU, and liquid temperatures with customizable layouts directly on your cooler's LCD.**
 
 ## Features
 - **Plug-In that extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)**
@@ -223,11 +223,16 @@ If you see errors like "conflicting files" or "manual installation detected" dur
 sudo make uninstall
 ```
 
-#### Check CoolerControl devices
+### Check CoolerControl devices is detected
 
 ```bash
 liquidctl --version
 # Expected: liquidctl v1.15.0 (or newer)
+```
+
+```bash
+liquidctl --list
+# Expected: Device #0: NZXT Kraken 2023
 ```
 
   ```bash
@@ -264,17 +269,11 @@ liquidctl --version
 
 ## Community & Support
 
-**Questions or ideas?** Join our [Discussions](https://github.com/damachine/coolerdash/discussions) or open an [Issue](https://github.com/damachine/coolerdash/issues).
-
-<a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a>
+<a href="https://github.com/damachine/coolerdash/discussions"><img src="https://img.shields.io/github/discussions/damachine/coolerdash?style=flat-square&logo=github&label=Discussions"></a> <a href="https://github.com/damachine/coolerdash/issues"><img src="https://img.shields.io/github/issues/damachine/coolerdash?style=flat-square&logo=github&label=Issues"></a> <a href="https://discord.com/channels/908873022105079848/1461781766791499981"><img src="https://img.shields.io/badge/Discord-Join%20CoolerDash%20Discussion-blue?logo=discord"></a>
 
 **Support the project:**
 
 <p align="left">
-  <a href="https://github.com/damachine/coolerdash/stargazers">⭐ Star this repo</a> ·
-  <a href="https://github.com/damachine/coolerdash/issues">🐛 Report bugs</a> ·
-  <a href="https://github.com/damachine/coolerdash">🔄 Share with others</a> ·
-  <a href="https://github.com/damachine/coolerdash/pulls">📝 Contribute</a> ·
-  <a href="https://github.com/sponsors/damachine"><img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" alt="Sponsor"></a>
   <a href="https://github.com/damachine/coolerdash/stargazers"><img src="https://img.shields.io/github/stars/damachine/coolerdash?style=flat&logo=github&label=Stars" alt="GitHub stars"></a>
+  <a href="https://github.com/sponsors/damachine"><img src="https://img.shields.io/badge/Sponsor-GitHub-blue?logo=github-sponsors" alt="Sponsor"></a>
 </p>
