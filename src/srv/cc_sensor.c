@@ -93,7 +93,18 @@ static int add_sensor_entry(monitor_sensor_data_t *data,
                             float value, const char *unit, int use_decimal)
 {
     if (data->sensor_count >= MAX_SENSORS)
+    {
+        /* Once: reached for every sensor over the cap, on every poll. */
+        static int overflow_reported = 0;
+        if (!overflow_reported)
+        {
+            overflow_reported = 1;
+            log_message(LOG_WARNING,
+                        "More than %d sensors; '%s' on %s and later ones are unavailable.",
+                        MAX_SENSORS, name, get_device_name_by_uid(device_uid));
+        }
         return 0;
+    }
 
     sensor_entry_t *entry = &data->sensors[data->sensor_count];
     cc_safe_strcpy(entry->name, sizeof(entry->name), name);

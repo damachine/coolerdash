@@ -27,7 +27,9 @@ struct Config;
 // Sensor Data Model Constants
 // ============================================================================
 
-#define MAX_SENSORS 64
+/* One entry per temperature and per channel across every device. A desktop with service
+   plugins and custom sensors passes 64. */
+#define MAX_SENSORS 256
 #define SENSOR_NAME_LEN 48
 #define SENSOR_UID_LEN 96
 #define SENSOR_DEVICE_NAME_LEN 64
