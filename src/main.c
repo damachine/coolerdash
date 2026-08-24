@@ -693,8 +693,26 @@ static int run_daemon(Config *config)
 
         draw_display_image(config);
 
-        int sleep_result =
-            clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
+        /* Absolute deadline: a render or a reload longer than one interval leaves it in
+           the past, and clock_nanosleep then returns at once. Drop the missed ticks
+           rather than replaying them at render speed. */
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) == 0 &&
+            (next_time.tv_sec < now.tv_sec ||
+             (next_time.tv_sec == now.tv_sec && next_time.tv_nsec < now.tv_nsec)))
+        {
+            next_time = now;
+        }
+
+        int sleep_result;
+        while ((sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
+                                               &next_time, NULL)) == EINTR)
+        {
+            /* The deadline is absolute, so resuming is the same call. Only a shutdown or
+               a reload is worth cutting the interval short for. */
+            if (!running || reload_config)
+                break;
+        }
         if (sleep_result != 0 && sleep_result != EINTR)
         {
             log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
