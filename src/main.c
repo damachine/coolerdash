@@ -18,6 +18,8 @@
 // cppcheck-suppress-begin missingIncludeSystem
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <pthread.h>
 #include <pwd.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -45,6 +47,7 @@
 #define DEFAULT_VERSION "unknown"
 #define VERSION_BUFFER_SIZE 32
 #define CC4_MODE_LOCK "/etc/coolercontrol/plugins/coolerdash/.cc4-mode"
+#define COOLERDASH_LOCK_FILE "/run/coolerdash.lock"
 #define GH_UPDATE_URL "https://api.github.com/repos/damachine/coolerdash/releases/latest"
 
 static volatile sig_atomic_t running = 1;
@@ -52,6 +55,7 @@ static volatile sig_atomic_t reload_config = 0;
 
 static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
+static int s_instance_fd = -1;
 
 typedef struct CliOptions
 {
@@ -453,8 +457,7 @@ static void show_help(const char *program_name)
            "file\n");
     printf("  /etc/coolercontrol/plugins/coolerdash/index.html # Web UI settings\n");
     printf("  /etc/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
-    printf("  /tmp/coolerdash.pid                       # PID file "
-           "(auto-managed)\n");
+    printf("  /run/coolerdash.lock                      # Instance lock\n");
     printf("  journalctl -u coolercontrold.service      # View plugin logs\n\n");
     printf("PLUGIN MODE:\n");
     printf("  - Managed by CoolerControl (coolercontrold.service)\n");
@@ -500,6 +503,47 @@ static void show_system_diagnostics(const Config *config, int api_width,
 
     log_message(LOG_STATUS, "Refresh interval: %.2f seconds",
                 config->display_refresh_interval);
+}
+
+static int acquire_single_instance(void)
+{
+    int fd = open(COOLERDASH_LOCK_FILE, O_RDWR | O_CREAT, 0644);
+    if (fd == -1)
+    {
+        log_message(LOG_ERROR, "Failed to open %s: %s",
+                    COOLERDASH_LOCK_FILE, strerror(errno));
+        return 0;
+    }
+
+    struct flock lock = {
+        .l_type = F_WRLCK,
+        .l_whence = SEEK_SET,
+        .l_start = 0,
+        .l_len = 0,
+    };
+    if (fcntl(fd, F_SETLK, &lock) != 0)
+    {
+        if (fcntl(fd, F_GETLK, &lock) == 0 && lock.l_pid > 1)
+            log_message(LOG_ERROR,
+                        "CoolerDash is already running (PID %ld)",
+                        (long)lock.l_pid);
+        else
+            log_message(LOG_ERROR, "CoolerDash is already running");
+        close(fd);
+        return 0;
+    }
+
+    s_instance_fd = fd;
+    return 1;
+}
+
+static void release_single_instance(void)
+{
+    if (s_instance_fd >= 0)
+    {
+        close(s_instance_fd);
+        s_instance_fd = -1;
+    }
 }
 
 /** @brief Async-signal-safe shutdown handler. */
@@ -555,7 +599,7 @@ static void handle_reload_signal(int signum)
 static void setup_enhanced_signal_handlers(void)
 {
     struct sigaction sa;
-    sigset_t block_mask;
+    sigset_t signal_mask;
 
     // Initialize signal action structure with enhanced settings
     memset(&sa, 0, sizeof(sa));
@@ -595,13 +639,22 @@ static void setup_enhanced_signal_handlers(void)
                     strerror(errno));
     }
 
-    sigemptyset(&block_mask);
-    sigaddset(&block_mask, SIGPIPE);
+    sigemptyset(&signal_mask);
+    sigaddset(&signal_mask, SIGTERM);
+    sigaddset(&signal_mask, SIGINT);
+    sigaddset(&signal_mask, SIGQUIT);
+    sigaddset(&signal_mask, SIGHUP);
 
-    if (pthread_sigmask(SIG_BLOCK, &block_mask, NULL) != 0)
-    {
-        log_message(LOG_WARNING, "Failed to block unwanted signals");
-    }
+    int rc = pthread_sigmask(SIG_UNBLOCK, &signal_mask, NULL);
+    if (rc != 0)
+        log_message(LOG_ERROR, "Failed to unblock daemon signals: %s",
+                    strerror(rc));
+
+    sigemptyset(&signal_mask);
+    sigaddset(&signal_mask, SIGPIPE);
+    rc = pthread_sigmask(SIG_BLOCK, &signal_mask, NULL);
+    if (rc != 0)
+        log_message(LOG_ERROR, "Failed to block SIGPIPE: %s", strerror(rc));
 }
 
 /** @brief Re-read config.json on SIGHUP; re-init session and device cache. */
@@ -952,8 +1005,13 @@ int main(int argc, char **argv)
         return success ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
+    setup_enhanced_signal_handlers();
+    if (!acquire_single_instance())
+        return EXIT_FAILURE;
+
     if (!initialize_config_and_instance(cli.config_path, &config))
     {
+        release_single_instance();
         return EXIT_FAILURE;
     }
 
@@ -967,11 +1025,11 @@ int main(int argc, char **argv)
     }
 
     g_config_ptr = &config;
-    setup_enhanced_signal_handlers();
 
     log_message(LOG_STATUS, "Initializing CoolerControl session...");
     if (initialize_coolercontrol_services(&config) != 0)
     {
+        release_single_instance();
         return EXIT_FAILURE;
     }
 
@@ -1035,5 +1093,6 @@ int main(int argc, char **argv)
     int result = run_daemon(&config);
 
     perform_cleanup(&config);
+    release_single_instance();
     return result;
 }
