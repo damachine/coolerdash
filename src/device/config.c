@@ -153,8 +153,6 @@ static void set_display_defaults(Config *config)
 
     if (config->display_refresh_interval == 0.0f)
         config->display_refresh_interval = 3.50f;
-    if (config->lcd_brightness == 0)
-        config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0;
     if (config->display_mode[0] == '\0')
@@ -1655,6 +1653,8 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
 
     // Initialize with defaults (memset sets all to 0, including color.is_set = 0)
     memset(config, 0, sizeof(Config));
+    /* Brightness accepts zero, so initialize its default before JSON loading. */
+    config->lcd_brightness = 80;
     config->layout_bar_height = CONFIG_LAYOUT_U16_UNSET;
     config->layout_bar_height_1 = CONFIG_LAYOUT_U16_UNSET;
     config->layout_bar_height_2 = CONFIG_LAYOUT_U16_UNSET;
