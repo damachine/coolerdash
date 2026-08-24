@@ -14,13 +14,17 @@ rgb(var(--colors-border-one))            /* Border */
 rgb(var(--colors-text-color))            /* Text */
 rgb(var(--colors-text-color-secondary))  /* Muted text */
 rgb(var(--colors-accent))                /* Accent / highlights */
-rgb(var(--colors-surface-hover))         /* Hover tint */
+rgb(var(--colors-surface-hover) / 0.05)  /* Hover tint, see below */
 rgb(var(--colors-success))               /* Success */
 rgb(var(--colors-warning))               /* Warning */
 rgb(var(--colors-error))                 /* Error / destructive */
 rgb(var(--colors-info))                  /* Informational */
 rgb(var(--colors-accent-gradient-to))    /* Accent gradient end */
 ```
+
+`--colors-surface-hover` is not a color. It is a tint to composite over a surface: white
+on dark themes, black on light ones. Use it with a low alpha, as CoolerControl does at 5%.
+Filling with it at full strength gives a solid white or black hover.
 
 Give every one a fallback. It keeps the UI rendering standalone, where no parent
 stylesheet is injected, and on CoolerControl versions that publish a smaller set:
