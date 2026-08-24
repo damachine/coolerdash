@@ -61,7 +61,6 @@ INSTALL_DATA ?= $(INSTALL) -m 644
 # Plugin directory (canonical path per CoolerControl cc-plugins spec)
 PLUGINDIR = /var/lib/coolercontrol/plugins/coolerdash
 COOLERCONTROL_SERVICE ?= coolercontrold
-COOLERDASH_PLUGIN_SERVICE ?= cc-plugin-coolerdash
 
 # Colors for terminal output
 RED = \033[0;31m
@@ -278,7 +277,7 @@ install: check-deps $(TARGET)
 	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)$(libexecdir)/coolerdash/coolerdash\n"
 	@printf "  $(GREEN)CLI:$(RESET)          $(DESTDIR)$(bindir)/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/config.json (chmod 600)\n"
-	@printf "  $(GREEN)Credentials:$(RESET) $(DESTDIR)$(PLUGINDIR)/credentials.json (chmod 600)\n"
+	@printf "  $(GREEN)Credentials:$(RESET) Runtime file preserved with chmod 600 when present\n"
 	@printf "  $(GREEN)Web UI:$(RESET)       $(DESTDIR)$(PLUGINDIR)/ui/index.html\n"
 	@printf "  $(GREEN)Plugin Lib:$(RESET)   Served by CoolerControl at /plugins/lib/cc-plugin-lib.js\n"
 	@printf "  $(GREEN)Plugin:$(RESET)       $(DESTDIR)$(PLUGINDIR)/manifest.toml\n"
@@ -296,10 +295,12 @@ install: check-deps $(TARGET)
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
 	@if [ "$(REALOS)" = "yes" ]; then \
 		if command -v systemctl >/dev/null 2>&1; then \
-			$(SUDO) systemctl daemon-reload 2>/dev/null || true; \
-			$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service 2>/dev/null || true; \
-		elif command -v rc-service >/dev/null 2>&1; then \
-			$(SUDO) rc-service $(COOLERCONTROL_SERVICE) restart 2>/dev/null || true; \
+			if $(SUDO) systemctl is-active --quiet $(COOLERCONTROL_SERVICE).service; then \
+				$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service 2>/dev/null || true; \
+			fi; \
+		elif command -v rc-service >/dev/null 2>&1 && \
+		     $(SUDO) rc-service $(COOLERCONTROL_SERVICE) status >/dev/null 2>&1; then \
+			$(SUDO) rc-service $(COOLERCONTROL_SERVICE) restart >/dev/null 2>&1 || true; \
 		fi; \
 	fi
 	@if command -v systemctl >/dev/null 2>&1; then \
@@ -322,15 +323,6 @@ uninstall:
 		printf "$(YELLOW)Run: sudo make uninstall$(RESET)\n"; \
 		exit 1; \
 	fi
-	@if [ "$(REALOS)" = "yes" ]; then \
-		printf "$(CYAN)Stopping and disabling services...$(RESET)\n"; \
-		if command -v systemctl >/dev/null 2>&1; then \
-			$(SUDO) systemctl stop $(COOLERDASH_PLUGIN_SERVICE).service >/dev/null 2>&1 || true; \
-			$(SUDO) systemctl disable $(COOLERDASH_PLUGIN_SERVICE).service >/dev/null 2>&1 || true; \
-		elif command -v rc-service >/dev/null 2>&1; then \
-			$(SUDO) rc-service $(COOLERDASH_PLUGIN_SERVICE) stop >/dev/null 2>&1 || true; \
-		fi; \
-	fi
 	@$(SUDO) rm -rf "$(DESTDIR)$(PLUGINDIR)"
 	@$(SUDO) rm -rf "$(DESTDIR)$(libexecdir)/coolerdash"
 	@$(SUDO) rm -f "$(DESTDIR)$(bindir)/coolerdash"
@@ -338,9 +330,11 @@ uninstall:
 	@if [ "$(REALOS)" = "yes" ]; then \
 		$(SUDO) mandb -q >/dev/null 2>&1 || true; \
 		if command -v systemctl >/dev/null 2>&1; then \
-			$(SUDO) systemctl daemon-reload >/dev/null 2>&1 || true; \
-			$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service >/dev/null 2>&1 || true; \
-		elif command -v rc-service >/dev/null 2>&1; then \
+			if $(SUDO) systemctl is-active --quiet $(COOLERCONTROL_SERVICE).service; then \
+				$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service >/dev/null 2>&1 || true; \
+			fi; \
+		elif command -v rc-service >/dev/null 2>&1 && \
+		     $(SUDO) rc-service $(COOLERCONTROL_SERVICE) status >/dev/null 2>&1; then \
 			$(SUDO) rc-service $(COOLERCONTROL_SERVICE) restart >/dev/null 2>&1 || true; \
 		fi; \
 	fi

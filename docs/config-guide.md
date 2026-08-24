@@ -1,6 +1,6 @@
 # CoolerDash Configuration Guide
 
-Config file: `/etc/coolercontrol/plugins/coolerdash/config.json`
+Config file: `/var/lib/coolercontrol/plugins/coolerdash/config.json`
 
 Restart to apply changes:
 ```bash
@@ -184,4 +184,4 @@ Four color zones per sensor. Bars transition through colors as temperature rises
 - **Text clipped**: Lower `content_scale_factor`
 - **Bars too wide**: Lower `bar_width`
 
-Full default config: `/etc/coolercontrol/plugins/coolerdash/config.json`
+Full default config: `/var/lib/coolercontrol/plugins/coolerdash/config.json`

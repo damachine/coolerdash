@@ -117,7 +117,7 @@ static const char *read_version_from_file(void)
 
     FILE *fp = fopen("VERSION", "r");
     if (!fp)
-        fp = fopen("/etc/coolercontrol/plugins/coolerdash/VERSION", "r");
+        fp = fopen(DEFAULT_COOLERDASH_PLUGIN_DIR "/VERSION", "r");
 
     if (!fp)
     {
@@ -313,11 +313,11 @@ static void show_help(const char *program_name)
            program_name);
     printf("FILES:\n");
     printf("  /usr/libexec/coolerdash/coolerdash            # Main executable\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/         # Plugin data directory\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/config.json # Configuration "
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/         # Plugin data directory\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/config.json # Configuration "
            "file\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/index.html # Web UI settings\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/ui/index.html # Web UI settings\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
     printf("  /var/lib/coolercontrol/plugins/coolerdash/.coolerdash.lock # Instance lock\n");
     printf("  journalctl -u coolercontrold.service      # View plugin logs\n\n");
     printf("PLUGIN MODE:\n");
@@ -641,8 +641,7 @@ static int run_daemon(Config *config)
 static void parse_arguments(int argc, char **argv, CliOptions *options)
 {
     memset(options, 0, sizeof(*options));
-    options->config_path =
-        "/etc/coolercontrol/plugins/coolerdash/config.json";
+    options->config_path = DEFAULT_COOLERDASH_PLUGIN_DIR "/config.json";
 
     for (int i = 1; i < argc; i++)
     {

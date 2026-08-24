@@ -54,7 +54,7 @@ void cc_cleanup_response_buffer(http_response *response);
 size_t write_callback(const void *contents, size_t size, size_t nmemb,
                       http_response *response);
 
-/** @brief Init CURL session; authenticates via Bearer token or Basic Auth. */
+/** @brief Init CURL session and configure Bearer token authentication. */
 int init_coolercontrol_session(const struct Config *config);
 
 /** @brief Returns 1 if session is ready for API calls. */
@@ -69,7 +69,7 @@ void reset_coolercontrol_session(void);
 /** @brief Returns active Bearer token (empty if not set). */
 const char *get_session_access_token(void);
 
-/** @brief Upload image to LCD via JSON (CC4) or multipart (CC3). */
+/** @brief Update LCD settings with a generated image path via JSON. */
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
 

@@ -1,30 +1,26 @@
 # Plugin Integration
 
-CoolerDash runs as a CoolerControl plugin managed by `cc-plugin-coolerdash.service`. No separate systemd service needed.
+CoolerDash runs as an unprivileged integration plugin. CoolerControl manages its
+service lifecycle automatically; no separate service setup is needed.
 
 ## Authentication
 
-Bearer token auth via CoolerControl Access Protection:
-
-```json
-"daemon": {
-    "access_token": "cc_<your-uuid-here>"
-}
-```
-
-Generate token in CoolerControl UI > Access Protection.
+Create a token with Write Access under CoolerControl's Access Protection, then
+save it under Plugins > CoolerDash > Connection. CoolerDash persists the token
+with restricted permissions in `credentials.json`; `config.json` only contains
+the `***` sentinel after the token has been saved.
 
 ## Shutdown Image
 
-Registered once at startup via CC4 API:
+Registered once at startup through CoolerControl's shutdown-image API:
 
 ```
-PUT /devices/{uid}/settings/lcd/lcd/shutdown-image
+PUT /devices/{uid}/settings/lcd/{channel}/shutdown-image
 ```
 
-CC4 stores the image and displays it when CoolerControl stops. Configure a custom
-shutdown image via paths.image_shutdown, or keep the default file at
-/var/lib/coolercontrol/plugins/coolerdash/shutdown.png. No helper daemon needed.
+CoolerControl stores the image and displays it when it stops. Configure a custom
+shutdown image via `paths.image_shutdown`, or keep the default file at
+`/var/lib/coolercontrol/plugins/coolerdash/shutdown.png`.
 
 ![Shutdown image preview](../images/shutdown.png)
 
@@ -46,6 +42,7 @@ Theme-adaptive UI using CoolerControl CSS variables + Tailwind CSS + PrimeIcons.
 
 ```toml
 version = "{{VERSION}}"
+privileged = false
 url = "https://github.com/damachine/coolerdash"
 ```
 
