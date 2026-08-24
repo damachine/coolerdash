@@ -4,13 +4,31 @@ The plugin UI adapts to CoolerControl's theme (dark/light) via CSS variables.
 
 ## CSS Variables
 
+CoolerControl sends the active theme's variables to the plugin iframe, each carrying an
+`r g b` triplet:
+
 ```css
-rgb(var(--colors-bg-one))       /* Primary background */
-rgb(var(--colors-bg-two))       /* Secondary background */
-rgb(var(--colors-border-one))   /* Border */
-rgb(var(--colors-text))         /* Text */
-rgb(var(--colors-accent))       /* Accent / highlights */
-rgb(var(--colors-red))          /* Errors */
+rgb(var(--colors-bg-one))                /* Primary background */
+rgb(var(--colors-bg-two))                /* Secondary background */
+rgb(var(--colors-border-one))            /* Border */
+rgb(var(--colors-text-color))            /* Text */
+rgb(var(--colors-text-color-secondary))  /* Muted text */
+rgb(var(--colors-accent))                /* Accent / highlights */
+rgb(var(--colors-surface-hover))         /* Hover tint */
+rgb(var(--colors-success))               /* Success */
+rgb(var(--colors-warning))               /* Warning */
+rgb(var(--colors-error))                 /* Error / destructive */
+rgb(var(--colors-info))                  /* Informational */
+rgb(var(--colors-accent-gradient-to))    /* Accent gradient end */
+```
+
+Give every one a fallback. It keeps the UI rendering standalone, where no parent
+stylesheet is injected, and on CoolerControl versions that publish a smaller set:
+
+```css
+:root {
+    --bg-one: var(--colors-bg-one, 27 30 35);
+}
 ```
 
 ## Usage
@@ -80,9 +98,10 @@ const { mode } = await getContext(); // 'modal' | 'full_page'
 ## Semantic Colors
 
 - `--colors-accent` — primary actions, highlights
-- `--colors-red` — errors, destructive actions
 - `--colors-bg-one` — content containers
 - `--colors-bg-two` — page background
+- `--colors-text-color` and `--colors-text-color-secondary` for primary and muted text
+- `--colors-success`, `--colors-warning`, `--colors-error`, `--colors-info` for status
 
 ## Reference
 

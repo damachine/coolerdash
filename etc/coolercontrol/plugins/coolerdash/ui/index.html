@@ -9,20 +9,21 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-            /* CoolerControl theme CSS variables.
-               These fallback values maintain the original dark theme in standalone/dev mode.
-               When runPluginScript() injects the CC parent stylesheet, CC's :root definitions
-               override these values, making the entire UI automatically adapt to the active theme. */
-            --bg-one: 27 30 35;
-            --bg-two: 44 49 60;
-            --text-color: 234 234 234;
-            --text-color-secondary: 140 145 165;
-            --border-one: 45 66 99;
-            --accent: 86 138 242;
-            --surface-hover: 38 48 78;
-            --success: 34 197 94;
-            --error: 233 69 96;
-            --warning: 255 140 0;
+            /* CoolerControl publishes its active theme as `--colors-*` variables on the
+               parent document, each carrying an `r g b` triplet. Taking them through
+               var() means a theme change in CoolerControl reaches this UI with no work
+               here. The literals are the fallback for standalone/dev mode, where no
+               parent stylesheet is injected, and keep the original dark theme. */
+            --bg-one: var(--colors-bg-one, 27 30 35);
+            --bg-two: var(--colors-bg-two, 44 49 60);
+            --text-color: var(--colors-text-color, 234 234 234);
+            --text-color-secondary: var(--colors-text-color-secondary, 140 145 165);
+            --border-one: var(--colors-border-one, 45 66 99);
+            --accent: var(--colors-accent, 86 138 242);
+            --surface-hover: var(--colors-surface-hover, 38 48 78);
+            --success: var(--colors-success, 34 197 94);
+            --error: var(--colors-error, 233 69 96);
+            --warning: var(--colors-warning, 255 140 0);
             /* Structural — not theme-dependent */
             --radius: 10px;
             --radius-sm: 6px;
@@ -2417,7 +2418,7 @@
                         el.innerHTML = '<strong style="color:rgb(var(--warning))">v' + latest + ' available</strong> &mdash; '
                             + '<a href="' + escapeHtml(dlUrl) + '" target="_blank" rel="noopener noreferrer">Download</a>';
                     } else {
-                        el.innerHTML = '<span style="color:var(--colors-success,#22c55e)">v' + (latest || current) + ' \u2713 up to date</span>';
+                        el.innerHTML = '<span style="color:rgb(var(--success))">v' + (latest || current) + ' \u2713 up to date</span>';
                     }
                 } catch (e) {
                     el.innerHTML = 'v' + current + ' &mdash; <a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
