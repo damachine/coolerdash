@@ -16,11 +16,9 @@
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <pwd.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -28,7 +26,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <curl/curl.h>
 #include <jansson.h>
 #include <time.h>
@@ -46,7 +43,7 @@
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
 #define VERSION_BUFFER_SIZE 32
-#define COOLERDASH_LOCK_FILE "/run/coolerdash.lock"
+#define COOLERDASH_LOCK_NAME ".coolerdash.lock"
 #define GH_UPDATE_URL "https://api.github.com/repos/damachine/coolerdash/releases/latest"
 
 static volatile sig_atomic_t running = 1;
@@ -55,6 +52,7 @@ static volatile sig_atomic_t reload_config = 0;
 static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
 static int s_instance_fd = -1;
+static char s_instance_lock_path[CONFIG_MAX_PATH_LEN] = {0};
 
 typedef struct CliOptions
 {
@@ -170,141 +168,6 @@ static int semver_newer(const char *a, const char *b)
     return pb > pa ? 1 : (pb < pa ? -1 : 0);
 }
 
-/** @brief Send desktop notification for available update; opens browser on click.
- *  @details Runs as root (systemd service), so we must find the active desktop
- *           user, set DBUS_SESSION_BUS_ADDRESS / XDG_RUNTIME_DIR, and drop
- *           privileges before calling notify-send.
- */
-static void send_update_notification(const char *current, const char *latest)
-{
-    if (access("/usr/bin/notify-send", X_OK) != 0)
-        return;
-
-    char body[128];
-    int n = snprintf(body, sizeof(body), "v%s → %s available", current, latest);
-    if (n < 0 || (size_t)n >= sizeof(body))
-        return;
-
-    char url[128];
-    n = snprintf(url, sizeof(url),
-                 "https://github.com/damachine/coolerdash/releases/tag/%s",
-                 latest);
-    if (n < 0 || (size_t)n >= sizeof(url))
-        return;
-
-    /* ── Find active desktop user via /run/user/<uid>/bus ── */
-    DIR *rundir = opendir("/run/user");
-    if (!rundir)
-        return;
-
-    uid_t target_uid = (uid_t)-1;
-    struct dirent *ent;
-    while ((ent = readdir(rundir)) != NULL)
-    {
-        if (ent->d_name[0] == '.')
-            continue;
-        char bus_path[280];
-        snprintf(bus_path, sizeof(bus_path),
-                 "/run/user/%s/bus", ent->d_name);
-        if (access(bus_path, F_OK) == 0)
-        {
-            target_uid = (uid_t)strtoul(ent->d_name, NULL, 10);
-            break;
-        }
-    }
-    closedir(rundir);
-
-    if (target_uid == (uid_t)-1)
-        return;
-
-    struct passwd *pw = getpwuid(target_uid);
-    if (!pw)
-        return;
-
-    pid_t pid = fork();
-    if (pid < 0)
-        return;
-
-    if (pid == 0)
-    {
-        /* Child: set D-Bus environment and drop to desktop user */
-        char dbus_addr[128];
-        snprintf(dbus_addr, sizeof(dbus_addr),
-                 "unix:path=/run/user/%u/bus", (unsigned)target_uid);
-        setenv("DBUS_SESSION_BUS_ADDRESS", dbus_addr, 1);
-
-        char xdg_dir[64];
-        snprintf(xdg_dir, sizeof(xdg_dir),
-                 "/run/user/%u", (unsigned)target_uid);
-        setenv("XDG_RUNTIME_DIR", xdg_dir, 1);
-        setenv("HOME", pw->pw_dir, 1);
-
-        /* Detect display server: Wayland socket or X11 fallback */
-        char wayland_path[128];
-        snprintf(wayland_path, sizeof(wayland_path),
-                 "/run/user/%u/wayland-0", (unsigned)target_uid);
-        if (access(wayland_path, F_OK) == 0)
-        {
-            setenv("WAYLAND_DISPLAY", "wayland-0", 1);
-        }
-        else
-        {
-            setenv("DISPLAY", ":0", 1);
-        }
-
-        /* Drop privileges to desktop user */
-        if (setgid(pw->pw_gid) != 0 || setuid(target_uid) != 0)
-            _exit(1);
-
-        /* Fork grandchild for notify-send with action pipe */
-        int pfd[2];
-        if (pipe(pfd) != 0)
-            _exit(1);
-
-        pid_t np = fork();
-        if (np < 0)
-            _exit(1);
-
-        if (np == 0)
-        {
-            /* Grandchild: exec notify-send, stdout → pipe */
-            close(pfd[0]);
-            dup2(pfd[1], STDOUT_FILENO);
-            close(pfd[1]);
-            execlp("notify-send", "notify-send",
-                   "--wait",
-                   "-t", "10000",
-                   "-i", "coolerdash",
-                   "-a", "CoolerDash",
-                   "-A", "open=Download",
-                   "CoolerDash Update", body,
-                   (char *)NULL);
-            _exit(1);
-        }
-
-        /* Child: read action from notify-send stdout */
-        close(pfd[1]);
-        char action[32] = {0};
-        ssize_t rd = read(pfd[0], action, sizeof(action) - 1);
-        close(pfd[0]);
-        waitpid(np, NULL, 0);
-
-        if (rd > 0)
-        {
-            action[strcspn(action, "\n")] = '\0';
-            if (strcmp(action, "open") == 0 &&
-                access("/usr/bin/xdg-open", X_OK) == 0)
-            {
-                execlp("xdg-open", "xdg-open", url, (char *)NULL);
-            }
-        }
-        _exit(0);
-    }
-
-    /* Parent: don't block — reap child asynchronously */
-    signal(SIGCHLD, SIG_IGN);
-}
-
 /** @brief Query GitHub Releases API and log if a newer version exists. */
 static void check_for_update(const char *current_version)
 {
@@ -360,7 +223,6 @@ static void check_for_update(const char *current_version)
                                 "Update available: v%s -> %s  "
                                 "https://github.com/damachine/coolerdash/releases",
                                 current_version, latest);
-                    send_update_notification(current_version, latest);
                 }
                 else
                     log_message(LOG_STATUS,
@@ -456,7 +318,7 @@ static void show_help(const char *program_name)
            "file\n");
     printf("  /etc/coolercontrol/plugins/coolerdash/index.html # Web UI settings\n");
     printf("  /etc/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
-    printf("  /run/coolerdash.lock                      # Instance lock\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/.coolerdash.lock # Instance lock\n");
     printf("  journalctl -u coolercontrold.service      # View plugin logs\n\n");
     printf("PLUGIN MODE:\n");
     printf("  - Managed by CoolerControl (coolercontrold.service)\n");
@@ -504,13 +366,32 @@ static void show_system_diagnostics(const Config *config, int api_width,
                 config->display_refresh_interval);
 }
 
-static int acquire_single_instance(void)
+static int acquire_single_instance(const char *runtime_dir)
 {
-    int fd = open(COOLERDASH_LOCK_FILE, O_RDWR | O_CREAT, 0644);
+    if (!runtime_dir || runtime_dir[0] == '\0')
+        return 0;
+
+    int written = snprintf(s_instance_lock_path, sizeof(s_instance_lock_path),
+                           "%s/%s", runtime_dir, COOLERDASH_LOCK_NAME);
+    if (written < 0 || (size_t)written >= sizeof(s_instance_lock_path))
+    {
+        log_message(LOG_ERROR, "Instance lock path is too long");
+        return 0;
+    }
+
+    int fd = open(s_instance_lock_path, O_RDWR | O_CREAT, 0600);
     if (fd == -1)
     {
         log_message(LOG_ERROR, "Failed to open %s: %s",
-                    COOLERDASH_LOCK_FILE, strerror(errno));
+                    s_instance_lock_path, strerror(errno));
+        return 0;
+    }
+
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
+    {
+        log_message(LOG_ERROR, "Failed to protect %s: %s",
+                    s_instance_lock_path, strerror(errno));
+        close(fd);
         return 0;
     }
 
@@ -1005,14 +886,11 @@ int main(int argc, char **argv)
     }
 
     setup_enhanced_signal_handlers();
-    if (!acquire_single_instance())
+    if (!initialize_config_and_instance(cli.config_path, &config))
         return EXIT_FAILURE;
 
-    if (!initialize_config_and_instance(cli.config_path, &config))
-    {
-        release_single_instance();
+    if (!acquire_single_instance(config.paths_images))
         return EXIT_FAILURE;
-    }
 
     // Apply CLI display mode override if provided
     if (s_display_mode_override[0] != '\0')
