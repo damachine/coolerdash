@@ -46,7 +46,6 @@
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
 #define VERSION_BUFFER_SIZE 32
-#define CC4_MODE_LOCK "/etc/coolercontrol/plugins/coolerdash/.cc4-mode"
 #define COOLERDASH_LOCK_FILE "/run/coolerdash.lock"
 #define GH_UPDATE_URL "https://api.github.com/repos/damachine/coolerdash/releases/latest"
 
@@ -1031,18 +1030,6 @@ int main(int argc, char **argv)
     {
         release_single_instance();
         return EXIT_FAILURE;
-    }
-
-    /* CC4 lock file: disable helper service on next boot when token is set */
-    if (config.access_token[0] != '\0')
-    {
-        FILE *lf = fopen(CC4_MODE_LOCK, "w");
-        if (lf)
-            fclose(lf);
-    }
-    else
-    {
-        unlink(CC4_MODE_LOCK);
     }
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
