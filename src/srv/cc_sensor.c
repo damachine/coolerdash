@@ -334,6 +334,9 @@ static void configure_status_request(CURL *curl, const char *url,
                      (curl_write_callback)write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
     curl_easy_setopt(curl, CURLOPT_USERAGENT, "CoolerDash/1.0");
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, CC_CONNECT_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, CC_REQUEST_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
     // POST data for status request

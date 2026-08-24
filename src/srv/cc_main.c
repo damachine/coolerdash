@@ -385,6 +385,11 @@ int send_image_to_lcd(const Config *config, const char *image_path,
         cc_session.curl_handle, CURLOPT_WRITEFUNCTION,
         (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
+                     CC_CONNECT_TIMEOUT_SECONDS);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
+                     CC_REQUEST_TIMEOUT_SECONDS);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_NOSIGNAL, 1L);
 
     struct curl_slist *headers = NULL;
     headers = curl_slist_append(headers, "Content-Type: application/json");
@@ -509,6 +514,11 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
         (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
+                     CC_CONNECT_TIMEOUT_SECONDS);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
+                     CC_REQUEST_TIMEOUT_SECONDS);
+    curl_easy_setopt(cc_session.curl_handle, CURLOPT_NOSIGNAL, 1L);
 
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long http_code = 0;

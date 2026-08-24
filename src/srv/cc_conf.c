@@ -654,7 +654,9 @@ static void configure_device_cache_curl(CURL *curl, const Config *config,
         curl, CURLOPT_WRITEFUNCTION,
         (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, chunk);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, CC_CONNECT_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, CC_REQUEST_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
     *headers = curl_slist_append(NULL, "accept: application/json");
 

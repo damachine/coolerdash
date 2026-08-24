@@ -26,6 +26,8 @@
 #define CC_UID_SIZE 128
 #define CC_URL_SIZE 512
 #define CC_BEARER_HEADER_SIZE (CONFIG_MAX_TOKEN_LEN + 32)
+#define CC_CONNECT_TIMEOUT_SECONDS 3L
+#define CC_REQUEST_TIMEOUT_SECONDS 10L
 
 // Maximum safe allocation size to prevent overflow
 #define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
