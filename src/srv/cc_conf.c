@@ -56,6 +56,7 @@ static struct
     int initialized;
     char device_uid[128];
     char device_name[CC_NAME_SIZE];
+    char lcd_channel[CC_CHANNEL_SIZE];
     int screen_width;
     int screen_height;
     int is_circular;
@@ -189,7 +190,7 @@ static void extract_device_name(const json_t *dev, char *name_buffer,
 /**
  * @brief Navigate to lcd_info object in device JSON.
  */
-static const json_t *get_lcd_info_from_device(const json_t *dev)
+static const char *get_lcd_channel_from_device(const json_t *dev)
 {
     if (!dev)
         return NULL;
@@ -213,10 +214,25 @@ static const json_t *get_lcd_info_from_device(const json_t *dev)
 
         const json_t *lcd_info = json_object_get(lcd_channel, "lcd_info");
         if (lcd_info && json_is_object(lcd_info))
-            return lcd_info;
+            return channel_keys[i];
     }
 
     return NULL;
+}
+
+/**
+ * @brief Navigate to lcd_info object in device JSON.
+ */
+static const json_t *get_lcd_info_from_device(const json_t *dev)
+{
+    const char *channel_name = get_lcd_channel_from_device(dev);
+    if (!channel_name)
+        return NULL;
+
+    const json_t *info = json_object_get(dev, "info");
+    const json_t *channels = json_object_get(info, "channels");
+    const json_t *lcd_channel = json_object_get(channels, channel_name);
+    return json_object_get(lcd_channel, "lcd_info");
 }
 
 /**
@@ -248,7 +264,8 @@ static void extract_lcd_dimensions(const json_t *dev, int *width, int *height)
  */
 static void initialize_cached_lcd_output_params(
     char *lcd_uid, size_t uid_size, int *found_lcd_device, int *screen_width,
-    int *screen_height, char *device_name, size_t name_size)
+    int *screen_height, char *device_name, size_t name_size,
+    char *lcd_channel, size_t channel_size)
 {
     if (lcd_uid && uid_size > 0)
         lcd_uid[0] = '\0';
@@ -260,6 +277,8 @@ static void initialize_cached_lcd_output_params(
         *screen_height = 0;
     if (device_name && name_size > 0)
         device_name[0] = '\0';
+    if (lcd_channel && channel_size > 0)
+        lcd_channel[0] = '\0';
 }
 
 /**
@@ -268,7 +287,8 @@ static void initialize_cached_lcd_output_params(
 static void extract_lcd_device_info(const json_t *dev, char *lcd_uid,
                                     size_t uid_size, int *found_lcd_device,
                                     int *screen_width, int *screen_height,
-                                    char *device_name, size_t name_size)
+                                    char *device_name, size_t name_size,
+                                    char *lcd_channel, size_t channel_size)
 {
     if (found_lcd_device)
         *found_lcd_device = 1;
@@ -276,6 +296,9 @@ static void extract_lcd_device_info(const json_t *dev, char *lcd_uid,
     extract_device_uid(dev, lcd_uid, uid_size);
     extract_device_name(dev, device_name, name_size);
     extract_lcd_dimensions(dev, screen_width, screen_height);
+    const char *channel_name = get_lcd_channel_from_device(dev);
+    if (channel_name && lcd_channel && channel_size > 0)
+        cc_safe_strcpy(lcd_channel, channel_size, channel_name);
 }
 
 /**
@@ -492,7 +515,8 @@ static int score_lcd_candidate(const Config *config, const char *device_uid,
 static int search_lcd_device(const Config *config, const json_t *devices, char *lcd_uid,
                              size_t uid_size, int *found_lcd_device,
                              int *screen_width, int *screen_height,
-                             char *device_name, size_t name_size)
+                             char *device_name, size_t name_size,
+                             char *lcd_channel, size_t channel_size)
 {
     const json_t *best_dev = NULL;
     int best_score = -1001;
@@ -562,7 +586,7 @@ static int search_lcd_device(const Config *config, const json_t *devices, char *
     {
         extract_lcd_device_info(best_dev, lcd_uid, uid_size, found_lcd_device,
                                 screen_width, screen_height, device_name,
-                                name_size);
+                                name_size, lcd_channel, channel_size);
         return 1;
     }
 
@@ -582,14 +606,16 @@ static int parse_lcd_device_data(const Config *config, const char *json,
                                  char *lcd_uid, size_t uid_size,
                                  int *found_lcd_device, int *screen_width,
                                  int *screen_height, char *device_name,
-                                 size_t name_size)
+                                 size_t name_size, char *lcd_channel,
+                                 size_t channel_size)
 {
     if (!json)
         return 0;
 
     initialize_cached_lcd_output_params(lcd_uid, uid_size, found_lcd_device,
                                         screen_width, screen_height,
-                                        device_name, name_size);
+                                        device_name, name_size, lcd_channel,
+                                        channel_size);
 
     json_error_t error;
     json_t *root = json_loads(json, 0, &error);
@@ -608,7 +634,8 @@ static int parse_lcd_device_data(const Config *config, const char *json,
 
     int result = search_lcd_device(config, devices, lcd_uid, uid_size,
                                    found_lcd_device, screen_width,
-                                   screen_height, device_name, name_size);
+                                   screen_height, device_name, name_size,
+                                   lcd_channel, channel_size);
     json_decref(root);
     return result;
 }
@@ -627,7 +654,9 @@ static void configure_device_cache_curl(CURL *curl, const Config *config,
         curl, CURLOPT_WRITEFUNCTION,
         (size_t (*)(const void *, size_t, size_t, void *))write_callback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, chunk);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 2L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, CC_CONNECT_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, CC_REQUEST_TIMEOUT_SECONDS);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
     *headers = curl_slist_append(NULL, "accept: application/json");
 
@@ -716,7 +745,8 @@ static int process_device_cache_response(const Config *config,
         sizeof(device_cache.device_uid),
         &found_lcd_device, &device_cache.screen_width,
         &device_cache.screen_height, device_cache.device_name,
-        sizeof(device_cache.device_name));
+        sizeof(device_cache.device_name), device_cache.lcd_channel,
+        sizeof(device_cache.lcd_channel));
 
     if (result && found_lcd_device)
     {
@@ -832,6 +862,14 @@ int get_cached_lcd_device_data(const Config *config, char *device_uid,
         *screen_height = device_cache.screen_height;
 
     return 1;
+}
+
+/** @brief Return the cached channel used by the selected LCD device. */
+const char *get_cached_lcd_channel(const Config *config)
+{
+    if (!initialize_device_cache(config) || device_cache.lcd_channel[0] == '\0')
+        return NULL;
+    return device_cache.lcd_channel;
 }
 
 /**

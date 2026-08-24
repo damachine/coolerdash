@@ -83,7 +83,7 @@ Dependencies: `cairo`, `jansson`, `libcurl-gnutls`, `ttf-roboto`
 Three-stage loading:
 
 1. **Hardcoded defaults** — `set_*_defaults()` in `config.c`
-2. **JSON override** — `load_plugin_config()` from `/etc/coolercontrol/plugins/coolerdash/config.json`
+2. **JSON override** — `load_plugin_config()` from `/var/lib/coolercontrol/plugins/coolerdash/config.json`
 3. **API detection** — `update_config_from_device()` sets width/height if 0
 
 ### Adding a Config Option

@@ -1555,21 +1555,42 @@
             return [];
         }
 
-        // Normalize getStatus() return value: cc-plugin-lib returns a Map or { devices: [...] },
-        // the REST API returns { devices: [...] }.
+        // Normalize getStatus() return value: cc-plugin-lib returns a Map, the REST API
+        // returns { devices: [...] }. Both come back as the REST shape so callers read one.
         function normalizeStatus(raw) {
             if (!raw) return [];
             if (Array.isArray(raw)) return raw;
-            if (raw instanceof Map) {
-                // Map keyed by uid, values are status objects
-                var arr = [];
-                raw.forEach(function(val, key) {
-                    arr.push(typeof val === 'object' ? Object.assign({ uid: key }, val) : { uid: key });
-                });
-                return arr;
-            }
+            if (raw instanceof Map) return statusFromMap(raw);
             if (Array.isArray(raw.devices)) return raw.devices;
             return [];
+        }
+
+        // cc-plugin-lib's getStatus() yields Map<uid, Map<name, {temp,rpm,duty,freq,watts}>>,
+        // where every value is a preformatted string. The inner Map holds its entries in
+        // internal slots, so it cannot be spread or Object.assign'd; it has to be walked.
+        function statusFromMap(raw) {
+            var devices = [];
+            raw.forEach(function(sensors, uid) {
+                var temps = [];
+                var channels = [];
+                if (sensors instanceof Map) {
+                    sensors.forEach(function(values, name) {
+                        if (values.temp !== undefined) {
+                            temps.push({ name: name, temp: parseFloat(values.temp) });
+                        }
+                        var channel = { name: name };
+                        var found = false;
+                        ['rpm', 'duty', 'watts', 'freq'].forEach(function(field) {
+                            if (values[field] === undefined) return;
+                            channel[field] = parseFloat(values[field]);
+                            found = true;
+                        });
+                        if (found) channels.push(channel);
+                    });
+                }
+                devices.push({ uid: uid, status_history: [{ temps: temps, channels: channels }] });
+            });
+            return devices;
         }
 
         function splitPatternList(patternList) {

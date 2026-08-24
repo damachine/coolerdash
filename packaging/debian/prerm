@@ -1,19 +1,6 @@
 #!/bin/sh
 set -e
 
-case "$1" in
-    remove|upgrade|deconfigure)
-        if command -v systemctl >/dev/null 2>&1; then
-            if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
-                systemctl stop cc-plugin-coolerdash.service
-            fi
-            systemctl daemon-reload
-        elif command -v rc-service >/dev/null 2>&1 && [ -x /etc/init.d/cc-plugin-coolerdash ]; then
-            rc-service cc-plugin-coolerdash stop || true
-        fi
-        ;;
-esac
-
 #DEBHELPER#
 
 exit 0

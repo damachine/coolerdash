@@ -25,6 +25,7 @@
 
 // Basic constants
 #define CC_NAME_SIZE 128
+#define CC_CHANNEL_SIZE 32
 #define MAX_DEVICE_NAME_CACHE 32
 
 // Forward declarations
@@ -47,6 +48,9 @@ int get_cached_lcd_device_data(const struct Config *config, char *device_uid,
                                size_t uid_size, char *device_name,
                                size_t name_size, int *screen_width,
                                int *screen_height);
+
+/** @brief Return the cached channel name used by the selected LCD device. */
+const char *get_cached_lcd_channel(const struct Config *config);
 
 /**
  * @brief Initialize device information cache.

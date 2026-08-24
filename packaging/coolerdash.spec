@@ -47,12 +47,6 @@ if [ ! -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
     mkdir -p /var/lib/coolercontrol/plugins/coolerdash
     printf '{\n  "access_token": ""\n}\n' > /var/lib/coolercontrol/plugins/coolerdash/credentials.json
 fi
-mkdir -p /etc/coolercontrol
-if [ -f /var/lib/coolercontrol/plugins/coolerdash/coolerdash.png ]; then
-    if [ -L /etc/coolercontrol/lcd_image.png ] || [ ! -e /etc/coolercontrol/lcd_image.png ]; then
-        ln -sfn /var/lib/coolercontrol/plugins/coolerdash/coolerdash.png /etc/coolercontrol/lcd_image.png
-    fi
-fi
 if [ -f /var/lib/coolercontrol/plugins/coolerdash/config.json ]; then
     chmod 600 /var/lib/coolercontrol/plugins/coolerdash/config.json
 fi
@@ -60,35 +54,26 @@ if [ -f /var/lib/coolercontrol/plugins/coolerdash/credentials.json ]; then
     chmod 600 /var/lib/coolercontrol/plugins/coolerdash/credentials.json
 fi
 if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload
-    systemctl reset-failed cc-plugin-coolerdash.service >/dev/null 2>&1 || true
-    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
-        systemctl restart cc-plugin-coolerdash.service || echo "Note: Plugin restart failed."
-    fi
     if systemctl is-active --quiet coolercontrold.service; then
         systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
     fi
 elif command -v rc-service >/dev/null 2>&1 && [ -x /etc/init.d/coolercontrold ]; then
-    rc-service coolercontrold restart || echo "Note: CoolerControl restart failed."
-fi
-
-%preun
-if command -v systemctl >/dev/null 2>&1; then
-    if systemctl list-unit-files cc-plugin-coolerdash.service | grep -q cc-plugin-coolerdash; then
-        systemctl stop cc-plugin-coolerdash.service
+    if rc-service coolercontrold status >/dev/null 2>&1; then
+        rc-service coolercontrold restart || echo "Note: CoolerControl restart failed."
     fi
-elif command -v rc-service >/dev/null 2>&1 && [ -x /etc/init.d/cc-plugin-coolerdash ]; then
-    rc-service cc-plugin-coolerdash stop || true
 fi
 
 %postun
-if command -v systemctl >/dev/null 2>&1; then
-    systemctl daemon-reload
-    if systemctl is-active --quiet coolercontrold.service; then
-        systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
+if [ "$1" -eq 0 ]; then
+    if command -v systemctl >/dev/null 2>&1; then
+        if systemctl is-active --quiet coolercontrold.service; then
+            systemctl restart coolercontrold.service || echo "Note: CoolerControl restart failed."
+        fi
+    elif command -v rc-service >/dev/null 2>&1 && [ -x /etc/init.d/coolercontrold ]; then
+        if rc-service coolercontrold status >/dev/null 2>&1; then
+            rc-service coolercontrold restart || echo "Note: CoolerControl restart failed."
+        fi
     fi
-elif command -v rc-service >/dev/null 2>&1 && [ -x /etc/init.d/coolercontrold ]; then
-    rc-service coolercontrold restart || echo "Note: CoolerControl restart failed."
 fi
 
 %files

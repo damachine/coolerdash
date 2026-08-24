@@ -26,6 +26,8 @@
 #define CC_UID_SIZE 128
 #define CC_URL_SIZE 512
 #define CC_BEARER_HEADER_SIZE (CONFIG_MAX_TOKEN_LEN + 32)
+#define CC_CONNECT_TIMEOUT_SECONDS 3L
+#define CC_REQUEST_TIMEOUT_SECONDS 10L
 
 // Maximum safe allocation size to prevent overflow
 #define CC_MAX_SAFE_ALLOC_SIZE (SIZE_MAX / 2)
@@ -52,7 +54,7 @@ void cc_cleanup_response_buffer(http_response *response);
 size_t write_callback(const void *contents, size_t size, size_t nmemb,
                       http_response *response);
 
-/** @brief Init CURL session; authenticates via Bearer token or Basic Auth. */
+/** @brief Init CURL session and configure Bearer token authentication. */
 int init_coolercontrol_session(const struct Config *config);
 
 /** @brief Returns 1 if session is ready for API calls. */
@@ -67,7 +69,7 @@ void reset_coolercontrol_session(void);
 /** @brief Returns active Bearer token (empty if not set). */
 const char *get_session_access_token(void);
 
-/** @brief Upload image to LCD via JSON (CC4) or multipart (CC3). */
+/** @brief Update LCD settings with a generated image path via JSON. */
 int send_image_to_lcd(const struct Config *config, const char *image_path,
                       const char *device_uid);
 

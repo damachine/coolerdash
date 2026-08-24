@@ -16,9 +16,9 @@
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
-#include <dirent.h>
 #include <errno.h>
-#include <pwd.h>
+#include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -26,7 +26,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/wait.h>
 #include <curl/curl.h>
 #include <jansson.h>
 #include <time.h>
@@ -44,7 +43,7 @@
 // Security and performance constants
 #define DEFAULT_VERSION "unknown"
 #define VERSION_BUFFER_SIZE 32
-#define CC4_MODE_LOCK "/etc/coolercontrol/plugins/coolerdash/.cc4-mode"
+#define COOLERDASH_LOCK_NAME ".coolerdash.lock"
 #define GH_UPDATE_URL "https://api.github.com/repos/damachine/coolerdash/releases/latest"
 
 static volatile sig_atomic_t running = 1;
@@ -52,6 +51,8 @@ static volatile sig_atomic_t reload_config = 0;
 
 static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
+static int s_instance_fd = -1;
+static char s_instance_lock_path[CONFIG_MAX_PATH_LEN] = {0};
 
 typedef struct CliOptions
 {
@@ -116,7 +117,7 @@ static const char *read_version_from_file(void)
 
     FILE *fp = fopen("VERSION", "r");
     if (!fp)
-        fp = fopen("/etc/coolercontrol/plugins/coolerdash/VERSION", "r");
+        fp = fopen(DEFAULT_COOLERDASH_PLUGIN_DIR "/VERSION", "r");
 
     if (!fp)
     {
@@ -165,141 +166,6 @@ static int semver_newer(const char *a, const char *b)
     if (mib != mia)
         return mib > mia ? 1 : -1;
     return pb > pa ? 1 : (pb < pa ? -1 : 0);
-}
-
-/** @brief Send desktop notification for available update; opens browser on click.
- *  @details Runs as root (systemd service), so we must find the active desktop
- *           user, set DBUS_SESSION_BUS_ADDRESS / XDG_RUNTIME_DIR, and drop
- *           privileges before calling notify-send.
- */
-static void send_update_notification(const char *current, const char *latest)
-{
-    if (access("/usr/bin/notify-send", X_OK) != 0)
-        return;
-
-    char body[128];
-    int n = snprintf(body, sizeof(body), "v%s → %s available", current, latest);
-    if (n < 0 || (size_t)n >= sizeof(body))
-        return;
-
-    char url[128];
-    n = snprintf(url, sizeof(url),
-                 "https://github.com/damachine/coolerdash/releases/tag/%s",
-                 latest);
-    if (n < 0 || (size_t)n >= sizeof(url))
-        return;
-
-    /* ── Find active desktop user via /run/user/<uid>/bus ── */
-    DIR *rundir = opendir("/run/user");
-    if (!rundir)
-        return;
-
-    uid_t target_uid = (uid_t)-1;
-    struct dirent *ent;
-    while ((ent = readdir(rundir)) != NULL)
-    {
-        if (ent->d_name[0] == '.')
-            continue;
-        char bus_path[280];
-        snprintf(bus_path, sizeof(bus_path),
-                 "/run/user/%s/bus", ent->d_name);
-        if (access(bus_path, F_OK) == 0)
-        {
-            target_uid = (uid_t)strtoul(ent->d_name, NULL, 10);
-            break;
-        }
-    }
-    closedir(rundir);
-
-    if (target_uid == (uid_t)-1)
-        return;
-
-    struct passwd *pw = getpwuid(target_uid);
-    if (!pw)
-        return;
-
-    pid_t pid = fork();
-    if (pid < 0)
-        return;
-
-    if (pid == 0)
-    {
-        /* Child: set D-Bus environment and drop to desktop user */
-        char dbus_addr[128];
-        snprintf(dbus_addr, sizeof(dbus_addr),
-                 "unix:path=/run/user/%u/bus", (unsigned)target_uid);
-        setenv("DBUS_SESSION_BUS_ADDRESS", dbus_addr, 1);
-
-        char xdg_dir[64];
-        snprintf(xdg_dir, sizeof(xdg_dir),
-                 "/run/user/%u", (unsigned)target_uid);
-        setenv("XDG_RUNTIME_DIR", xdg_dir, 1);
-        setenv("HOME", pw->pw_dir, 1);
-
-        /* Detect display server: Wayland socket or X11 fallback */
-        char wayland_path[128];
-        snprintf(wayland_path, sizeof(wayland_path),
-                 "/run/user/%u/wayland-0", (unsigned)target_uid);
-        if (access(wayland_path, F_OK) == 0)
-        {
-            setenv("WAYLAND_DISPLAY", "wayland-0", 1);
-        }
-        else
-        {
-            setenv("DISPLAY", ":0", 1);
-        }
-
-        /* Drop privileges to desktop user */
-        if (setgid(pw->pw_gid) != 0 || setuid(target_uid) != 0)
-            _exit(1);
-
-        /* Fork grandchild for notify-send with action pipe */
-        int pfd[2];
-        if (pipe(pfd) != 0)
-            _exit(1);
-
-        pid_t np = fork();
-        if (np < 0)
-            _exit(1);
-
-        if (np == 0)
-        {
-            /* Grandchild: exec notify-send, stdout → pipe */
-            close(pfd[0]);
-            dup2(pfd[1], STDOUT_FILENO);
-            close(pfd[1]);
-            execlp("notify-send", "notify-send",
-                   "--wait",
-                   "-t", "10000",
-                   "-i", "coolerdash",
-                   "-a", "CoolerDash",
-                   "-A", "open=Download",
-                   "CoolerDash Update", body,
-                   (char *)NULL);
-            _exit(1);
-        }
-
-        /* Child: read action from notify-send stdout */
-        close(pfd[1]);
-        char action[32] = {0};
-        ssize_t rd = read(pfd[0], action, sizeof(action) - 1);
-        close(pfd[0]);
-        waitpid(np, NULL, 0);
-
-        if (rd > 0)
-        {
-            action[strcspn(action, "\n")] = '\0';
-            if (strcmp(action, "open") == 0 &&
-                access("/usr/bin/xdg-open", X_OK) == 0)
-            {
-                execlp("xdg-open", "xdg-open", url, (char *)NULL);
-            }
-        }
-        _exit(0);
-    }
-
-    /* Parent: don't block — reap child asynchronously */
-    signal(SIGCHLD, SIG_IGN);
 }
 
 /** @brief Query GitHub Releases API and log if a newer version exists. */
@@ -357,7 +223,6 @@ static void check_for_update(const char *current_version)
                                 "Update available: v%s -> %s  "
                                 "https://github.com/damachine/coolerdash/releases",
                                 current_version, latest);
-                    send_update_notification(current_version, latest);
                 }
                 else
                     log_message(LOG_STATUS,
@@ -448,13 +313,12 @@ static void show_help(const char *program_name)
            program_name);
     printf("FILES:\n");
     printf("  /usr/libexec/coolerdash/coolerdash            # Main executable\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/         # Plugin data directory\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/config.json # Configuration "
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/         # Plugin data directory\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/config.json # Configuration "
            "file\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/index.html # Web UI settings\n");
-    printf("  /etc/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
-    printf("  /tmp/coolerdash.pid                       # PID file "
-           "(auto-managed)\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/ui/index.html # Web UI settings\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/manifest.toml # Plugin manifest\n");
+    printf("  /var/lib/coolercontrol/plugins/coolerdash/.coolerdash.lock # Instance lock\n");
     printf("  journalctl -u coolercontrold.service      # View plugin logs\n\n");
     printf("PLUGIN MODE:\n");
     printf("  - Managed by CoolerControl (coolercontrold.service)\n");
@@ -500,6 +364,66 @@ static void show_system_diagnostics(const Config *config, int api_width,
 
     log_message(LOG_STATUS, "Refresh interval: %.2f seconds",
                 config->display_refresh_interval);
+}
+
+static int acquire_single_instance(const char *runtime_dir)
+{
+    if (!runtime_dir || runtime_dir[0] == '\0')
+        return 0;
+
+    int written = snprintf(s_instance_lock_path, sizeof(s_instance_lock_path),
+                           "%s/%s", runtime_dir, COOLERDASH_LOCK_NAME);
+    if (written < 0 || (size_t)written >= sizeof(s_instance_lock_path))
+    {
+        log_message(LOG_ERROR, "Instance lock path is too long");
+        return 0;
+    }
+
+    int fd = open(s_instance_lock_path, O_RDWR | O_CREAT, 0600);
+    if (fd == -1)
+    {
+        log_message(LOG_ERROR, "Failed to open %s: %s",
+                    s_instance_lock_path, strerror(errno));
+        return 0;
+    }
+
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) == -1)
+    {
+        log_message(LOG_ERROR, "Failed to protect %s: %s",
+                    s_instance_lock_path, strerror(errno));
+        close(fd);
+        return 0;
+    }
+
+    struct flock lock = {
+        .l_type = F_WRLCK,
+        .l_whence = SEEK_SET,
+        .l_start = 0,
+        .l_len = 0,
+    };
+    if (fcntl(fd, F_SETLK, &lock) != 0)
+    {
+        if (fcntl(fd, F_GETLK, &lock) == 0 && lock.l_pid > 1)
+            log_message(LOG_ERROR,
+                        "CoolerDash is already running (PID %ld)",
+                        (long)lock.l_pid);
+        else
+            log_message(LOG_ERROR, "CoolerDash is already running");
+        close(fd);
+        return 0;
+    }
+
+    s_instance_fd = fd;
+    return 1;
+}
+
+static void release_single_instance(void)
+{
+    if (s_instance_fd >= 0)
+    {
+        close(s_instance_fd);
+        s_instance_fd = -1;
+    }
 }
 
 /** @brief Async-signal-safe shutdown handler. */
@@ -555,7 +479,7 @@ static void handle_reload_signal(int signum)
 static void setup_enhanced_signal_handlers(void)
 {
     struct sigaction sa;
-    sigset_t block_mask;
+    sigset_t signal_mask;
 
     // Initialize signal action structure with enhanced settings
     memset(&sa, 0, sizeof(sa));
@@ -595,13 +519,22 @@ static void setup_enhanced_signal_handlers(void)
                     strerror(errno));
     }
 
-    sigemptyset(&block_mask);
-    sigaddset(&block_mask, SIGPIPE);
+    sigemptyset(&signal_mask);
+    sigaddset(&signal_mask, SIGTERM);
+    sigaddset(&signal_mask, SIGINT);
+    sigaddset(&signal_mask, SIGQUIT);
+    sigaddset(&signal_mask, SIGHUP);
 
-    if (pthread_sigmask(SIG_BLOCK, &block_mask, NULL) != 0)
-    {
-        log_message(LOG_WARNING, "Failed to block unwanted signals");
-    }
+    int rc = pthread_sigmask(SIG_UNBLOCK, &signal_mask, NULL);
+    if (rc != 0)
+        log_message(LOG_ERROR, "Failed to unblock daemon signals: %s",
+                    strerror(rc));
+
+    sigemptyset(&signal_mask);
+    sigaddset(&signal_mask, SIGPIPE);
+    rc = pthread_sigmask(SIG_BLOCK, &signal_mask, NULL);
+    if (rc != 0)
+        log_message(LOG_ERROR, "Failed to block SIGPIPE: %s", strerror(rc));
 }
 
 /** @brief Re-read config.json on SIGHUP; re-init session and device cache. */
@@ -693,8 +626,26 @@ static int run_daemon(Config *config)
 
         draw_display_image(config);
 
-        int sleep_result =
-            clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_time, NULL);
+        /* Absolute deadline: a render or a reload longer than one interval leaves it in
+           the past, and clock_nanosleep then returns at once. Drop the missed ticks
+           rather than replaying them at render speed. */
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) == 0 &&
+            (next_time.tv_sec < now.tv_sec ||
+             (next_time.tv_sec == now.tv_sec && next_time.tv_nsec < now.tv_nsec)))
+        {
+            next_time = now;
+        }
+
+        int sleep_result;
+        while ((sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
+                                               &next_time, NULL)) == EINTR)
+        {
+            /* The deadline is absolute, so resuming is the same call. Only a shutdown or
+               a reload is worth cutting the interval short for. */
+            if (!running || reload_config)
+                break;
+        }
         if (sleep_result != 0 && sleep_result != EINTR)
         {
             log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
@@ -708,8 +659,7 @@ static int run_daemon(Config *config)
 static void parse_arguments(int argc, char **argv, CliOptions *options)
 {
     memset(options, 0, sizeof(*options));
-    options->config_path =
-        "/etc/coolercontrol/plugins/coolerdash/config.json";
+    options->config_path = DEFAULT_COOLERDASH_PLUGIN_DIR "/config.json";
 
     for (int i = 1; i < argc; i++)
     {
@@ -952,10 +902,12 @@ int main(int argc, char **argv)
         return success ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
+    setup_enhanced_signal_handlers();
     if (!initialize_config_and_instance(cli.config_path, &config))
-    {
         return EXIT_FAILURE;
-    }
+
+    if (!acquire_single_instance(config.paths_images))
+        return EXIT_FAILURE;
 
     // Apply CLI display mode override if provided
     if (s_display_mode_override[0] != '\0')
@@ -967,24 +919,12 @@ int main(int argc, char **argv)
     }
 
     g_config_ptr = &config;
-    setup_enhanced_signal_handlers();
 
     log_message(LOG_STATUS, "Initializing CoolerControl session...");
     if (initialize_coolercontrol_services(&config) != 0)
     {
+        release_single_instance();
         return EXIT_FAILURE;
-    }
-
-    /* CC4 lock file: disable helper service on next boot when token is set */
-    if (config.access_token[0] != '\0')
-    {
-        FILE *lf = fopen(CC4_MODE_LOCK, "w");
-        if (lf)
-            fclose(lf);
-    }
-    else
-    {
-        unlink(CC4_MODE_LOCK);
     }
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
@@ -1035,5 +975,6 @@ int main(int argc, char **argv)
     int result = run_daemon(&config);
 
     perform_cleanup(&config);
+    release_single_instance();
     return result;
 }

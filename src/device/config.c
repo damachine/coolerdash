@@ -14,9 +14,13 @@
 #define _XOPEN_SOURCE 600
 
 // cppcheck-suppress-begin missingIncludeSystem
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <jansson.h>
 // cppcheck-suppress-end missingIncludeSystem
 
@@ -149,8 +153,6 @@ static void set_display_defaults(Config *config)
 
     if (config->display_refresh_interval == 0.0f)
         config->display_refresh_interval = 3.50f;
-    if (config->lcd_brightness == 0)
-        config->lcd_brightness = 80;
     if (!is_valid_orientation(config->lcd_orientation))
         config->lcd_orientation = 0;
     if (config->display_mode[0] == '\0')
@@ -808,6 +810,78 @@ static void load_credentials_file(const char *config_json_path, Config *config)
  * @param config_json_path Path to config.json (used to derive credentials path)
  * @param config Config with the loaded access_token
  */
+static int dump_credentials_atomically(const char *cred_path, const json_t *root)
+{
+    char temp_path[CONFIG_MAX_PATH_LEN];
+    int written = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", cred_path);
+    if (written < 0 || (size_t)written >= sizeof(temp_path))
+    {
+        log_message(LOG_WARNING, "Credentials path is too long");
+        return 0;
+    }
+
+    int fd = mkstemp(temp_path);
+    if (fd == -1)
+    {
+        log_message(LOG_WARNING, "Failed to create credentials file: %s",
+                    strerror(errno));
+        return 0;
+    }
+
+    int success = 0;
+    FILE *fp = NULL;
+    if (fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to restrict credentials file: %s",
+                    strerror(errno));
+        goto cleanup;
+    }
+
+    fp = fdopen(fd, "w");
+    if (!fp)
+    {
+        log_message(LOG_WARNING, "Failed to open credentials stream: %s",
+                    strerror(errno));
+        goto cleanup;
+    }
+    fd = -1;
+
+    if (json_dumpf(root, fp, JSON_INDENT(2)) != 0 || fputc('\n', fp) == EOF ||
+        fflush(fp) != 0 || fsync(fileno(fp)) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to write credentials.json: %s",
+                    strerror(errno));
+        goto cleanup;
+    }
+
+    if (fclose(fp) != 0)
+    {
+        fp = NULL;
+        log_message(LOG_WARNING, "Failed to close credentials.json: %s",
+                    strerror(errno));
+        goto cleanup;
+    }
+    fp = NULL;
+
+    if (rename(temp_path, cred_path) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to replace credentials.json: %s",
+                    strerror(errno));
+        goto cleanup;
+    }
+
+    success = 1;
+
+cleanup:
+    if (fp)
+        fclose(fp);
+    else if (fd != -1)
+        close(fd);
+    if (!success)
+        unlink(temp_path);
+    return success;
+}
+
 static void save_credentials_file(const char *config_json_path, const Config *config)
 {
     if (!config_json_path || !config)
@@ -860,9 +934,8 @@ static void save_credentials_file(const char *config_json_path, const Config *co
         return;
     }
 
-    if (json_dump_file(root, cred_path, JSON_INDENT(2)) != 0)
+    if (!dump_credentials_atomically(cred_path, root))
     {
-        log_message(LOG_WARNING, "Failed to write credentials.json");
         json_decref(root);
         return;
     }
@@ -1580,6 +1653,8 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
 
     // Initialize with defaults (memset sets all to 0, including color.is_set = 0)
     memset(config, 0, sizeof(Config));
+    /* Brightness accepts zero, so initialize its default before JSON loading. */
+    config->lcd_brightness = 80;
     config->layout_bar_height = CONFIG_LAYOUT_U16_UNSET;
     config->layout_bar_height_1 = CONFIG_LAYOUT_U16_UNSET;
     config->layout_bar_height_2 = CONFIG_LAYOUT_U16_UNSET;

@@ -188,7 +188,7 @@ static inline int is_valid_orientation(int orientation)
  * 4. Returns ready-to-use config (always succeeds)
  *
  * Default config.json location:
- *   /etc/coolercontrol/plugins/coolerdash/config.json
+ *   /var/lib/coolercontrol/plugins/coolerdash/config.json
  */
 int load_plugin_config(Config *config, const char *config_path);
 
