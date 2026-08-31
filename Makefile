@@ -1,4 +1,4 @@
-.PHONY: all clean install uninstall debug help detect-distro install-deps check-deps
+.PHONY: all banner clean install uninstall debug help detect-distro install-deps check-deps
 .DELETE_ON_ERROR:
 VERSION := $(shell cat VERSION)
 
@@ -12,14 +12,13 @@ REALOS ?= yes
 
 # Compiler
 CC ?= gcc
-MARCH ?= x86-64-v3
 
 # External dependencies (pkg-config, cached)
 PKG_CFLAGS := $(shell pkg-config --cflags cairo jansson libcurl)
 PKG_LIBS := $(shell pkg-config --libs cairo jansson libcurl)
 
 # User-overridable flags
-CFLAGS ?= -Wall -Wextra -O2 -march=$(MARCH)
+CFLAGS ?= -Wall -Wextra -O2
 CPPFLAGS ?=
 LDFLAGS ?=
 
@@ -28,12 +27,19 @@ override CFLAGS += -std=c99
 override CPPFLAGS += -Iinclude $(PKG_CFLAGS)
 LDLIBS = $(PKG_LIBS) -lm
 
+ifeq ($(DEBUG),1)
+override CPPFLAGS += -DDEBUG
+override CFLAGS += -g -fsanitize=address
+override LDFLAGS += -fsanitize=address
+endif
+
 TARGET = coolerdash
 
 # Directories
 SRCDIR = src
 OBJDIR = build
 BINDIR = bin
+PROGRAM = $(BINDIR)/$(TARGET)
 
 # Source code files
 MAIN_SOURCE = $(SRCDIR)/main.c
@@ -73,17 +79,17 @@ WHITE = \033[1;37m
 RESET = \033[0m
 
 # Default target (GNU convention)
-all: $(TARGET)
+all: $(PROGRAM)
 
 # Standard Build Target - Standard C99 project structure
-$(TARGET): $(OBJDIR) $(BINDIR) $(OBJECTS) $(MAIN_SOURCE)
+$(PROGRAM): $(OBJECTS) $(MAIN_SOURCE) | $(BINDIR)
 	@printf "$(CYAN)Compiling $(TARGET) (Standard C99 structure)...$(RESET)\n"
 	@printf "$(BLUE)Structure:$(RESET) src/ include/ build/ bin/\n"
 	@printf "$(BLUE)CPPFLAGS:$(RESET) $(CPPFLAGS)\n"
 	@printf "$(BLUE)CFLAGS:$(RESET) $(CFLAGS)\n"
 	@printf "$(BLUE)LDLIBS:$(RESET) $(LDLIBS)\n"
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $(BINDIR)/$(TARGET) $(MAIN_SOURCE) $(OBJECTS) $(LDLIBS)
-	@printf "$(GREEN)Build successful: $(BINDIR)/$(TARGET)$(RESET)\n"
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(MAIN_SOURCE) $(OBJECTS) $(LDLIBS)
+	@printf "$(GREEN)Build successful: $@$(RESET)\n"
 
 # Create build directory
 $(OBJDIR):
@@ -123,7 +129,7 @@ banner:
 clean:
 	$(MAKE) banner
 	@printf "$(YELLOW)Cleaning up...$(RESET)\n"
-	rm -f $(BINDIR)/$(TARGET) $(OBJECTS) *.o
+	rm -f $(PROGRAM) $(OBJECTS) *.o
 	rm -rf $(OBJDIR) $(BINDIR)
 	@printf "$(GREEN)Cleanup completed$(RESET)\n"
 
@@ -137,6 +143,8 @@ detect-distro:
 		echo "debian"; \
 	elif [ -f /etc/fedora-release ]; then \
 		echo "fedora"; \
+	elif grep -Eqi '^ID="?(ubuntu|debian)"?$$' /etc/os-release 2>/dev/null; then \
+		echo "debian"; \
 	elif grep -qi 'opensuse\|suse' /etc/os-release 2>/dev/null; then \
 		echo "opensuse"; \
 	elif [ -f /etc/redhat-release ]; then \
@@ -147,13 +155,13 @@ detect-distro:
 
 # Install build/runtime deps per distro
 install-deps:
-	@DISTRO=$$($(MAKE) detect-distro); \
+	@DISTRO=$$($(MAKE) --no-print-directory detect-distro); \
 	case $$DISTRO in \
 		arch) \
             printf "$(GREEN)Installing dependencies for Arch Linux/Manjaro...$(RESET)\n"; \
-            $(SUDO) pacman -S --needed cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson || { \
+			$(SUDO) pacman -S --needed cairo curl gcc make pkg-config ttf-roboto jansson || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo curl gcc make pkg-config ttf-roboto jansson\n"; \
                 exit 1; \
             }; \
             ;; \
@@ -203,7 +211,7 @@ install-deps:
 			printf "$(YELLOW)Please install the following dependencies manually:$(RESET)\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Arch Linux / Manjaro:$(RESET)\n"; \
-			printf "  sudo pacman -S cairo libcurl-gnutls gcc make pkg-config ttf-roboto jansson\n"; \
+			printf "  sudo pacman -S cairo curl gcc make pkg-config ttf-roboto jansson\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Gentoo:$(RESET)\n"; \
 			printf "  sudo emerge --noreplace sys-devel/gcc sys-devel/gmake virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
@@ -240,7 +248,7 @@ check-deps:
 	fi
 
 # Install binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/coolerdash/
-install: check-deps $(TARGET)
+install:
 	@printf "\n"
 	@printf "$(WHITE)=== COOLERDASH INSTALLATION ===$(RESET)\n"
 	@printf "\n"
@@ -249,6 +257,10 @@ install: check-deps $(TARGET)
 		printf "$(YELLOW)Run: sudo make install$(RESET)\n"; \
 		exit 1; \
 	fi
+	@if [ -z "$(DESTDIR)" ] && [ "$(REALOS)" = "yes" ]; then \
+		$(MAKE) install-deps; \
+	fi
+	@$(MAKE) $(PROGRAM)
 	@printf "$(CYAN)Installing plugin files...$(RESET)\n"
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)"
 	@$(INSTALL_PROGRAM) -D $(BINDIR)/$(TARGET) "$(DESTDIR)$(libexecdir)/coolerdash/coolerdash"
@@ -293,7 +305,7 @@ install: check-deps $(TARGET)
 	@printf "$(WHITE)INSTALLATION SUCCESSFUL$(RESET)\n"
 	@printf "\n"
 	@printf "$(YELLOW)Next steps:$(RESET)\n"
-	@if [ "$(REALOS)" = "yes" ]; then \
+	@if [ -z "$(DESTDIR)" ] && [ "$(REALOS)" = "yes" ]; then \
 		if command -v systemctl >/dev/null 2>&1; then \
 			if $(SUDO) systemctl is-active --quiet $(COOLERCONTROL_SERVICE).service; then \
 				$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service 2>/dev/null || true; \
@@ -323,12 +335,28 @@ uninstall:
 		printf "$(YELLOW)Run: sudo make uninstall$(RESET)\n"; \
 		exit 1; \
 	fi
-	@$(SUDO) rm -rf "$(DESTDIR)$(PLUGINDIR)"
-	@$(SUDO) rm -rf "$(DESTDIR)$(libexecdir)/coolerdash"
-	@$(SUDO) rm -f "$(DESTDIR)$(bindir)/coolerdash"
-	@$(SUDO) rm -rf "$(DESTDIR)$(datarootdir)/licenses/coolerdash"
-	@if [ "$(REALOS)" = "yes" ]; then \
-		$(SUDO) mandb -q >/dev/null 2>&1 || true; \
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/README.md"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/CHANGELOG.md"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/VERSION"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/shutdown.png"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
+	@rmdir "$(DESTDIR)$(PLUGINDIR)/ui" 2>/dev/null || true
+	@if [ -f "$(DESTDIR)$(PLUGINDIR)/config.json" ]; then \
+		backup="$(DESTDIR)$(PLUGINDIR)/config.json.manual-save"; \
+		while [ -e "$$backup" ]; do backup="$$backup.old"; done; \
+		mv "$(DESTDIR)$(PLUGINDIR)/config.json" "$$backup"; \
+		printf "$(YELLOW)Configuration preserved as $$backup$(RESET)\n"; \
+	fi
+	@rm -f "$(DESTDIR)$(libexecdir)/coolerdash/coolerdash"
+	@rmdir "$(DESTDIR)$(libexecdir)/coolerdash" 2>/dev/null || true
+	@rm -f "$(DESTDIR)$(bindir)/coolerdash"
+	@rm -f "$(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE"
+	@rmdir "$(DESTDIR)$(datarootdir)/licenses/coolerdash" 2>/dev/null || true
+	@if [ -d "$(DESTDIR)$(PLUGINDIR)" ]; then \
+		printf "$(YELLOW)Runtime data preserved in $(DESTDIR)$(PLUGINDIR)$(RESET)\n"; \
+	fi
+	@if [ -z "$(DESTDIR)" ] && [ "$(REALOS)" = "yes" ]; then \
 		if command -v systemctl >/dev/null 2>&1; then \
 			if $(SUDO) systemctl is-active --quiet $(COOLERCONTROL_SERVICE).service; then \
 				$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service >/dev/null 2>&1 || true; \
@@ -342,11 +370,10 @@ uninstall:
 	@printf "\n"
 
 # Debug Build
-debug: CPPFLAGS += -DDEBUG
-debug: CFLAGS += -g -fsanitize=address
-debug: LDFLAGS += -fsanitize=address
-debug: $(TARGET)
-	@printf "$(GREEN)Debug build created with AddressSanitizer: $(BINDIR)/$(TARGET)$(RESET)\n"
+debug:
+	@$(MAKE) clean
+	@$(MAKE) DEBUG=1 $(PROGRAM)
+	@printf "$(GREEN)Debug build created with AddressSanitizer: $(PROGRAM)$(RESET)\n"
 
 # Help
 help:
@@ -361,8 +388,9 @@ help:
 	@printf "  $(GREEN)make debug$(RESET)        - Debug build with AddressSanitizer\n"
 	@printf "\n"
 	@printf "$(YELLOW)Installation:$(RESET)\n"
-	@printf "  $(GREEN)make install$(RESET)      - Installs binary + plugin data\n"
-	@printf "  $(GREEN)make uninstall$(RESET)   - Uninstalls the program\n"
+	@printf "  $(GREEN)make install-deps$(RESET)    - Installs required dependencies\n"
+	@printf "  $(GREEN)sudo make install$(RESET)    - Installs dependencies, builds + installs\n"
+	@printf "  $(GREEN)sudo make uninstall$(RESET) - Uninstalls and preserves user data\n"
 	@printf "\n"
 	@printf "$(YELLOW)Plugin Management:$(RESET)\n"
 	@printf "  $(GREEN)systemctl enable --now $(COOLERCONTROL_SERVICE).service$(RESET)    - Start CoolerControl on systemd\n"

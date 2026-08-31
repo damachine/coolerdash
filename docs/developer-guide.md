@@ -1,6 +1,6 @@
 # CoolerDash Developer Guide
 
-**C99** | **Linux x86-64-v3** | **MIT License**
+**C99** | **Linux x86-64** | **MIT License**
 Author: Christian Kühn (damachin3@proton.me)
 Repository: https://github.com/damachine/coolerdash
 
@@ -60,21 +60,23 @@ src/
 ## Build System
 
 ```bash
-make                # C99, -O2, -march=x86-64-v3
+make                # C99, -O2
 make clean          # Remove build artifacts
 make debug          # Debug build with AddressSanitizer
-make install        # System installation
-make uninstall      # Complete removal
+make install-deps   # Install dependencies only
+sudo make install   # Install dependencies, build, and install
+sudo make uninstall # Remove program files and preserve user data
 ```
 
 Compiler flags:
 ```makefile
-CFLAGS = -Wall -Wextra -O2 -std=c99 -march=x86-64-v3 -Iinclude \
-         $(shell pkg-config --cflags cairo jansson libcurl)
-LIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
+CFLAGS ?= -Wall -Wextra -O2
+CFLAGS += -std=c99
+CPPFLAGS += -Iinclude $(shell pkg-config --cflags cairo jansson libcurl)
+LDLIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
 ```
 
-Dependencies: `cairo`, `jansson`, `libcurl-gnutls`, `ttf-roboto`
+Dependencies: `cairo`, `coolercontrold`, `jansson`, `libcurl`, `glibc`, `ttf-roboto`
 
 ---
 

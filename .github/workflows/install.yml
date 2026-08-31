@@ -115,6 +115,8 @@ jobs:
           # Check manifest.toml
           if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/manifest.toml" ]; then
             echo "✅ Plugin manifest installed"
+            grep -q '^executable = "/usr/libexec/coolerdash/coolerdash"' \
+              /tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/manifest.toml
           else
             echo "❌ Plugin manifest not found"
             exit 1
@@ -153,7 +155,7 @@ jobs:
       - name: Setup Arch Linux
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm cairo libcurl-gnutls gcc make pkg-config jansson ttf-roboto sudo systemd file
+          pacman -S --noconfirm cairo curl gcc make pkg-config jansson ttf-roboto sudo systemd file
 
       - name: Test make install on Arch
         run: |
@@ -175,6 +177,8 @@ jobs:
 
           test -L /tmp/install-test/usr/bin/coolerdash
           test "$(readlink /tmp/install-test/usr/bin/coolerdash)" = "../libexec/coolerdash/coolerdash"
+          grep -q '^executable = "/usr/libexec/coolerdash/coolerdash"' \
+            /tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/manifest.toml
 
           # Check plugin config
           if [ -f "/tmp/install-test/var/lib/coolercontrol/plugins/coolerdash/config.json" ]; then

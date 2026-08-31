@@ -90,8 +90,8 @@ yay -S coolerdash-git
 git clone https://github.com/damachine/coolerdash.git
 cd coolerdash
 
-# STEP 2: Build and install (auto-detects Linux distribution and installs dependencies)
-make install
+# STEP 2: Install dependencies, build, and install
+sudo make install
 ```
 
 > For manual installations, make sure all required dependencies are installed correctly. Manual installations need to be updated manually.
@@ -165,8 +165,9 @@ capture USB traffic or reveal an unknown pixel protocol.
 ```bash
 make            # Standard C99 build
 make clean      # Clean up
-make install    # System installation with dependency auto-detection
-make uninstall  # Remove installation (service, binary, files)
+make install-deps       # Install dependencies only
+sudo make install       # Install dependencies, build, and install
+sudo make uninstall     # Remove the program and preserve user data
 make debug      # Debug build with AddressSanitizer
 make help       # Show all options
 ```
@@ -189,15 +190,16 @@ curl http://localhost:11987/devices
 /usr/libexec/coolerdash/coolerdash -v
 
 # 4. Debug build and installation (recommended)
-# Option A — Build and install with ASan in one command (safe):
-sudo make debug install
+# Option A — Build as your user, then install the ASan binary:
+make debug
+sudo make install
 
 # Option B — Build as your user and install the debug binary manually (recommended):
 make clean && make debug
 sudo install -Dm755 bin/coolerdash /usr/libexec/coolerdash/coolerdash
 
 # Notes:
-#  • Avoid running `make debug` followed by `sudo make install` — the separate `sudo make install` may trigger a rebuild without debug flags and cause linker errors (missing ASan symbols).
+#  • Run `make clean && make` to switch from a debug build back to a normal build.
 #  • If you previously built as root and own files are root-owned, fix ownership before rebuilding:
 #    sudo chown -R $USER:$USER build bin
 

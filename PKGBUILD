@@ -1,5 +1,4 @@
 # Maintainer: Christian Kühn (damachin3 at proton dot me)
-# Website: https://github.com/damachine/coolerdash
 
 # This PKGBUILD is for building the coolerdash package from local source.
 # It assumes the source code is already present in the current directory.
@@ -14,8 +13,7 @@ pkgdesc="Plug-in for CoolerControl that extends the LCD functionality with addit
 arch=('x86_64')
 url="https://github.com/damachine/coolerdash"
 license=('MIT')
-depends=('cairo' 'jansson' 'libcurl-gnutls' 'ttf-roboto')
-makedepends=('gcc' 'make' 'pkg-config')
+depends=('cairo' 'coolercontrold' 'curl' 'glibc' 'jansson' 'ttf-roboto')
 optdepends=()
 backup=('var/lib/coolercontrol/plugins/coolerdash/config.json')
 install=coolerdash.install
@@ -26,15 +24,13 @@ build() {
     # For local build: use current directory directly
     cd "${startdir}"
 
-    # Remove all previous tarball builds
     rm -f "${pkgname}"-*.pkg.tar.*
 
-    # Clean any previous builds if a Makefile exists
     if [[ -f Makefile || -f GNUmakefile ]]; then
         make clean
     fi
 
-    # Build the project
+    # Build
     make
 
     # Copy files to srcdir for packaging (fakeroot cannot access startdir)
