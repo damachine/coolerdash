@@ -597,19 +597,19 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab(0)">Connection</button>
+            <button class="tab" onclick="switchTab(0)">Connection</button>
             <button class="tab" onclick="switchTab(1)">Display</button>
             <button class="tab" onclick="switchTab(2)">Layout</button>
             <button class="tab" onclick="switchTab(3)">Colors</button>
             <button class="tab" onclick="switchTab(4)">Sensors</button>
             <button class="tab" onclick="switchTab(5)">Advanced</button>
             <button class="tab" onclick="switchTab(6)">Device</button>
-            <button class="tab" onclick="switchTab(7)">Info</button>
+            <button class="tab active" onclick="switchTab(7)">Info</button>
         </div>
 
         <form id="configForm">
             <!-- Tab 0: Connection -->
-            <div class="panel active">
+            <div class="panel">
                 <div class="alert">
                     <strong>CoolerControl API</strong>
                     Make sure CoolerControl is running and the API address below is reachable.
@@ -1157,7 +1157,7 @@
             </div>
 
             <!-- Tab 7: Info -->
-            <div class="panel">
+            <div class="panel active">
                 <h3 class="section-title">Version &amp; Update</h3>
 
                 <div class="device-info-card">
@@ -1196,7 +1196,7 @@
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Language / Platform</div>
-                        <div class="info-item-value">C99 / Linux (systemd)</div>
+                        <div class="info-item-value">C99 / <span id="runtime-platform">Linux</span></div>
                     </div>
                 </div>
 
@@ -1369,7 +1369,7 @@
 
         let DEFAULT_CONFIG = null;
         let RESET_CONFIG = null;
-        let currentTab = 0;
+        let currentTab = 7;
         let discoveredSensors = [];
         let currentSensorConfig = {};
 
@@ -2417,6 +2417,68 @@
             fetchDeviceInfo(lastApiAddress, lastApiToken);
         }
 
+        function parseReleaseVersion(value) {
+            var match = String(value || '').match(/^v?(\d+(?:\.\d+){0,7})/i);
+            if (!match) return null;
+            return match[1].split('.').map(function(part) {
+                return parseInt(part, 10);
+            });
+        }
+
+        function compareReleaseVersions(left, right) {
+            var leftParts = parseReleaseVersion(left);
+            var rightParts = parseReleaseVersion(right);
+            if (!leftParts || !rightParts) return null;
+            var count = Math.max(leftParts.length, rightParts.length);
+            for (var i = 0; i < count; i++) {
+                var leftPart = leftParts[i] || 0;
+                var rightPart = rightParts[i] || 0;
+                if (leftPart !== rightPart) return leftPart < rightPart ? -1 : 1;
+            }
+            return 0;
+        }
+
+        function renderUpdateStatus(current, latest) {
+            var el = document.getElementById('update-status');
+            if (!el) return;
+
+            var releasesUrl = 'https://github.com/damachine/coolerdash/releases';
+            var latestTag = String(latest || '');
+            if (!/^v?\d+(?:\.\d+){0,7}$/i.test(latestTag)) {
+                el.innerHTML = '<a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
+                return;
+            }
+
+            if (latestTag.charAt(0).toLowerCase() !== 'v') latestTag = 'v' + latestTag;
+            var comparison = compareReleaseVersions(current, latestTag);
+            var releaseUrl = releasesUrl + '/tag/' + encodeURIComponent(latestTag);
+            if (comparison !== null && comparison < 0) {
+                el.innerHTML = '<strong style="color:rgb(var(--warning))">' + escapeHtml(latestTag) + ' available</strong> &mdash; '
+                    + '<a href="' + releaseUrl + '" target="_blank" rel="noopener noreferrer">View release</a>';
+            } else {
+                el.innerHTML = '<span style="color:rgb(var(--success))">' + escapeHtml(latestTag) + ' \u2713 up to date</span> &mdash; '
+                    + '<a href="' + releaseUrl + '" target="_blank" rel="noopener noreferrer">Release</a>';
+            }
+        }
+
+        async function loadCachedReleaseStatus() {
+            var lastStatus = null;
+            for (var attempt = 0; attempt < 10; attempt++) {
+                var status = await Promise.race([
+                    pluginFetch('/status'),
+                    new Promise(function(resolve) {
+                        setTimeout(function() { resolve(null); }, 2000);
+                    })
+                ]);
+                if (status) {
+                    lastStatus = status;
+                    if (status.latest) return status;
+                }
+                await new Promise(function(resolve) { setTimeout(resolve, 750); });
+            }
+            return lastStatus;
+        }
+
         async function fetchSystemInfo(apiAddress, token) {
             // Update check via GitHub Releases API
             (async function checkForUpdate() {
@@ -2425,8 +2487,15 @@
                 var current = '{{VERSION}}';
                 var releasesUrl = 'https://github.com/damachine/coolerdash/releases';
                 if (isInCoolerControl) {
-                    /* CC iframe sandbox blocks external fetch — show static link */
-                    el.innerHTML = 'v' + current + ' &mdash; <a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
+                    var cached = await loadCachedReleaseStatus();
+                    if (cached && cached.latest) {
+                        renderUpdateStatus(cached.installed || current, cached.latest);
+                    } else {
+                        el.innerHTML = '<a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
+                    }
+                    if (cached && cached.platform) {
+                        document.getElementById('runtime-platform').textContent = cached.platform;
+                    }
                     return;
                 }
                 try {
@@ -2435,16 +2504,9 @@
                     });
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     var data = await res.json();
-                    var latest = (data.tag_name || '').replace(/^v/i, '');
-                    var dlUrl = releasesUrl + '/tag/' + (data.tag_name || 'latest');
-                    if (latest && latest !== current) {
-                        el.innerHTML = '<strong style="color:rgb(var(--warning))">v' + latest + ' available</strong> &mdash; '
-                            + '<a href="' + escapeHtml(dlUrl) + '" target="_blank" rel="noopener noreferrer">Download</a>';
-                    } else {
-                        el.innerHTML = '<span style="color:rgb(var(--success))">v' + (latest || current) + ' \u2713 up to date</span>';
-                    }
+                    renderUpdateStatus(current, data.tag_name);
                 } catch (e) {
-                    el.innerHTML = 'v' + current + ' &mdash; <a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
+                    el.innerHTML = '<a href="' + releasesUrl + '" target="_blank" rel="noopener noreferrer">Check releases</a>';
                 }
             })();
 

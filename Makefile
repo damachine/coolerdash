@@ -23,9 +23,10 @@ CPPFLAGS ?=
 LDFLAGS ?=
 
 # Required project flags (always applied)
-override CFLAGS += -std=c99
+override CFLAGS += -std=c99 -pthread
 override CPPFLAGS += -Iinclude $(PKG_CFLAGS)
-LDLIBS = $(PKG_LIBS) -lm
+override CPPFLAGS += -DCOOLERDASH_VERSION='"$(VERSION)"'
+LDLIBS = $(PKG_LIBS) -lm -pthread
 
 ifeq ($(DEBUG),1)
 override CPPFLAGS += -DDEBUG
@@ -82,7 +83,7 @@ RESET = \033[0m
 all: $(PROGRAM)
 
 # Standard Build Target - Standard C99 project structure
-$(PROGRAM): $(OBJECTS) $(MAIN_SOURCE) | $(BINDIR)
+$(PROGRAM): $(OBJECTS) $(MAIN_SOURCE) VERSION | $(BINDIR)
 	@printf "$(CYAN)Compiling $(TARGET) (Standard C99 structure)...$(RESET)\n"
 	@printf "$(BLUE)Structure:$(RESET) src/ include/ build/ bin/\n"
 	@printf "$(BLUE)CPPFLAGS:$(RESET) $(CPPFLAGS)\n"
@@ -167,9 +168,9 @@ install-deps:
             ;; \
         gentoo) \
             printf "$(GREEN)Installing dependencies for Gentoo...$(RESET)\n"; \
-            $(SUDO) emerge --noreplace sys-devel/gcc sys-devel/gmake virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto || { \
+            $(SUDO) emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) emerge --noreplace sys-devel/gcc sys-devel/gmake virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
                 exit 1; \
             }; \
             ;; \
@@ -214,7 +215,7 @@ install-deps:
 			printf "  sudo pacman -S cairo curl gcc make pkg-config ttf-roboto jansson\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Gentoo:$(RESET)\n"; \
-			printf "  sudo emerge --noreplace sys-devel/gcc sys-devel/gmake virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
+			printf "  sudo emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Ubuntu / Debian:$(RESET)\n"; \
 			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
@@ -281,6 +282,7 @@ install:
 		printf "  $(GREEN)Credentials:$(RESET) Existing credentials.json preserved (chmod 600)\n"; \
 	fi
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)/ui"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/ui/update-status.js"
 	@$(INSTALL_DATA) etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
 	@$(INSTALL_DATA) images/shutdown.png "$(DESTDIR)$(PLUGINDIR)/shutdown.png"
 	@$(INSTALL_DATA) $(MANIFEST) "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
@@ -310,15 +312,19 @@ install:
 			if $(SUDO) systemctl is-active --quiet $(COOLERCONTROL_SERVICE).service; then \
 				$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service 2>/dev/null || true; \
 			fi; \
-		elif command -v rc-service >/dev/null 2>&1 && \
-		     $(SUDO) rc-service $(COOLERCONTROL_SERVICE) status >/dev/null 2>&1; then \
-			$(SUDO) rc-service $(COOLERCONTROL_SERVICE) restart >/dev/null 2>&1 || true; \
+		elif command -v rc-service >/dev/null 2>&1; then \
+			for service in $(COOLERCONTROL_SERVICE) coolercontrol; do \
+				if $(SUDO) rc-service $$service status >/dev/null 2>&1; then \
+					$(SUDO) rc-service $$service restart >/dev/null 2>&1 || true; \
+					break; \
+				fi; \
+			done; \
 		fi; \
 	fi
 	@if command -v systemctl >/dev/null 2>&1; then \
 		printf "  $(PURPLE)Restart CoolerControl:$(RESET) systemctl restart $(COOLERCONTROL_SERVICE).service\n"; \
 	elif command -v rc-service >/dev/null 2>&1; then \
-		printf "  $(PURPLE)Restart CoolerControl:$(RESET) rc-service $(COOLERCONTROL_SERVICE) restart\n"; \
+		printf "  $(PURPLE)Restart CoolerControl:$(RESET) rc-service coolercontrol restart\n"; \
 	else \
 		printf "  $(PURPLE)Restart CoolerControl:$(RESET) restart your CoolerControl daemon\n"; \
 	fi
@@ -339,8 +345,10 @@ uninstall:
 	@rm -f "$(DESTDIR)$(PLUGINDIR)/CHANGELOG.md"
 	@rm -f "$(DESTDIR)$(PLUGINDIR)/VERSION"
 	@rm -f "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/update-status.json"
 	@rm -f "$(DESTDIR)$(PLUGINDIR)/shutdown.png"
 	@rm -f "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
+	@rm -f "$(DESTDIR)$(PLUGINDIR)/ui/update-status.js"
 	@rmdir "$(DESTDIR)$(PLUGINDIR)/ui" 2>/dev/null || true
 	@if [ -f "$(DESTDIR)$(PLUGINDIR)/config.json" ]; then \
 		backup="$(DESTDIR)$(PLUGINDIR)/config.json.manual-save"; \
@@ -361,9 +369,13 @@ uninstall:
 			if $(SUDO) systemctl is-active --quiet $(COOLERCONTROL_SERVICE).service; then \
 				$(SUDO) systemctl restart $(COOLERCONTROL_SERVICE).service >/dev/null 2>&1 || true; \
 			fi; \
-		elif command -v rc-service >/dev/null 2>&1 && \
-		     $(SUDO) rc-service $(COOLERCONTROL_SERVICE) status >/dev/null 2>&1; then \
-			$(SUDO) rc-service $(COOLERCONTROL_SERVICE) restart >/dev/null 2>&1 || true; \
+		elif command -v rc-service >/dev/null 2>&1; then \
+			for service in $(COOLERCONTROL_SERVICE) coolercontrol; do \
+				if $(SUDO) rc-service $$service status >/dev/null 2>&1; then \
+					$(SUDO) rc-service $$service restart >/dev/null 2>&1 || true; \
+					break; \
+				fi; \
+			done; \
 		fi; \
 	fi
 	@printf "\n$(GREEN)Uninstallation completed successfully$(RESET)\n"

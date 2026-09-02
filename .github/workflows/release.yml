@@ -20,6 +20,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       release_msg: ${{ steps.version.outputs.release_msg }}
+      tag_exists: ${{ steps.version.outputs.tag_exists }}
       commit_sha: ${{ steps.commit.outputs.sha }}
     steps:
       - name: Checkout code
@@ -33,37 +34,30 @@ jobs:
         run: |
           echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Read version and find next available tag
+      - name: Read version and verify release tag
         id: version
         run: |
           base_ver=$(cat VERSION | tr -d '\n\r' | xargs)
-          git fetch --tags origin || true
-          counter=0
-          while true; do
-            if [ $counter -eq 0 ]; then
-              test_version="$base_ver"
-              test_tag="v$test_version"
-            else
-              test_version="$base_ver.$counter"
-              test_tag="v$test_version"
-            fi
-            if ! git tag -l "$test_tag" | grep -q "$test_tag" && ! git ls-remote --tags origin | grep -q "refs/tags/$test_tag"; then
-              final_version="$test_version"
-              final_tag="$test_tag"
-              break
-            fi
-            counter=$((counter + 1))
-            if [ $counter -gt 100 ]; then
-              echo "ERROR: Could not find available version after 100 attempts"
+          tag="v$base_ver"
+          git fetch --force --tags origin
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            tag_sha=$(git rev-list -n 1 "$tag")
+            head_sha=$(git rev-parse HEAD)
+            if [ "$tag_sha" != "$head_sha" ]; then
+              echo "ERROR: Tag $tag already points to $tag_sha. Bump VERSION before releasing."
               exit 1
             fi
-          done
-          echo "Base version from file: $base_ver"
-          echo "Final version to use: $final_version"
-          echo "Final tag to create: $final_tag"
-          echo "version=$final_version" >> $GITHUB_OUTPUT
-          echo "tag=$final_tag" >> $GITHUB_OUTPUT
-          echo "release_msg=CoolerDash $final_tag" >> $GITHUB_OUTPUT
+            tag_exists=true
+            echo "Reusing $tag from the current commit."
+          else
+            tag_exists=false
+          fi
+          echo "Version: $base_ver"
+          echo "Tag to create: $tag"
+          echo "version=$base_ver" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          echo "release_msg=CoolerDash $tag" >> $GITHUB_OUTPUT
+          echo "tag_exists=$tag_exists" >> $GITHUB_OUTPUT
 
   # Build all packages FIRST (before creating tag/release)
   build-packages:
@@ -314,6 +308,7 @@ jobs:
           git config gpg.program gpg
 
       - name: Create and Push signed tag
+        if: needs.prepare-version.outputs.tag_exists != 'true'
         env:
           TAG: ${{ needs.prepare-version.outputs.tag }}
           MSG: ${{ needs.prepare-version.outputs.release_msg }}

@@ -8,3 +8,7 @@ privileged = false
 url = "https://github.com/damachine/coolerdash"
 author = "Christian Kühn"
 license = "MIT"
+
+[proxy]
+enabled = true
+port = 11989

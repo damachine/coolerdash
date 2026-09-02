@@ -18,16 +18,22 @@
 // cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
 #include <fcntl.h>
+#include <jansson.h>
+#include <limits.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <curl/curl.h>
-#include <jansson.h>
 #include <time.h>
 #include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
@@ -41,10 +47,23 @@
 #include "srv/cc_sensor.h"
 
 // Security and performance constants
-#define DEFAULT_VERSION "unknown"
-#define VERSION_BUFFER_SIZE 32
 #define COOLERDASH_LOCK_NAME ".coolerdash.lock"
-#define GH_UPDATE_URL "https://api.github.com/repos/damachine/coolerdash/releases/latest"
+#define UPDATE_API_URL \
+    "https://api.github.com/repos/damachine/coolerdash/releases/latest"
+#define UPDATE_RESPONSE_LIMIT (64U * 1024U)
+#define UPDATE_VERSION_SIZE 64
+#define UPDATE_PATH_SIZE 4096
+#define UPDATE_RETRY_ATTEMPTS 4
+#define UPDATE_RETRY_DELAY_SECONDS 5
+#define UPDATE_PROXY_PORT 11989
+#ifndef UPDATE_STATUS_PATH
+#define UPDATE_STATUS_PATH \
+    DEFAULT_COOLERDASH_PLUGIN_DIR "/update-status.json"
+#endif
+
+#ifndef COOLERDASH_VERSION
+#define COOLERDASH_VERSION "unknown"
+#endif
 
 static volatile sig_atomic_t running = 1;
 static volatile sig_atomic_t reload_config = 0;
@@ -53,6 +72,8 @@ static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
 static int s_instance_fd = -1;
 static char s_instance_lock_path[CONFIG_MAX_PATH_LEN] = {0};
+static pthread_t s_status_server_thread;
+static int s_status_server_started = 0;
 
 typedef struct CliOptions
 {
@@ -62,9 +83,513 @@ typedef struct CliOptions
     HardwareReportOptions report;
 } CliOptions;
 
+typedef struct
+{
+    char *data;
+    size_t size;
+} UpdateResponse;
+
 int verbose_logging = 0;
 
 const Config *g_config_ptr = NULL;
+
+static int parse_version(const char *version, unsigned long parts[],
+                         size_t *part_count)
+{
+    if (!version || !parts || !part_count)
+        return 0;
+
+    if (*version == 'v' || *version == 'V')
+        version++;
+    if (*version == '\0')
+        return 0;
+
+    size_t count = 0;
+    while (*version != '\0')
+    {
+        if (count >= 8 || *version < '0' || *version > '9')
+            return 0;
+
+        errno = 0;
+        char *end = NULL;
+        unsigned long value = strtoul(version, &end, 10);
+        if (errno == ERANGE || end == version)
+            return 0;
+
+        parts[count++] = value;
+        if (*end == '\0')
+            break;
+        if (*end != '.' || end[1] == '\0')
+            return 0;
+        version = end + 1;
+    }
+
+    *part_count = count;
+    return count > 0;
+}
+
+static int update_compare_versions(const char *left, const char *right,
+                                   int *result)
+{
+    unsigned long left_parts[8] = {0};
+    unsigned long right_parts[8] = {0};
+    size_t left_count = 0;
+    size_t right_count = 0;
+
+    if (!result || !parse_version(left, left_parts, &left_count) ||
+        !parse_version(right, right_parts, &right_count))
+        return 0;
+
+    size_t count = left_count > right_count ? left_count : right_count;
+    *result = 0;
+    for (size_t i = 0; i < count; i++)
+    {
+        if (left_parts[i] == right_parts[i])
+            continue;
+        *result = left_parts[i] < right_parts[i] ? -1 : 1;
+        break;
+    }
+    return 1;
+}
+
+static int update_parse_release(const char *json, char *version,
+                                size_t version_size)
+{
+    if (!json || !version || version_size == 0)
+        return 0;
+
+    json_error_t error;
+    json_t *root = json_loads(json, JSON_REJECT_DUPLICATES, &error);
+    if (!root)
+        return 0;
+
+    const json_t *tag = json_object_get(root, "tag_name");
+    const char *tag_value = json_string_value(tag);
+    int comparison = 0;
+    int valid = tag_value && strlen(tag_value) < version_size &&
+                update_compare_versions(tag_value, tag_value, &comparison);
+    if (valid)
+        memcpy(version, tag_value, strlen(tag_value) + 1);
+
+    json_decref(root);
+    return valid;
+}
+
+static size_t update_write_callback(char *contents, size_t size, size_t nmemb,
+                                    void *userdata)
+{
+    UpdateResponse *response = userdata;
+    if (!response || (size != 0 && nmemb > SIZE_MAX / size))
+        return 0;
+
+    size_t bytes = size * nmemb;
+    if (bytes > UPDATE_RESPONSE_LIMIT - response->size - 1)
+        return 0;
+
+    char *new_data = realloc(response->data, response->size + bytes + 1);
+    if (!new_data)
+        return 0;
+
+    response->data = new_data;
+    memcpy(response->data + response->size, contents, bytes);
+    response->size += bytes;
+    response->data[response->size] = '\0';
+    return bytes;
+}
+
+static int update_error_is_temporary(CURLcode status)
+{
+    return status == CURLE_COULDNT_RESOLVE_PROXY ||
+           status == CURLE_COULDNT_RESOLVE_HOST ||
+           status == CURLE_COULDNT_CONNECT ||
+           status == CURLE_OPERATION_TIMEDOUT || status == CURLE_SEND_ERROR ||
+           status == CURLE_RECV_ERROR || status == CURLE_GOT_NOTHING;
+}
+
+static void update_retry_delay(void)
+{
+    struct timespec delay = {.tv_sec = UPDATE_RETRY_DELAY_SECONDS,
+                             .tv_nsec = 0};
+    while (nanosleep(&delay, &delay) != 0 && errno == EINTR)
+    {
+    }
+}
+
+static int fetch_latest_version(const char *current_version, char *latest,
+                                size_t latest_size)
+{
+    if (curl_global_init(CURL_GLOBAL_DEFAULT) != CURLE_OK)
+        return 0;
+
+    CURL *curl = curl_easy_init();
+    if (!curl)
+    {
+        curl_global_cleanup();
+        return 0;
+    }
+
+    UpdateResponse response = {0};
+    char user_agent[96];
+    snprintf(user_agent, sizeof(user_agent), "CoolerDash/%s", current_version);
+
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
+    if (!headers)
+    {
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        return 0;
+    }
+    struct curl_slist *new_headers =
+        curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
+    if (!new_headers)
+    {
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+        curl_global_cleanup();
+        return 0;
+    }
+    headers = new_headers;
+
+    curl_easy_setopt(curl, CURLOPT_URL, UPDATE_API_URL);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, update_write_callback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+
+    CURLcode status = CURLE_OK;
+    long http_status = 0;
+    int success = 0;
+    for (unsigned int attempt = 0; attempt < UPDATE_RETRY_ATTEMPTS; attempt++)
+    {
+        free(response.data);
+        response.data = NULL;
+        response.size = 0;
+        latest[0] = '\0';
+        http_status = 0;
+
+        status = curl_easy_perform(curl);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_status);
+        success = status == CURLE_OK && http_status == 200 && response.data &&
+                  update_parse_release(response.data, latest, latest_size);
+        if (success || !update_error_is_temporary(status) ||
+            attempt + 1 == UPDATE_RETRY_ATTEMPTS)
+            break;
+        update_retry_delay();
+    }
+    if (!success)
+    {
+        if (status != CURLE_OK)
+            fprintf(stderr, "CoolerDash update check failed: %s\n",
+                    curl_easy_strerror(status));
+        else
+            fprintf(stderr,
+                    "CoolerDash update check failed: GitHub returned HTTP %ld\n",
+                    http_status);
+    }
+
+    free(response.data);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    curl_global_cleanup();
+    return success;
+}
+
+static int write_all(int fd, const char *data, size_t length)
+{
+    size_t offset = 0;
+    while (offset < length)
+    {
+        ssize_t written = write(fd, data + offset, length - offset);
+        if (written < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            return 0;
+        }
+        if (written == 0)
+            return 0;
+        offset += (size_t)written;
+    }
+    return 1;
+}
+
+static const char *distribution_name(const char *id)
+{
+    if (strcmp(id, "arch") == 0)
+        return "Arch Linux";
+    if (strcmp(id, "gentoo") == 0)
+        return "Gentoo";
+    if (strcmp(id, "ubuntu") == 0)
+        return "Ubuntu";
+    if (strcmp(id, "debian") == 0)
+        return "Debian";
+    if (strcmp(id, "fedora") == 0)
+        return "Fedora";
+    if (strcmp(id, "centos") == 0)
+        return "CentOS";
+    if (strcmp(id, "rhel") == 0)
+        return "RHEL";
+    if (strncmp(id, "opensuse", 8) == 0)
+        return "openSUSE";
+    return id[0] != '\0' ? id : "Linux";
+}
+
+static void detect_platform(char *platform, size_t platform_size)
+{
+    char id[64] = {0};
+    FILE *os_release = fopen("/etc/os-release", "r");
+    if (os_release)
+    {
+        char line[256];
+        while (fgets(line, sizeof(line), os_release))
+        {
+            if (strncmp(line, "ID=", 3) != 0)
+                continue;
+
+            char *value = line + 3;
+            value[strcspn(value, "\r\n")] = '\0';
+            size_t length = strlen(value);
+            if (length >= 2 &&
+                ((value[0] == '"' && value[length - 1] == '"') ||
+                 (value[0] == '\'' && value[length - 1] == '\'')))
+            {
+                value[length - 1] = '\0';
+                value++;
+            }
+            size_t valid_length = strspn(
+                value,
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-");
+            if (value[0] != '\0' && value[valid_length] == '\0' &&
+                strlen(value) < sizeof(id))
+                memcpy(id, value, strlen(value) + 1);
+            break;
+        }
+        fclose(os_release);
+    }
+
+    const char *init = NULL;
+    if (access("/run/systemd/system", F_OK) == 0)
+        init = "systemd";
+    else if (access("/run/openrc", F_OK) == 0)
+        init = "OpenRC";
+
+    const char *distribution = distribution_name(id);
+    if (init)
+        snprintf(platform, platform_size, "%s (%s)", distribution, init);
+    else
+        snprintf(platform, platform_size, "%s", distribution);
+}
+
+static void write_update_status(const char *latest)
+{
+    char platform[128];
+    detect_platform(platform, sizeof(platform));
+
+    char payload[384];
+    int payload_length = snprintf(
+        payload, sizeof(payload),
+        "{\"installed\":\"%s\",\"latest\":\"%s\",\"platform\":\"%s\"}\n",
+        COOLERDASH_VERSION, latest, platform);
+    if (payload_length < 0 || (size_t)payload_length >= sizeof(payload))
+        return;
+
+    char temporary[UPDATE_PATH_SIZE];
+    if (snprintf(temporary, sizeof(temporary), "%s.tmp.%ld",
+                 UPDATE_STATUS_PATH, (long)getpid()) >= (int)sizeof(temporary))
+        return;
+
+    int fd = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd < 0)
+        return;
+
+    int saved = write_all(fd, payload, (size_t)payload_length) && fsync(fd) == 0;
+    if (close(fd) != 0)
+        saved = 0;
+    if (!saved || rename(temporary, UPDATE_STATUS_PATH) != 0)
+        unlink(temporary);
+}
+
+static int send_all(int fd, const char *data, size_t length)
+{
+    size_t offset = 0;
+    while (offset < length)
+    {
+        ssize_t sent = send(fd, data + offset, length - offset, MSG_NOSIGNAL);
+        if (sent < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            return 0;
+        }
+        if (sent == 0)
+            return 0;
+        offset += (size_t)sent;
+    }
+    return 1;
+}
+
+static void serve_update_status(int client_fd)
+{
+    char request[1024];
+    ssize_t request_length = recv(client_fd, request, sizeof(request) - 1, 0);
+    if (request_length <= 0)
+        return;
+    request[request_length] = '\0';
+
+    const char *status = "200 OK";
+    const char *content_type = "application/json";
+    char body[384] = "{}\n";
+    size_t body_length = strlen(body);
+
+    if (strncmp(request, "GET /status HTTP/", 17) != 0)
+    {
+        status = "404 Not Found";
+    }
+    else
+    {
+        int status_fd = open(UPDATE_STATUS_PATH, O_RDONLY);
+        if (status_fd >= 0)
+        {
+            ssize_t read_length = read(status_fd, body, sizeof(body) - 1);
+            close(status_fd);
+            if (read_length > 0)
+            {
+                body[read_length] = '\0';
+                body_length = (size_t)read_length;
+            }
+        }
+    }
+
+    char header[256];
+    int header_length = snprintf(
+        header, sizeof(header),
+        "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
+        status, content_type, body_length);
+    if (header_length <= 0 || (size_t)header_length >= sizeof(header))
+        return;
+    (void)send_all(client_fd, header, (size_t)header_length);
+    (void)send_all(client_fd, body, body_length);
+}
+
+static void *run_status_server(void *unused)
+{
+    (void)unused;
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd < 0)
+    {
+        log_message(LOG_WARNING, "Could not create update status server: %s",
+                    strerror(errno));
+        return NULL;
+    }
+
+    int reuse = 1;
+    (void)setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(UPDATE_PROXY_PORT);
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) != 0 ||
+        listen(server_fd, 4) != 0)
+    {
+        log_message(LOG_WARNING,
+                    "Could not listen for update status on 127.0.0.1:%d: %s",
+                    UPDATE_PROXY_PORT, strerror(errno));
+        close(server_fd);
+        return NULL;
+    }
+
+    log_message(LOG_INFO, "Update status available on 127.0.0.1:%d",
+                UPDATE_PROXY_PORT);
+    while (running)
+    {
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(server_fd, &read_fds);
+        struct timeval timeout = {.tv_sec = 1, .tv_usec = 0};
+        int ready = select(server_fd + 1, &read_fds, NULL, NULL, &timeout);
+        if (ready < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+        if (ready == 0)
+            continue;
+
+        int client_fd = accept(server_fd, NULL, NULL);
+        if (client_fd < 0)
+        {
+            if (errno == EINTR)
+                continue;
+            break;
+        }
+        struct timeval client_timeout = {.tv_sec = 2, .tv_usec = 0};
+        (void)setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &client_timeout,
+                         sizeof(client_timeout));
+        serve_update_status(client_fd);
+        close(client_fd);
+    }
+
+    close(server_fd);
+    return NULL;
+}
+
+static void start_status_server(void)
+{
+    int result = pthread_create(&s_status_server_thread, NULL,
+                                run_status_server, NULL);
+    if (result != 0)
+    {
+        log_message(LOG_WARNING, "Could not start update status server: %s",
+                    strerror(result));
+        return;
+    }
+    s_status_server_started = 1;
+}
+
+static void stop_status_server(void)
+{
+    if (!s_status_server_started)
+        return;
+    (void)pthread_join(s_status_server_thread, NULL);
+    s_status_server_started = 0;
+}
+
+static void refresh_update_status_async(void)
+{
+    pid_t launcher = fork();
+    if (launcher < 0)
+    {
+        log_message(LOG_INFO, "Could not start background update check: %s",
+                    strerror(errno));
+        return;
+    }
+    if (launcher == 0)
+    {
+        pid_t worker = fork();
+        if (worker == 0)
+        {
+            char latest[UPDATE_VERSION_SIZE] = {0};
+            (void)fetch_latest_version(COOLERDASH_VERSION, latest,
+                                       sizeof(latest));
+            write_update_status(latest);
+            _exit(EXIT_SUCCESS);
+        }
+        _exit(worker < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+    }
+
+    int status = 0;
+    while (waitpid(launcher, &status, 0) < 0 && errno == EINTR)
+    {
+    }
+}
 
 /** @brief Resolve configured shutdown image path with silent fallback to shutdown.png. */
 static const char *resolve_shutdown_image_path(const Config *config)
@@ -87,161 +612,6 @@ static const char *resolve_shutdown_image_path(const Config *config)
     return NULL;
 }
 
-/** @brief Strip whitespace and validate version string. Sets default on error. */
-static void validate_version_string(char *version_buffer, size_t buffer_size)
-{
-    version_buffer[strcspn(version_buffer, "\n\r \t")] = '\0';
-
-    size_t ver_len = 0;
-    while (ver_len < 21 && version_buffer[ver_len] != '\0')
-    {
-        ver_len++;
-    }
-    if (version_buffer[0] == '\0' || ver_len > 20)
-    {
-        log_message(LOG_WARNING, "Invalid version format, using default version");
-        cc_safe_strcpy(version_buffer, buffer_size, DEFAULT_VERSION);
-    }
-}
-
-/** @brief Read version from VERSION file; returns cached value on repeat calls. */
-static const char *read_version_from_file(void)
-{
-    static char version_buffer[VERSION_BUFFER_SIZE] = {0};
-    static int version_loaded = 0;
-
-    if (version_loaded)
-    {
-        return version_buffer[0] ? version_buffer : DEFAULT_VERSION;
-    }
-
-    FILE *fp = fopen("VERSION", "r");
-    if (!fp)
-        fp = fopen(DEFAULT_COOLERDASH_PLUGIN_DIR "/VERSION", "r");
-
-    if (!fp)
-    {
-        log_message(LOG_WARNING,
-                    "Could not open VERSION file, using default version");
-        cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
-        version_loaded = 1;
-        return version_buffer;
-    }
-
-    // Secure reading with fixed buffer size
-    if (!fgets(version_buffer, sizeof(version_buffer), fp))
-    {
-        log_message(LOG_WARNING,
-                    "Could not read VERSION file, using default version");
-        cc_safe_strcpy(version_buffer, sizeof(version_buffer), DEFAULT_VERSION);
-    }
-    else
-    {
-        validate_version_string(version_buffer, sizeof(version_buffer));
-    }
-
-    fclose(fp);
-    version_loaded = 1;
-    return version_buffer;
-}
-
-/** @brief Parse "X.Y.Z" semver into integers. Returns 1 on success. */
-static int parse_semver(const char *s, int *major, int *minor, int *patch)
-{
-    if (!s)
-        return 0;
-    if (*s == 'v' || *s == 'V')
-        s++;
-    return sscanf(s, "%d.%d.%d", major, minor, patch) == 3;
-}
-
-/** @brief Returns >0 if b is newer than a, 0 if equal, <0 if older. */
-static int semver_newer(const char *a, const char *b)
-{
-    int ma, mia, pa, mb, mib, pb;
-    if (!parse_semver(a, &ma, &mia, &pa) || !parse_semver(b, &mb, &mib, &pb))
-        return 0;
-    if (mb != ma)
-        return mb > ma ? 1 : -1;
-    if (mib != mia)
-        return mib > mia ? 1 : -1;
-    return pb > pa ? 1 : (pb < pa ? -1 : 0);
-}
-
-/** @brief Query GitHub Releases API and log if a newer version exists. */
-static void check_for_update(const char *current_version)
-{
-    if (!current_version || current_version[0] == '\0')
-        return;
-
-    CURL *curl = curl_easy_init();
-    if (!curl)
-        return;
-
-    http_response buf = {0};
-    if (!cc_init_response_buffer(&buf, 2048))
-    {
-        curl_easy_cleanup(curl);
-        return;
-    }
-
-    char user_agent[64];
-    snprintf(user_agent, sizeof(user_agent), "CoolerDash/%s", current_version);
-
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Accept: application/vnd.github+json");
-    headers = curl_slist_append(headers, "X-GitHub-Api-Version: 2022-11-28");
-
-    curl_easy_setopt(curl, CURLOPT_URL, GH_UPDATE_URL);
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, (curl_write_callback)write_callback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 5L);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
-
-    CURLcode res = curl_easy_perform(curl);
-    long http_code = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-
-    if (res == CURLE_OK && http_code == 200 && buf.data)
-    {
-        json_error_t jerr;
-        json_t *root = json_loads(buf.data, 0, &jerr);
-        if (root)
-        {
-            const json_t *tag = json_object_get(root, "tag_name");
-            if (json_is_string(tag))
-            {
-                const char *latest = json_string_value(tag);
-                if (semver_newer(current_version, latest) > 0)
-                {
-                    log_message(LOG_STATUS,
-                                "Update available: v%s -> %s  "
-                                "https://github.com/damachine/coolerdash/releases",
-                                current_version, latest);
-                }
-                else
-                    log_message(LOG_STATUS,
-                                "CoolerDash v%s is up to date", current_version);
-            }
-            json_decref(root);
-        }
-    }
-    else
-    {
-        log_message(LOG_INFO, "Update check skipped (no network or API unavailable)");
-    }
-
-    cc_cleanup_response_buffer(&buf);
-    if (headers)
-        curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
-}
-
 /**
  * @brief Detect if started by CoolerControl plugin system.
  */
@@ -257,7 +627,7 @@ static void show_help(const char *program_name)
     if (!program_name)
         program_name = "coolerdash";
 
-    const char *version = read_version_from_file();
+    const char *version = COOLERDASH_VERSION;
 
     printf("====================================================================="
            "===========\n");
@@ -867,6 +1237,7 @@ static void perform_cleanup(const Config *config)
 {
     (void)config;
     log_message(LOG_INFO, "Daemon shutdown initiated");
+    stop_status_server();
     cleanup_coolercontrol_session();
     cleanup_sensor_curl_handle();
     running = 0;
@@ -884,7 +1255,7 @@ int main(int argc, char **argv)
                    cli.display_mode_override);
 
     log_message(LOG_STATUS, "CoolerDash v%s starting up...",
-                read_version_from_file());
+                COOLERDASH_VERSION);
 
     Config config = {0};
     log_message(LOG_STATUS, "Loading configuration...");
@@ -897,7 +1268,7 @@ int main(int argc, char **argv)
             log_message(LOG_INFO,
                         "Using hardcoded defaults (no config.json found)");
         int success = run_hardware_report(
-            &config, &cli.report, read_version_from_file());
+            &config, &cli.report, COOLERDASH_VERSION);
         memset(config.access_token, 0, sizeof(config.access_token));
         return success ? EXIT_SUCCESS : EXIT_FAILURE;
     }
@@ -908,6 +1279,9 @@ int main(int argc, char **argv)
 
     if (!acquire_single_instance(config.paths_images))
         return EXIT_FAILURE;
+
+    write_update_status("");
+    refresh_update_status_async();
 
     // Apply CLI display mode override if provided
     if (s_display_mode_override[0] != '\0')
@@ -926,6 +1300,8 @@ int main(int argc, char **argv)
         release_single_instance();
         return EXIT_FAILURE;
     }
+
+    start_status_server();
 
     log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
     initialize_device_info(&config);
@@ -963,8 +1339,6 @@ int main(int argc, char **argv)
             }
         }
     }
-
-    check_for_update(read_version_from_file());
 
     // Render initial image immediately so the PNG exists on disk
     // before CC applies saved LCD settings (avoids startup race condition)

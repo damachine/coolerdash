@@ -10,6 +10,7 @@ Repository: https://github.com/damachine/coolerdash
 
 ```
 main.c
+ ├─ Standalone update check  (exits before plugin setup)
  ├─ Configuration loading    (device/config.c)
  ├─ Session init + auth      (srv/cc_main.c)
  ├─ Device cache setup       (srv/cc_conf.c)
@@ -26,7 +27,8 @@ main.c
 
 ```
 src/
-├── main.c              # Daemon lifecycle, signal handling, PID management
+├── main.c              # Daemon lifecycle and standalone update check
+├── main.h              # Update helper declarations
 ├── device/
 │   ├── config.c/h          # JSON config loader + defaults
 │   ├── profile.c/h         # LCD geometry and transport metadata
@@ -43,7 +45,7 @@ src/
 
 | Module | Public API |
 |--------|------------|
-| main.c | `main()` |
+| main.c | `main()`, `update_compare_versions()`, `update_parse_release()` |
 | device/config | `load_plugin_config()` |
 | device/profile | `resolve_display_profile()`, `calculate_circle_chord_bounds()` |
 | device/hwreport | `run_hardware_report()` |
@@ -150,10 +152,6 @@ log_message(LOG_ERROR, "...");    // always shown
 ## Testing
 
 ```bash
-# Unit test
-gcc -std=c99 -Iinclude -I./src -o build/test_scaling tests/test_scaling.c -lm
-./build/test_scaling
-
 # Debug build
 make clean && make debug
 
