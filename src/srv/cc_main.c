@@ -26,6 +26,7 @@
 
 // Include project headers
 #include "../device/config.h"
+#include "../mods/display.h"
 #include "cc_conf.h"
 #include "cc_main.h"
 
@@ -417,7 +418,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 
 /**
  * @brief Register shutdown image with CoolerControl's native LCD shutdown image API.
- * @details Uploads the shutdown PNG to CC at daemon startup via multipart PUT to
+ * @details Uploads the shutdown image to CC at daemon startup via multipart PUT to
  *          /devices/{uid}/settings/lcd/{channel}/shutdown-image.
  *          CC stores the image internally and applies it automatically when the
  *          CC daemon shuts down. Handles 404 gracefully (CC version too old).
@@ -442,6 +443,15 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
     {
         log_message(LOG_WARNING,
                     "Shutdown image not found, skipping registration: %s",
+                    image_path);
+        return 0;
+    }
+
+    const char *image_mime_type = image_file_mime_type(image_path);
+    if (!image_mime_type)
+    {
+        log_message(LOG_WARNING,
+                    "Unsupported shutdown image format, skipping registration: %s",
                     image_path);
         return 0;
     }
@@ -494,7 +504,7 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
     part = curl_mime_addpart(mime);
     curl_mime_name(part, "images[]");
     curl_mime_filedata(part, image_path);
-    curl_mime_type(part, "image/png");
+    curl_mime_type(part, image_mime_type);
 
     http_response response = {0};
     if (!cc_init_response_buffer(&response, 4096))

@@ -18,7 +18,9 @@
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <cairo/cairo.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 // cppcheck-suppress-end missingIncludeSystem
@@ -26,11 +28,172 @@
 // Include project headers
 #include "../device/config.h"
 #include "../srv/cc_conf.h"
+#include "../srv/cc_main.h"
 #include "../srv/cc_sensor.h"
 #include "circle.h"
 #include "display.h"
 #include "dual.h"
 #include "split.h"
+
+typedef struct BackgroundAnimationState
+{
+    char path[CONFIG_MAX_PATH_LEN];
+    GdkPixbufAnimation *animation;
+    GdkPixbufAnimationIter *iterator;
+    int frame_delay_ms;
+} BackgroundAnimationState;
+
+static BackgroundAnimationState background_animation = {
+    .path = {0},
+    .animation = NULL,
+    .iterator = NULL,
+    .frame_delay_ms = -1,
+};
+
+static void reset_background_animation(void)
+{
+    if (background_animation.iterator)
+        g_object_unref(background_animation.iterator);
+    if (background_animation.animation)
+        g_object_unref(background_animation.animation);
+
+    memset(&background_animation, 0, sizeof(background_animation));
+    background_animation.frame_delay_ms = -1;
+}
+
+static const char *mime_type_for_format(GdkPixbufFormat *format)
+{
+    if (!format)
+        return NULL;
+
+    char *name = gdk_pixbuf_format_get_name(format);
+    if (!name)
+        return NULL;
+
+    const char *mime_type = NULL;
+    if (strcmp(name, "png") == 0)
+        mime_type = "image/png";
+    else if (strcmp(name, "gif") == 0)
+        mime_type = "image/gif";
+    else if (strcmp(name, "jpeg") == 0)
+        mime_type = "image/jpeg";
+    else if (strcmp(name, "bmp") == 0)
+        mime_type = "image/bmp";
+    else if (strcmp(name, "tiff") == 0)
+        mime_type = "image/tiff";
+
+    g_free(name);
+    return mime_type;
+}
+
+const char *image_file_mime_type(const char *path)
+{
+    if (!path || path[0] == '\0')
+        return NULL;
+    return mime_type_for_format(gdk_pixbuf_get_file_info(path, NULL, NULL));
+}
+
+static GdkPixbuf *background_image_get_pixbuf(const char *path)
+{
+    if (!path || path[0] == '\0')
+    {
+        reset_background_animation();
+        return NULL;
+    }
+
+    if (strcmp(background_animation.path, path) != 0)
+    {
+        reset_background_animation();
+
+        if (!image_file_mime_type(path))
+            return NULL;
+
+        GError *error = NULL;
+        background_animation.animation =
+            gdk_pixbuf_animation_new_from_file(path, &error);
+        if (!background_animation.animation)
+        {
+            if (error)
+                g_error_free(error);
+            return NULL;
+        }
+
+        background_animation.iterator =
+            gdk_pixbuf_animation_get_iter(background_animation.animation, NULL);
+        if (!background_animation.iterator)
+        {
+            reset_background_animation();
+            return NULL;
+        }
+
+        SAFE_STRCPY(background_animation.path, path);
+    }
+
+    gdk_pixbuf_animation_iter_advance(background_animation.iterator, NULL);
+    background_animation.frame_delay_ms =
+        gdk_pixbuf_animation_iter_get_delay_time(background_animation.iterator);
+    return gdk_pixbuf_animation_iter_get_pixbuf(background_animation.iterator);
+}
+
+static cairo_surface_t *image_file_load_surface(const char *path)
+{
+    GdkPixbuf *pixbuf = background_image_get_pixbuf(path);
+    if (!pixbuf)
+        return NULL;
+
+    const int width = gdk_pixbuf_get_width(pixbuf);
+    const int height = gdk_pixbuf_get_height(pixbuf);
+    const int channels = gdk_pixbuf_get_n_channels(pixbuf);
+    const int source_stride = gdk_pixbuf_get_rowstride(pixbuf);
+    const int has_alpha = gdk_pixbuf_get_has_alpha(pixbuf);
+    const int bits_per_sample = gdk_pixbuf_get_bits_per_sample(pixbuf);
+    const GdkColorspace colorspace = gdk_pixbuf_get_colorspace(pixbuf);
+    const guchar *source = gdk_pixbuf_read_pixels(pixbuf);
+
+    if (width <= 0 || height <= 0 || colorspace != GDK_COLORSPACE_RGB ||
+        bits_per_sample != 8 || !source ||
+        (channels != 3 && channels != 4) || (has_alpha && channels != 4))
+    {
+        return NULL;
+    }
+
+    cairo_surface_t *surface =
+        cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    if (cairo_surface_status(surface) != CAIRO_STATUS_SUCCESS)
+    {
+        cairo_surface_destroy(surface);
+        return NULL;
+    }
+
+    cairo_surface_flush(surface);
+    unsigned char *destination = cairo_image_surface_get_data(surface);
+    const int destination_stride = cairo_image_surface_get_stride(surface);
+
+    for (int y = 0; y < height; y++)
+    {
+        const guchar *source_row = source + (size_t)y * (size_t)source_stride;
+        uint32_t *destination_row =
+            (uint32_t *)(destination + (size_t)y * (size_t)destination_stride);
+        for (int x = 0; x < width; x++)
+        {
+            const guchar *pixel = source_row + (size_t)x * (size_t)channels;
+            const uint32_t alpha = has_alpha ? pixel[3] : 255U;
+            const uint32_t red = ((uint32_t)pixel[0] * alpha + 127U) / 255U;
+            const uint32_t green = ((uint32_t)pixel[1] * alpha + 127U) / 255U;
+            const uint32_t blue = ((uint32_t)pixel[2] * alpha + 127U) / 255U;
+            destination_row[x] =
+                (alpha << 24) | (red << 16) | (green << 8) | blue;
+        }
+    }
+
+    cairo_surface_mark_dirty(surface);
+    return surface;
+}
+
+int display_background_animation_delay_ms(void)
+{
+    return background_animation.frame_delay_ms;
+}
 
 static double clamp_double(double value, double min_value, double max_value)
 {
@@ -602,7 +765,7 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
     if (config->paths_image_background[0] != '\0')
     {
         cairo_surface_t *background =
-            cairo_image_surface_create_from_png(config->paths_image_background);
+            image_file_load_surface(config->paths_image_background);
 
         if (background &&
             cairo_surface_status(background) == CAIRO_STATUS_SUCCESS)
@@ -891,6 +1054,14 @@ int slot_is_active(const char *slot_value)
     return strcmp(slot_value, "none") != 0;
 }
 
+int display_has_active_sensor_slots(const struct Config *config)
+{
+    return config &&
+           (slot_is_active(config->sensor_slot_1) ||
+            slot_is_active(config->sensor_slot_2) ||
+            slot_is_active(config->sensor_slot_3));
+}
+
 /**
  * @brief Get sensor value for a slot.
  */
@@ -1160,7 +1331,39 @@ float get_slot_font_size(const struct Config *config, const char *slot_value)
  */
 void reset_display_state(void)
 {
+    reset_background_animation();
     reset_circle_state();
+}
+
+static void draw_background_only_image(const struct Config *config)
+{
+    cairo_surface_t *surface = NULL;
+    cairo_t *cr = create_cairo_context(config, &surface);
+    if (!cr)
+        return;
+
+    paint_display_background(cr, config);
+    cairo_surface_flush(surface);
+    const cairo_status_t write_status =
+        cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+
+    if (write_status != CAIRO_STATUS_SUCCESS)
+    {
+        log_message(LOG_ERROR, "Failed to write background-only image: %s",
+                    cairo_status_to_string(write_status));
+        return;
+    }
+
+    char device_uid[128] = {0};
+    if (is_session_initialized() &&
+        get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
+                                   NULL, 0, NULL, NULL) &&
+        device_uid[0] != '\0')
+    {
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
+    }
 }
 
 void draw_display_image(const struct Config *config)
@@ -1168,6 +1371,12 @@ void draw_display_image(const struct Config *config)
     if (!config)
     {
         log_message(LOG_ERROR, "Invalid config parameter for draw_display_image");
+        return;
+    }
+
+    if (!display_has_active_sensor_slots(config))
+    {
+        draw_background_only_image(config);
         return;
     }
 

@@ -8,6 +8,7 @@ Build-Depends: debhelper-compat (= 13),
                pkg-config,
                libcairo2-dev,
                libcurl4-openssl-dev,
+               libgdk-pixbuf-2.0-dev,
                libjansson-dev
 Standards-Version: 4.6.2
 Homepage: https://github.com/damachine/coolerdash

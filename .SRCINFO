@@ -9,6 +9,7 @@ pkgbase = coolerdash
 	depends = cairo
 	depends = coolercontrold
 	depends = curl
+	depends = gdk-pixbuf2
 	depends = glibc
 	depends = jansson
 	depends = ttf-roboto

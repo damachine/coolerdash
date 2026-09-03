@@ -14,10 +14,11 @@ BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  pkgconfig
 BuildRequires:  pkgconfig(cairo)
+BuildRequires:  pkgconfig(gdk-pixbuf-2.0)
 BuildRequires:  pkgconfig(jansson)
 BuildRequires:  pkgconfig(libcurl)
 
-# Shared lib deps (libcairo, libjansson, libcurl) are auto-detected by rpmbuild
+# Shared lib deps are auto-detected by rpmbuild
 Requires:       google-roboto-fonts
 Recommends:     coolercontrol
 

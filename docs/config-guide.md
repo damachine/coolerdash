@@ -39,7 +39,8 @@ sudo systemctl restart coolercontrold
 |-----|-------------|
 | `images` | Directory for generated images |
 | `image_coolerdash` | Generated display image path |
-| `image_shutdown` | Image shown on daemon shutdown |
+| `image_background` | Optional PNG, animated GIF, JPEG, BMP, or TIFF background |
+| `image_shutdown` | PNG, GIF, JPEG, BMP, or TIFF image shown on daemon shutdown |
 
 ---
 
@@ -65,12 +66,12 @@ sudo systemctl restart coolercontrold
 |-----|---------|-------------|
 | `mode` | `split` | `split`, `dual`, or `circle` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
-| `refresh_interval` | `3.5` | Update interval in seconds (0.01–60.0) |
+| `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0); GIF frame timing may shorten it |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
-| `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot |
+| `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot; set all visible slots to `none` for a background-only display |
 
 ---
 

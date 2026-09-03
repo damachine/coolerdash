@@ -948,6 +948,19 @@ static void reload_daemon_config(Config *config)
     log_message(LOG_STATUS, "Configuration reloaded successfully");
 }
 
+/** @brief Select the shorter of the configured refresh and GIF frame delay. */
+static void set_render_interval(const Config *config, struct timespec *interval)
+{
+    double seconds = config->display_refresh_interval;
+    const int animation_delay_ms = display_background_animation_delay_ms();
+
+    if (animation_delay_ms > 0 && animation_delay_ms / 1000.0 < seconds)
+        seconds = animation_delay_ms / 1000.0;
+
+    interval->tv_sec = (time_t)seconds;
+    interval->tv_nsec = (long)((seconds - interval->tv_sec) * 1000000000.0);
+}
+
 /** @brief Main daemon loop: renders display on interval, handles SIGHUP. */
 static int run_daemon(Config *config)
 {
@@ -957,12 +970,8 @@ static int run_daemon(Config *config)
         return -1;
     }
 
-    long interval_sec = (long)config->display_refresh_interval;
-    long interval_nsec =
-        (long)((config->display_refresh_interval - interval_sec) * 1000000000);
-
-    struct timespec interval = {.tv_sec = interval_sec,
-                                .tv_nsec = interval_nsec};
+    struct timespec interval;
+    set_render_interval(config, &interval);
 
     struct timespec next_time;
     if (clock_gettime(CLOCK_MONOTONIC, &next_time) != 0)
@@ -978,13 +987,11 @@ static int run_daemon(Config *config)
             reload_config = 0;
             reload_daemon_config(config);
 
-            interval_sec = (long)config->display_refresh_interval;
-            interval_nsec = (long)((config->display_refresh_interval -
-                                    interval_sec) *
-                                   1000000000);
-            interval.tv_sec = interval_sec;
-            interval.tv_nsec = interval_nsec;
+            set_render_interval(config, &interval);
         }
+
+        draw_display_image(config);
+        set_render_interval(config, &interval);
 
         next_time.tv_sec += interval.tv_sec;
         next_time.tv_nsec += interval.tv_nsec;
@@ -993,8 +1000,6 @@ static int run_daemon(Config *config)
             next_time.tv_sec++;
             next_time.tv_nsec -= 1000000000L;
         }
-
-        draw_display_image(config);
 
         /* Absolute deadline: a render or a reload longer than one interval leaves it in
            the past, and clock_nanosleep then returns at once. Drop the missed ticks
@@ -1210,7 +1215,11 @@ static void initialize_device_info(Config *config)
 
     log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
 
-    if (get_sensor_monitor_data(config, &temp_data))
+    if (!display_has_active_sensor_slots(config))
+    {
+        log_message(LOG_STATUS, "Background-only mode: all sensor slots disabled");
+    }
+    else if (get_sensor_monitor_data(config, &temp_data))
     {
         if (temp_data.sensor_count > 0)
         {

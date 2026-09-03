@@ -108,6 +108,12 @@ void draw_display_image(const struct Config *config);
 /** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
 void reset_display_state(void);
 
+/** Return CoolerControl's MIME type for a supported image, detected by content. */
+const char *image_file_mime_type(const char *path);
+
+/** Return the animated background's current frame delay, or -1 when static. */
+int display_background_animation_delay_ms(void);
+
 // ============================================================================
 // Shared Cairo Rendering Helpers
 // ============================================================================
@@ -278,8 +284,8 @@ void calculate_bar_bounds(const struct Config *config,
                           int *bar_x, int *bar_width);
 
 /**
- * @brief Paint display background from optional PNG image or fallback color.
- * @details If a PNG background path is configured and readable, the image is
+ * @brief Paint display background from an optional image or fallback color.
+ * @details If a supported background path is configured and readable, the image is
  * scaled to the current display size and painted first. Otherwise the
  * configured background color is used.
  */
@@ -316,6 +322,9 @@ void draw_degree_symbol(cairo_t *cr, double x, double y,
  * @return 1 if active, 0 if "none" or invalid
  */
 int slot_is_active(const char *slot_value);
+
+/** Return whether at least one configured sensor slot is active. */
+int display_has_active_sensor_slots(const struct Config *config);
 
 /**
  * @brief Get sensor value for a slot.

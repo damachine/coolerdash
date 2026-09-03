@@ -84,6 +84,8 @@ Content-Type: application/json
 ### Shutdown Image (CC4)
 
 Called once at startup. CC4 stores it server-side and displays it when CoolerControl stops.
+CoolerDash detects PNG, GIF, JPEG, BMP, and TIFF content and uses the matching
+multipart MIME type.
 
 ```
 PUT {address}/devices/{uid}/settings/lcd/{channel}/shutdown-image

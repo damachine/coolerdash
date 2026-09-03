@@ -74,11 +74,11 @@ Compiler flags:
 ```makefile
 CFLAGS ?= -Wall -Wextra -O2
 CFLAGS += -std=c99
-CPPFLAGS += -Iinclude $(shell pkg-config --cflags cairo jansson libcurl)
-LDLIBS = $(shell pkg-config --libs cairo jansson libcurl) -lm
+CPPFLAGS += -Iinclude $(shell pkg-config --cflags cairo gdk-pixbuf-2.0 jansson libcurl)
+LDLIBS = $(shell pkg-config --libs cairo gdk-pixbuf-2.0 jansson libcurl) -lm
 ```
 
-Dependencies: `cairo`, `coolercontrold`, `jansson`, `libcurl`, `glibc`, `ttf-roboto`
+Dependencies: `cairo`, `coolercontrold`, `gdk-pixbuf`, `jansson`, `libcurl`, `glibc`, `ttf-roboto`
 
 ---
 

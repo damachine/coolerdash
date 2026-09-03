@@ -520,8 +520,8 @@ static int slot_is_active_str(const char *slot)
 
 /**
  * @brief Validate sensor slot configuration.
- * @details Checks for duplicates (excluding "none"), ensures at least one active slot,
- *          and validates slot values. Resets to defaults on critical errors.
+ * @details Checks for duplicates (excluding "none") and validates slot values.
+ *          All slots may be disabled for a background-only display.
  */
 static void validate_sensor_slots(Config *config)
 {
@@ -571,15 +571,6 @@ static void validate_sensor_slots(Config *config)
         }
         if (reset_needed)
             break;
-    }
-
-    // Check that at least one slot is active
-    if (!slot_is_active_str(config->sensor_slot_1) &&
-        !slot_is_active_str(config->sensor_slot_2) &&
-        !slot_is_active_str(config->sensor_slot_3))
-    {
-        log_message(LOG_ERROR, "All sensor slots are 'none'. At least one sensor must be active. Resetting to defaults.");
-        reset_needed = 1;
     }
 
     // Reset to defaults if validation failed

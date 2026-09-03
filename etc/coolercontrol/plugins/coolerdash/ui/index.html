@@ -771,7 +771,7 @@
                 <h3 class="section-title">Background Image</h3>
                 <div class="form-group">
                     <label class="form-label">Background Image Path</label>
-                    <span class="form-hint">Optional PNG file used as display background behind the sensor values. Leave empty to use the configured background color.</span>
+                    <span class="form-hint">Optional PNG, animated GIF, JPEG, BMP, or TIFF image displayed behind the sensor values. Leave empty to use the configured background color.</span>
                     <input type="text" name="paths.image_background" class="form-control">
                 </div>
                 <div class="grid grid-2">
@@ -807,7 +807,7 @@
                 <h3 class="section-title">Shutdown Image</h3>
                 <div class="form-group">
                     <label class="form-label">Shutdown Image Path</label>
-                    <span class="form-hint">Displayed on the LCD when CoolerControl shuts down. Default: /var/lib/coolercontrol/plugins/coolerdash/shutdown.png</span>
+                    <span class="form-hint">PNG, GIF, JPEG, BMP, or TIFF image displayed when CoolerControl shuts down. Format support on the LCD depends on the device. Default: /var/lib/coolercontrol/plugins/coolerdash/shutdown.png</span>
                     <input type="text" name="paths.image_shutdown" class="form-control">
                 </div>
             </div>
@@ -2640,8 +2640,6 @@
             if (slotUp !== 'none') activeSlots.push({ name: mode === 'split' ? 'Left' : 'Slot 1', value: slotUp });
             if ((mode === 'circle' || mode === 'split') && slotMid !== 'none') activeSlots.push({ name: mode === 'split' ? 'Right' : 'Slot 2', value: slotMid });
             if (mode !== 'split' && slotDown !== 'none') activeSlots.push({ name: 'Slot 3', value: slotDown });
-
-            if (activeSlots.length === 0) warnings.push('At least one sensor slot must be active.');
 
             var usedSensors = {};
             for (var i = 0; i < activeSlots.length; i++) {
