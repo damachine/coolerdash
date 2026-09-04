@@ -50,13 +50,14 @@ int cc_safe_strcpy(char *restrict dest, size_t dest_size,
     return 0;
 }
 
-/** @brief Device UID/name/dimensions cache (populated once at startup). */
+/** @brief Selected LCD device cache (populated once at startup). */
 static struct
 {
     int initialized;
     char device_uid[128];
     char device_name[CC_NAME_SIZE];
     char lcd_channel[CC_CHANNEL_SIZE];
+    char firmware_version[CC_FIRMWARE_SIZE];
     int screen_width;
     int screen_height;
     int is_circular;
@@ -259,13 +260,28 @@ static void extract_lcd_dimensions(const json_t *dev, int *width, int *height)
     }
 }
 
+/** @brief Extract the liquidctl firmware version from a device object. */
+static void extract_lcd_firmware(const json_t *dev, char *firmware,
+                                 size_t firmware_size)
+{
+    if (!dev || !firmware || firmware_size == 0)
+        return;
+
+    const json_t *lc_info = json_object_get(dev, "lc_info");
+    const json_t *version =
+        lc_info ? json_object_get(lc_info, "firmware_version") : NULL;
+    if (version && json_is_string(version))
+        cc_safe_strcpy(firmware, firmware_size, json_string_value(version));
+}
+
 /**
  * @brief Initialize cached LCD output parameters to default values.
  */
 static void initialize_cached_lcd_output_params(
     char *lcd_uid, size_t uid_size, int *found_lcd_device, int *screen_width,
     int *screen_height, char *device_name, size_t name_size,
-    char *lcd_channel, size_t channel_size)
+    char *lcd_channel, size_t channel_size, char *firmware,
+    size_t firmware_size)
 {
     if (lcd_uid && uid_size > 0)
         lcd_uid[0] = '\0';
@@ -279,6 +295,8 @@ static void initialize_cached_lcd_output_params(
         device_name[0] = '\0';
     if (lcd_channel && channel_size > 0)
         lcd_channel[0] = '\0';
+    if (firmware && firmware_size > 0)
+        firmware[0] = '\0';
 }
 
 /**
@@ -288,7 +306,8 @@ static void extract_lcd_device_info(const json_t *dev, char *lcd_uid,
                                     size_t uid_size, int *found_lcd_device,
                                     int *screen_width, int *screen_height,
                                     char *device_name, size_t name_size,
-                                    char *lcd_channel, size_t channel_size)
+                                    char *lcd_channel, size_t channel_size,
+                                    char *firmware, size_t firmware_size)
 {
     if (found_lcd_device)
         *found_lcd_device = 1;
@@ -299,6 +318,7 @@ static void extract_lcd_device_info(const json_t *dev, char *lcd_uid,
     const char *channel_name = get_lcd_channel_from_device(dev);
     if (channel_name && lcd_channel && channel_size > 0)
         cc_safe_strcpy(lcd_channel, channel_size, channel_name);
+    extract_lcd_firmware(dev, firmware, firmware_size);
 }
 
 /**
@@ -516,7 +536,8 @@ static int search_lcd_device(const Config *config, const json_t *devices, char *
                              size_t uid_size, int *found_lcd_device,
                              int *screen_width, int *screen_height,
                              char *device_name, size_t name_size,
-                             char *lcd_channel, size_t channel_size)
+                             char *lcd_channel, size_t channel_size,
+                             char *firmware, size_t firmware_size)
 {
     const json_t *best_dev = NULL;
     int best_score = -1001;
@@ -586,7 +607,8 @@ static int search_lcd_device(const Config *config, const json_t *devices, char *
     {
         extract_lcd_device_info(best_dev, lcd_uid, uid_size, found_lcd_device,
                                 screen_width, screen_height, device_name,
-                                name_size, lcd_channel, channel_size);
+                                name_size, lcd_channel, channel_size, firmware,
+                                firmware_size);
         return 1;
     }
 
@@ -607,7 +629,8 @@ static int parse_lcd_device_data(const Config *config, const char *json,
                                  int *found_lcd_device, int *screen_width,
                                  int *screen_height, char *device_name,
                                  size_t name_size, char *lcd_channel,
-                                 size_t channel_size)
+                                 size_t channel_size, char *firmware,
+                                 size_t firmware_size)
 {
     if (!json)
         return 0;
@@ -615,7 +638,7 @@ static int parse_lcd_device_data(const Config *config, const char *json,
     initialize_cached_lcd_output_params(lcd_uid, uid_size, found_lcd_device,
                                         screen_width, screen_height,
                                         device_name, name_size, lcd_channel,
-                                        channel_size);
+                                        channel_size, firmware, firmware_size);
 
     json_error_t error;
     json_t *root = json_loads(json, 0, &error);
@@ -635,7 +658,8 @@ static int parse_lcd_device_data(const Config *config, const char *json,
     int result = search_lcd_device(config, devices, lcd_uid, uid_size,
                                    found_lcd_device, screen_width,
                                    screen_height, device_name, name_size,
-                                   lcd_channel, channel_size);
+                                   lcd_channel, channel_size, firmware,
+                                   firmware_size);
     json_decref(root);
     return result;
 }
@@ -746,7 +770,8 @@ static int process_device_cache_response(const Config *config,
         &found_lcd_device, &device_cache.screen_width,
         &device_cache.screen_height, device_cache.device_name,
         sizeof(device_cache.device_name), device_cache.lcd_channel,
-        sizeof(device_cache.lcd_channel));
+        sizeof(device_cache.lcd_channel), device_cache.firmware_version,
+        sizeof(device_cache.firmware_version));
 
     if (result && found_lcd_device)
     {
@@ -862,6 +887,14 @@ int get_cached_lcd_device_data(const Config *config, char *device_uid,
         *screen_height = device_cache.screen_height;
 
     return 1;
+}
+
+/** @brief Return the cached firmware version for the selected LCD device. */
+const char *get_cached_lcd_firmware_version(const Config *config)
+{
+    if (!initialize_device_cache(config))
+        return "";
+    return device_cache.firmware_version;
 }
 
 /** @brief Return the cached channel used by the selected LCD device. */

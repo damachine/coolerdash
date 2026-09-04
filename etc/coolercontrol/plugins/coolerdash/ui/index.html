@@ -29,8 +29,6 @@
             /* Structural — not theme-dependent */
             --radius: 10px;
             --radius-sm: 6px;
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         body {
@@ -53,7 +51,6 @@
             border-radius: var(--radius);
             padding: 28px 32px;
             margin-bottom: 20px;
-            box-shadow: var(--shadow);
             border: 1px solid rgb(var(--border-one));
         }
 
@@ -180,7 +177,6 @@
             background: rgb(var(--bg-two));
             padding: 10px;
             border-radius: var(--radius);
-            box-shadow: var(--shadow-sm);
             overflow-x: auto;
             flex-wrap: wrap;
             border: 1px solid rgb(var(--border-one));
@@ -218,7 +214,6 @@
             background: rgb(var(--bg-two));
             border-radius: var(--radius);
             padding: 28px 32px;
-            box-shadow: var(--shadow);
             animation: fadeIn 0.3s ease;
             border: 1px solid rgb(var(--border-one));
         }
@@ -290,7 +285,7 @@
             width: 100%;
             padding: 11px 14px;
             background: rgb(var(--bg-one));
-            border: 1px solid rgb(var(--border-one));
+            border: 1px solid rgb(var(--text-color-secondary) / 0.25);
             border-radius: var(--radius-sm);
             color: rgb(var(--text-color));
             font-size: 14px;
@@ -298,8 +293,7 @@
         }
 
         .form-control:hover {
-            border-color: rgb(var(--border-one));
-            opacity: 0.9;
+            border-color: rgb(var(--text-color-secondary) / 0.45);
         }
 
         .form-control:focus {
@@ -357,11 +351,21 @@
             flex: 1;
             height: 6px;
             appearance: none;
-            background: rgb(var(--bg-one));
+            background: rgb(var(--text-color-secondary) / 0.18);
             border-radius: 3px;
             outline: none;
             -webkit-appearance: none;
-            border: 1px solid rgb(var(--border-one));
+            border: 1px solid rgb(var(--text-color-secondary) / 0.25);
+            transition: border-color 0.2s ease;
+        }
+
+        .range-input:hover {
+            border-color: rgb(var(--text-color-secondary) / 0.45);
+        }
+
+        .range-input:focus-visible {
+            border-color: rgb(var(--accent));
+            box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
         }
 
         .range-input::-webkit-slider-thumb {
@@ -597,18 +601,16 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab" onclick="switchTab(0)">Connection</button>
+            <button class="tab" onclick="switchTab(0)">Setup</button>
             <button class="tab" onclick="switchTab(1)">Display</button>
             <button class="tab" onclick="switchTab(2)">Layout</button>
-            <button class="tab" onclick="switchTab(3)">Colors</button>
-            <button class="tab" onclick="switchTab(4)">Sensors</button>
-            <button class="tab" onclick="switchTab(5)">Advanced</button>
-            <button class="tab" onclick="switchTab(6)">Device</button>
-            <button class="tab active" onclick="switchTab(7)">Info</button>
+            <button class="tab" onclick="switchTab(3)">Sensors</button>
+            <button class="tab" onclick="switchTab(4)">Device</button>
+            <button class="tab active" onclick="switchTab(5)">Info</button>
         </div>
 
         <form id="configForm">
-            <!-- Tab 0: Connection -->
+            <!-- Tab 0: Setup -->
             <div class="panel">
                 <div class="alert">
                     <strong>CoolerControl API</strong>
@@ -641,7 +643,7 @@
 
             <!-- Tab 1: Display -->
             <div class="panel">
-                <h3 class="section-title">Display Mode</h3>
+                <h3 class="section-title">Mode</h3>
 
                 <div class="grid grid-2">
                     <div class="form-group">
@@ -652,15 +654,6 @@
                             <option value="split">Split (CPU + GPU columns)</option>
                             <option value="circle">Circle (Alternating display)</option>
                         </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Brightness (%)</label>
-                        <span class="form-hint">Default: 80%</span>
-                        <div class="range-group">
-                            <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
-                            <span class="range-value" id="brightness_value">80%</span>
-                        </div>
                     </div>
 
                     <div class="form-group" id="circle_interval_group" style="display: none;">
@@ -677,7 +670,6 @@
                     </div>
                 </div>
 
-                <h3 class="section-title">Sensors</h3>
                 <div class="alert">
                     <strong>Sensor Assignment</strong>
                     Assign sensors to display positions. Use &ldquo;None&rdquo; to disable a slot.
@@ -734,8 +726,25 @@
                     <span id="sensor_slot_warning_text"></span>
                 </div>
 
-                <h3 class="section-title">Display Geometry</h3>
+                <h3 class="section-title">Display</h3>
                 <div class="grid grid-2">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label class="form-label">Display Background</label>
+                        <div class="color-group">
+                            <input type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
+                            <span class="color-rgb" id="rgb_display_background"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Brightness (%)</label>
+                        <span class="form-hint">Default: 80%</span>
+                        <div class="range-group">
+                            <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
+                            <span class="range-value" id="brightness_value">80%</span>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Orientation</label>
                         <span class="form-hint">Default: 0&deg;</span>
@@ -747,24 +756,45 @@
                         </select>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label">Safe Area Scale</label>
-                        <span class="form-hint">Base layout safety area. Default: 0.98</span>
-                        <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
+                    <div class="form-group bar-mode-only">
+                        <label class="form-label">Bar Background</label>
+                        <div class="color-group">
+                            <input type="color" id="color_bar_background" class="color-swatch" onchange="updateColorRGB('color_bar_background', 'rgb_bar_background')">
+                            <span class="color-rgb" id="rgb_bar_background"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group bar-mode-only">
+                        <label class="form-label">Bar Border</label>
+                        <div class="color-group">
+                            <input type="color" id="color_bar_border" class="color-swatch" onchange="updateColorRGB('color_bar_border', 'rgb_bar_border')">
+                            <span class="color-rgb" id="rgb_bar_border"></span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="grid grid-2">
+                <h3 class="section-title">Text</h3>
+                <div class="grid grid-3">
                     <div class="form-group">
-                        <label class="form-label">Width (Pixels)</label>
-                        <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
-                        <input type="number" name="display.width" class="form-control" min="0" max="1024">
+                        <label class="form-label">Temperature Text</label>
+                        <div class="color-group">
+                            <input type="color" id="color_font_temp" class="color-swatch" onchange="updateColorRGB('color_font_temp', 'rgb_font_temp')">
+                            <span class="color-rgb" id="rgb_font_temp"></span>
+                        </div>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Height (Pixels)</label>
-                        <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
-                        <input type="number" name="display.height" class="form-control" min="0" max="1024">
+                        <label class="form-label">Label Text</label>
+                        <div class="color-group">
+                            <input type="color" id="color_font_label" class="color-swatch" onchange="updateColorRGB('color_font_label', 'rgb_font_label')">
+                            <span class="color-rgb" id="rgb_font_label"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Font Face</label>
+                        <span class="form-hint">Default: Roboto Black</span>
+                        <input type="text" name="font.face" class="form-control">
                     </div>
                 </div>
 
@@ -775,7 +805,7 @@
                     <input type="text" name="paths.image_background" class="form-control">
                 </div>
                 <div class="grid grid-2">
-                    <div class="form-group">
+                    <div class="form-group" style="grid-column: 1 / -1;">
                         <label class="form-label">Background Fit</label>
                         <span class="form-hint">Default: Cover</span>
                         <select name="display.background_image_fit" class="form-control">
@@ -815,12 +845,40 @@
             <!-- Tab 2: Layout -->
             <div class="panel">
 
+                <div class="alert alert-warning" style="margin-bottom: 12px;">
+                    <strong>Experimental Layout Controls</strong>
+                    These settings are still in beta and not fully tested. Use them to fine-tune the geometry if automatic display detection does not render the layout correctly.
+                </div>
+
                 <div class="alert" id="layout_mode_hint" style="margin-bottom: 12px;">
                     <strong>Resolution-aware layout</strong>
                     Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.
                 </div>
 
-                <details class="collapsible-details bar-mode-only">
+                <details class="collapsible-details">
+                    <summary>Geometry</summary>
+                    <div class="collapsible-details-content">
+                        <div class="grid grid-2">
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label class="form-label">Safe Area Scale</label>
+                                <span class="form-hint">Base layout safety area. Default: 0.98</span>
+                                <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Width (Pixels)</label>
+                                <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
+                                <input type="number" name="display.width" class="form-control" min="0" max="1024">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Height (Pixels)</label>
+                                <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
+                                <input type="number" name="display.height" class="form-control" min="0" max="1024">
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="collapsible-details bar-mode-only" style="margin-top: 12px;">
                     <summary>Bar Dimensions</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
@@ -904,14 +962,9 @@
                 </details>
 
                 <details class="collapsible-details" style="margin-top: 12px;">
-                    <summary>Font</summary>
+                    <summary>Font Sizes</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-3">
-                            <div class="form-group">
-                                <label class="form-label">Font Face</label>
-                                <span class="form-hint">Default: Roboto Black</span>
-                                <input type="text" name="font.face" class="form-control">
-                            </div>
                             <div class="form-group">
                                 <label class="form-label">Temperature Size</label>
                                 <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
@@ -993,56 +1046,7 @@
 
             </div>
 
-            <!-- Tab 3: Colors -->
-            <div class="panel">
-                <h3 class="section-title">Display Colors</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Display Background</label>
-                        <div class="color-group">
-                            <input type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
-                            <span class="color-rgb" id="rgb_display_background"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group bar-mode-only">
-                        <label class="form-label">Bar Background</label>
-                        <div class="color-group">
-                            <input type="color" id="color_bar_background" class="color-swatch" onchange="updateColorRGB('color_bar_background', 'rgb_bar_background')">
-                            <span class="color-rgb" id="rgb_bar_background"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group bar-mode-only">
-                        <label class="form-label">Bar Border</label>
-                        <div class="color-group">
-                            <input type="color" id="color_bar_border" class="color-swatch" onchange="updateColorRGB('color_bar_border', 'rgb_bar_border')">
-                            <span class="color-rgb" id="rgb_bar_border"></span>
-                        </div>
-                    </div>
-                </div>
-
-                <h3 class="section-title">Text Colors</h3>
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Temperature Text</label>
-                        <div class="color-group">
-                            <input type="color" id="color_font_temp" class="color-swatch" onchange="updateColorRGB('color_font_temp', 'rgb_font_temp')">
-                            <span class="color-rgb" id="rgb_font_temp"></span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Label Text</label>
-                        <div class="color-group">
-                            <input type="color" id="color_font_label" class="color-swatch" onchange="updateColorRGB('color_font_label', 'rgb_font_label')">
-                            <span class="color-rgb" id="rgb_font_label"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tab 4: Sensors -->
+            <!-- Tab 3: Sensors -->
             <div class="panel">
                 <div class="alert">
                     <strong>Sensor Configuration</strong>
@@ -1057,19 +1061,7 @@
                 </div>
             </div>
 
-            <!-- Tab 5: Advanced -->
-            <div class="panel">
-                <h3 class="section-title">Backup &amp; Restore</h3>
-                <div class="alert">
-                    <strong>Configuration Backup</strong>
-                    Export your current settings as a JSON file for backup or migration.
-                </div>
-                <button type="button" class="btn btn-secondary" onclick="exportConfig()" style="width: auto; padding: 10px 20px;">
-                    &#x1F4BE; Export Configuration
-                </button>
-            </div>
-
-            <!-- Tab 6: Device -->
+            <!-- Tab 4: Device -->
             <div class="panel">
                 <h3 class="section-title">LCD Detection</h3>
                 <div class="alert">
@@ -1156,7 +1148,7 @@
                 </div>
             </div>
 
-            <!-- Tab 7: Info -->
+            <!-- Tab 5: Info -->
             <div class="panel active">
                 <h3 class="section-title">Version &amp; Update</h3>
 
@@ -1176,11 +1168,11 @@
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Plugin</div>
-                        <div class="info-item-value">CoolerDash v{{VERSION}} &mdash; LCD Temperature Dashboard</div>
+                        <div class="info-item-value">CoolerDash &mdash; LCD Temperature Dashboard</div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Description</div>
-                        <div class="info-item-value" style="color: rgb(var(--text-color-secondary));">Displays CPU, GPU, and Liquid temperatures on AIO liquid cooler LCD screens (NZXT Kraken, etc.)</div>
+                        <div class="info-item-value">Displays CPU, GPU, and Liquid temperatures on AIO liquid cooler LCD screens (NZXT Kraken, etc.)</div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Author</div>
@@ -1195,8 +1187,8 @@
                         <div class="info-item-value">MIT</div>
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
-                        <div class="info-item-label">Language / Platform</div>
-                        <div class="info-item-value">C99 / <span id="runtime-platform">Linux</span></div>
+                        <div class="info-item-label">Language</div>
+                        <div class="info-item-value">C99</div>
                     </div>
                 </div>
 
@@ -1220,13 +1212,17 @@
                 <h3 class="section-title">System Environment</h3>
 
                 <div class="device-info-card">
-                    <div class="device-info-row">
-                        <span class="device-info-label">Kernel</span>
-                        <span class="device-info-value mono" id="sys-kernel">&mdash;</span>
+                    <div class="info-item">
+                        <div class="info-item-label">Platform</div>
+                        <div class="info-item-value mono" id="runtime-platform">Linux</div>
                     </div>
-                    <div class="device-info-row">
-                        <span class="device-info-label">CoolerControl Version</span>
-                        <span class="device-info-value mono" id="sys-cc-version">&mdash;</span>
+                    <div class="info-item">
+                        <div class="info-item-label">Kernel</div>
+                        <div class="info-item-value mono" id="sys-kernel">&mdash;</div>
+                    </div>
+                    <div class="info-item" style="margin-bottom: 0;">
+                        <div class="info-item-label">CoolerControl Version</div>
+                        <div class="info-item-value mono" id="sys-cc-version">&mdash;</div>
                     </div>
                 </div>
             </div>
@@ -1369,7 +1365,7 @@
 
         let DEFAULT_CONFIG = null;
         let RESET_CONFIG = null;
-        let currentTab = 7;
+        let currentTab = 5;
         let discoveredSensors = [];
         let currentSensorConfig = {};
 
@@ -1638,9 +1634,14 @@
             return false;
         }
 
-        function getDeviceLcdInfo(device) {
+        function getDeviceChannels(device) {
             var channels = device && device.info && device.info.channels;
-            if (!channels) return null;
+            if (channels instanceof Map) return Object.fromEntries(channels);
+            return channels || {};
+        }
+
+        function getDeviceLcdInfo(device) {
+            var channels = getDeviceChannels(device);
 
             var preferredKeys = ['lcd', 'display', 'screen'];
             for (var i = 0; i < preferredKeys.length; i++) {
@@ -1660,8 +1661,7 @@
         }
 
         function getDeviceLcdChannel(device) {
-            var channels = device && device.info && device.info.channels;
-            if (!channels) return 'lcd';
+            var channels = getDeviceChannels(device);
             var preferredKeys = ['lcd', 'display', 'screen'];
             for (var i = 0; i < preferredKeys.length; i++) {
                 var channel = channels[preferredKeys[i]];
@@ -1697,7 +1697,7 @@
             else if (type) score += 8;
 
             // Capability signals (independent of brand): has an 'lcd' channel key
-            var channels = (device.info && device.info.channels) ? device.info.channels : {};
+            var channels = getDeviceChannels(device);
             if (Object.prototype.hasOwnProperty.call(channels, 'lcd')) score += 30;
 
             // Has liquidctl firmware info → confirmed AIO cooler
@@ -2341,28 +2341,18 @@
                     document.getElementById('device-name').textContent = name;
                     document.getElementById('device-uid').textContent = uid;
 
-                    // cc-plugin-lib postMessage omits lc_info and lcd_info.
-                    // Try a direct REST fetch to fill in the missing fields (best-effort).
-                    if (found.uid && apiAddress) {
-                        try {
-                            var devHeaders = makeAuthHeaders(token);
-                            var fullRes = await fetch(apiAddress + '/devices', { headers: devHeaders });
-                            if (fullRes.ok) {
-                                var fullData = await fullRes.json();
-                                var fullDevices = normalizeDevices(fullData);
-                                for (var fi = 0; fi < fullDevices.length; fi++) {
-                                    if (fullDevices[fi].uid === found.uid) {
-                                        found = fullDevices[fi];
-                                        break;
-                                    }
-                                }
-                            }
-                        } catch (fetchErr) {
-                            console.debug('Full device fetch failed (sandbox), using postMessage data:', fetchErr);
-                        }
+                    var cachedDeviceInfo = await Promise.race([
+                        pluginFetch('/device-info'),
+                        new Promise(function(resolve) {
+                            setTimeout(function() { resolve(null); }, 2000);
+                        })
+                    ]);
+                    if (!cachedDeviceInfo || cachedDeviceInfo.device_uid !== found.uid) {
+                        cachedDeviceInfo = null;
                     }
 
-                    var firmware = (found.lc_info && found.lc_info.firmware_version) || '\u2014';
+                    var firmware = (found.lc_info && found.lc_info.firmware_version) ||
+                        (cachedDeviceInfo && cachedDeviceInfo.firmware_version) || '\u2014';
                     document.getElementById('device-firmware').textContent = firmware;
 
                     var liquidctlVer = (found.info && found.info.driver_info && found.info.driver_info.version) || '\u2014';
@@ -2374,7 +2364,11 @@
                     var width = lcdInfo ? (lcdInfo.screen_width || 0) : 0;
                     var height = lcdInfo ? (lcdInfo.screen_height || 0) : 0;
 
-                    // Fallback: use configured display dimensions if API doesn't report lcd_info
+                    // Prefer CoolerDash's cache before falling back to configured dimensions.
+                    if (width === 0 || height === 0) {
+                        width = (cachedDeviceInfo && cachedDeviceInfo.screen_width) || 0;
+                        height = (cachedDeviceInfo && cachedDeviceInfo.screen_height) || 0;
+                    }
                     if (width === 0 || height === 0) {
                         var cfgW = parseInt((document.querySelector('[name="display.width"]') || {}).value, 10) || 0;
                         var cfgH = parseInt((document.querySelector('[name="display.height"]') || {}).value, 10) || 0;
@@ -2879,7 +2873,7 @@
             validateSensorSlots();
         }
 
-        // ===== SAVE / RESET / EXPORT =====
+        // ===== SAVE / RESET =====
         async function saveConfig() {
             if (!validateSensorSlots()) {
                 alert("Please fix sensor slot warnings before saving.");
@@ -2894,26 +2888,6 @@
             } catch (error) {
                 console.error("Save failed:", error);
                 alert("Save failed: " + error.message);
-            }
-        }
-
-        function exportConfig() {
-            try {
-                var config = buildConfig();
-                var jsonStr = JSON.stringify(config, null, 2);
-                var blob = new Blob([jsonStr], { type: 'application/json' });
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url;
-                var date = new Date().toISOString().slice(0, 10);
-                a.download = 'coolerdash-config-backup-' + date + '.json';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            } catch (error) {
-                console.error("Export failed:", error);
-                alert("Export failed: " + error.message);
             }
         }
 

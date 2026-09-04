@@ -89,6 +89,17 @@ typedef struct
     size_t size;
 } UpdateResponse;
 
+typedef struct
+{
+    char device_uid[128];
+    char firmware_version[CC_FIRMWARE_SIZE];
+    int screen_width;
+    int screen_height;
+} DeviceInfoSnapshot;
+
+static pthread_mutex_t s_device_info_mutex = PTHREAD_MUTEX_INITIALIZER;
+static DeviceInfoSnapshot s_device_info = {0};
+
 int verbose_logging = 0;
 
 const Config *g_config_ptr = NULL;
@@ -434,7 +445,49 @@ static int send_all(int fd, const char *data, size_t length)
     return 1;
 }
 
-static void serve_update_status(int client_fd)
+static void update_device_info_snapshot(const Config *config)
+{
+    DeviceInfoSnapshot next = {0};
+    if (get_cached_lcd_device_data(config, next.device_uid,
+                                   sizeof(next.device_uid), NULL, 0,
+                                   &next.screen_width, &next.screen_height))
+    {
+        cc_safe_strcpy(next.firmware_version, sizeof(next.firmware_version),
+                       get_cached_lcd_firmware_version(config));
+    }
+
+    (void)pthread_mutex_lock(&s_device_info_mutex);
+    s_device_info = next;
+    (void)pthread_mutex_unlock(&s_device_info_mutex);
+}
+
+static size_t write_device_info_json(char *body, size_t body_size)
+{
+    DeviceInfoSnapshot snapshot;
+    (void)pthread_mutex_lock(&s_device_info_mutex);
+    snapshot = s_device_info;
+    (void)pthread_mutex_unlock(&s_device_info_mutex);
+
+    json_t *root = json_pack(
+        "{s:s,s:s,s:i,s:i}", "device_uid", snapshot.device_uid,
+        "firmware_version", snapshot.firmware_version, "screen_width",
+        snapshot.screen_width, "screen_height", snapshot.screen_height);
+    if (!root)
+        return 0;
+
+    char *payload = json_dumps(root, JSON_COMPACT);
+    json_decref(root);
+    if (!payload)
+        return 0;
+
+    int length = snprintf(body, body_size, "%s\n", payload);
+    free(payload);
+    if (length < 0 || (size_t)length >= body_size)
+        return 0;
+    return (size_t)length;
+}
+
+static void serve_plugin_data(int client_fd)
 {
     char request[1024];
     ssize_t request_length = recv(client_fd, request, sizeof(request) - 1, 0);
@@ -447,11 +500,7 @@ static void serve_update_status(int client_fd)
     char body[384] = "{}\n";
     size_t body_length = strlen(body);
 
-    if (strncmp(request, "GET /status HTTP/", 17) != 0)
-    {
-        status = "404 Not Found";
-    }
-    else
+    if (strncmp(request, "GET /status HTTP/", 17) == 0)
     {
         int status_fd = open(UPDATE_STATUS_PATH, O_RDONLY);
         if (status_fd >= 0)
@@ -465,6 +514,16 @@ static void serve_update_status(int client_fd)
             }
         }
     }
+    else if (strncmp(request, "GET /device-info HTTP/", 22) == 0)
+    {
+        size_t json_length = write_device_info_json(body, sizeof(body));
+        if (json_length > 0)
+            body_length = json_length;
+    }
+    else
+    {
+        status = "404 Not Found";
+    }
 
     char header[256];
     int header_length = snprintf(
@@ -477,13 +536,13 @@ static void serve_update_status(int client_fd)
     (void)send_all(client_fd, body, body_length);
 }
 
-static void *run_status_server(void *unused)
+static void *run_plugin_data_server(void *unused)
 {
     (void)unused;
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
     {
-        log_message(LOG_WARNING, "Could not create update status server: %s",
+        log_message(LOG_WARNING, "Could not create plugin data server: %s",
                     strerror(errno));
         return NULL;
     }
@@ -499,13 +558,13 @@ static void *run_status_server(void *unused)
         listen(server_fd, 4) != 0)
     {
         log_message(LOG_WARNING,
-                    "Could not listen for update status on 127.0.0.1:%d: %s",
+                    "Could not listen for plugin data on 127.0.0.1:%d: %s",
                     UPDATE_PROXY_PORT, strerror(errno));
         close(server_fd);
         return NULL;
     }
 
-    log_message(LOG_INFO, "Update status available on 127.0.0.1:%d",
+    log_message(LOG_INFO, "Plugin data available on 127.0.0.1:%d",
                 UPDATE_PROXY_PORT);
     while (running)
     {
@@ -533,7 +592,7 @@ static void *run_status_server(void *unused)
         struct timeval client_timeout = {.tv_sec = 2, .tv_usec = 0};
         (void)setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &client_timeout,
                          sizeof(client_timeout));
-        serve_update_status(client_fd);
+        serve_plugin_data(client_fd);
         close(client_fd);
     }
 
@@ -544,10 +603,10 @@ static void *run_status_server(void *unused)
 static void start_status_server(void)
 {
     int result = pthread_create(&s_status_server_thread, NULL,
-                                run_status_server, NULL);
+                                run_plugin_data_server, NULL);
     if (result != 0)
     {
-        log_message(LOG_WARNING, "Could not start update status server: %s",
+        log_message(LOG_WARNING, "Could not start plugin data server: %s",
                     strerror(result));
         return;
     }
@@ -944,6 +1003,7 @@ static void reload_daemon_config(Config *config)
     }
 
     update_config_from_device(config);
+    update_device_info_snapshot(config);
 
     log_message(LOG_STATUS, "Configuration reloaded successfully");
 }
@@ -1239,6 +1299,7 @@ static void initialize_device_info(Config *config)
     }
 
     show_system_diagnostics(config, api_screen_width, api_screen_height);
+    update_device_info_snapshot(config);
 }
 
 /** @brief Cleanup CURL handles and log shutdown. */
