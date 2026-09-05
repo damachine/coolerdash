@@ -93,6 +93,10 @@ const char *image_file_mime_type(const char *path)
     return mime_type_for_format(gdk_pixbuf_get_file_info(path, NULL, NULL));
 }
 
+/* GdkPixbuf 2.44 deprecated its animation API without an in-library replacement.
+ * Keep GIF playback compatible with older distributions; scope the deprecation
+ * exception to this adapter so other warnings still fail strict builds. */
+G_GNUC_BEGIN_IGNORE_DEPRECATIONS
 static GdkPixbuf *background_image_get_pixbuf(const char *path)
 {
     if (!path || path[0] == '\0')
@@ -134,6 +138,7 @@ static GdkPixbuf *background_image_get_pixbuf(const char *path)
         gdk_pixbuf_animation_iter_get_delay_time(background_animation.iterator);
     return gdk_pixbuf_animation_iter_get_pixbuf(background_animation.iterator);
 }
+G_GNUC_END_IGNORE_DEPRECATIONS
 
 static cairo_surface_t *image_file_load_surface(const char *path)
 {
