@@ -21,8 +21,10 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <math.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
@@ -91,6 +93,49 @@ const char *image_file_mime_type(const char *path)
     if (!path || path[0] == '\0')
         return NULL;
     return mime_type_for_format(gdk_pixbuf_get_file_info(path, NULL, NULL));
+}
+
+char *image_file_preview_data_uri(const char *path)
+{
+    struct stat info;
+    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN ||
+        stat(path, &info) != 0 || !S_ISREG(info.st_mode) ||
+        info.st_size <= 0 || info.st_size > 16 * 1024 * 1024)
+        return NULL;
+
+    int width = 0, height = 0;
+    GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path, &width, &height);
+    if (!mime_type_for_format(format) || width <= 0 || height <= 0 ||
+        (uint64_t)width * (uint64_t)height > 32U * 1024U * 1024U)
+        return NULL;
+
+    /* A separate pixbuf produces a still frame without touching the live
+     * animation state, which belongs to the rendering thread. */
+    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file_at_scale(path, 480, 480, TRUE, NULL);
+    if (!pixbuf)
+        return NULL;
+
+    gchar *png = NULL;
+    gsize png_size = 0;
+    gboolean saved = gdk_pixbuf_save_to_buffer(pixbuf, &png, &png_size,
+                                               "png", NULL, NULL);
+    g_object_unref(pixbuf);
+    if (!saved || png_size > 1024U * 1024U)
+    {
+        g_free(png);
+        return NULL;
+    }
+    gchar *encoded = g_base64_encode((const guchar *)png, png_size);
+    g_free(png);
+    if (!encoded)
+        return NULL;
+    const char prefix[] = "data:image/png;base64,";
+    const size_t size = sizeof(prefix) + strlen(encoded);
+    char *result = malloc(size);
+    if (result)
+        snprintf(result, size, "%s%s", prefix, encoded);
+    g_free(encoded);
+    return result;
 }
 
 /* GdkPixbuf 2.44 deprecated its animation API without an in-library replacement.

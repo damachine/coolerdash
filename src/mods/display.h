@@ -111,6 +111,9 @@ void reset_display_state(void);
 /** Return CoolerControl's MIME type for a supported image, detected by content. */
 const char *image_file_mime_type(const char *path);
 
+/** Return a static PNG thumbnail data URI; caller frees it with free(). */
+char *image_file_preview_data_uri(const char *path);
+
 /** Return the animated background's current frame delay, or -1 when static. */
 int display_background_animation_delay_ms(void);
 

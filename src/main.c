@@ -489,16 +489,25 @@ static size_t write_device_info_json(char *body, size_t body_size)
 
 static void serve_plugin_data(int client_fd)
 {
-    char request[1024];
-    ssize_t request_length = recv(client_fd, request, sizeof(request) - 1, 0);
-    if (request_length <= 0)
-        return;
-    request[request_length] = '\0';
+    char request[CONFIG_MAX_PATH_LEN * 3 + 128] = {0};
+    size_t request_length = 0;
+    while (!strchr(request, '\n'))
+    {
+        ssize_t received = recv(client_fd, request + request_length,
+                                sizeof(request) - 1 - request_length, 0);
+        if (received <= 0)
+            return;
+        request_length += (size_t)received;
+        request[request_length] = '\0';
+        if (request_length == sizeof(request) - 1)
+            return;
+    }
 
     const char *status = "200 OK";
     const char *content_type = "application/json";
     char body[384] = "{}\n";
     size_t body_length = strlen(body);
+    char *preview_body = NULL;
 
     if (strncmp(request, "GET /status HTTP/", 17) == 0)
     {
@@ -520,6 +529,33 @@ static void serve_plugin_data(int client_fd)
         if (json_length > 0)
             body_length = json_length;
     }
+    else if (strncmp(request, "GET /background-preview?path=", 29) == 0)
+    {
+        const char *encoded = request + 29;
+        const char *end = strchr(encoded, ' ');
+        int decoded_length = 0;
+        char *path = end ? curl_easy_unescape(NULL, encoded, (int)(end - encoded),
+                                             &decoded_length) : NULL;
+        char *image = NULL;
+        if (path && decoded_length > 0 && decoded_length < CONFIG_MAX_PATH_LEN &&
+            strlen(path) == (size_t)decoded_length)
+            image = image_file_preview_data_uri(path);
+        curl_free(path);
+        if (image)
+        {
+            json_t *root = json_pack("{s:s}", "image", image);
+            if (root)
+            {
+                preview_body = json_dumps(root, JSON_COMPACT);
+                json_decref(root);
+            }
+            free(image);
+        }
+        if (preview_body)
+            body_length = strlen(preview_body);
+        else
+            status = "422 Unprocessable Content";
+    }
     else
     {
         status = "404 Not Found";
@@ -531,9 +567,13 @@ static void serve_plugin_data(int client_fd)
         "HTTP/1.1 %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
         status, content_type, body_length);
     if (header_length <= 0 || (size_t)header_length >= sizeof(header))
+    {
+        free(preview_body);
         return;
+    }
     (void)send_all(client_fd, header, (size_t)header_length);
-    (void)send_all(client_fd, body, body_length);
+    (void)send_all(client_fd, preview_body ? preview_body : body, body_length);
+    free(preview_body);
 }
 
 static void *run_plugin_data_server(void *unused)
@@ -591,6 +631,8 @@ static void *run_plugin_data_server(void *unused)
         }
         struct timeval client_timeout = {.tv_sec = 2, .tv_usec = 0};
         (void)setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &client_timeout,
+                         sizeof(client_timeout));
+        (void)setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &client_timeout,
                          sizeof(client_timeout));
         serve_plugin_data(client_fd);
         close(client_fd);
