@@ -313,18 +313,30 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
     const char *label = get_split_label(config, data, slot_value);
     const float temperature = get_slot_temperature(data, slot_value);
     char temperature_text[16] = {0};
-    char duty_text[24] = {0};
-    char watts_text[24] = {0};
+    char secondary_text[3][24] = {{0}};
+    int secondary_kind[3] = {0};
+    int secondary_count = 0;
     format_slot_value_text(temperature_text, sizeof(temperature_text), data,
                            slot_value, temperature);
-    format_channel_value(
-        duty_text, sizeof(duty_text),
-        find_channel_sensor_for_slot(data, slot_value, SENSOR_CATEGORY_DUTY),
-        "%");
-    format_channel_value(
-        watts_text, sizeof(watts_text),
-        find_channel_sensor_for_slot(data, slot_value, SENSOR_CATEGORY_WATTS),
-        "W");
+    const int visible[] = {config->split_show_load, config->split_show_watts,
+                           config->split_show_rpm};
+    const sensor_category_t categories[] = {SENSOR_CATEGORY_DUTY,
+                                             SENSOR_CATEGORY_WATTS,
+                                             SENSOR_CATEGORY_RPM};
+    const char *units[] = {"%", "W", "RPM"};
+    for (int i = 0; i < 3; ++i)
+    {
+        if (!visible[i])
+            continue;
+        const char *channel_slot = i == 2 && strcmp(slot_value, "cpu") == 0
+                                       ? "liquid" : slot_value;
+        format_channel_value(secondary_text[secondary_count],
+                             sizeof(secondary_text[secondary_count]),
+                             find_channel_sensor_for_slot(data, channel_slot,
+                                                          categories[i]), units[i]);
+        secondary_kind[secondary_count] = i;
+        secondary_count++;
+    }
 
     const Color temperature_color =
         get_slot_bar_color(config, slot_value, temperature);
@@ -336,12 +348,10 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
     const double region_gap = fmax(1.0, content_height * 0.01);
     const double label_top = layout->top;
     const double label_height = content_height * 0.20;
+    const double secondary_height = content_height * 0.16;
     const double temp_top = label_top + label_height + region_gap;
-    const double temp_height = content_height * 0.37;
-    const double duty_top = temp_top + temp_height + region_gap;
-    const double duty_height = content_height * 0.16;
-    const double watts_top = duty_top + duty_height + region_gap;
-    const double watts_height = fmax(1.0, layout->bottom - watts_top);
+    const double temp_height = fmax(1.0, layout->bottom - temp_top -
+        secondary_count * (secondary_height + region_gap));
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_BOLD);
     const double rendered_temp_size = draw_centered_temperature(
@@ -350,21 +360,27 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
         temp_size, pane->width * 0.99, temp_height,
         &temperature_color, params);
     const double label_size = fmax(1.0, rendered_temp_size * 0.50);
-    const double secondary_size = fmax(1.0, rendered_temp_size * 0.66);
+    const double secondary_size = config->font_size_watts > 0.0f
+                                      ? scale_value_avg(params,
+                                                        config->font_size_watts)
+                                      : rendered_temp_size * 0.66;
     draw_centered_text(cr, label ? label : "???", center_x,
                        label_top + label_height * 0.5 + offset_y,
                        label_size, text_width, label_height,
                        &config->font_color_label);
-    draw_centered_value_with_small_unit(
-        cr, duty_text, center_x,
-        duty_top + duty_height * 0.5 + offset_y,
-        secondary_size, text_width, duty_height,
-        &config->font_color_temp, params);
-    draw_centered_value_with_small_unit(
-        cr, watts_text, center_x,
-        watts_top + watts_height * 0.5 + offset_y,
-        secondary_size, text_width, watts_height,
-        &config->font_color_temp, params);
+    for (int i = 0; i < secondary_count; ++i)
+    {
+        const double row_top = temp_top + temp_height + region_gap +
+                               i * (secondary_height + region_gap);
+        const double row_size = secondary_kind[i] == 0
+                                    ? secondary_size * 0.66
+                                    : secondary_size;
+        draw_centered_value_with_small_unit(
+            cr, secondary_text[i], center_x,
+            row_top + secondary_height * 0.5 + offset_y,
+            fmax(1.0, row_size), text_width, secondary_height,
+            &config->font_color_temp, params);
+    }
 }
 
 static int render_split_display(const struct Config *config,
