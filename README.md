@@ -14,7 +14,7 @@
 
 ## Features
 - **Plug-In that extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)**
-- **- Support for additional sensor values (CPU, GPU, liquid temperature, and more)**
+- **Support for additional sensor values (CPU, GPU, liquid temperature, and more)**
 - **Multiple Display modes**
 - **Customizable display layouts**
 - **Animated GIF playback on the display**
