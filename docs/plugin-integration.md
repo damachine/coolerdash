@@ -57,6 +57,20 @@ Displayed on the CoolerControl plugin page.
 - Display: Mode, refresh interval, brightness, orientation
 - Advanced: Display dimensions
 
+## Background Preview
+
+The Display tab loads a static background thumbnail through
+`pluginFetch('/background-preview?path=' + encodeURIComponent(path))` on the
+existing loopback plugin data server. The path may be an unsaved form value.
+The endpoint accepts absolute paths to readable regular PNG, GIF, JPEG, BMP or
+TIFF files, detects the format by content and returns JSON containing a PNG data
+URI. Input is limited to 16 MiB and 32 megapixels; output fits within 480 × 480
+pixels. GIFs produce a still frame, independently of the device animation state.
+
+The UI debounces path edits, ignores stale responses and applies background fit,
+zoom, color and overlay settings locally. Clearing the path restores the solid
+background color. The plugin executable must be running for thumbnail requests.
+
 ## Related
 
 - [Configuration Guide](config-guide.md)
