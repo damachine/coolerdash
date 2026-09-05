@@ -100,7 +100,17 @@ typedef struct Config
     char display_mode[16];
     char display_background_image_fit[16];
     uint16_t circle_switch_interval;
-    int circle_show_extra_info;
+    char circle_layout[16]; // "classic" or "centered"
+    int circle_show_extra_info; // Legacy fallback for configs without individual flags
+    int circle_show_load;
+    int circle_show_rpm;
+    int circle_show_watts;
+    int circle_show_frequency;
+    int circle_show_bar;
+    int dual_show_bars;
+    int split_show_load;
+    int split_show_watts;
+    int split_show_rpm;
     float display_content_scale_factor;
     float background_image_scale_factor; /**< 0 = fitted size, 0.05..2 = centered zoom */
     float display_background_overlay_opacity;

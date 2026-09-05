@@ -162,8 +162,28 @@ static void set_display_defaults(Config *config)
                        sizeof(config->display_background_image_fit), "cover");
     if (config->circle_switch_interval == 0)
         config->circle_switch_interval = 8;
+    if (strcmp(config->circle_layout, "centered") != 0)
+        cc_safe_strcpy(config->circle_layout, sizeof(config->circle_layout), "classic");
     if (config->circle_show_extra_info < 0)
         config->circle_show_extra_info = 1; // enabled by default
+    if (config->circle_show_load < 0)
+        config->circle_show_load = strcmp(config->circle_layout, "centered") != 0;
+    if (config->circle_show_bar < 0)
+        config->circle_show_bar = 1;
+    if (config->circle_show_rpm < 0)
+        config->circle_show_rpm = config->circle_show_extra_info;
+    if (config->circle_show_watts < 0)
+        config->circle_show_watts = config->circle_show_extra_info;
+    if (config->circle_show_frequency < 0)
+        config->circle_show_frequency = config->circle_show_extra_info;
+    if (config->dual_show_bars < 0)
+        config->dual_show_bars = 1;
+    if (config->split_show_load < 0)
+        config->split_show_load = 1;
+    if (config->split_show_watts < 0)
+        config->split_show_watts = 1;
+    if (config->split_show_rpm < 0)
+        config->split_show_rpm = 0;
     if (config->display_content_scale_factor == 0.0f)
         config->display_content_scale_factor = 0.98f;
     if (config->background_image_scale_factor < 0.0f)
@@ -1085,6 +1105,10 @@ static void load_display_from_json(json_t *root, Config *config)
         }
     }
 
+    json_t *circle_layout = json_object_get(display, "circle_layout");
+    if (json_is_string(circle_layout))
+        SAFE_STRCPY(config->circle_layout, json_string_value(circle_layout));
+
     json_t *circle_interval = json_object_get(display, "circle_switch_interval");
     if (circle_interval && json_is_integer(circle_interval))
     {
@@ -1100,6 +1124,26 @@ static void load_display_from_json(json_t *root, Config *config)
             config->circle_show_extra_info = json_is_true(extra_info) ? 1 : 0;
         else if (json_is_integer(extra_info))
             config->circle_show_extra_info = json_integer_value(extra_info) ? 1 : 0;
+    }
+
+    const char *element_keys[] = {
+        "circle_show_load", "circle_show_rpm", "circle_show_watts",
+        "circle_show_frequency", "circle_show_bar",
+        "dual_show_bars", "split_show_load", "split_show_watts", "split_show_rpm"
+    };
+    int *element_flags[] = {
+        &config->circle_show_load, &config->circle_show_rpm,
+        &config->circle_show_watts, &config->circle_show_frequency,
+        &config->circle_show_bar, &config->dual_show_bars,
+        &config->split_show_load, &config->split_show_watts, &config->split_show_rpm
+    };
+    for (size_t i = 0; i < sizeof(element_keys) / sizeof(element_keys[0]); ++i)
+    {
+        json_t *flag = json_object_get(display, element_keys[i]);
+        if (json_is_boolean(flag))
+            *element_flags[i] = json_is_true(flag);
+        else if (json_is_integer(flag))
+            *element_flags[i] = json_integer_value(flag) != 0;
     }
 
     json_t *background_fit = json_object_get(display, "background_image_fit");
@@ -1658,6 +1702,15 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
     config->layout_bar_opacity = -1.0f;     // Sentinel for "use default"
     config->layout_bar_border_enabled = -1; // Sentinel for "auto" (enabled)
     config->circle_show_extra_info = -1;    // Sentinel for "auto" (enabled)
+    config->circle_show_load = -1;
+    config->circle_show_rpm = -1;
+    config->circle_show_watts = -1;
+    config->circle_show_frequency = -1;
+    config->circle_show_bar = -1;
+    config->dual_show_bars = -1;
+    config->split_show_load = -1;
+    config->split_show_watts = -1;
+    config->split_show_rpm = -1;
     config->display_degree_spacing = -1;
     // Note: All colors have is_set=0 after memset, so defaults will be applied
 
