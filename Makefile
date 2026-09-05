@@ -14,8 +14,8 @@ REALOS ?= yes
 CC ?= gcc
 
 # External dependencies (pkg-config, cached)
-PKG_CFLAGS := $(shell pkg-config --cflags cairo gdk-pixbuf-2.0 jansson libcurl)
-PKG_LIBS := $(shell pkg-config --libs cairo gdk-pixbuf-2.0 jansson libcurl)
+PKG_CFLAGS := $(shell pkg-config --cflags cairo fontconfig gdk-pixbuf-2.0 jansson libcurl)
+PKG_LIBS := $(shell pkg-config --libs cairo fontconfig gdk-pixbuf-2.0 jansson libcurl)
 
 # User-overridable flags
 CFLAGS ?= -Wall -Wextra -O2
@@ -160,49 +160,49 @@ install-deps:
 	case $$DISTRO in \
 		arch) \
             printf "$(GREEN)Installing dependencies for Arch Linux/Manjaro...$(RESET)\n"; \
-			$(SUDO) pacman -S --needed cairo curl gcc gdk-pixbuf2 make pkg-config ttf-roboto jansson || { \
+			$(SUDO) pacman -S --needed cairo curl fontconfig gcc gdk-pixbuf2 make pkg-config ttf-roboto jansson || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo curl gcc gdk-pixbuf2 make pkg-config ttf-roboto jansson\n"; \
+				printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) pacman -S cairo curl fontconfig gcc gdk-pixbuf2 make pkg-config ttf-roboto jansson\n"; \
                 exit 1; \
             }; \
             ;; \
         gentoo) \
             printf "$(GREEN)Installing dependencies for Gentoo...$(RESET)\n"; \
-            $(SUDO) emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo 'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' net-misc/curl dev-libs/jansson media-fonts/roboto || { \
+            $(SUDO) emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo media-libs/fontconfig 'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' net-misc/curl dev-libs/jansson media-fonts/roboto || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo 'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo media-libs/fontconfig 'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
                 exit 1; \
             }; \
             ;; \
         debian) \
             printf "$(GREEN)Installing dependencies for Ubuntu/Debian...$(RESET)\n"; \
-            $(SUDO) apt update && $(SUDO) apt install -y libcairo2-dev libcurl4-openssl-dev libgdk-pixbuf-2.0-dev gcc make pkg-config fonts-roboto libjansson-dev || { \
+            $(SUDO) apt update && $(SUDO) apt install -y libcairo2-dev libcurl4-openssl-dev libfontconfig1-dev libgdk-pixbuf-2.0-dev gcc make pkg-config fonts-roboto libjansson-dev || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) apt install libcairo2-dev libcurl4-openssl-dev libgdk-pixbuf-2.0-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) apt install libcairo2-dev libcurl4-openssl-dev libfontconfig1-dev libgdk-pixbuf-2.0-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
                 exit 1; \
             }; \
             ;; \
         fedora) \
             printf "$(GREEN)Installing dependencies for Fedora...$(RESET)\n"; \
-            $(SUDO) dnf install -y cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
+            $(SUDO) dnf install -y cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) dnf install cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) dnf install cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
                 exit 1; \
             }; \
             ;; \
         rhel) \
             printf "$(GREEN)Installing dependencies for RHEL/CentOS...$(RESET)\n"; \
-            $(SUDO) yum install -y cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
+            $(SUDO) yum install -y cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) yum install cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) yum install cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
                 exit 1; \
             }; \
             ;; \
         opensuse) \
             printf "$(GREEN)Installing dependencies for openSUSE...$(RESET)\n"; \
-            $(SUDO) zypper install -y cairo-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
+            $(SUDO) zypper install -y cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config google-roboto-fonts libjansson-devel || { \
                 printf "$(RED)Error installing dependencies!$(RESET)\n"; \
-                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) zypper install cairo-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
+                printf "$(YELLOW)Please run manually:$(RESET) $(SUDO) zypper install cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
                 exit 1; \
             }; \
             ;; \
@@ -212,22 +212,22 @@ install-deps:
 			printf "$(YELLOW)Please install the following dependencies manually:$(RESET)\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Arch Linux / Manjaro:$(RESET)\n"; \
-			printf "  sudo pacman -S cairo curl gcc gdk-pixbuf2 make pkg-config ttf-roboto jansson\n"; \
+			printf "  sudo pacman -S cairo curl fontconfig gcc gdk-pixbuf2 make pkg-config ttf-roboto jansson\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Gentoo:$(RESET)\n"; \
-			printf "  sudo emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo 'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
+			printf "  sudo emerge --noreplace --oneshot sys-devel/gcc dev-build/make virtual/pkgconfig x11-libs/cairo media-libs/fontconfig 'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' net-misc/curl dev-libs/jansson media-fonts/roboto\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Ubuntu / Debian:$(RESET)\n"; \
-			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev libgdk-pixbuf-2.0-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
+			printf "  sudo apt install libcairo2-dev libcurl4-openssl-dev libfontconfig1-dev libgdk-pixbuf-2.0-dev gcc make pkg-config fonts-roboto libjansson-dev\n"; \
 			printf "\n"; \
 			printf "$(WHITE)Fedora:$(RESET)\n"; \
-			printf "  sudo dnf install cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
+			printf "  sudo dnf install cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 			printf "\n"; \
 			printf "$(WHITE)RHEL / CentOS:$(RESET)\n"; \
-			printf "  sudo yum install cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
+			printf "  sudo yum install cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config google-roboto-fonts jansson-devel\n"; \
 			printf "\n"; \
 			printf "$(WHITE)openSUSE:$(RESET)\n"; \
-			printf "  sudo zypper install cairo-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
+			printf "  sudo zypper install cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config google-roboto-fonts libjansson-devel\n"; \
 			printf "\n"; \
 			exit 1; \
 			;; \
@@ -236,7 +236,7 @@ install-deps:
 # Check if required libs are available via pkg-config
 check-deps:
 	@MISSING=""; \
-	for dep in cairo gdk-pixbuf-2.0 libcurl jansson; do \
+	for dep in cairo fontconfig gdk-pixbuf-2.0 libcurl jansson; do \
 		if ! pkg-config --exists $$dep >/dev/null 2>&1; then \
 			MISSING="$$MISSING $$dep"; \
 		fi; \

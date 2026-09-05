@@ -71,6 +71,13 @@ The UI debounces path edits, ignores stale responses and applies background fit,
 zoom, color and overlay settings locally. Clearing the path restores the solid
 background color. The plugin executable must be running for thumbnail requests.
 
+## System Font Selection
+
+The Font Face field loads installed family names from Fontconfig through the
+loopback `/fonts` endpoint. It remains editable so an existing or custom family
+name can still be saved when discovery is unavailable. Only the selected family
+name is stored in `font.face` in the plugin configuration.
+
 ## Related
 
 - [Configuration Guide](config-guide.md)

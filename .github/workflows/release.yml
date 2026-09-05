@@ -99,6 +99,7 @@ jobs:
             pkg-config \
             libcairo2-dev \
             libcurl4-openssl-dev \
+            libfontconfig1-dev \
             libgdk-pixbuf-2.0-dev \
             libjansson-dev \
             fonts-roboto \
@@ -117,6 +118,7 @@ jobs:
             make \
             pkg-config \
             cairo-devel \
+            fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf2-devel \
             jansson-devel \
@@ -141,6 +143,7 @@ jobs:
             make \
             pkg-config \
             cairo-devel \
+            fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf2-devel \
             jansson-devel \
@@ -164,6 +167,7 @@ jobs:
             make \
             pkg-config \
             cairo-devel \
+            fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf-devel \
             libjansson-devel \

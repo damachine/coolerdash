@@ -133,7 +133,7 @@ RGB values (0–255):
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `face` | `Roboto Black` | Font family (must be installed) |
+| `face` | `Roboto Black` | Installed font family; the UI offers system families and also accepts manual entries |
 | `size_temp` / `size_labels` | `0` | Font size (pt). `0` = auto-scale from resolution |
 | `font_growth_factor` | `1.33` | Scaling multiplier for auto-sized fonts |
 

@@ -8,6 +8,7 @@ Build-Depends: debhelper-compat (= 13),
                pkg-config,
                libcairo2-dev,
                libcurl4-openssl-dev,
+               libfontconfig1-dev,
                libgdk-pixbuf-2.0-dev,
                libjansson-dev
 Standards-Version: 4.6.2

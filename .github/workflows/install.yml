@@ -23,35 +23,35 @@ jobs:
           - distro: "ubuntu:26.04"
             name: "Ubuntu 26.04 LTS"
             pre_install: "apt-get update"
-            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libgdk-pixbuf-2.0-dev build-essential pkg-config libjansson-dev fonts-roboto file"
+            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libfontconfig1-dev libgdk-pixbuf-2.0-dev build-essential pkg-config libjansson-dev fonts-roboto file"
 
           - distro: "debian:13"
             name: "Debian 13 (Trixie)"
             pre_install: "apt-get update"
-            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libgdk-pixbuf-2.0-dev build-essential pkg-config libjansson-dev fonts-roboto file"
+            install_deps: "apt-get install -y sudo systemd libcairo2-dev libcurl4-openssl-dev libfontconfig1-dev libgdk-pixbuf-2.0-dev build-essential pkg-config libjansson-dev fonts-roboto file"
 
           # Fedora family (independent from RHEL)
           - distro: "fedora:44"
             name: "Fedora 44"
             pre_install: "dnf update -y"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
+            install_deps: "dnf install -y sudo systemd cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
 
           # RHEL/CentOS family (RHEL-compatible)
           - distro: "quay.io/centos/centos:stream9"
             name: "CentOS Stream 9 (RHEL 9 compatible)"
             pre_install: "dnf update -y && dnf install -y epel-release dnf-plugins-core && dnf config-manager --set-enabled crb && dnf makecache"
-            install_deps: "dnf install -y sudo systemd cairo-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
+            install_deps: "dnf install -y sudo systemd cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf2-devel gcc make pkg-config jansson-devel google-roboto-fonts file"
 
           # openSUSE family
           - distro: "opensuse/tumbleweed"
             name: "openSUSE Tumbleweed"
             pre_install: "zypper --gpg-auto-import-keys refresh && zypper --non-interactive dup"
-            install_deps: "zypper --non-interactive install tar sudo systemd cairo-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
+            install_deps: "zypper --non-interactive install tar sudo systemd cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
 
           - distro: "opensuse/leap:16.0"
             name: "openSUSE Leap 16.0"
             pre_install: "zypper --gpg-auto-import-keys refresh || true"
-            install_deps: "zypper install -y sudo systemd cairo-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
+            install_deps: "zypper install -y sudo systemd cairo-devel fontconfig-devel libcurl-devel gdk-pixbuf-devel gcc make pkg-config libjansson-devel google-roboto-fonts file"
 
     container:
       image: ${{ matrix.distro }}
@@ -156,7 +156,7 @@ jobs:
       - name: Setup Arch Linux
         run: |
           pacman -Syu --noconfirm
-          pacman -S --noconfirm cairo curl gcc gdk-pixbuf2 make pkg-config jansson ttf-roboto sudo systemd file
+          pacman -S --noconfirm cairo curl fontconfig gcc gdk-pixbuf2 make pkg-config jansson ttf-roboto sudo systemd file
 
       - name: Test make install on Arch
         run: |
@@ -230,7 +230,7 @@ jobs:
           test "$(readlink /usr/bin/coolerdash)" = "../libexec/coolerdash/coolerdash"
           grep -q '^executable = "/usr/libexec/coolerdash/coolerdash"' \
             /var/lib/coolercontrol/plugins/coolerdash/manifest.toml
-          pkg-config --exists cairo gdk-pixbuf-2.0 jansson libcurl
+          pkg-config --exists cairo fontconfig gdk-pixbuf-2.0 jansson libcurl
 
           make uninstall
           test ! -e /usr/libexec/coolerdash/coolerdash
@@ -255,6 +255,7 @@ jobs:
           emerge --getbinpkg --usepkg --noreplace \
             virtual/pkgconfig \
             x11-libs/cairo \
+            media-libs/fontconfig \
             'x11-libs/gdk-pixbuf[gif,jpeg,tiff]' \
             net-misc/curl \
             dev-libs/jansson \

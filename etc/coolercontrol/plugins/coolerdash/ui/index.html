@@ -871,9 +871,11 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Font Face</label>
-                        <span class="form-hint">Default: Roboto Black</span>
-                        <input type="text" name="font.face" class="form-control">
+                        <label class="form-label" for="font_face">Font Face</label>
+                        <span class="form-hint">Default: Roboto Black. Select an installed family or enter one manually.</span>
+                        <input type="text" name="font.face" id="font_face" class="form-control" list="font_face_options" autocomplete="off">
+                        <datalist id="font_face_options"></datalist>
+                        <span class="form-hint" id="font_face_status" role="status"></span>
                     </div>
                 </div>
 
@@ -2955,6 +2957,46 @@
             }
         }
 
+        async function loadSystemFonts() {
+            var options = document.getElementById('font_face_options');
+            var status = document.getElementById('font_face_status');
+            if (!options || !status) return;
+
+            try {
+                var result = await Promise.race([
+                    pluginFetch('/fonts'),
+                    new Promise(function(_, reject) {
+                        setTimeout(function() { reject(new Error('Font discovery timed out')); }, 3000);
+                    })
+                ]);
+                if (!result || !Array.isArray(result.fonts)) {
+                    throw new Error('Invalid font list');
+                }
+
+                var seen = new Set();
+                var families = result.fonts.map(function(family) {
+                    return typeof family === 'string' ? family.trim() : '';
+                }).filter(function(family) {
+                    if (!family || seen.has(family)) return false;
+                    seen.add(family);
+                    return true;
+                }).sort(function(a, b) {
+                    return a.localeCompare(b);
+                });
+
+                options.textContent = '';
+                families.forEach(function(family) {
+                    var option = document.createElement('option');
+                    option.value = family;
+                    options.appendChild(option);
+                });
+                status.textContent = families.length + ' installed font families available.';
+            } catch (error) {
+                console.warn('Font discovery failed:', error);
+                status.textContent = 'Installed fonts unavailable; manual entry still works.';
+            }
+        }
+
         // ===== BUILD CONFIG FROM FORM =====
         function buildConfig() {
             var form = document.getElementById('configForm');
@@ -3278,6 +3320,7 @@
                 }
 
                 populateForm(config);
+                loadSystemFonts();
 
                 // Detect device and discover sensors from CoolerControl API
                 var apiAddr = (config.daemon && config.daemon.address) || 'http://localhost:11987';

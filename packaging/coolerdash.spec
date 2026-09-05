@@ -14,6 +14,7 @@ BuildRequires:  gcc
 BuildRequires:  make
 BuildRequires:  pkgconfig
 BuildRequires:  pkgconfig(cairo)
+BuildRequires:  pkgconfig(fontconfig)
 BuildRequires:  pkgconfig(gdk-pixbuf-2.0)
 BuildRequires:  pkgconfig(jansson)
 BuildRequires:  pkgconfig(libcurl)

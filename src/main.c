@@ -18,6 +18,7 @@
 // cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
 #include <fcntl.h>
+#include <fontconfig/fontconfig.h>
 #include <jansson.h>
 #include <limits.h>
 #include <pthread.h>
@@ -487,6 +488,78 @@ static size_t write_device_info_json(char *body, size_t body_size)
     return (size_t)length;
 }
 
+static char *get_font_families_json(void)
+{
+    FcPattern *pattern = NULL;
+    FcObjectSet *objects = NULL;
+    FcFontSet *fonts = NULL;
+    FcStrSet *families = NULL;
+    FcStrList *family_list = NULL;
+    json_t *array = NULL;
+    json_t *root = NULL;
+    char *payload = NULL;
+
+    pattern = FcPatternCreate();
+    objects = FcObjectSetBuild(FC_FAMILY, NULL);
+    if (!pattern || !objects)
+        goto cleanup;
+
+    fonts = FcFontList(NULL, pattern, objects);
+    families = FcStrSetCreate();
+    if (!fonts || !families)
+        goto cleanup;
+
+    for (int i = 0; i < fonts->nfont; i++)
+    {
+        for (int index = 0;; index++)
+        {
+            FcChar8 *family = NULL;
+            if (FcPatternGetString(fonts->fonts[i], FC_FAMILY, index, &family) !=
+                FcResultMatch)
+                break;
+            if (family[0] != '\0' && !FcStrSetAdd(families, family))
+                goto cleanup;
+        }
+    }
+
+    family_list = FcStrListCreate(families);
+    array = json_array();
+    if (!family_list || !array)
+        goto cleanup;
+
+    const FcChar8 *family;
+    while ((family = FcStrListNext(family_list)) != NULL)
+    {
+        json_t *name = json_string((const char *)family);
+        if (!name)
+            goto cleanup;
+        int append_result = json_array_append(array, name);
+        json_decref(name);
+        if (append_result != 0)
+            goto cleanup;
+    }
+
+    root = json_object();
+    if (!root || json_object_set(root, "fonts", array) != 0)
+        goto cleanup;
+    payload = json_dumps(root, JSON_COMPACT);
+
+cleanup:
+    json_decref(root);
+    json_decref(array);
+    if (family_list)
+        FcStrListDone(family_list);
+    if (families)
+        FcStrSetDestroy(families);
+    if (fonts)
+        FcFontSetDestroy(fonts);
+    if (objects)
+        FcObjectSetDestroy(objects);
+    if (pattern)
+        FcPatternDestroy(pattern);
+    return payload;
+}
+
 static void serve_plugin_data(int client_fd)
 {
     char request[CONFIG_MAX_PATH_LEN * 3 + 128] = {0};
@@ -507,7 +580,7 @@ static void serve_plugin_data(int client_fd)
     const char *content_type = "application/json";
     char body[384] = "{}\n";
     size_t body_length = strlen(body);
-    char *preview_body = NULL;
+    char *dynamic_body = NULL;
 
     if (strncmp(request, "GET /status HTTP/", 17) == 0)
     {
@@ -546,15 +619,23 @@ static void serve_plugin_data(int client_fd)
             json_t *root = json_pack("{s:s}", "image", image);
             if (root)
             {
-                preview_body = json_dumps(root, JSON_COMPACT);
+                dynamic_body = json_dumps(root, JSON_COMPACT);
                 json_decref(root);
             }
             free(image);
         }
-        if (preview_body)
-            body_length = strlen(preview_body);
+        if (dynamic_body)
+            body_length = strlen(dynamic_body);
         else
             status = "422 Unprocessable Content";
+    }
+    else if (strncmp(request, "GET /fonts HTTP/", 16) == 0)
+    {
+        dynamic_body = get_font_families_json();
+        if (dynamic_body)
+            body_length = strlen(dynamic_body);
+        else
+            status = "500 Internal Server Error";
     }
     else
     {
@@ -568,12 +649,12 @@ static void serve_plugin_data(int client_fd)
         status, content_type, body_length);
     if (header_length <= 0 || (size_t)header_length >= sizeof(header))
     {
-        free(preview_body);
+        free(dynamic_body);
         return;
     }
     (void)send_all(client_fd, header, (size_t)header_length);
-    (void)send_all(client_fd, preview_body ? preview_body : body, body_length);
-    free(preview_body);
+    (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length);
+    free(dynamic_body);
 }
 
 static void *run_plugin_data_server(void *unused)
