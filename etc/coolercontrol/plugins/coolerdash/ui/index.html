@@ -45,6 +45,42 @@
             margin: 0 auto;
         }
 
+        .mode-layout { align-items: start; }
+
+        .mode-layout > * { min-width: 0; }
+
+        .mode-controls { display: flex; flex-direction: column; gap: 16px; }
+        .mode-controls .form-group { height: auto; }
+        .display-elements { border: 0; padding: 0; margin: 0; min-width: 0; }
+        .display-options { display: grid; gap: 10px; }
+        .display-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .display-option input { flex: 0 0 auto; margin: 0; accent-color: rgb(var(--accent)); }
+
+        .mode-preview {
+            margin: 0;
+            padding: 16px;
+            text-align: center;
+            background: rgb(var(--bg-one));
+            border: 1px solid rgb(var(--border-one));
+            border-radius: var(--radius);
+        }
+
+        .mode-preview svg {
+            display: block;
+            width: 220px;
+            max-width: 100%;
+            height: auto;
+            margin: 12px auto;
+            font-family: sans-serif;
+            font-weight: 700;
+        }
+
         /* Header */
         .header {
             background: rgb(var(--bg-two));
@@ -612,7 +648,7 @@
             <button class="tab active" onclick="switchTab(5)">Info</button>
         </div>
 
-        <form id="configForm">
+        <form id="configForm" oninput="updateModePreview()" onchange="updateModePreview()">
             <!-- Tab 0: Setup -->
             <div class="panel">
                 <div class="alert">
@@ -648,29 +684,61 @@
             <div class="panel">
                 <h3 class="section-title">Mode</h3>
 
-                <div class="grid grid-2">
-                    <div class="form-group">
-                        <label class="form-label">Display Mode</label>
-                        <span class="form-hint">Select how sensors are arranged on the display.</span>
-                        <select name="display.mode" id="display_mode" class="form-control" onchange="toggleDisplayModeFields()">
-                            <option value="dual">Dual (CPU + GPU simultaneously)</option>
-                            <option value="split">Split (CPU + GPU columns)</option>
-                            <option value="circle">Circle (Alternating display)</option>
-                        </select>
-                    </div>
+                <div class="grid grid-2 mode-layout">
+                    <div class="mode-controls">
+                        <div class="form-group">
+                            <label class="form-label">Display Mode</label>
+                            <span class="form-hint">Select how sensors are arranged on the display.</span>
+                            <select name="display.mode" id="display_mode" class="form-control" onchange="toggleDisplayModeFields()">
+                                <option value="dual">Dual (CPU + GPU simultaneously)</option>
+                                <option value="split">Split (CPU + GPU columns)</option>
+                                <option value="circle">Circle (Alternating display)</option>
+                            </select>
+                        </div>
 
-                    <div class="form-group" id="circle_interval_group" style="display: none;">
-                        <label class="form-label">Switch Interval (Seconds)</label>
-                        <span class="form-hint">How long each sensor is shown (Default: 8)</span>
-                        <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
+                        <div class="form-group" id="circle_layout_group" style="display: none;">
+                            <label class="form-label" for="circle_layout">Circle Layout</label>
+                            <span class="form-hint">Choose how the active sensor is displayed.</span>
+                            <select name="display.circle_layout" id="circle_layout" class="form-control" onchange="updateModePreview()">
+                                <option value="classic">Mode 1 — Classic</option>
+                                <option value="centered">Mode 2 — Centered</option>
+                            </select>
+                        </div>
+                        <fieldset class="display-elements" id="display_elements_group">
+                            <legend class="form-label">Display Elements</legend>
+                            <span class="form-hint">Choose what to show. The layout adapts to the visible elements.</span>
+                            <div class="display-options">
+                                <label class="display-option" data-element-mode="dual"><input type="checkbox" name="display.dual_show_bars" id="dual_show_bars" value="1">Temperature Bars</label>
+                                <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_load" id="split_show_load" value="1">Load (%)</label>
+                                <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_watts" id="split_show_watts" value="1">Power (W)</label>
+                                <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_rpm" id="split_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
+                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_load" id="circle_show_load" value="1">Load (%)</label>
+                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_rpm" id="circle_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
+                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_watts" id="circle_show_watts" value="1">Power (W)</label>
+                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_frequency" id="circle_show_frequency" value="1">Frequency (GHz / MHz)</label>
+                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_bar" id="circle_show_bar" value="1">Temperature Bar</label>
+                            </div>
+                        </fieldset>
                     </div>
-                    <div class="form-group" id="circle_extra_info_group" style="display: none;">
-                        <label class="form-label">
-                            <input type="checkbox" name="display.circle_show_extra_info" id="circle_show_extra_info" value="1">
-                            Show Extra Sensor Info
-                        </label>
-                        <span class="form-hint">Display frequency, watts, or RPM below the label (CPU: GHz, GPU: MHz+W, Liquid: RPM)</span>
-                    </div>
+                    <figure class="mode-preview">
+                        <svg viewBox="0 0 240 240" role="img" aria-labelledby="mode_preview_title">
+                            <title id="mode_preview_title">Dual layout preview</title>
+                            <rect id="mode_preview_frame" x="4" y="4" width="232" height="232" rx="116" fill="#000" stroke="#414957" stroke-width="6"/>
+                            <defs><clipPath id="preview_screen_clip"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+                            <g clip-path="url(#preview_screen_clip)">
+                                <image id="mode_preview_background" x="7" y="7" width="226" height="226" preserveAspectRatio="xMidYMid slice"/>
+                                <rect id="mode_preview_overlay" x="7" y="7" width="226" height="226" fill="#000" opacity="0"/>
+                            </g>
+                            <g id="mode_preview_dual" transform="translate(36 36) scale(.70)" fill="#fff"></g>
+                            <g id="mode_preview_split" style="display: none;" fill="#fff"></g>
+                            <g id="mode_preview_circle" style="display: none;" transform="translate(36 36) scale(.70)" fill="#fff"></g>
+                        </svg>
+                        <figcaption>
+                            <span id="mode_preview_description" class="form-hint">Two sensors stacked vertically.</span>
+                            <span class="form-hint">Static example values. Appearance depends on your device and settings.</span>
+                            <span id="background_preview_status" class="form-hint" role="status"></span>
+                        </figcaption>
+                    </figure>
                 </div>
 
                 <div class="alert">
@@ -679,12 +747,20 @@
                     Discovered sensors from CoolerControl API appear automatically.
                 </div>
 
-                <div class="grid grid-4" id="sensor_grid">
+                <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Refresh Interval (Seconds)</label>
                         <span class="form-hint">0.2 - 60 seconds (Default: 2.5)</span>
                         <input type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
                     </div>
+                    <div class="form-group" id="circle_interval_group" style="display: none;">
+                        <label class="form-label">Switch Interval (Seconds)</label>
+                        <span class="form-hint">How long each sensor is shown (Default: 8)</span>
+                        <input type="number" name="display.circle_switch_interval" class="form-control" min="1" max="60" step="1">
+                    </div>
+                </div>
+
+                <div class="grid grid-2" id="sensor_grid">
                     <div class="form-group" id="sensor_slot_1_group">
                         <label class="form-label" id="sensor_slot_1_label">Slot 1</label>
                         <span class="form-hint" id="sensor_slot_1_hint">Default: CPU</span>
@@ -805,7 +881,8 @@
                 <div class="form-group">
                     <label class="form-label">Background Image Path</label>
                     <span class="form-hint">Optional PNG, animated GIF, JPEG, BMP, or TIFF image displayed behind the sensor values. Leave empty to use the configured background color.</span>
-                    <input type="text" name="paths.image_background" class="form-control">
+                    <input type="text" name="paths.image_background" class="form-control" onchange="refreshBackgroundPreview()">
+                    <span class="form-hint">Preview: use an absolute path readable by CoolerDash. Up to 16 MiB / 32 megapixels; GIF previews are static.</span>
                 </div>
                 <div class="grid grid-2">
                     <div class="form-group" style="grid-column: 1 / -1;">
@@ -1266,7 +1343,16 @@
             display: {
                 mode: "split",
                 circle_switch_interval: 8,
-                circle_show_extra_info: true,
+                circle_layout: 'classic',
+                circle_show_load: true,
+                circle_show_rpm: true,
+                circle_show_watts: true,
+                circle_show_frequency: true,
+                circle_show_bar: true,
+                dual_show_bars: true,
+                split_show_load: true,
+                split_show_watts: true,
+                split_show_rpm: false,
                 refresh_interval: 3.5,
                 brightness: 80,
                 orientation: 0,
@@ -2567,15 +2653,162 @@
             currentTab = index;
         }
 
+        function renderModePreviewLayout() {
+            function shown(key) { return document.getElementById(key).checked; }
+            function text(x, y, size, content, anchor, color) {
+                return '<text x="' + x + '" y="' + y + '" font-size="' + size + '" text-anchor="' + (anchor || 'start') + '" fill="' + (color || '#fff') + '">' + content + '</text>';
+            }
+            function bar(y, sensor, value, width) {
+                return '<rect x="5" y="' + y + '" width="230" height="24" rx="8" fill="#333"/>' +
+                    '<rect data-preview-sensor="' + sensor + '" data-preview-value="' + value + '" x="5" y="' + y + '" width="' + width + '" height="24" rx="8" fill="#00ff00"/>' +
+                    '<rect x="5" y="' + y + '" width="230" height="24" rx="8" fill="none" stroke="#aaa"/>';
+            }
+            var dualBars = shown('dual_show_bars');
+            var topY = dualBars ? 80 : 100;
+            var bottomY = dualBars ? 231 : 216;
+            var dual = text(6, topY, 30, 'CPU', 'start', '#bfbfbf') + text(78, topY, 96, '43') + text(215, topY - 42, 28, '°');
+            if (dualBars) dual += bar(90, 'cpu', 43, 86) + bar(126, 'gpu', 56, 112);
+            dual += text(6, dualBars ? 181 : 170, 30, 'GPU', 'start', '#bfbfbf') + text(78, bottomY, 96, '56') + text(215, bottomY - 42, 28, '°');
+            document.getElementById('mode_preview_dual').innerHTML = dual;
+
+            var splitRows = [];
+            if (shown('split_show_load')) splitRows.push({ values: ['28%', '76%'], size: 13.2 });
+            if (shown('split_show_watts')) splitRows.push({ values: ['65 W', '180 W'], size: 20 });
+            if (shown('split_show_rpm')) splitRows.push({ values: ['1759 RPM', '1200 RPM'], size: 11 });
+            var tempHeight = 110 - splitRows.length * 24;
+            var split = '<path d="M120 51 V189" stroke="#657181" stroke-width="2"/>';
+            [70, 170].forEach(function (x, index) {
+                var sensor = index ? 'gpu' : 'cpu';
+                split += text(x, 70, 16, index ? 'GPU' : 'CPU', 'middle', '#bfbfbf');
+                split += '<text data-preview-sensor="' + sensor + '" data-preview-value="' + (index ? 62 : 45) + '" x="' + x + '" y="' + (88 + tempHeight / 2) + '" font-size="' + Math.min(34, tempHeight * 0.72) + '" text-anchor="middle">' + (index ? '62°' : '45°') + '</text>';
+                splitRows.forEach(function (row, i) {
+                    split += text(x, 84 + tempHeight + i * 24, row.size, row.values[index], 'middle');
+                });
+            });
+            document.getElementById('mode_preview_split').innerHTML = split;
+
+            var centered = document.getElementById('circle_layout').value === 'centered';
+            var load = shown('circle_show_load');
+            var withBar = shown('circle_show_bar');
+            var lines = [];
+            var info = [];
+            if (shown('circle_show_frequency')) info.push('4.8<tspan font-size="17"> GHz</tspan>');
+            if (shown('circle_show_watts')) info.push('164<tspan font-size="17"> W</tspan>');
+            if (info.length) lines.push(info.join('  '));
+            if (shown('circle_show_rpm')) lines.push('1759<tspan font-size="17"> RPM</tspan>');
+            var barY = 186 - lines.length * 34 - (withBar ? 10 : 0);
+            var valueY = barY - 12;
+            var labelY = barY + (withBar ? 24 : 0) + 31;
+            var size = load ? 78 : Math.min(106, 64 + (2 - lines.length) * 14 + (withBar ? 0 : 12));
+            var circle = load ? text(6, valueY, 42, '80<tspan font-size="22" dy="-13">%</tspan>') : '';
+            circle += text(load ? 100 : 112, valueY, size, '80', load ? 'start' : 'middle');
+            circle += text(load ? 214 : 112 + size * 0.74, valueY - size * 0.44, 26, '°');
+            if (withBar) circle += bar(barY, 'cpu', 80, 160);
+            circle += text(centered ? 120 : 6, labelY, 22, 'Intel(R) Core(TM)', centered ? 'middle' : 'start', '#bfbfbf');
+            lines.forEach(function (line, i) {
+                circle += text(centered ? 120 : 6, labelY + 31 + i * 26, 26, line, centered ? 'middle' : 'start');
+            });
+            document.getElementById('mode_preview_circle').innerHTML = circle;
+        }
+
+        var backgroundPreviewPath = null;
+        var backgroundPreviewTimer = null;
+        var backgroundPreviewGeneration = 0;
+
+        function refreshBackgroundPreview() {
+            backgroundPreviewPath = null;
+            updateBackgroundPreview();
+        }
+
+        function updateBackgroundPreview() {
+            var image = document.getElementById('mode_preview_background');
+            var overlay = document.getElementById('mode_preview_overlay');
+            var color = document.getElementById('color_display_background').value || '#000000';
+            document.getElementById('mode_preview_frame').setAttribute('fill', color);
+            overlay.setAttribute('fill', color);
+            var opacity = Number(document.querySelector('[name="display.background_overlay_opacity"]').value) || 0;
+            overlay.setAttribute('opacity', Math.max(0, Math.min(1, opacity)));
+            var fit = document.querySelector('[name="display.background_image_fit"]').value;
+            image.setAttribute('preserveAspectRatio', fit === 'stretch' ? 'none' : fit === 'contain' ? 'xMidYMid meet' : 'xMidYMid slice');
+            var zoom = Number(document.getElementById('background_image_scale').value) || 1;
+            zoom = Math.max(0.05, Math.min(2, zoom));
+            image.setAttribute('transform', 'translate(120 120) scale(' + zoom + ') translate(-120 -120)');
+
+            var path = document.querySelector('[name="paths.image_background"]').value.trim();
+            if (path === backgroundPreviewPath) return;
+            backgroundPreviewPath = path;
+            var generation = ++backgroundPreviewGeneration;
+            clearTimeout(backgroundPreviewTimer);
+            image.removeAttribute('href');
+            var status = document.getElementById('background_preview_status');
+            status.textContent = path ? 'Loading background preview…' : '';
+            if (!path) return;
+            backgroundPreviewTimer = setTimeout(async function () {
+                var timeout;
+                try {
+                    var result = await Promise.race([
+                        pluginFetch('/background-preview?path=' + encodeURIComponent(path)),
+                        new Promise(function (_, reject) {
+                            timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 6000);
+                        })
+                    ]);
+                    if (generation !== backgroundPreviewGeneration) return;
+                    if (!result || typeof result.image !== 'string' || result.image.length > 1500000 ||
+                        !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
+                        throw new Error('No preview image');
+                    }
+                    image.setAttribute('href', result.image);
+                    status.textContent = 'Static background preview';
+                } catch (error) {
+                    if (generation === backgroundPreviewGeneration) {
+                        status.textContent = 'Background preview unavailable. Check the path, file permissions and that CoolerDash is running.';
+                    }
+                } finally {
+                    clearTimeout(timeout);
+                }
+            }, 350);
+        }
+
+        function updateModePreview() {
+            updateBackgroundPreview();
+            renderModePreviewLayout();
+            var sensors = collectSensorConfigsFromDOM();
+            document.querySelectorAll('[data-preview-sensor]').forEach(function (element) {
+                var sensorId = element.getAttribute('data-preview-sensor');
+                var defaults = getDefaultSensorConfig(sensorId);
+                var sensor = Object.assign({}, defaults, sensors[sensorId]);
+                var value = Number(element.getAttribute('data-preview-value'));
+                // Match the renderer: a value at the threshold enters the next band.
+                var band = value < sensor.threshold_1 ? 1 : value < sensor.threshold_2 ? 2 : value < sensor.threshold_3 ? 3 : 4;
+                var color = sensor['threshold_' + band + '_color'] || defaults['threshold_' + band + '_color'];
+                element.setAttribute('fill', rgbToHex(color));
+            });
+            var mode = document.getElementById('display_mode').value;
+            var descriptions = {
+                dual: 'Two sensors stacked vertically.',
+                split: 'Two sensor columns; visible values share the available space.',
+                circle: 'One sensor at a time; sensors alternate on the device.'
+            };
+            Object.keys(descriptions).forEach(function (layout) {
+                document.getElementById('mode_preview_' + layout).style.display = layout === mode ? '' : 'none';
+            });
+            document.getElementById('mode_preview_title').textContent = mode + ' layout preview: ' + descriptions[mode];
+            document.getElementById('mode_preview_description').textContent = descriptions[mode];
+        }
+
         function toggleDisplayModeFields() {
+            updateModePreview();
             var mode = document.getElementById('display_mode').value;
             var isCircle = mode === 'circle';
             var isSplit = mode === 'split';
             var sensorGrid = document.getElementById('sensor_grid');
             document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
-            document.getElementById('circle_extra_info_group').style.display = isCircle ? 'block' : 'none';
-            sensorGrid.classList.toggle('grid-4', isCircle);
-            sensorGrid.classList.toggle('grid-3', !isCircle);
+            document.getElementById('circle_layout_group').style.display = isCircle ? 'block' : 'none';
+            document.querySelectorAll('[data-element-mode]').forEach(function (element) {
+                element.style.display = element.getAttribute('data-element-mode') === mode ? 'flex' : 'none';
+            });
+            sensorGrid.classList.toggle('grid-3', isCircle);
+            sensorGrid.classList.toggle('grid-2', !isCircle);
             var slot1Group = document.getElementById('sensor_slot_1_group');
             var midSlotGroup = document.getElementById('sensor_slot_2_group');
             var slot3Group = document.getElementById('sensor_slot_3_group');
@@ -2762,8 +2995,9 @@
             config.sensors = collectSensorConfigsFromDOM();
 
             // Checkbox fields (not included in FormData when unchecked)
-            var extraInfoCb = document.getElementById('circle_show_extra_info');
-            config.display.circle_show_extra_info = extraInfoCb ? extraInfoCb.checked : false;
+            document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
+                config.display[element.id] = element.checked;
+            });
 
             // Restore real token if user left the *** placeholder unchanged
             var _tokenInput = document.querySelector('[name="daemon.access_token"]');
@@ -2824,10 +3058,9 @@
             }
 
             // Checkbox fields
-            var extraInfoCb = document.getElementById('circle_show_extra_info');
-            if (extraInfoCb && config.display) {
-                extraInfoCb.checked = !!config.display.circle_show_extra_info;
-            }
+            document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
+                element.checked = !!config.display[element.id];
+            });
 
             // Sensor slot selects: ensure custom values are available as options
             var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
@@ -2976,6 +3209,26 @@
                     }
                 }
             }
+
+            if (merged.display.circle_layout !== 'centered') {
+                merged.display.circle_layout = 'classic';
+            }
+
+            // Migrate the old extra-info switch while honoring individual overrides.
+            var displayInput = config.display || {};
+            var oldExtra = displayInput.circle_show_extra_info;
+            oldExtra = typeof oldExtra === 'boolean' ? oldExtra : typeof oldExtra === 'number' ? oldExtra !== 0 : true;
+            ['load', 'rpm', 'watts', 'frequency', 'bar'].forEach(function (element) {
+                var key = 'circle_show_' + element;
+                var value = displayInput[key];
+                var fallback = element === 'bar' ? true : element === 'load' ? merged.display.circle_layout !== 'centered' : oldExtra;
+                merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : fallback;
+            });
+            delete merged.display.circle_show_extra_info;
+            ['dual_show_bars', 'split_show_load', 'split_show_watts', 'split_show_rpm'].forEach(function (key) {
+                var value = displayInput[key];
+                merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : key !== 'split_show_rpm';
+            });
 
             // Sanitize corrupt numeric slot values (from old parseFloat bug)
             var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none' };
