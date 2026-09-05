@@ -149,11 +149,12 @@ static int format_freq_watts(const sensor_entry_t *freq,
  * @param buf_size Output buffer size
  * @return 1 if text was written, 0 if no data available
  */
-static int get_extra_info_text(const monitor_sensor_data_t *data,
+static int get_extra_info_text(const Config *config,
+                               const monitor_sensor_data_t *data,
                                const char *slot_value,
                                char *buf, size_t buf_size)
 {
-    if (!data || !slot_value || !buf || buf_size == 0)
+    if (!config || !data || !slot_value || !buf || buf_size == 0)
         return 0;
 
     buf[0] = '\0';
@@ -162,8 +163,10 @@ static int get_extra_info_text(const monitor_sensor_data_t *data,
     {
         const sensor_entry_t *freq = find_channel_sensor_for_slot(
             data, slot_value, SENSOR_CATEGORY_FREQ);
+        if (!config->circle_show_frequency) freq = NULL;
         const sensor_entry_t *watts = find_channel_sensor_for_slot(
             data, slot_value, SENSOR_CATEGORY_WATTS);
+        if (!config->circle_show_watts) watts = NULL;
         return format_freq_watts(freq, watts, buf, buf_size);
     }
 
@@ -171,15 +174,17 @@ static int get_extra_info_text(const monitor_sensor_data_t *data,
     {
         const sensor_entry_t *freq = find_channel_sensor_for_slot(
             data, slot_value, SENSOR_CATEGORY_FREQ);
+        if (!config->circle_show_frequency) freq = NULL;
         const sensor_entry_t *watts = find_channel_sensor_for_slot(
             data, slot_value, SENSOR_CATEGORY_WATTS);
+        if (!config->circle_show_watts) watts = NULL;
         return format_freq_watts(freq, watts, buf, buf_size);
     }
 
     if (strcmp(slot_value, "liquid") == 0)
     {
         const sensor_entry_t *rpm = find_liquid_pump_rpm(data);
-        if (!rpm)
+        if (!config->circle_show_rpm || !rpm)
             return 0;
         snprintf(buf, buf_size, "%.0f RPM", rpm->value);
         return 1;
@@ -188,21 +193,21 @@ static int get_extra_info_text(const monitor_sensor_data_t *data,
     /* Dynamic slot: try freq → watts → rpm */
     const sensor_entry_t *s = find_channel_sensor_for_slot(
         data, slot_value, SENSOR_CATEGORY_FREQ);
-    if (s)
+    if (s && config->circle_show_frequency)
     {
         format_frequency(buf, buf_size, s->value);
         return 1;
     }
 
     s = find_channel_sensor_for_slot(data, slot_value, SENSOR_CATEGORY_WATTS);
-    if (s)
+    if (s && config->circle_show_watts)
     {
         snprintf(buf, buf_size, "%.0fW", s->value);
         return 1;
     }
 
     s = find_channel_sensor_for_slot(data, slot_value, SENSOR_CATEGORY_RPM);
-    if (s)
+    if (s && config->circle_show_rpm)
     {
         snprintf(buf, buf_size, "%.0f RPM", s->value);
         return 1;
@@ -371,17 +376,20 @@ static int match_unit_at(const char *text)
  * @param x       Left start position
  * @param y       Baseline position
  * @param text    The combined info string (e.g. "1500 MHz  95W")
+ * @param draw_output Render when nonzero, otherwise only measure.
+ * @return Total advance width with the same unit sizing as the rendered text.
  */
-static void render_text_with_small_units(cairo_t *cr, double full_size,
+static double render_text_with_small_units(cairo_t *cr, double full_size,
                                          double x, double y,
-                                         const char *text)
+                                         const char *text, int draw_output)
 {
     if (!cr || !text || text[0] == '\0')
-        return;
+        return 0.0;
 
     const double unit_size = full_size * (2.0 / 3.0);
     const char *p = text;
     char segment[64];
+    double width = 0.0;
 
     cairo_move_to(cr, x, y);
     cairo_set_font_size(cr, full_size);
@@ -397,7 +405,11 @@ static void render_text_with_small_units(cairo_t *cr, double full_size,
             segment[unit_len] = '\0';
 
             cairo_set_font_size(cr, unit_size);
-            cairo_show_text(cr, segment);
+            cairo_text_extents_t ext;
+            cairo_text_extents(cr, segment, &ext);
+            width += ext.x_advance;
+            if (draw_output)
+                cairo_show_text(cr, segment);
             cairo_set_font_size(cr, full_size);
 
             p += unit_len;
@@ -413,11 +425,16 @@ static void render_text_with_small_units(cairo_t *cr, double full_size,
             segment[len] = '\0';
 
             cairo_set_font_size(cr, full_size);
-            cairo_show_text(cr, segment);
+            cairo_text_extents_t ext;
+            cairo_text_extents(cr, segment, &ext);
+            width += ext.x_advance;
+            if (draw_output)
+                cairo_show_text(cr, segment);
 
             p += len;
         }
     }
+    return width;
 }
 
 /**
@@ -552,10 +569,24 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     const float temp_value = get_slot_temperature(data, slot_value);
     const char *label_text = get_slot_label(config, data, slot_value);
     const float max_temp = get_slot_max_scale(config, slot_value);
+    const int centered = strcmp(config->circle_layout, "centered") == 0;
+
+    char extra_buf[64] = {0};
+    char line2_buf[64] = {0};
+    const int has_extra_line =
+        get_extra_info_text(config, data, slot_value, extra_buf, sizeof(extra_buf));
+    const int has_rpm_line =
+        config->circle_show_rpm &&
+        get_extra_info_line2(data, slot_value, line2_buf, sizeof(line2_buf));
+    const int extra_lines = has_extra_line + has_rpm_line;
+    const int adaptive = !config->circle_show_bar || !config->circle_show_load ||
+                         !config->circle_show_frequency || !config->circle_show_watts ||
+                         !config->circle_show_rpm;
 
     int effective_bar_width = params->safe_bar_width;
-    const int bar_height = get_scaled_slot_bar_height(
-        config, params, get_slot_name_by_index(current_slot_index));
+    const int bar_height = config->circle_show_bar
+        ? get_scaled_slot_bar_height(config, params, get_slot_name_by_index(current_slot_index))
+        : 0;
     int bar_x = (int)lround(params->safe_content_margin);
 
     const double region_gap = get_effective_label_spacing(config, params);
@@ -568,13 +599,19 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     double label_ink_bottom = 0.0;
 
     const double available_height = geometry.height;
-    const int bar_y =
-        (int)lround(geometry.center_y - bar_height / 2.0);
+    const double lower_height = adaptive
+        ? geometry.height * (0.16 + 0.13 * extra_lines) + circle_bar_gap
+        : geometry.height * 0.5;
+    const int bar_y = adaptive
+        ? (int)lround(fmax(geometry.top, geometry.bottom - lower_height - bar_height))
+        : (int)lround(geometry.center_y - bar_height / 2.0);
     calculate_bar_bounds(config, params, bar_y, bar_height,
                          &bar_x, &effective_bar_width);
     const double value_bar_gap = circle_bar_gap;
 
-    const double value_box_y = geometry.top;
+    const double value_box_y = geometry.top + (adaptive
+        ? fmax(circle_minimum_gap, (bar_y - geometry.top) * 0.20)
+        : centered ? circle_minimum_gap : 0.0);
     const SensorConfig *sc_gap = get_sensor_config(config, slot_value);
     const double gap_above = (sc_gap && sc_gap->value_to_bar_gap > 0.0f)
                                  ? fmax(value_bar_gap,
@@ -586,10 +623,12 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                         available_height *
                                             (sc_gap->label_to_bar_gap / 100.0))
                                  : circle_bar_gap;
-    const double value_box_height = fmax(0.0, bar_y - gap_above - geometry.top);
+    const double value_box_height = fmax(0.0, bar_y - gap_above - value_box_y);
     const double label_box_y = bar_y + bar_height + gap_below;
-    const double label_box_height =
-        fmax(0.0, geometry.bottom - label_box_y);
+    const double label_box_height = fmax(0.0, geometry.bottom - label_box_y);
+    const double label_height_budget = adaptive
+        ? fmin(label_box_height, geometry.height * 0.13)
+        : label_box_height * 0.30;
 
     if (verbose_logging)
     {
@@ -608,40 +647,43 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
     const Color *value_color = &config->font_color_temp;
 
-    // Draw temperature bar (centered reference point)
-    const double bar_alpha = config->layout_bar_opacity;
-
-    // Bar background
-    set_cairo_color_alpha(cr, &config->layout_bar_color_background, bar_alpha);
-    draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
-                                params->corner_radius);
-    cairo_fill(cr);
-
-    // Bar border (only if enabled and thickness > 0)
-    if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
+    if (config->circle_show_bar)
     {
-        set_cairo_color_alpha(cr, &config->layout_bar_color_border, bar_alpha);
+        // Draw temperature bar (centered reference point)
+        const double bar_alpha = config->layout_bar_opacity;
+
+        // Bar background
+        set_cairo_color_alpha(cr, &config->layout_bar_color_background, bar_alpha);
         draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
                                     params->corner_radius);
-        cairo_set_line_width(cr, get_scaled_bar_border_width(config, params));
-        cairo_stroke(cr);
-    }
-
-    // Bar fill (temperature-based)
-    const int fill_width = calculate_temp_fill_width(temp_value, effective_bar_width, max_temp);
-
-    if (fill_width > 0)
-    {
-        Color bar_color = get_slot_bar_color(config, slot_value, temp_value);
-        set_cairo_color_alpha(cr, &bar_color, bar_alpha);
-
-        cairo_save(cr);
-        draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width,
-                                    bar_height, params->corner_radius);
-        cairo_clip(cr);
-        cairo_rectangle(cr, bar_x, bar_y, fill_width, bar_height);
         cairo_fill(cr);
-        cairo_restore(cr);
+
+        // Bar border (only if enabled and thickness > 0)
+        if (config->layout_bar_border_enabled && config->layout_bar_border > 0.0f)
+        {
+            set_cairo_color_alpha(cr, &config->layout_bar_color_border, bar_alpha);
+            draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width, bar_height,
+                                        params->corner_radius);
+            cairo_set_line_width(cr, get_scaled_bar_border_width(config, params));
+            cairo_stroke(cr);
+        }
+
+        // Bar fill (temperature-based)
+        const int fill_width = calculate_temp_fill_width(temp_value, effective_bar_width, max_temp);
+
+        if (fill_width > 0)
+        {
+            Color bar_color = get_slot_bar_color(config, slot_value, temp_value);
+            set_cairo_color_alpha(cr, &bar_color, bar_alpha);
+
+            cairo_save(cr);
+            draw_rounded_rectangle_path(cr, bar_x, bar_y, effective_bar_width,
+                                        bar_height, params->corner_radius);
+            cairo_clip(cr);
+            cairo_rectangle(cr, bar_x, bar_y, fill_width, bar_height);
+            cairo_fill(cr);
+            cairo_restore(cr);
+        }
     }
 
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
@@ -652,10 +694,15 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     {
         double safe_x = bar_x;
         double safe_width = effective_bar_width;
-        calculate_text_lane_bounds(config, params, value_box_y,
-                                   value_box_height, 1, bar_x,
-                                   effective_bar_width, &safe_x,
-                                   &safe_width);
+        if (centered || adaptive)
+            calculate_safe_region_bounds(params, value_box_y, value_box_height,
+                                         0.96, bar_x, effective_bar_width,
+                                         &safe_x, &safe_width);
+        else
+            calculate_text_lane_bounds(config, params, value_box_y,
+                                       value_box_height, 1, bar_x,
+                                       effective_bar_width, &safe_x,
+                                       &safe_width);
         const double left_margin_factor =
             (config->layout_label_margin_left > 0)
                 ? config->layout_label_margin_left / 100.0
@@ -671,10 +718,11 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                      row_width, value_box_height, 1,
                                      0, &natural_value_layout);
         DutyLayout duty_layout = {0};
-        calculate_duty_layout(cr, config, params, data, slot_value,
-                              row_width, value_box_height,
-                              natural_value_layout.font_size * 0.5,
-                              &duty_layout);
+        if (config->circle_show_load)
+            calculate_duty_layout(cr, config, params, data, slot_value,
+                                  row_width, value_box_height,
+                                  natural_value_layout.font_size * 0.5,
+                                  &duty_layout);
 
         double duty_region_width = 0.0;
         double value_x = row_x;
@@ -712,10 +760,24 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                   &duty_layout);
         }
 
+        cairo_save(cr);
+        if ((centered || !config->circle_show_load) &&
+            !duty_layout.active && natural_value_layout.active)
+        {
+            const double block_width = natural_value_layout.block_right -
+                                       natural_value_layout.block_left;
+            const double offset = scale_value_x(
+                params, (double)get_slot_offset_x(config, slot_value));
+            const double target_left = fmax(safe_x, fmin(
+                safe_x + safe_width - block_width,
+                safe_x + (safe_width - block_width) * 0.5 + offset));
+            cairo_translate(cr, target_left - natural_value_layout.block_left, 0.0);
+        }
         layout_and_render_slot_value(cr, data, config, params, slot_value,
                                      temp_value, value_x, value_box_y,
                                      value_width, value_box_height, 1,
                                      1, &value_layout);
+        cairo_restore(cr);
 
         if (value_layout.active && duty_layout.active)
         {
@@ -774,13 +836,16 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
         label_font_size = fit_text_font_size(
             cr, label_text, label_font_size, available_label_width,
-            available_label_height * 0.30, min_label_font_size);
+            fmin(available_label_height, label_height_budget), min_label_font_size);
         cairo_set_font_size(cr, label_font_size);
         cairo_text_extents(cr, label_text, &label_text_ext);
 
         set_cairo_color(cr, label_color);
 
-        double label_x = label_safe_x + (label_safe_width * left_margin_factor);
+        double label_x = centered
+                             ? label_safe_x + (label_safe_width - label_text_ext.width) * 0.5 -
+                                   label_text_ext.x_bearing
+                             : label_safe_x + (label_safe_width * left_margin_factor);
         double final_label_y = label_box_y - label_text_ext.y_bearing;
 
         // Apply user-defined offsets using the uniform layout scale.
@@ -809,14 +874,9 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     }
 
     // Draw extra info (freq/watts/RPM) below the label if enabled
-    if (config->circle_show_extra_info)
+    if (config->circle_show_frequency || config->circle_show_watts ||
+        config->circle_show_rpm)
     {
-        char extra_buf[64] = {0};
-        char line2_buf[64] = {0};
-        const int has_extra_line =
-            get_extra_info_text(data, slot_value, extra_buf, sizeof(extra_buf));
-        const int has_rpm_line =
-            get_extra_info_line2(data, slot_value, line2_buf, sizeof(line2_buf));
 
         if (verbose_logging)
         {
@@ -926,13 +986,26 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                     (extra_available_width * left_margin_factor) +
                     get_scaled_label_offset_x(config, params);
 
-                if (has_extra_line)
+                const char *lines[] = {extra_buf, line2_buf};
+                const int active[] = {has_extra_line, has_rpm_line};
+                const double baselines[] = {extra_y, line2_y};
+                for (int i = 0; i < 2; ++i)
+                {
+                    if (!active[i])
+                        continue;
+                    double line_x = extra_x;
+                    if (centered)
+                    {
+                        const double width = render_text_with_small_units(
+                            cr, extra_font_size, 0.0, 0.0, lines[i], 0);
+                        line_x = extra_safe_x + (extra_available_width - width) * 0.5 +
+                                 get_scaled_label_offset_x(config, params);
+                        line_x = fmax(extra_safe_x, fmin(
+                            extra_safe_x + extra_available_width - width, line_x));
+                    }
                     render_text_with_small_units(cr, extra_font_size,
-                                                 extra_x, extra_y, extra_buf);
-
-                if (has_rpm_line)
-                    render_text_with_small_units(cr, extra_font_size,
-                                                 extra_x, line2_y, line2_buf);
+                                                 line_x, baselines[i], lines[i], 1);
+                }
             }
             else if (verbose_logging)
             {
@@ -992,7 +1065,8 @@ static int render_circle_display(const struct Config *config,
                     "Circle mode: slot=%s label=%s temp=%.1f extra_info=%s font=%s",
                     slot_value ? slot_value : "none",
                     label ? label : "unknown", temp,
-                    config->circle_show_extra_info ? "on" : "off",
+                    (config->circle_show_frequency || config->circle_show_watts ||
+                     config->circle_show_rpm) ? "on" : "off",
                     config->font_face[0] ? config->font_face : "default");
     }
 
