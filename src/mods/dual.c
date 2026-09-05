@@ -108,6 +108,13 @@ static int calculate_dual_text_row(cairo_t *cr, const struct Config *config,
     calculate_text_lane_bounds(config, params, box_y, box_height,
                                align_bottom, bar_x, bar_width,
                                &safe_x, &safe_width);
+    if (!config->dual_show_bars)
+    {
+        const double band_height = box_height * 0.65;
+        const double band_y = align_bottom ? box_y + box_height - band_height : box_y;
+        calculate_safe_region_bounds(params, band_y, band_height, 0.96,
+                                     bar_x, bar_width, &safe_x, &safe_width);
+    }
 
     const double left_margin_factor =
         (config->layout_label_margin_left > 0)
@@ -193,6 +200,12 @@ static int calculate_dual_layout(const struct Config *config,
     layout->bar_height_down =
         (uint16_t)get_scaled_slot_bar_height(config, params, "3");
     layout->bar_gap = get_scaled_bar_gap(config, params);
+    if (!config->dual_show_bars)
+    {
+        layout->bar_height_up = 0;
+        layout->bar_height_down = 0;
+        layout->bar_gap = 0;
+    }
 
     int total_height = 0;
     if (layout->up_active && layout->down_active)
@@ -528,7 +541,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
 {
     paint_display_background(cr, config);
 
-    draw_temperature_bars(cr, data, config, params);
+    if (config->dual_show_bars)
+        draw_temperature_bars(cr, data, config, params);
 
     cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_BOLD);
