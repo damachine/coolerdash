@@ -25,9 +25,9 @@
 **Default:** Shows CPU and GPU in two compact columns.
 
 <p align="left">
-  <img width="120" height="120" alt="split_3" src="https://github.com/user-attachments/assets/2c63e61f-5640-4ba3-a8db-e0e508fabd9a" />&nbsp;&nbsp;&nbsp;
-  <img width="120" height="120" alt="split_2" src="https://github.com/user-attachments/assets/b174fe10-7bfb-4eec-adc6-134a14b486bd" />&nbsp;&nbsp;&nbsp;
-  <img width="120" height="120" alt="split_1" src="https://github.com/user-attachments/assets/2c0b2faa-ade5-4b54-8a7d-5fd39f9c332d" />
+  <img width="150" height="150" alt="Split mode preview 3" src="images/split_3_lcd.svg" />&nbsp;&nbsp;&nbsp;
+  <img width="150" height="150" alt="Split mode preview 2" src="images/split_2_lcd.svg" />&nbsp;&nbsp;&nbsp;
+  <img width="150" height="150" alt="Split mode preview 1" src="images/split_1_lcd.svg" />
 </p>
 
 ### Dual Mode
@@ -35,9 +35,9 @@
 Shows CPU and GPU temperatures with bars.
 
 <p align="left">
-  <img width="120" height="120" alt="dual_1" src="https://github.com/user-attachments/assets/5bc82ff9-909f-441f-9832-d1dadf4da7de" />&nbsp;&nbsp;&nbsp;
-  <img width="120" height="120" alt="dual_2" src="https://github.com/user-attachments/assets/d33beba5-7db5-41ec-b6bd-9a1208f32d3c" />&nbsp;&nbsp;&nbsp;
-  <img width="120" height="120" alt="dual_3" src="https://github.com/user-attachments/assets/d3363d4f-94b7-4c8d-b25a-cb8fdcf5c3a5" />
+  <img width="150" height="150" alt="Dual mode preview 1" src="images/dual_1_lcd.svg" />&nbsp;&nbsp;&nbsp;
+  <img width="150" height="150" alt="Dual mode preview 2" src="images/dual_2_lcd.svg" />&nbsp;&nbsp;&nbsp;
+  <img width="150" height="150" alt="Dual mode preview 3" src="images/dual_3_lcd.svg" />
 </p>
 
 ### Circle Mode
@@ -45,9 +45,9 @@ Shows CPU and GPU temperatures with bars.
 **Beta:** Alternates between configured sensor slots.
 
 <p align="left">
-  <img width="120" height="120" alt="circle_1" src="https://github.com/user-attachments/assets/02c355a5-4cf9-4503-a676-5a0046289e07" />&nbsp;&nbsp;&nbsp;
-  <img width="120" height="120" alt="circle_2" src="https://github.com/user-attachments/assets/2547a5be-c83e-4301-99f5-f863ccdfb5ee" />&nbsp;&nbsp;&nbsp;
-  <img width="120" height="120" alt="circle_3" src="https://github.com/user-attachments/assets/caaf8f4d-773c-434f-a646-7e1cd84a8add" />
+  <img width="150" height="150" alt="Circle mode preview 1" src="images/circle_1_lcd.svg" />&nbsp;&nbsp;&nbsp;
+  <img width="150" height="150" alt="Circle mode preview 2" src="images/circle_2_lcd.svg" />&nbsp;&nbsp;&nbsp;
+  <img width="150" height="150" alt="Circle mode preview 3" src="images/circle_3_lcd.svg" />
 </p>
 
 > **Officially listed by CoolerControl as a [2nd Party (Trusted) Plugin](https://docs.coolercontrol.org/automation/plugins.html#_2nd-party-trusted-plugins).**  
