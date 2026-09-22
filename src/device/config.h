@@ -111,6 +111,8 @@ typedef struct Config
     int split_show_load;
     int split_show_watts;
     int split_show_rpm;
+    int sensor_ring_enabled;
+    char sensor_ring_sensor[CONFIG_MAX_SENSOR_SLOT_LEN];
     float display_content_scale_factor;
     float background_image_scale_factor; /**< 0 = fitted size, 0.05..2 = centered zoom */
     float display_background_overlay_opacity;

@@ -184,6 +184,12 @@ static void set_display_defaults(Config *config)
         config->split_show_watts = 1;
     if (config->split_show_rpm < 0)
         config->split_show_rpm = 0;
+    if (config->sensor_ring_enabled < 0)
+        config->sensor_ring_enabled = 0;
+    if (config->sensor_ring_sensor[0] == '\0' ||
+        strcmp(config->sensor_ring_sensor, "none") == 0)
+        cc_safe_strcpy(config->sensor_ring_sensor,
+                       sizeof(config->sensor_ring_sensor), "liquid");
     if (config->display_content_scale_factor == 0.0f)
         config->display_content_scale_factor = 0.98f;
     if (config->background_image_scale_factor < 0.0f)
@@ -1129,13 +1135,15 @@ static void load_display_from_json(json_t *root, Config *config)
     const char *element_keys[] = {
         "circle_show_load", "circle_show_rpm", "circle_show_watts",
         "circle_show_frequency", "circle_show_bar",
-        "dual_show_bars", "split_show_load", "split_show_watts", "split_show_rpm"
+        "dual_show_bars", "split_show_load", "split_show_watts", "split_show_rpm",
+        "sensor_ring_enabled"
     };
     int *element_flags[] = {
         &config->circle_show_load, &config->circle_show_rpm,
         &config->circle_show_watts, &config->circle_show_frequency,
         &config->circle_show_bar, &config->dual_show_bars,
-        &config->split_show_load, &config->split_show_watts, &config->split_show_rpm
+        &config->split_show_load, &config->split_show_watts, &config->split_show_rpm,
+        &config->sensor_ring_enabled
     };
     for (size_t i = 0; i < sizeof(element_keys) / sizeof(element_keys[0]); ++i)
     {
@@ -1144,6 +1152,14 @@ static void load_display_from_json(json_t *root, Config *config)
             *element_flags[i] = json_is_true(flag);
         else if (json_is_integer(flag))
             *element_flags[i] = json_integer_value(flag) != 0;
+    }
+
+    json_t *ring_sensor = json_object_get(display, "sensor_ring_sensor");
+    if (ring_sensor && json_is_string(ring_sensor))
+    {
+        const char *value = json_string_value(ring_sensor);
+        if (value && value[0] != '\0' && strcmp(value, "none") != 0)
+            SAFE_STRCPY(config->sensor_ring_sensor, value);
     }
 
     json_t *background_fit = json_object_get(display, "background_image_fit");
@@ -1711,6 +1727,7 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
     config->split_show_load = -1;
     config->split_show_watts = -1;
     config->split_show_rpm = -1;
+    config->sensor_ring_enabled = -1;
     config->display_degree_spacing = -1;
     // Note: All colors have is_set=0 after memset, so defaults will be applied
 

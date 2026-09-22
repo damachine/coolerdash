@@ -2,6 +2,12 @@
 
 Three modes: **split** (default), **dual**, and **circle**.
 
+All three modes can add the optional **Sensor Ring** overlay. Its sensor is
+configured independently with `display.sensor_ring_sensor`; `liquid` is the
+default. The ring maps the current value to that sensor's configured maximum
+and uses the same threshold colors as its bars and values. The overlay is off
+by default for backwards-compatible output.
+
 Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, or `--circle`.
 
 ## Display Elements

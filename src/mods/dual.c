@@ -540,6 +540,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     const ScalingParams *params)
 {
     paint_display_background(cr, config);
+    draw_sensor_ring(cr, config, data, params);
 
     if (config->dual_show_bars)
         draw_temperature_bars(cr, data, config, params);

@@ -405,6 +405,7 @@ int render_split_preview(const struct Config *config,
     }
 
     paint_display_background(cr, config);
+    draw_sensor_ring(cr, config, data, &params);
 
     const char *active_slots[2] = {NULL, NULL};
     const char *configured_slots[] = {

@@ -1029,6 +1029,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
         return;
 
     paint_display_background(cr, config);
+    draw_sensor_ring(cr, config, data, params);
 
     // Update sensor mode (check if configured interval elapsed)
     update_sensor_mode(config);

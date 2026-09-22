@@ -719,6 +719,17 @@
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_bar" id="circle_show_bar" value="1">Temperature Bar</label>
                             </div>
                         </fieldset>
+                        <div class="form-group">
+                            <label class="display-option"><input type="checkbox" name="display.sensor_ring_enabled" id="sensor_ring_enabled" value="1">Sensor Ring</label>
+                            <span class="form-hint">Show a threshold-colored value ring around any layout.</span>
+                            <select name="display.sensor_ring_sensor" id="sensor_ring_sensor" class="form-control sensor-slot-select">
+                                <optgroup label="Standard">
+                                    <option value="liquid">Liquid</option>
+                                    <option value="cpu">CPU</option>
+                                    <option value="gpu">GPU</option>
+                                </optgroup>
+                            </select>
+                        </div>
                     </div>
                     <figure class="mode-preview">
                         <svg viewBox="0 0 240 240" role="img" aria-labelledby="mode_preview_title">
@@ -1367,6 +1378,8 @@
                 split_show_load: true,
                 split_show_watts: true,
                 split_show_rpm: false,
+                sensor_ring_enabled: false,
+                sensor_ring_sensor: "liquid",
                 refresh_interval: 3.5,
                 brightness: 80,
                 orientation: 0,
@@ -3041,7 +3054,7 @@
                 var parts = key.split('.');
                 if (parts.length === 2 && config[parts[0]] !== undefined) {
                     // Sensor slot values must always be strings
-                    var isSlotField = (parts[1] === 'sensor_slot_1' || parts[1] === 'sensor_slot_2' || parts[1] === 'sensor_slot_3');
+                    var isSlotField = (parts[1] === 'sensor_slot_1' || parts[1] === 'sensor_slot_2' || parts[1] === 'sensor_slot_3' || parts[1] === 'sensor_ring_sensor');
                     if (isSlotField) {
                         config[parts[0]][parts[1]] = value;
                     } else {
@@ -3067,6 +3080,8 @@
             document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
                 config.display[element.id] = element.checked;
             });
+            config.display.sensor_ring_enabled =
+                document.getElementById('sensor_ring_enabled').checked;
 
             // Restore real token if user left the *** placeholder unchanged
             var _tokenInput = document.querySelector('[name="daemon.access_token"]');
@@ -3130,10 +3145,12 @@
             document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
                 element.checked = !!config.display[element.id];
             });
+            document.getElementById('sensor_ring_enabled').checked =
+                !!config.display.sensor_ring_enabled;
 
             // Sensor slot selects: ensure custom values are available as options
-            var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3'];
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none' };
+            var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3', 'sensor_ring_sensor'];
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none', sensor_ring_sensor: 'liquid' };
             for (var sf = 0; sf < slotFields.length; sf++) {
                 var slotValue = config.display && config.display[slotFields[sf]];
                 if (slotValue) {
@@ -3298,9 +3315,16 @@
                 var value = displayInput[key];
                 merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : key !== 'split_show_rpm';
             });
+            var ringEnabled = displayInput.sensor_ring_enabled;
+            merged.display.sensor_ring_enabled = typeof ringEnabled === 'boolean'
+                ? ringEnabled
+                : typeof ringEnabled === 'number' ? ringEnabled !== 0 : false;
+            if (!merged.display.sensor_ring_sensor || merged.display.sensor_ring_sensor === 'none') {
+                merged.display.sensor_ring_sensor = 'liquid';
+            }
 
             // Sanitize corrupt numeric slot values (from old parseFloat bug)
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none' };
+            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none', sensor_ring_sensor: 'liquid' };
             for (var slotKey in slotDefaults) {
                 if (merged.display && merged.display[slotKey] !== undefined) {
                     var sv = String(merged.display[slotKey]);

@@ -31,6 +31,8 @@
     "split_show_load": true,
     "split_show_watts": true,
     "split_show_rpm": false,
+    "sensor_ring_enabled": false,
+    "sensor_ring_sensor": "liquid",
     "refresh_interval": 3.5,
     "brightness": 80,
     "orientation": 0,

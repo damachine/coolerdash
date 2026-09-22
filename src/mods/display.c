@@ -761,6 +761,49 @@ void calculate_safe_region_bounds(const ScalingParams *params,
         safe_x, safe_width);
 }
 
+void draw_sensor_ring(cairo_t *cr, const struct Config *config,
+                      const monitor_sensor_data_t *data,
+                      const ScalingParams *params)
+{
+    if (!cr || !config || !data || !params ||
+        !config->sensor_ring_enabled ||
+        !slot_is_active(config->sensor_ring_sensor))
+        return;
+
+    const sensor_entry_t *sensor =
+        find_sensor_for_slot(data, config->sensor_ring_sensor);
+    if (!sensor)
+        return;
+
+    const double max_value = fmax(
+        1.0, get_slot_max_scale(config, config->sensor_ring_sensor));
+    const double progress = fmax(0.0, fmin(1.0, sensor->value / max_value));
+    const double line_width = fmax(2.0, params->circle_radius * 0.035);
+    const double radius = fmax(1.0, params->circle_radius - line_width * 0.75);
+    const double degrees = 3.14159265358979323846 / 180.0;
+    const double start = 135.0 * degrees;
+    const double end = start + 270.0 * degrees;
+    const Color active = get_slot_bar_color(
+        config, config->sensor_ring_sensor, sensor->value);
+
+    cairo_save(cr);
+    cairo_set_line_width(cr, line_width);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    set_cairo_color_alpha(cr, &config->layout_bar_color_background, 0.72);
+    cairo_arc(cr, params->circle_center_x, params->circle_center_y,
+              radius, start, end);
+    cairo_stroke(cr);
+
+    if (progress > 0.0)
+    {
+        set_cairo_color(cr, &active);
+        cairo_arc(cr, params->circle_center_x, params->circle_center_y,
+                  radius, start, start + (end - start) * progress);
+        cairo_stroke(cr);
+    }
+    cairo_restore(cr);
+}
+
 void calculate_bar_bounds(const struct Config *config,
                           const ScalingParams *params,
                           double bar_y, double bar_height,
@@ -1512,6 +1555,7 @@ int render_display_preview(const struct Config *config,
     add_preview_sensor(&data, config->sensor_slot_1, 45.0f);
     add_preview_sensor(&data, config->sensor_slot_2, 62.0f);
     add_preview_sensor(&data, config->sensor_slot_3, 32.5f);
+    add_preview_sensor(&data, config->sensor_ring_sensor, 32.5f);
 
     if (strcmp(config->display_mode, "circle") == 0)
         return render_circle_preview(config, &data, device_name);

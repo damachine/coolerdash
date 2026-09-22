@@ -56,6 +56,8 @@ sudo systemctl restart coolercontrold
     "orientation": 0,
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
+    "sensor_ring_enabled": false,
+    "sensor_ring_sensor": "liquid",
     "sensor_slot_1": "cpu",
     "sensor_slot_2": "gpu",
     "sensor_slot_3": "none"
@@ -71,6 +73,8 @@ sudo systemctl restart coolercontrold
 | `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
+| `sensor_ring_enabled` | `false` | Add the sensor-value ring to any display mode |
+| `sensor_ring_sensor` | `liquid` | Sensor that controls ring progress and threshold color |
 | `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot; set all visible slots to `none` for a background-only display |
 
 ---

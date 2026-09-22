@@ -109,6 +109,11 @@ void draw_display_image(const struct Config *config);
 int render_display_preview(const struct Config *config,
                            const char *device_name);
 
+/** Draw the optional sensor-value ring shared by every display mode. */
+void draw_sensor_ring(cairo_t *cr, const struct Config *config,
+                      const monitor_sensor_data_t *data,
+                      const ScalingParams *params);
+
 /** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
 void reset_display_state(void);
 
