@@ -185,9 +185,8 @@ static GdkPixbuf *background_image_get_pixbuf(const char *path)
 }
 G_GNUC_END_IGNORE_DEPRECATIONS
 
-static cairo_surface_t *image_file_load_surface(const char *path)
+static cairo_surface_t *pixbuf_to_cairo_surface(GdkPixbuf *pixbuf)
 {
-    GdkPixbuf *pixbuf = background_image_get_pixbuf(path);
     if (!pixbuf)
         return NULL;
 
@@ -237,6 +236,25 @@ static cairo_surface_t *image_file_load_surface(const char *path)
     }
 
     cairo_surface_mark_dirty(surface);
+    return surface;
+}
+
+static cairo_surface_t *image_file_load_surface(const char *path,
+                                                int static_frame)
+{
+    if (!static_frame)
+        return pixbuf_to_cairo_surface(background_image_get_pixbuf(path));
+
+    GError *error = NULL;
+    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(path, &error);
+    if (!pixbuf)
+    {
+        if (error)
+            g_error_free(error);
+        return NULL;
+    }
+    cairo_surface_t *surface = pixbuf_to_cairo_surface(pixbuf);
+    g_object_unref(pixbuf);
     return surface;
 }
 
@@ -858,7 +876,8 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
     if (config->paths_image_background[0] != '\0')
     {
         cairo_surface_t *background =
-            image_file_load_surface(config->paths_image_background);
+            image_file_load_surface(config->paths_image_background,
+                                    config->preview_render);
 
         if (background &&
             cairo_surface_status(background) == CAIRO_STATUS_SUCCESS)
@@ -918,14 +937,16 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
 
                 paint_background_overlay(cr, config);
                 cairo_surface_destroy(background);
-                last_failed_path[0] = '\0';
+                if (!config->preview_render)
+                    last_failed_path[0] = '\0';
                 return;
             }
 
             cairo_surface_destroy(background);
         }
 
-        if (strcmp(last_failed_path, config->paths_image_background) != 0)
+        if (!config->preview_render &&
+            strcmp(last_failed_path, config->paths_image_background) != 0)
         {
             SAFE_STRCPY(last_failed_path, config->paths_image_background);
             log_message(LOG_WARNING,

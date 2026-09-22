@@ -25,9 +25,12 @@ independently in the `display` object:
 - **Circle:** individual load, RPM, power, frequency and bar controls, described
   below.
 
-The preview uses static example values and recalculates its layout when elements
-are toggled. The device renderer uses its detected geometry and configured font
-limits when allocating the freed space; large values and long labels are fitted
+The primary preview sends unsaved settings to CoolerDash and uses the production
+Cairo renderer with deterministic example values. If the plugin endpoint is not
+available, the embedded SVG preview uses static example values and recalculates
+its layout when elements are toggled. The device renderer uses its detected
+geometry and configured font limits when allocating the freed space; large
+values and long labels are fitted
 within their regions.
 
 ## Files
@@ -156,7 +159,7 @@ take precedence. Old configurations keep the bar enabled and load enabled in
 Classic, disabled in Centered. The UI saves the individual settings.
 
 Extra lines depend on the available sensor channels. The UI preview uses fixed
-example values and switches with the selected layout; it is not a live image.
+example values and switches with the selected layout.
 
 ### State
 

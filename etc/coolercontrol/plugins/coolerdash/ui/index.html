@@ -735,7 +735,7 @@
                         <svg viewBox="0 0 240 240" role="img" aria-labelledby="mode_preview_title">
                             <title id="mode_preview_title">Dual layout preview</title>
                             <rect id="mode_preview_frame" x="4" y="4" width="232" height="232" rx="116" fill="#000" stroke="#414957" stroke-width="6"/>
-                            <defs><clipPath id="preview_screen_clip"><circle cx="120" cy="120" r="113"/></clipPath></defs>
+                            <defs><clipPath id="preview_screen_clip"><rect id="preview_screen_clip_rect" x="7" y="7" width="226" height="226" rx="113"/></clipPath></defs>
                             <g clip-path="url(#preview_screen_clip)">
                                 <image id="mode_preview_background" x="7" y="7" width="226" height="226" preserveAspectRatio="xMidYMid slice"/>
                                 <rect id="mode_preview_overlay" x="7" y="7" width="226" height="226" fill="#000" opacity="0"/>
@@ -743,10 +743,15 @@
                             <g id="mode_preview_dual" transform="translate(36 36) scale(.70)" fill="#fff"></g>
                             <g id="mode_preview_split" style="display: none;" fill="#fff"></g>
                             <g id="mode_preview_circle" style="display: none;" transform="translate(36 36) scale(.70)" fill="#fff"></g>
+                            <g id="mode_preview_ring" style="display: none;" fill="none" stroke-linecap="round">
+                                <path d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#343434" stroke-width="8" stroke-dasharray="75 25"/>
+                                <path id="mode_preview_ring_value" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#00ff00" stroke-width="8"/>
+                            </g>
+                            <image id="mode_preview_rendered" x="7" y="7" width="226" height="226" preserveAspectRatio="xMidYMid meet" clip-path="url(#preview_screen_clip)" style="display: none;"/>
                         </svg>
                         <figcaption>
                             <span id="mode_preview_description" class="form-hint">Two sensors stacked vertically.</span>
-                            <span class="form-hint">Static example values. Appearance depends on your device and settings.</span>
+                            <span id="render_preview_status" class="form-hint" role="status">Loading Cairo preview&hellip;</span>
                             <span id="background_preview_status" class="form-hint" role="status"></span>
                         </figcaption>
                     </figure>
@@ -2509,6 +2514,8 @@
                         (cachedDeviceInfo && cachedDeviceInfo.display_profile) || 'Not available';
                     document.getElementById('device-channel').textContent =
                         (cachedDeviceInfo && cachedDeviceInfo.lcd_channel) || detectedLcdChannel || 'lcd';
+                    setModePreviewShape((cachedDeviceInfo && cachedDeviceInfo.display_shape) ||
+                        ((width > 240 || height > 240) ? 'circular' : 'rectangular'));
 
                     document.getElementById('device-status').innerHTML =
                         '<span class="device-status connected"><span class="device-status-dot"></span> Connected</span>';
@@ -2683,6 +2690,12 @@
         }
 
         // ===== UI FUNCTIONS =====
+        function setModePreviewShape(shape) {
+            var circular = shape === 'circular';
+            document.getElementById('mode_preview_frame').setAttribute('rx', circular ? '116' : '10');
+            document.getElementById('preview_screen_clip_rect').setAttribute('rx', circular ? '113' : '7');
+        }
+
         function switchTab(index) {
             var tabs = document.querySelectorAll('.tab');
             var panels = document.querySelectorAll('.panel');
@@ -2756,6 +2769,49 @@
         var backgroundPreviewPath = null;
         var backgroundPreviewTimer = null;
         var backgroundPreviewGeneration = 0;
+        var renderPreviewTimer = null;
+        var renderPreviewGeneration = 0;
+
+        function scheduleRenderedPreview() {
+            var generation = ++renderPreviewGeneration;
+            clearTimeout(renderPreviewTimer);
+            renderPreviewTimer = setTimeout(async function () {
+                var image = document.getElementById('mode_preview_rendered');
+                var status = document.getElementById('render_preview_status');
+                var timeout;
+                status.textContent = 'Rendering Cairo preview\u2026';
+                try {
+                    var previewConfig = buildConfig();
+                    if (previewConfig.daemon) previewConfig.daemon.access_token = '';
+                    var result = await Promise.race([
+                        pluginFetch('/render-preview', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(previewConfig)
+                        }),
+                        new Promise(function (_, reject) {
+                            timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 6000);
+                        })
+                    ]);
+                    if (generation !== renderPreviewGeneration) return;
+                    if (!result || typeof result.image !== 'string' || result.image.length > 4000000 ||
+                        !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
+                        throw new Error('Invalid preview image');
+                    }
+                    image.setAttribute('href', result.image);
+                    image.style.display = '';
+                    status.textContent = 'Cairo renderer preview';
+                } catch (error) {
+                    if (generation === renderPreviewGeneration) {
+                        image.removeAttribute('href');
+                        image.style.display = 'none';
+                        status.textContent = 'Static preview fallback';
+                    }
+                } finally {
+                    clearTimeout(timeout);
+                }
+            }, 400);
+        }
 
         function refreshBackgroundPreview() {
             backgroundPreviewPath = null;
@@ -2836,6 +2892,22 @@
             });
             document.getElementById('mode_preview_title').textContent = mode + ' layout preview: ' + descriptions[mode];
             document.getElementById('mode_preview_description').textContent = descriptions[mode];
+            var ring = document.getElementById('mode_preview_ring');
+            var ringEnabled = document.getElementById('sensor_ring_enabled').checked;
+            ring.style.display = ringEnabled ? '' : 'none';
+            if (ringEnabled) {
+                var ringSensorId = document.getElementById('sensor_ring_sensor').value || 'liquid';
+                var ringDefaults = getDefaultSensorConfig(ringSensorId);
+                var ringSensor = Object.assign({}, ringDefaults, sensors[ringSensorId]);
+                var ringValue = ringSensorId === 'liquid' ? 32.5 : ringSensorId === 'gpu' ? 62 : 45;
+                var ringProgress = Math.max(0, Math.min(1, ringValue / Math.max(1, Number(ringSensor.max_scale) || 1)));
+                var ringBand = ringValue < ringSensor.threshold_1 ? 1 : ringValue < ringSensor.threshold_2 ? 2 : ringValue < ringSensor.threshold_3 ? 3 : 4;
+                var ringColor = ringSensor['threshold_' + ringBand + '_color'] || ringDefaults['threshold_' + ringBand + '_color'];
+                var ringValuePath = document.getElementById('mode_preview_ring_value');
+                ringValuePath.setAttribute('stroke', rgbToHex(ringColor));
+                ringValuePath.setAttribute('stroke-dasharray', (75 * ringProgress) + ' ' + (100 - 75 * ringProgress));
+            }
+            scheduleRenderedPreview();
         }
 
         function toggleDisplayModeFields() {

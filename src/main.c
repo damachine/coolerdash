@@ -675,9 +675,10 @@ static char *render_preview_json(const char *json, size_t json_length)
         preview.display_width = (uint16_t)snapshot.screen_width;
     if (preview.display_height == 0 && snapshot.screen_height > 0)
         preview.display_height = (uint16_t)snapshot.screen_height;
+    preview.preview_render = 1;
 
     char *image = NULL;
-    if (render_display_preview(&preview, ""))
+    if (render_display_preview(&preview, snapshot.device_name))
         image = image_file_preview_data_uri(image_path);
     unlink(image_path);
     if (!image)

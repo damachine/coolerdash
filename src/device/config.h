@@ -76,6 +76,8 @@ typedef struct
 /** @brief All CoolerDash settings: daemon, paths, display, theme, sensors. */
 typedef struct Config
 {
+    int preview_render; /**< Internal: render one static preview frame only. */
+
     // Daemon configuration
     char daemon_address[CONFIG_MAX_STRING_LEN];
     char access_token[CONFIG_MAX_TOKEN_LEN];
