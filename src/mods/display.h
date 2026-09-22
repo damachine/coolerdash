@@ -114,6 +114,12 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
                       const monitor_sensor_data_t *data,
                       const ScalingParams *params);
 
+/** Draw two threshold-colored ring halves for the split layout sensors. */
+void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
+                            const monitor_sensor_data_t *data,
+                            const ScalingParams *params,
+                            const char *left_slot, const char *right_slot);
+
 /** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
 void reset_display_state(void);
 

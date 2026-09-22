@@ -405,7 +405,6 @@ int render_split_preview(const struct Config *config,
     }
 
     paint_display_background(cr, config);
-    draw_sensor_ring(cr, config, data, &params);
 
     const char *active_slots[2] = {NULL, NULL};
     const char *configured_slots[] = {
@@ -421,6 +420,12 @@ int render_split_preview(const struct Config *config,
         if (slot_is_active(configured_slots[i]))
             active_slots[active_count++] = configured_slots[i];
     }
+
+    if (config->split_ring_by_sensor)
+        draw_split_sensor_ring(cr, config, data, &params,
+                               active_slots[0], active_slots[1]);
+    else
+        draw_sensor_ring(cr, config, data, &params);
 
     if (active_count > 0)
         draw_split_pane(cr, config, data, &params, &layout, &layout.left,

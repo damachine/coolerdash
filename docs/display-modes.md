@@ -36,6 +36,11 @@ The optional sensor ring follows the detected display geometry. Circular
 displays use a 270-degree arc. Rectangular and rounded-square displays use an
 inset rounded frame whose stroke stays inside the rendered image.
 
+Split mode can divide that ring into two equal halves. The left and right
+halves use the assigned Split sensors and the same temperature-threshold colors
+as their values and temperature bars. This option overrides the single-sensor
+ring while Split mode is active.
+
 ## Files
 
 ```

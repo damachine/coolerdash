@@ -113,6 +113,7 @@ typedef struct Config
     int split_show_load;
     int split_show_watts;
     int split_show_rpm;
+    int split_ring_by_sensor;
     int sensor_ring_enabled;
     char sensor_ring_sensor[CONFIG_MAX_SENSOR_SLOT_LEN];
     float display_content_scale_factor;
