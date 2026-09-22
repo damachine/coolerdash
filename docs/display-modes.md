@@ -30,8 +30,11 @@ Cairo renderer with deterministic example values. If the plugin endpoint is not
 available, the embedded SVG preview uses static example values and recalculates
 its layout when elements are toggled. The device renderer uses its detected
 geometry and configured font limits when allocating the freed space; large
-values and long labels are fitted
-within their regions.
+values and long labels are fitted within their regions.
+
+The optional sensor ring follows the detected display geometry. Circular
+displays use a 270-degree arc. Rectangular and rounded-square displays use an
+inset rounded frame whose stroke stays inside the rendered image.
 
 ## Files
 

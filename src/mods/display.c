@@ -796,17 +796,81 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
     const double max_value = fmax(
         1.0, get_slot_max_scale(config, config->sensor_ring_sensor));
     const double progress = fmax(0.0, fmin(1.0, sensor->value / max_value));
-    const double line_width = fmax(2.0, params->circle_radius * 0.035);
-    const double radius = fmax(1.0, params->circle_radius - line_width * 0.75);
-    const double degrees = 3.14159265358979323846 / 180.0;
-    const double start = 135.0 * degrees;
-    const double end = start + 270.0 * degrees;
+    const double min_dimension = fmin((double)config->display_width,
+                                      (double)config->display_height);
+    const double content_scale =
+        (config->display_content_scale_factor > 0.0f &&
+         config->display_content_scale_factor <= 1.0f)
+            ? config->display_content_scale_factor
+            : 0.98;
+    const double reference_radius = params->is_circular
+                                        ? params->circle_radius
+                                        : min_dimension * 0.5 * content_scale;
+    const double line_width = fmax(2.0, reference_radius * 0.035);
     const Color active = get_slot_bar_color(
         config, config->sensor_ring_sensor, sensor->value);
 
     cairo_save(cr);
     cairo_set_line_width(cr, line_width);
     cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+
+    if (!params->is_circular)
+    {
+        const double padding_x =
+            ((double)config->display_width * (1.0 - content_scale) * 0.5) +
+            line_width * 0.75;
+        const double padding_y =
+            ((double)config->display_height * (1.0 - content_scale) * 0.5) +
+            line_width * 0.75;
+        const int x = (int)lround(padding_x);
+        const int y = (int)lround(padding_y);
+        const int width = config->display_width - 2 * x;
+        const int height = config->display_height - 2 * y;
+        const double short_side = fmin((double)width, (double)height);
+        const double corner_radius = fmin(
+            short_side * 0.5,
+            fmax(line_width,
+                 short_side *
+                     (params->shape == DISPLAY_SHAPE_ROUNDED_SQUARE
+                          ? 0.16
+                          : 0.08)));
+
+        if (width > 2 && height > 2)
+        {
+            const double perimeter =
+                2.0 * ((double)width + (double)height -
+                       4.0 * corner_radius) +
+                2.0 * DISPLAY_M_PI * corner_radius;
+
+            set_cairo_color_alpha(cr, &config->layout_bar_color_background,
+                                  0.72);
+            draw_rounded_rectangle_path(cr, x, y, width, height,
+                                        corner_radius);
+            cairo_stroke(cr);
+
+            if (progress > 0.0)
+            {
+                set_cairo_color(cr, &active);
+                if (progress < 1.0 && perimeter > 0.0)
+                {
+                    const double dashes[2] = {
+                        perimeter * progress,
+                        perimeter * (1.0 - progress)};
+                    cairo_set_dash(cr, dashes, 2, 0.0);
+                }
+                draw_rounded_rectangle_path(cr, x, y, width, height,
+                                            corner_radius);
+                cairo_stroke(cr);
+            }
+        }
+        cairo_restore(cr);
+        return;
+    }
+
+    const double radius = fmax(1.0, params->circle_radius - line_width * 0.75);
+    const double degrees = DISPLAY_M_PI / 180.0;
+    const double start = 135.0 * degrees;
+    const double end = start + 270.0 * degrees;
     set_cairo_color_alpha(cr, &config->layout_bar_color_background, 0.72);
     cairo_arc(cr, params->circle_center_x, params->circle_center_y,
               radius, start, end);
