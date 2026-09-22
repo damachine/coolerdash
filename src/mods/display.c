@@ -779,6 +779,15 @@ void calculate_safe_region_bounds(const ScalingParams *params,
         safe_x, safe_width);
 }
 
+static double get_sensor_ring_line_width(const struct Config *config,
+                                         const ScalingParams *params,
+                                         double reference_radius)
+{
+    if (config->layout_ring_width > 0.0f)
+        return fmax(1.0, scale_value_avg(params, config->layout_ring_width));
+    return fmax(2.0, reference_radius * 0.035);
+}
+
 void draw_sensor_ring(cairo_t *cr, const struct Config *config,
                       const monitor_sensor_data_t *data,
                       const ScalingParams *params)
@@ -806,7 +815,9 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
     const double reference_radius = params->is_circular
                                         ? params->circle_radius
                                         : min_dimension * 0.5 * content_scale;
-    const double line_width = fmax(2.0, reference_radius * 0.035);
+    const double line_width =
+        get_sensor_ring_line_width(config, params, reference_radius);
+    const double opacity = config->layout_ring_opacity;
     const Color active = get_slot_bar_color(
         config, config->sensor_ring_sensor, sensor->value);
 
@@ -843,14 +854,14 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
                 2.0 * DISPLAY_M_PI * corner_radius;
 
             set_cairo_color_alpha(cr, &config->layout_bar_color_background,
-                                  0.72);
+                                  0.72 * opacity);
             draw_rounded_rectangle_path(cr, x, y, width, height,
                                         corner_radius);
             cairo_stroke(cr);
 
             if (progress > 0.0)
             {
-                set_cairo_color(cr, &active);
+                set_cairo_color_alpha(cr, &active, opacity);
                 if (progress < 1.0 && perimeter > 0.0)
                 {
                     const double dashes[2] = {
@@ -871,14 +882,17 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
     const double degrees = DISPLAY_M_PI / 180.0;
     const double start = 135.0 * degrees;
     const double end = start + 270.0 * degrees;
-    set_cairo_color_alpha(cr, &config->layout_bar_color_background, 0.72);
+    set_cairo_color_alpha(cr, &config->layout_bar_color_background,
+                          0.72 * opacity);
+    cairo_new_sub_path(cr);
     cairo_arc(cr, params->circle_center_x, params->circle_center_y,
               radius, start, end);
     cairo_stroke(cr);
 
     if (progress > 0.0)
     {
-        set_cairo_color(cr, &active);
+        set_cairo_color_alpha(cr, &active, opacity);
+        cairo_new_sub_path(cr);
         cairo_arc(cr, params->circle_center_x, params->circle_center_y,
                   radius, start, start + (end - start) * progress);
         cairo_stroke(cr);
@@ -910,7 +924,9 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
     const double reference_radius = params->is_circular
                                         ? params->circle_radius
                                         : min_dimension * 0.5 * content_scale;
-    const double line_width = fmax(2.0, reference_radius * 0.035);
+    const double line_width =
+        get_sensor_ring_line_width(config, params, reference_radius);
+    const double opacity = config->layout_ring_opacity;
 
     cairo_save(cr);
     cairo_set_line_width(cr, line_width);
@@ -918,13 +934,16 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
 
     if (params->is_circular)
     {
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_BUTT);
         const double radius =
             fmax(1.0, params->circle_radius - line_width * 0.75);
         const double start = 135.0 * DISPLAY_M_PI / 180.0;
         const double middle = start + 135.0 * DISPLAY_M_PI / 180.0;
         const double end = start + 270.0 * DISPLAY_M_PI / 180.0;
 
-        set_cairo_color_alpha(cr, &config->layout_bar_color_background, 0.72);
+        set_cairo_color_alpha(cr, &config->layout_bar_color_background,
+                              0.72 * opacity);
+        cairo_new_sub_path(cr);
         cairo_arc(cr, params->circle_center_x, params->circle_center_y,
                   radius, start, end);
         cairo_stroke(cr);
@@ -933,7 +952,8 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
         {
             const Color color = get_slot_bar_color(config, left_slot,
                                                    left->value);
-            set_cairo_color(cr, &color);
+            set_cairo_color_alpha(cr, &color, opacity);
+            cairo_new_sub_path(cr);
             cairo_arc(cr, params->circle_center_x, params->circle_center_y,
                       radius, start, middle);
             cairo_stroke(cr);
@@ -942,7 +962,8 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
         {
             const Color color = get_slot_bar_color(config, right_slot,
                                                    right->value);
-            set_cairo_color(cr, &color);
+            set_cairo_color_alpha(cr, &color, opacity);
+            cairo_new_sub_path(cr);
             cairo_arc(cr, params->circle_center_x, params->circle_center_y,
                       radius, middle, end);
             cairo_stroke(cr);
@@ -975,7 +996,8 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
                  (params->shape == DISPLAY_SHAPE_ROUNDED_SQUARE ? 0.16
                                                                 : 0.08)));
 
-    set_cairo_color_alpha(cr, &config->layout_bar_color_background, 0.72);
+    set_cairo_color_alpha(cr, &config->layout_bar_color_background,
+                          0.72 * opacity);
     draw_rounded_rectangle_path(cr, x, y, width, height, corner_radius);
     cairo_stroke(cr);
 
@@ -992,7 +1014,7 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
                         0.0, config->display_width * 0.5,
                         config->display_height);
         cairo_clip(cr);
-        set_cairo_color(cr, &color);
+        set_cairo_color_alpha(cr, &color, opacity);
         draw_rounded_rectangle_path(cr, x, y, width, height, corner_radius);
         cairo_stroke(cr);
         cairo_restore(cr);

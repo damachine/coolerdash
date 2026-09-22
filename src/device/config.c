@@ -185,7 +185,7 @@ static void set_display_defaults(Config *config)
     if (config->split_show_rpm < 0)
         config->split_show_rpm = 0;
     if (config->split_ring_by_sensor < 0)
-        config->split_ring_by_sensor = 0;
+        config->split_ring_by_sensor = 1;
     if (config->sensor_ring_enabled < 0)
         config->sensor_ring_enabled = 0;
     if (config->sensor_ring_sensor[0] == '\0' ||
@@ -231,6 +231,11 @@ static void set_layout_defaults(Config *config)
         config->layout_bar_border = 0.6f;
     if (config->layout_bar_opacity < 0.0f || config->layout_bar_opacity > 1.0f)
         config->layout_bar_opacity = 1.0f;
+    if (config->layout_ring_width < 0.0f || config->layout_ring_width > 30.0f)
+        config->layout_ring_width = 0.0f;
+    if (config->layout_ring_opacity < 0.0f ||
+        config->layout_ring_opacity > 1.0f)
+        config->layout_ring_opacity = 1.0f;
     // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
     if (config->layout_bar_border_enabled < 0)
         config->layout_bar_border_enabled = 1; // Default: enabled
@@ -1325,6 +1330,22 @@ static void load_layout_from_json(json_t *root, Config *config)
             config->layout_bar_opacity = (float)val;
     }
 
+    json_t *ring_width = json_object_get(layout, "ring_width");
+    if (ring_width && json_is_number(ring_width))
+    {
+        double val = json_number_value(ring_width);
+        if (val >= 0.0 && val <= 30.0)
+            config->layout_ring_width = (float)val;
+    }
+
+    json_t *ring_opacity = json_object_get(layout, "ring_opacity");
+    if (ring_opacity && json_is_number(ring_opacity))
+    {
+        double val = json_number_value(ring_opacity);
+        if (val >= 0.0 && val <= 1.0)
+            config->layout_ring_opacity = (float)val;
+    }
+
     json_t *bar_border = json_object_get(layout, "bar_border");
     if (bar_border && json_is_number(bar_border))
     {
@@ -1718,6 +1739,8 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
     config->layout_label_margin_bar = CONFIG_LAYOUT_U8_UNSET;
     config->layout_bar_border = -1.0f;      // Sentinel for "use default"
     config->layout_bar_opacity = -1.0f;     // Sentinel for "use default"
+    config->layout_ring_width = -1.0f;      // Sentinel for automatic width
+    config->layout_ring_opacity = -1.0f;    // Sentinel for fully visible
     config->layout_bar_border_enabled = -1; // Sentinel for "auto" (enabled)
     config->circle_show_extra_info = -1;    // Sentinel for "auto" (enabled)
     config->circle_show_load = -1;

@@ -56,7 +56,7 @@ sudo systemctl restart coolercontrold
     "orientation": 0,
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
-    "split_ring_by_sensor": false,
+    "split_ring_by_sensor": true,
     "sensor_ring_enabled": false,
     "sensor_ring_sensor": "liquid",
     "sensor_slot_1": "cpu",
@@ -74,7 +74,7 @@ sudo systemctl restart coolercontrold
 | `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
-| `split_ring_by_sensor` | `false` | In Split mode, color the left and right ring halves from the two layout sensors |
+| `split_ring_by_sensor` | `true` | In Split mode, color the left and right ring halves from the two layout sensors |
 | `sensor_ring_enabled` | `false` | Add the sensor-value ring to any display mode |
 | `sensor_ring_sensor` | `liquid` | Sensor that controls ring progress and threshold color |
 | `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot; set all visible slots to `none` for a background-only display |
@@ -89,6 +89,8 @@ sudo systemctl restart coolercontrold
     "bar_width": 98,
     "bar_gap": 12,
     "bar_border": 1.0,
+    "ring_width": 0,
+    "ring_opacity": 1.0,
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,
@@ -104,6 +106,8 @@ sudo systemctl restart coolercontrold
 | `bar_width` | `98` | Bar width (% of display width) |
 | `bar_gap` | `10` | Gap between bars (px) |
 | `bar_border` | `0.6` | Border thickness (px) |
+| `ring_width` | `0` | Ring thickness in scaled logical units; `0` selects automatic sizing |
+| `ring_opacity` | `1.0` | Opacity of the complete ring (`0.0`–`1.0`) |
 | `bar_border_enabled` | `1` | Border on/off (`1`/`0`) |
 | `label_margin_left` | `1` | Left label margin multiplier |
 | `label_margin_bar` | `1` | Label-to-bar margin multiplier |

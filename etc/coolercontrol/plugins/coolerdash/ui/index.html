@@ -1066,6 +1066,24 @@
                 </details>
 
                 <details class="collapsible-details" style="margin-top: 12px;">
+                    <summary>Sensor Ring</summary>
+                    <div class="collapsible-details-content">
+                        <div class="grid grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Ring Thickness</label>
+                                <span class="form-hint">Logical base units scaled to the LCD. 0 = automatic.</span>
+                                <input type="number" name="layout.ring_width" class="form-control" min="0" max="30" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Ring Opacity</label>
+                                <span class="form-hint">0.0 = transparent, 1.0 = fully visible</span>
+                                <input type="number" name="layout.ring_opacity" class="form-control" min="0" max="1" step="0.05">
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="collapsible-details" style="margin-top: 12px;">
                     <summary>Font Sizes</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-3">
@@ -1389,7 +1407,7 @@
                 split_show_load: true,
                 split_show_watts: true,
                 split_show_rpm: false,
-                split_ring_by_sensor: false,
+                split_ring_by_sensor: true,
                 sensor_ring_enabled: false,
                 sensor_ring_sensor: "liquid",
                 refresh_interval: 3.5,
@@ -1411,6 +1429,8 @@
                 bar_gap: 10,
                 bar_border: 0.6,
                 bar_opacity: 1.0,
+                ring_width: 0,
+                ring_opacity: 1.0,
                 bar_border_enabled: 1,
                 label_margin_left: 1,
                 label_margin_bar: 1,
@@ -2912,6 +2932,16 @@
                 document.getElementById('sensor_ring_enabled').checked;
             var ringValuePath = document.getElementById('mode_preview_ring_value');
             var secondaryRingPath = document.getElementById('mode_preview_ring_value_secondary');
+            var ringWidthInput = document.querySelector('[name="layout.ring_width"]');
+            var ringOpacityInput = document.querySelector('[name="layout.ring_opacity"]');
+            var previewRingWidth = Math.max(1, Number(ringWidthInput && ringWidthInput.value) || 4);
+            var previewRingOpacity = ringOpacityInput && ringOpacityInput.value !== ''
+                ? Number(ringOpacityInput.value) : 1;
+            if (!Number.isFinite(previewRingOpacity)) previewRingOpacity = 1;
+            ring.style.opacity = Math.max(0, Math.min(1, previewRingOpacity));
+            document.querySelectorAll('.mode-preview-ring-path').forEach(function (path) {
+                path.setAttribute('stroke-width', previewRingWidth);
+            });
             ring.style.display = ringEnabled ? '' : 'none';
             secondaryRingPath.style.display = 'none';
             ringValuePath.removeAttribute('clip-path');
@@ -3426,7 +3456,7 @@
             delete merged.display.circle_show_extra_info;
             ['dual_show_bars', 'split_show_load', 'split_show_watts', 'split_show_rpm', 'split_ring_by_sensor'].forEach(function (key) {
                 var value = displayInput[key];
-                var defaultEnabled = key !== 'split_show_rpm' && key !== 'split_ring_by_sensor';
+                var defaultEnabled = key !== 'split_show_rpm';
                 merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : defaultEnabled;
             });
             var ringEnabled = displayInput.sensor_ring_enabled;
