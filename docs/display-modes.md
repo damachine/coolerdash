@@ -39,9 +39,10 @@ inset rounded frame whose stroke stays inside the rendered image.
 Split mode can divide that ring into two equal halves. The left and right
 halves use the assigned Split sensors and the same temperature-threshold colors
 as the temperature bars. The temperature numbers stay white so the ring alone
-carries the threshold state. This option overrides the single-sensor ring while
-Split mode is active and is enabled by default. Ring thickness and opacity are
-configurable in the Layout tab.
+carries the threshold state. Load, power and RPM values use the configured
+label color. This option overrides the single-sensor ring while Split mode is
+active and is enabled by default. Ring thickness and opacity are configurable
+in the Layout tab.
 
 ## Files
 

@@ -381,7 +381,7 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
             cr, secondary_text[i], center_x,
             row_top + secondary_height * 0.5 + offset_y,
             fmax(1.0, row_size), text_width, secondary_height,
-            &config->font_color_temp, params);
+            &config->font_color_label, params);
     }
 }
 

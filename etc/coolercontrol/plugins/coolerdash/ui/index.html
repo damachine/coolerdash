@@ -2764,13 +2764,14 @@
             if (shown('split_show_watts')) splitRows.push({ values: ['65 W', '180 W'], size: 20 });
             if (shown('split_show_rpm')) splitRows.push({ values: ['1759 RPM', '1200 RPM'], size: 11 });
             var tempHeight = 110 - splitRows.length * 24;
+            var splitLabelColor = document.getElementById('color_font_label').value || '#c8c8c8';
             var split = '<path d="M120 51 V189" stroke="#657181" stroke-width="2"/>';
             [70, 170].forEach(function (x, index) {
                 var sensor = index ? 'gpu' : 'cpu';
-                split += text(x, 70, 16, index ? 'GPU' : 'CPU', 'middle', '#bfbfbf');
+                split += text(x, 70, 16, index ? 'GPU' : 'CPU', 'middle', splitLabelColor);
                 split += '<text data-preview-sensor="' + sensor + '" data-preview-split-temp="1" data-preview-value="' + (index ? 62 : 45) + '" x="' + x + '" y="' + (88 + tempHeight / 2) + '" font-size="' + Math.min(34, tempHeight * 0.72) + '" text-anchor="middle">' + (index ? '62°' : '45°') + '</text>';
                 splitRows.forEach(function (row, i) {
-                    split += text(x, 84 + tempHeight + i * 24, row.size, row.values[index], 'middle');
+                    split += text(x, 84 + tempHeight + i * 24, row.size, row.values[index], 'middle', splitLabelColor);
                 });
             });
             document.getElementById('mode_preview_split').innerHTML = split;
