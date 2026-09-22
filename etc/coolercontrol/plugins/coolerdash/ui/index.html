@@ -712,7 +712,7 @@
                                 <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_load" id="split_show_load" value="1">Load (%)</label>
                                 <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_watts" id="split_show_watts" value="1">Power (W)</label>
                                 <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_rpm" id="split_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
-                                <label class="display-option" data-element-mode="split" title="Color the left and right ring halves from the two split-layout sensor thresholds."><input type="checkbox" name="display.split_ring_by_sensor" id="split_ring_by_sensor" value="1">Split Sensor Ring</label>
+                                <label class="display-option" data-element-mode="split" title="Color the left and right ring halves from the two split-layout sensor thresholds."><input type="checkbox" name="display.split_ring_by_sensor" id="split_ring_by_sensor" value="1" onchange="selectRingMode('split')">Split Sensor Ring</label>
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_load" id="circle_show_load" value="1">Load (%)</label>
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_rpm" id="circle_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_watts" id="circle_show_watts" value="1">Power (W)</label>
@@ -721,7 +721,7 @@
                             </div>
                         </fieldset>
                         <div class="form-group">
-                            <label class="display-option"><input type="checkbox" name="display.sensor_ring_enabled" id="sensor_ring_enabled" value="1">Sensor Ring</label>
+                            <label class="display-option"><input type="checkbox" name="display.sensor_ring_enabled" id="sensor_ring_enabled" value="1" onchange="selectRingMode('sensor')">Sensor Ring</label>
                             <span class="form-hint">Show a threshold-colored value ring around any layout.</span>
                             <select name="display.sensor_ring_sensor" id="sensor_ring_sensor" class="form-control sensor-slot-select">
                                 <optgroup label="Standard">
@@ -886,6 +886,7 @@
 
                     <div class="form-group">
                         <label class="form-label">Label Text</label>
+                        <span class="form-hint">Also used for Split load, power and RPM values.</span>
                         <div class="color-group">
                             <input type="color" id="color_font_label" class="color-swatch" onchange="updateColorRGB('color_font_label', 'rgb_font_label')">
                             <span class="color-rgb" id="rgb_font_label"></span>
@@ -2985,6 +2986,16 @@
             scheduleRenderedPreview();
         }
 
+        function selectRingMode(selectedMode) {
+            var splitRing = document.getElementById('split_ring_by_sensor');
+            var sensorRing = document.getElementById('sensor_ring_enabled');
+            if (selectedMode === 'split' && splitRing.checked) {
+                sensorRing.checked = false;
+            } else if (selectedMode === 'sensor' && sensorRing.checked) {
+                splitRing.checked = false;
+            }
+        }
+
         function toggleDisplayModeFields() {
             var mode = document.getElementById('display_mode').value;
             var isCircle = mode === 'circle';
@@ -3229,6 +3240,9 @@
             });
             config.display.sensor_ring_enabled =
                 document.getElementById('sensor_ring_enabled').checked;
+            if (config.display.split_ring_by_sensor) {
+                config.display.sensor_ring_enabled = false;
+            }
 
             // Restore real token if user left the *** placeholder unchanged
             var _tokenInput = document.querySelector('[name="daemon.access_token"]');
@@ -3294,6 +3308,9 @@
             });
             document.getElementById('sensor_ring_enabled').checked =
                 !!config.display.sensor_ring_enabled;
+            if (document.getElementById('split_ring_by_sensor').checked) {
+                document.getElementById('sensor_ring_enabled').checked = false;
+            }
 
             // Sensor slot selects: ensure custom values are available as options
             var slotFields = ['sensor_slot_1', 'sensor_slot_2', 'sensor_slot_3', 'sensor_ring_sensor'];
@@ -3458,15 +3475,20 @@
                 merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : fallback;
             });
             delete merged.display.circle_show_extra_info;
-            ['dual_show_bars', 'split_show_load', 'split_show_watts', 'split_show_rpm', 'split_ring_by_sensor'].forEach(function (key) {
-                var value = displayInput[key];
-                var defaultEnabled = key !== 'split_show_rpm';
-                merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : defaultEnabled;
-            });
             var ringEnabled = displayInput.sensor_ring_enabled;
-            merged.display.sensor_ring_enabled = typeof ringEnabled === 'boolean'
+            var sensorRingRequested = typeof ringEnabled === 'boolean'
                 ? ringEnabled
                 : typeof ringEnabled === 'number' ? ringEnabled !== 0 : false;
+            ['dual_show_bars', 'split_show_load', 'split_show_watts', 'split_show_rpm', 'split_ring_by_sensor'].forEach(function (key) {
+                var value = displayInput[key];
+                var defaultEnabled = key !== 'split_show_rpm' &&
+                    !(key === 'split_ring_by_sensor' && sensorRingRequested);
+                merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : defaultEnabled;
+            });
+            merged.display.sensor_ring_enabled = sensorRingRequested;
+            if (merged.display.split_ring_by_sensor) {
+                merged.display.sensor_ring_enabled = false;
+            }
             if (!merged.display.sensor_ring_sensor || merged.display.sensor_ring_sensor === 'none') {
                 merged.display.sensor_ring_sensor = 'liquid';
             }

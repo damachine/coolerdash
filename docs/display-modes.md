@@ -41,8 +41,9 @@ halves use the assigned Split sensors and the same temperature-threshold colors
 as the temperature bars. The temperature numbers stay white so the ring alone
 carries the threshold state. Load, power and RPM values use the configured
 label color. This option overrides the single-sensor ring while Split mode is
-active and is enabled by default. Ring thickness and opacity are configurable
-in the Layout tab.
+active and is enabled by default. Enabling either ring disables the other, so
+only one ring type is saved. Ring thickness, opacity and label color are
+configurable in the Layout tab.
 
 ## Files
 

@@ -185,8 +185,10 @@ static void set_display_defaults(Config *config)
     if (config->split_show_rpm < 0)
         config->split_show_rpm = 0;
     if (config->split_ring_by_sensor < 0)
-        config->split_ring_by_sensor = 1;
+        config->split_ring_by_sensor = config->sensor_ring_enabled == 1 ? 0 : 1;
     if (config->sensor_ring_enabled < 0)
+        config->sensor_ring_enabled = 0;
+    if (config->split_ring_by_sensor)
         config->sensor_ring_enabled = 0;
     if (config->sensor_ring_sensor[0] == '\0' ||
         strcmp(config->sensor_ring_sensor, "none") == 0)
