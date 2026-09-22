@@ -2,11 +2,13 @@
 
 Three modes: **split** (default), **dual**, and **circle**.
 
-All three modes can add the optional **Sensor Ring** overlay. Its sensor is
-configured independently with `display.sensor_ring_sensor`; `liquid` is the
-default. The ring maps the current value to that sensor's configured maximum
-and uses the same threshold colors as its bars and values. The overlay is off
-by default for backwards-compatible output.
+All three modes can add the optional **Sensor Ring** overlay. Split and Dual
+can instead divide the ring between their two visible sensors. In Circle mode,
+the normal ring follows the sensor currently shown on the display. In other
+modes, `display.sensor_ring_sensor` selects its sensor and defaults to `liquid`.
+The ring maps the current value to that sensor's configured maximum and uses
+the same threshold colors as its bars and values. The overlay is off by default
+for backwards-compatible output.
 
 Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, or `--circle`.
 
@@ -36,14 +38,13 @@ The optional sensor ring follows the detected display geometry. Circular
 displays use a 270-degree arc. Rectangular and rounded-square displays use an
 inset rounded frame whose stroke stays inside the rendered image.
 
-Split mode can divide that ring into two equal halves. The left and right
-halves use the assigned Split sensors and the same temperature-threshold colors
-as the temperature bars. The temperature numbers stay white so the ring alone
-carries the threshold state. Load, power and RPM values use the configured
-label color. This option overrides the single-sensor ring while Split mode is
-active and is enabled by default. Enabling either ring disables the other, so
-only one ring type is saved. Ring thickness, opacity and label color are
-configurable in the Layout tab.
+Split and Dual modes can divide that ring into two equal halves. Each half uses
+one visible layout sensor and the same temperature-threshold colors as its bar.
+Split temperature numbers stay white so the ring alone carries the threshold
+state. Split load, power and RPM values use the configured label color. This
+option overrides the single-sensor ring and is enabled by default. Enabling
+either ring disables the other, so only one ring type is saved. Ring thickness,
+opacity and label color are configurable in the Layout tab.
 
 ## Files
 

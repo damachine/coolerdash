@@ -792,18 +792,29 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
                       const monitor_sensor_data_t *data,
                       const ScalingParams *params)
 {
-    if (!cr || !config || !data || !params ||
-        !config->sensor_ring_enabled ||
-        !slot_is_active(config->sensor_ring_sensor))
+    if (!config)
         return;
 
-    const sensor_entry_t *sensor =
-        find_sensor_for_slot(data, config->sensor_ring_sensor);
+    draw_sensor_ring_for_slot(cr, config, data, params,
+                              config->sensor_ring_sensor);
+}
+
+void draw_sensor_ring_for_slot(cairo_t *cr, const struct Config *config,
+                               const monitor_sensor_data_t *data,
+                               const ScalingParams *params,
+                               const char *slot_value)
+{
+    if (!cr || !config || !data || !params ||
+        !config->sensor_ring_enabled ||
+        !slot_is_active(slot_value))
+        return;
+
+    const sensor_entry_t *sensor = find_sensor_for_slot(data, slot_value);
     if (!sensor)
         return;
 
     const double max_value = fmax(
-        1.0, get_slot_max_scale(config, config->sensor_ring_sensor));
+        1.0, get_slot_max_scale(config, slot_value));
     const double progress = fmax(0.0, fmin(1.0, sensor->value / max_value));
     const double min_dimension = fmin((double)config->display_width,
                                       (double)config->display_height);
@@ -818,8 +829,7 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
     const double line_width =
         get_sensor_ring_line_width(config, params, reference_radius);
     const double opacity = config->layout_ring_opacity;
-    const Color active = get_slot_bar_color(
-        config, config->sensor_ring_sensor, sensor->value);
+    const Color active = get_slot_bar_color(config, slot_value, sensor->value);
 
     cairo_save(cr);
     cairo_set_line_width(cr, line_width);

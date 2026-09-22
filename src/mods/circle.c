@@ -1029,13 +1029,13 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
         return;
 
     paint_display_background(cr, config);
-    draw_sensor_ring(cr, config, data, params);
 
     // Update sensor mode (check if configured interval elapsed)
     update_sensor_mode(config);
 
     // Get current slot value and draw sensor
     const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+    draw_sensor_ring_for_slot(cr, config, data, params, slot_value);
     draw_single_sensor(cr, config, params, data, slot_value);
 }
 

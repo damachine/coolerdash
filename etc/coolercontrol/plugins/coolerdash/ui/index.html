@@ -712,7 +712,7 @@
                                 <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_load" id="split_show_load" value="1">Load (%)</label>
                                 <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_watts" id="split_show_watts" value="1">Power (W)</label>
                                 <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_rpm" id="split_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
-                                <label class="display-option" data-element-mode="split" title="Color the left and right ring halves from the two split-layout sensor thresholds."><input type="checkbox" name="display.split_ring_by_sensor" id="split_ring_by_sensor" value="1" onchange="selectRingMode('split')">Split Sensor Ring</label>
+                                <label class="display-option" data-element-mode="split dual" title="Color both ring halves from the two visible layout sensors."><input type="checkbox" name="display.split_ring_by_sensor" id="split_ring_by_sensor" value="1" onchange="selectRingMode('split')">Split Sensor Ring</label>
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_load" id="circle_show_load" value="1">Load (%)</label>
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_rpm" id="circle_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_watts" id="circle_show_watts" value="1">Power (W)</label>
@@ -722,7 +722,7 @@
                         </fieldset>
                         <div class="form-group">
                             <label class="display-option"><input type="checkbox" name="display.sensor_ring_enabled" id="sensor_ring_enabled" value="1" onchange="selectRingMode('sensor')">Sensor Ring</label>
-                            <span class="form-hint">Show a threshold-colored value ring around any layout.</span>
+                            <span class="form-hint" id="sensor_ring_hint">Show a threshold-colored value ring around any layout.</span>
                             <select name="display.sensor_ring_sensor" id="sensor_ring_sensor" class="form-control sensor-slot-select">
                                 <optgroup label="Standard">
                                     <option value="liquid">Liquid</option>
@@ -2928,7 +2928,7 @@
             document.getElementById('mode_preview_title').textContent = mode + ' layout preview: ' + descriptions[mode];
             document.getElementById('mode_preview_description').textContent = descriptions[mode];
             var ring = document.getElementById('mode_preview_ring');
-            var splitRingEnabled = mode === 'split' &&
+            var splitRingEnabled = (mode === 'split' || mode === 'dual') &&
                 document.getElementById('split_ring_by_sensor').checked;
             var ringEnabled = splitRingEnabled ||
                 document.getElementById('sensor_ring_enabled').checked;
@@ -2952,11 +2952,14 @@
                 document.querySelectorAll('[data-preview-split-temp]').forEach(function (element) {
                     element.setAttribute('fill', '#ffffff');
                 });
-                var splitRingSlots = [
-                    document.getElementById('sensor_slot_1').value || 'cpu',
-                    document.getElementById('sensor_slot_2').value || 'gpu'
-                ];
-                var splitRingValues = [45, 62];
+                var splitRingSlots = mode === 'dual'
+                    ? [document.getElementById('sensor_slot_1').value || 'cpu',
+                       document.getElementById('sensor_slot_3').value || 'gpu']
+                    : [document.getElementById('sensor_slot_1').value || 'cpu',
+                       document.getElementById('sensor_slot_2').value || 'gpu'];
+                var splitRingValues = splitRingSlots.map(function (slot) {
+                    return slot === 'liquid' ? 32.5 : slot === 'gpu' ? 62 : 45;
+                });
                 var splitRingPaths = [ringValuePath, secondaryRingPath];
                 for (var sri = 0; sri < 2; sri++) {
                     var splitSensorId = splitRingSlots[sri];
@@ -2973,7 +2976,11 @@
                 }
                 secondaryRingPath.style.display = '';
             } else if (ringEnabled) {
-                var ringSensorId = document.getElementById('sensor_ring_sensor').value || 'liquid';
+                // The static Circle fallback displays CPU; keep its ring in sync.
+                // The primary Cairo preview follows the actual rotating slot.
+                var ringSensorId = mode === 'circle'
+                    ? 'cpu'
+                    : document.getElementById('sensor_ring_sensor').value || 'liquid';
                 var ringDefaults = getDefaultSensorConfig(ringSensorId);
                 var ringSensor = Object.assign({}, ringDefaults, sensors[ringSensorId]);
                 var ringValue = ringSensorId === 'liquid' ? 32.5 : ringSensorId === 'gpu' ? 62 : 45;
@@ -3004,7 +3011,8 @@
             document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
             document.getElementById('circle_layout_group').style.display = isCircle ? 'block' : 'none';
             document.querySelectorAll('[data-element-mode]').forEach(function (element) {
-                element.style.display = element.getAttribute('data-element-mode') === mode ? 'flex' : 'none';
+                var modes = element.getAttribute('data-element-mode').split(/\s+/);
+                element.style.display = modes.indexOf(mode) !== -1 ? 'flex' : 'none';
             });
             sensorGrid.classList.toggle('grid-3', isCircle);
             sensorGrid.classList.toggle('grid-2', !isCircle);
@@ -3012,10 +3020,16 @@
             var midSlotGroup = document.getElementById('sensor_slot_2_group');
             var slot3Group = document.getElementById('sensor_slot_3_group');
             var midBarHeightGroup = document.getElementById('bar_height_2_group');
+            var sensorRingHint = document.getElementById('sensor_ring_hint');
+            var sensorRingSelect = document.getElementById('sensor_ring_sensor');
             if (slot1Group) slot1Group.style.display = 'block';
             if (midSlotGroup) midSlotGroup.style.display = (isCircle || isSplit) ? 'block' : 'none';
             if (slot3Group) slot3Group.style.display = isSplit ? 'none' : 'block';
             if (midBarHeightGroup) midBarHeightGroup.style.display = isCircle ? 'block' : 'none';
+            if (sensorRingHint) sensorRingHint.textContent = isCircle
+                ? 'Follow the sensor that is currently shown in Circle mode.'
+                : 'Show a threshold-colored value ring around any layout.';
+            if (sensorRingSelect) sensorRingSelect.style.display = isCircle ? 'none' : '';
             var barControls = document.querySelectorAll('.bar-mode-only');
             for (var b = 0; b < barControls.length; b++) {
                 barControls[b].style.display = isSplit ? 'none' : '';

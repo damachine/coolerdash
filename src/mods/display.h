@@ -114,7 +114,13 @@ void draw_sensor_ring(cairo_t *cr, const struct Config *config,
                       const monitor_sensor_data_t *data,
                       const ScalingParams *params);
 
-/** Draw two threshold-colored ring halves for the split layout sensors. */
+/** Draw the optional sensor-value ring for a specific sensor slot. */
+void draw_sensor_ring_for_slot(cairo_t *cr, const struct Config *config,
+                               const monitor_sensor_data_t *data,
+                               const ScalingParams *params,
+                               const char *slot_value);
+
+/** Draw two threshold-colored ring halves for a layout sensor pair. */
 void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
                             const monitor_sensor_data_t *data,
                             const ScalingParams *params,
