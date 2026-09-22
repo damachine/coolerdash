@@ -1198,7 +1198,7 @@
                             </span>
                         </div>
                         <div class="device-info-row">
-                            <span class="device-info-label">Device Name</span>
+                            <span class="device-info-label">Model</span>
                             <span class="device-info-value" id="device-name">&mdash;</span>
                         </div>
                         <div class="device-info-row">
@@ -1208,6 +1208,18 @@
                         <div class="device-info-row">
                             <span class="device-info-label">LCD Resolution</span>
                             <span class="device-info-value mono" id="device-resolution">&mdash;</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Display Shape</span>
+                            <span class="device-info-value" id="device-shape">&mdash;</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">Display Profile</span>
+                            <span class="device-info-value" id="device-profile">&mdash;</span>
+                        </div>
+                        <div class="device-info-row">
+                            <span class="device-info-label">LCD Channel</span>
+                            <span class="device-info-value mono" id="device-channel">&mdash;</span>
                         </div>
                         <div class="device-info-row">
                             <span class="device-info-label">Firmware</span>
@@ -2442,6 +2454,11 @@
                         cachedDeviceInfo = null;
                     }
 
+                    if (cachedDeviceInfo && cachedDeviceInfo.device_name) {
+                        name = cachedDeviceInfo.device_name;
+                        document.getElementById('device-name').textContent = name;
+                    }
+
                     var firmware = (found.lc_info && found.lc_info.firmware_version) ||
                         (cachedDeviceInfo && cachedDeviceInfo.firmware_version) || '\u2014';
                     document.getElementById('device-firmware').textContent = firmware;
@@ -2473,6 +2490,13 @@
                         resEl.textContent = 'Not available';
                     }
 
+                    document.getElementById('device-shape').textContent =
+                        (cachedDeviceInfo && cachedDeviceInfo.display_shape) || 'Not available';
+                    document.getElementById('device-profile').textContent =
+                        (cachedDeviceInfo && cachedDeviceInfo.display_profile) || 'Not available';
+                    document.getElementById('device-channel').textContent =
+                        (cachedDeviceInfo && cachedDeviceInfo.lcd_channel) || detectedLcdChannel || 'lcd';
+
                     document.getElementById('device-status').innerHTML =
                         '<span class="device-status connected"><span class="device-status-dot"></span> Connected</span>';
                     contentEl.style.display = 'block';
@@ -2482,6 +2506,9 @@
                     document.getElementById('device-name').textContent = '\u2014';
                     document.getElementById('device-uid').textContent = '\u2014';
                     document.getElementById('device-resolution').textContent = '\u2014';
+                    document.getElementById('device-shape').textContent = '\u2014';
+                    document.getElementById('device-profile').textContent = '\u2014';
+                    document.getElementById('device-channel').textContent = '\u2014';
                     document.getElementById('device-firmware').textContent = '\u2014';
                     document.getElementById('device-liquidctl').textContent = '\u2014';
                     document.getElementById('device-status').innerHTML =

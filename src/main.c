@@ -43,6 +43,7 @@
 // Include project headers
 #include "device/config.h"
 #include "device/hwreport.h"
+#include "device/profile.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -95,7 +96,11 @@ typedef struct
 typedef struct
 {
     char device_uid[128];
+    char device_name[CONFIG_MAX_STRING_LEN];
     char firmware_version[CC_FIRMWARE_SIZE];
+    char lcd_channel[CONFIG_MAX_STRING_LEN];
+    char display_shape[32];
+    char display_profile[CONFIG_MAX_STRING_LEN];
     int screen_width;
     int screen_height;
 } DeviceInfoSnapshot;
@@ -452,11 +457,26 @@ static void update_device_info_snapshot(const Config *config)
 {
     DeviceInfoSnapshot next = {0};
     if (get_cached_lcd_device_data(config, next.device_uid,
-                                   sizeof(next.device_uid), NULL, 0,
+                                   sizeof(next.device_uid), next.device_name,
+                                   sizeof(next.device_name),
                                    &next.screen_width, &next.screen_height))
     {
         cc_safe_strcpy(next.firmware_version, sizeof(next.firmware_version),
                        get_cached_lcd_firmware_version(config));
+        const char *channel = get_cached_lcd_channel(config);
+        cc_safe_strcpy(next.lcd_channel, sizeof(next.lcd_channel),
+                       channel ? channel : "lcd");
+        const DisplayProfile *profile = resolve_display_profile(
+            0, 0, next.device_name, next.screen_width, next.screen_height);
+        cc_safe_strcpy(next.display_profile, sizeof(next.display_profile),
+                       profile ? profile->name : "legacy fallback");
+        cc_safe_strcpy(next.display_shape, sizeof(next.display_shape),
+                       profile ? display_shape_name(profile->shape)
+                               : is_circular_display_device(
+                                     next.device_name, next.screen_width,
+                                     next.screen_height)
+                                     ? "circular"
+                                     : "rectangular");
     }
 
     (void)pthread_mutex_lock(&s_device_info_mutex);
@@ -472,9 +492,15 @@ static size_t write_device_info_json(char *body, size_t body_size)
     (void)pthread_mutex_unlock(&s_device_info_mutex);
 
     json_t *root = json_pack(
-        "{s:s,s:s,s:i,s:i}", "device_uid", snapshot.device_uid,
-        "firmware_version", snapshot.firmware_version, "screen_width",
-        snapshot.screen_width, "screen_height", snapshot.screen_height);
+        "{s:s,s:s,s:s,s:s,s:s,s:s,s:i,s:i}",
+        "device_uid", snapshot.device_uid,
+        "device_name", snapshot.device_name,
+        "firmware_version", snapshot.firmware_version,
+        "lcd_channel", snapshot.lcd_channel,
+        "display_shape", snapshot.display_shape,
+        "display_profile", snapshot.display_profile,
+        "screen_width", snapshot.screen_width,
+        "screen_height", snapshot.screen_height);
     if (!root)
         return 0;
 
@@ -696,7 +722,7 @@ static void serve_plugin_data(int client_fd)
 
     const char *status = "200 OK";
     const char *content_type = "application/json";
-    char body[384] = "{}\n";
+    char body[2048] = "{}\n";
     size_t body_length = strlen(body);
     char *dynamic_body = NULL;
 
