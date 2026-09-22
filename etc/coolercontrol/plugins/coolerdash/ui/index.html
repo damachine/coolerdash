@@ -2768,7 +2768,7 @@
             [70, 170].forEach(function (x, index) {
                 var sensor = index ? 'gpu' : 'cpu';
                 split += text(x, 70, 16, index ? 'GPU' : 'CPU', 'middle', '#bfbfbf');
-                split += '<text data-preview-sensor="' + sensor + '" data-preview-value="' + (index ? 62 : 45) + '" x="' + x + '" y="' + (88 + tempHeight / 2) + '" font-size="' + Math.min(34, tempHeight * 0.72) + '" text-anchor="middle">' + (index ? '62°' : '45°') + '</text>';
+                split += '<text data-preview-sensor="' + sensor + '" data-preview-split-temp="1" data-preview-value="' + (index ? 62 : 45) + '" x="' + x + '" y="' + (88 + tempHeight / 2) + '" font-size="' + Math.min(34, tempHeight * 0.72) + '" text-anchor="middle">' + (index ? '62°' : '45°') + '</text>';
                 splitRows.forEach(function (row, i) {
                     split += text(x, 84 + tempHeight + i * 24, row.size, row.values[index], 'middle');
                 });
@@ -2947,6 +2947,9 @@
             ringValuePath.removeAttribute('clip-path');
             secondaryRingPath.removeAttribute('clip-path');
             if (splitRingEnabled) {
+                document.querySelectorAll('[data-preview-split-temp]').forEach(function (element) {
+                    element.setAttribute('fill', '#ffffff');
+                });
                 var splitRingSlots = [
                     document.getElementById('sensor_slot_1').value || 'cpu',
                     document.getElementById('sensor_slot_2').value || 'gpu'

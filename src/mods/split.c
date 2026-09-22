@@ -338,8 +338,10 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
         secondary_count++;
     }
 
-    const Color temperature_color =
-        get_slot_bar_color(config, slot_value, temperature);
+    const Color temperature_color = config->split_ring_by_sensor
+                                        ? (Color){255, 255, 255, 1}
+                                        : get_slot_bar_color(config, slot_value,
+                                                             temperature);
     const double offset_x = scale_value_x(
         params, (double)get_slot_offset_x(config, slot_value));
     const double offset_y = scale_value_y(
