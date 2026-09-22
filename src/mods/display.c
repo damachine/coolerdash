@@ -1447,3 +1447,75 @@ void draw_display_image(const struct Config *config)
         draw_dual_image(config);
     }
 }
+
+static void add_preview_entry(monitor_sensor_data_t *data,
+                              const char *slot_value,
+                              sensor_category_t category, float value,
+                              const char *unit)
+{
+    if (!data || !slot_is_active(slot_value) ||
+        data->sensor_count >= MAX_SENSORS)
+        return;
+
+    sensor_entry_t *entry = &data->sensors[data->sensor_count++];
+    const char *separator = strchr(slot_value, ':');
+    if (separator && separator != slot_value)
+    {
+        size_t uid_length = (size_t)(separator - slot_value);
+        if (uid_length >= sizeof(entry->device_uid))
+            uid_length = sizeof(entry->device_uid) - 1;
+        memcpy(entry->device_uid, slot_value, uid_length);
+        entry->device_uid[uid_length] = '\0';
+        cc_safe_strcpy(entry->name, sizeof(entry->name), separator + 1);
+        cc_safe_strcpy(entry->device_name, sizeof(entry->device_name),
+                       separator + 1);
+        cc_safe_strcpy(entry->device_type, sizeof(entry->device_type), "Custom");
+    }
+    else
+    {
+        const char *device_type = strcmp(slot_value, "cpu") == 0
+                                      ? "CPU"
+                                  : strcmp(slot_value, "gpu") == 0
+                                      ? "GPU"
+                                      : "Liquidctl";
+        cc_safe_strcpy(entry->name, sizeof(entry->name), slot_value);
+        cc_safe_strcpy(entry->device_uid, sizeof(entry->device_uid), slot_value);
+        cc_safe_strcpy(entry->device_name, sizeof(entry->device_name),
+                       get_slot_label(NULL, NULL, slot_value));
+        cc_safe_strcpy(entry->device_type, sizeof(entry->device_type), device_type);
+    }
+    cc_safe_strcpy(entry->unit, sizeof(entry->unit), unit);
+    entry->category = category;
+    entry->value = value;
+    entry->use_decimal = category == SENSOR_CATEGORY_TEMP &&
+                         strcmp(slot_value, "liquid") == 0;
+}
+
+static void add_preview_sensor(monitor_sensor_data_t *data,
+                               const char *slot_value, float temperature)
+{
+    add_preview_entry(data, slot_value, SENSOR_CATEGORY_TEMP, temperature,
+                      "\xC2\xB0\x43");
+    add_preview_entry(data, slot_value, SENSOR_CATEGORY_DUTY, 54.0f, "%");
+    add_preview_entry(data, slot_value, SENSOR_CATEGORY_RPM, 1450.0f, "RPM");
+    add_preview_entry(data, slot_value, SENSOR_CATEGORY_WATTS, 125.0f, "W");
+    add_preview_entry(data, slot_value, SENSOR_CATEGORY_FREQ, 4200.0f, "MHz");
+}
+
+int render_display_preview(const struct Config *config,
+                           const char *device_name)
+{
+    if (!config)
+        return 0;
+
+    monitor_sensor_data_t data = {0};
+    add_preview_sensor(&data, config->sensor_slot_1, 45.0f);
+    add_preview_sensor(&data, config->sensor_slot_2, 62.0f);
+    add_preview_sensor(&data, config->sensor_slot_3, 32.5f);
+
+    if (strcmp(config->display_mode, "circle") == 0)
+        return render_circle_preview(config, &data, device_name);
+    if (strcmp(config->display_mode, "split") == 0)
+        return render_split_preview(config, &data, device_name);
+    return render_dual_preview(config, &data, device_name);
+}

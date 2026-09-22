@@ -1042,9 +1042,9 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
  * @brief Render circle mode display to PNG file.
  * @details Creates PNG image with single sensor, does NOT upload.
  */
-static int render_circle_display(const struct Config *config,
-                                 const monitor_sensor_data_t *data,
-                                 const char *device_name)
+int render_circle_preview(const struct Config *config,
+                          const monitor_sensor_data_t *data,
+                          const char *device_name)
 {
     if (!config || !data)
     {
@@ -1135,7 +1135,7 @@ void draw_circle_image(const struct Config *config)
     }
 
     // Render circle display with device name for circular display detection
-    if (!render_circle_display(config, &data, device_name))
+    if (!render_circle_preview(config, &data, device_name))
     {
         log_message(LOG_ERROR, "Circle display rendering failed");
         return;

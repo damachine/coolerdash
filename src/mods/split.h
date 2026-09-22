@@ -18,4 +18,9 @@ struct Config;
 /** @brief Collect sensor data, render split mode, and upload it to the LCD. */
 void draw_split_image(const struct Config *config);
 
+/** Render split mode to config->paths_image_coolerdash without uploading it. */
+int render_split_preview(const struct Config *config,
+                         const monitor_sensor_data_t *data,
+                         const char *device_name);
+
 #endif // SPLIT_MODE_H

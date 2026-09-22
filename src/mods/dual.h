@@ -35,4 +35,9 @@ struct Config;
  */
 void draw_dual_image(const struct Config *config);
 
+/** Render dual mode to config->paths_image_coolerdash without uploading it. */
+int render_dual_preview(const struct Config *config,
+                        const monitor_sensor_data_t *data,
+                        const char *device_name);
+
 #endif // DUAL_H

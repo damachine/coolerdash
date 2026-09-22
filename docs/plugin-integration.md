@@ -71,6 +71,15 @@ The UI debounces path edits, ignores stale responses and applies background fit,
 zoom, color and overlay settings locally. Clearing the path restores the solid
 background color. The plugin executable must be running for thumbnail requests.
 
+## Display Preview
+
+The Display tab can send its unsaved configuration as JSON to the loopback
+`POST /render-preview` endpoint. CoolerDash renders deterministic sample sensor
+values with the production Cairo renderer and returns a PNG data URI. The
+endpoint writes only private temporary files, does not save the configuration,
+does not query live sensors and never uploads an image to the LCD. Requests are
+limited to 64 KiB.
+
 ## System Font Selection
 
 The Font Face field loads installed family names from Fontconfig through the

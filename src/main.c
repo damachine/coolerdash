@@ -12,7 +12,7 @@
 
 // Define POSIX constants
 #define _POSIX_C_SOURCE 200112L
-#define _XOPEN_SOURCE 600
+#define _XOPEN_SOURCE 700
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <strings.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -57,6 +58,7 @@
 #define UPDATE_RETRY_ATTEMPTS 4
 #define UPDATE_RETRY_DELAY_SECONDS 5
 #define UPDATE_PROXY_PORT 11989
+#define PREVIEW_REQUEST_LIMIT (64U * 1024U)
 #ifndef UPDATE_STATUS_PATH
 #define UPDATE_STATUS_PATH \
     DEFAULT_COOLERDASH_PLUGIN_DIR "/update-status.json"
@@ -560,11 +562,116 @@ cleanup:
     return payload;
 }
 
+static size_t parse_content_length(const char *request, const char *header_end)
+{
+    const char *line = request;
+    while (line && line < header_end)
+    {
+        const char *next = strstr(line, "\r\n");
+        if (!next || next > header_end)
+            break;
+        if (strncasecmp(line, "Content-Length:", 15) == 0)
+        {
+            const char *value = line + 15;
+            while (value < next && (*value == ' ' || *value == '\t'))
+                value++;
+            errno = 0;
+            char *end = NULL;
+            unsigned long length = strtoul(value, &end, 10);
+            if (errno == 0 && end > value && end <= next &&
+                length <= PREVIEW_REQUEST_LIMIT)
+                return (size_t)length;
+            return SIZE_MAX;
+        }
+        line = next + 2;
+    }
+    return 0;
+}
+
+static char *render_preview_json(const char *json, size_t json_length)
+{
+    if (!json || json_length == 0 || json_length > PREVIEW_REQUEST_LIMIT)
+        return NULL;
+
+    char temp_dir[] = "/tmp/coolerdash-preview-XXXXXX";
+    if (!mkdtemp(temp_dir))
+        return NULL;
+    char config_path[CONFIG_MAX_PATH_LEN];
+    int path_length = snprintf(config_path, sizeof(config_path), "%s/config.json",
+                               temp_dir);
+    if (path_length <= 0 || (size_t)path_length >= sizeof(config_path))
+    {
+        rmdir(temp_dir);
+        return NULL;
+    }
+    int config_fd = open(config_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (config_fd < 0)
+    {
+        rmdir(temp_dir);
+        return NULL;
+    }
+
+    size_t written = 0;
+    while (written < json_length)
+    {
+        ssize_t count = write(config_fd, json + written, json_length - written);
+        if (count <= 0)
+        {
+            close(config_fd);
+            unlink(config_path);
+            rmdir(temp_dir);
+            return NULL;
+        }
+        written += (size_t)count;
+    }
+    close(config_fd);
+
+    Config preview = {0};
+    const int loaded = load_plugin_config_read_only(&preview, config_path);
+    unlink(config_path);
+    rmdir(temp_dir);
+    if (!loaded)
+        return NULL;
+
+    char image_path[] = "/tmp/coolerdash-preview-image-XXXXXX";
+    int image_fd = mkstemp(image_path);
+    if (image_fd < 0)
+        return NULL;
+    close(image_fd);
+    cc_safe_strcpy(preview.paths_image_coolerdash,
+                   sizeof(preview.paths_image_coolerdash), image_path);
+
+    DeviceInfoSnapshot snapshot;
+    (void)pthread_mutex_lock(&s_device_info_mutex);
+    snapshot = s_device_info;
+    (void)pthread_mutex_unlock(&s_device_info_mutex);
+    if (preview.display_width == 0 && snapshot.screen_width > 0)
+        preview.display_width = (uint16_t)snapshot.screen_width;
+    if (preview.display_height == 0 && snapshot.screen_height > 0)
+        preview.display_height = (uint16_t)snapshot.screen_height;
+
+    char *image = NULL;
+    if (render_display_preview(&preview, ""))
+        image = image_file_preview_data_uri(image_path);
+    unlink(image_path);
+    if (!image)
+        return NULL;
+
+    json_t *root = json_pack("{s:s}", "image", image);
+    free(image);
+    if (!root)
+        return NULL;
+    char *payload = json_dumps(root, JSON_COMPACT);
+    json_decref(root);
+    return payload;
+}
+
 static void serve_plugin_data(int client_fd)
 {
-    char request[CONFIG_MAX_PATH_LEN * 3 + 128] = {0};
+    char request[PREVIEW_REQUEST_LIMIT + 4096] = {0};
     size_t request_length = 0;
-    while (!strchr(request, '\n'))
+    size_t expected_length = 0;
+    while (request_length < sizeof(request) - 1)
     {
         ssize_t received = recv(client_fd, request + request_length,
                                 sizeof(request) - 1 - request_length, 0);
@@ -572,9 +679,20 @@ static void serve_plugin_data(int client_fd)
             return;
         request_length += (size_t)received;
         request[request_length] = '\0';
-        if (request_length == sizeof(request) - 1)
+        char *header_end = strstr(request, "\r\n\r\n");
+        if (!header_end)
+            continue;
+        size_t content_length = parse_content_length(request, header_end);
+        if (content_length == SIZE_MAX)
             return;
+        expected_length = (size_t)(header_end + 4 - request) + content_length;
+        if (expected_length >= sizeof(request))
+            return;
+        if (request_length >= expected_length)
+            break;
     }
+    if (expected_length == 0 || request_length < expected_length)
+        return;
 
     const char *status = "200 OK";
     const char *content_type = "application/json";
@@ -624,6 +742,17 @@ static void serve_plugin_data(int client_fd)
             }
             free(image);
         }
+        if (dynamic_body)
+            body_length = strlen(dynamic_body);
+        else
+            status = "422 Unprocessable Content";
+    }
+    else if (strncmp(request, "POST /render-preview HTTP/", 26) == 0)
+    {
+        char *header_end = strstr(request, "\r\n\r\n");
+        size_t content_length = parse_content_length(request, header_end);
+        if (header_end && content_length != SIZE_MAX && content_length > 0)
+            dynamic_body = render_preview_json(header_end + 4, content_length);
         if (dynamic_body)
             body_length = strlen(dynamic_body);
         else

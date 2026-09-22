@@ -560,9 +560,9 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
  * @brief Display rendering - creates surface, renders content, saves PNG (Dual
  * mode - CPU+GPU).
  */
-static int render_dual_display(const struct Config *config,
-                               const monitor_sensor_data_t *data,
-                               const char *device_name)
+int render_dual_preview(const struct Config *config,
+                        const monitor_sensor_data_t *data,
+                        const char *device_name)
 {
     if (!data || !config)
     {
@@ -652,7 +652,7 @@ void draw_dual_image(const struct Config *config)
                                    &screen_width, &screen_height);
 
     // Render dual display with device name for circular display detection
-    if (!render_dual_display(config, &sensor_data, device_name))
+    if (!render_dual_preview(config, &sensor_data, device_name))
     {
         log_message(LOG_ERROR, "Dual display rendering failed");
         return;

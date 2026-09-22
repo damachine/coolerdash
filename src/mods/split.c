@@ -383,9 +383,9 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
     }
 }
 
-static int render_split_display(const struct Config *config,
-                                const monitor_sensor_data_t *data,
-                                const char *device_name)
+int render_split_preview(const struct Config *config,
+                         const monitor_sensor_data_t *data,
+                         const char *device_name)
 {
     ScalingParams params = {0};
     calculate_scaling_params(config, &params, device_name);
@@ -477,7 +477,7 @@ void draw_split_image(const struct Config *config)
         config, device_uid, sizeof(device_uid), device_name,
         sizeof(device_name), &screen_width, &screen_height);
 
-    if (!render_split_display(config, &data, device_name))
+    if (!render_split_preview(config, &data, device_name))
         return;
 
     if (is_session_initialized() && device_available && device_uid[0] != '\0')

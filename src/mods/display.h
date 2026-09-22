@@ -105,6 +105,10 @@ typedef struct
  */
 void draw_display_image(const struct Config *config);
 
+/** Render deterministic sample data without sending anything to the LCD. */
+int render_display_preview(const struct Config *config,
+                           const char *device_name);
+
 /** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
 void reset_display_state(void);
 
