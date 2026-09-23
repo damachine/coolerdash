@@ -85,13 +85,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 160px;
+            width: 100%;
             height: 120px;
-            margin: 12px 0;
+            margin: 0;
             overflow: hidden;
             background: rgb(var(--bg-one));
-            border: 1px solid rgb(var(--border-one));
-            border-radius: var(--radius);
+            border: 1px solid rgb(var(--text-color-secondary) / 0.25);
+            border-radius: var(--radius-sm);
         }
 
         .shutdown-preview img {
@@ -105,7 +105,30 @@
         .shutdown-preview span[hidden] { display: none; }
 
         .shutdown-preview span { margin: 0 8px; text-align: center; }
-        .shutdown-actions { margin-top: 12px; padding-top: 0; border-top: 0; }
+
+        .shutdown-controls {
+            display: grid;
+            grid-template-columns: minmax(0, 220px) minmax(0, 160px);
+            gap: 14px;
+            align-items: start;
+            margin: 12px 0 8px;
+        }
+
+        .shutdown-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-width: 0;
+            height: 120px;
+        }
+
+        .shutdown-actions .btn { min-width: 0; padding: 10px 14px; }
+
+        @media (max-width: 440px) {
+            .shutdown-controls { grid-template-columns: 1fr; }
+            .shutdown-actions { height: auto; }
+            .shutdown-actions .btn { min-height: 52px; }
+        }
 
         /* Header */
         .header {
@@ -448,13 +471,6 @@
             transform: scale(1.1);
         }
 
-        .orientation-number {
-            width: 72px;
-            flex: 0 0 72px;
-            padding: 8px;
-            text-align: right;
-        }
-
         .range-value {
             min-width: 55px;
             text-align: right;
@@ -514,7 +530,7 @@
         .btn {
             flex: 1;
             padding: 13px 28px;
-            border: none;
+            border: 1px solid rgb(var(--text-color-secondary) / 0.25);
             border-radius: var(--radius-sm);
             font-size: 14px;
             font-weight: 600;
@@ -524,6 +540,10 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+        }
+
+        .btn:hover {
+            border-color: rgb(var(--text-color-secondary) / 0.45);
         }
 
         .btn-primary {
@@ -541,13 +561,17 @@
         .btn-secondary {
             background: rgb(var(--bg-one));
             color: rgb(var(--text-color));
-            border: 1px solid rgb(var(--border-one));
         }
 
         .btn-secondary:hover {
             background: rgb(var(--bg-two));
-            border-color: rgb(var(--border-one));
             opacity: 0.9;
+        }
+
+        .btn:focus-visible {
+            outline: none;
+            border-color: rgb(var(--accent));
+            box-shadow: 0 0 0 3px rgb(var(--accent) / 0.15);
         }
 
         /* Alert */
@@ -885,9 +909,8 @@
                         <label class="form-label" for="display_orientation">Orientation (&deg; clockwise)</label>
                         <span class="form-hint">0&ndash;359&deg;. CoolerDash rotates the complete image to fit the LCD. Free corners use the background color.</span>
                         <div class="range-group">
-                            <input type="range" name="display.orientation" id="display_orientation" class="range-input" min="0" max="359" step="1" value="0" oninput="syncOrientationFromSlider()">
-                            <input type="number" id="display_orientation_number" class="form-control orientation-number" min="0" max="359" step="1" value="0" aria-label="Orientation in degrees" oninput="syncOrientationFromNumber()" required>
-                            <span aria-hidden="true">&deg;</span>
+                            <input type="range" name="display.orientation" id="display_orientation" class="range-input" min="0" max="359" step="1" value="0" oninput="updateRangeValue('display_orientation', this.value, '°')">
+                            <span class="range-value" id="display_orientation_value">0&deg;</span>
                         </div>
                     </div>
 
@@ -978,13 +1001,15 @@
                     <span class="form-hint">Select a PNG, GIF, JPEG, BMP, or TIFF image for the shutdown screen. Format support on the LCD depends on the device.</span>
                     <input type="hidden" name="paths.image_shutdown" id="shutdown_image_path">
                     <input type="file" id="shutdown_image_file" accept=".png,.gif,.jpg,.jpeg,.bmp,.tif,.tiff,image/png,image/gif,image/jpeg,image/bmp,image/tiff" hidden onchange="importShutdownImage(this)">
-                    <figure class="shutdown-preview">
-                        <img id="shutdown_preview_image" alt="Current shutdown image" hidden>
-                        <span class="form-hint" id="shutdown_preview_placeholder" role="status">Loading image preview…</span>
-                    </figure>
-                    <div class="btn-group shutdown-actions">
-                        <button type="button" class="btn btn-secondary" id="shutdown_import_button" onclick="document.getElementById('shutdown_image_file').click()">Select image</button>
-                        <button type="button" class="btn btn-secondary" id="shutdown_test_button" onclick="testShutdownImage()">Show on LCD for 5 seconds</button>
+                    <div class="shutdown-controls">
+                        <div class="shutdown-actions">
+                            <button type="button" class="btn btn-secondary" id="shutdown_import_button" onclick="document.getElementById('shutdown_image_file').click()">Select image</button>
+                            <button type="button" class="btn btn-secondary" id="shutdown_test_button" onclick="testShutdownImage()">Show on LCD for 5 seconds</button>
+                        </div>
+                        <figure class="shutdown-preview">
+                            <img id="shutdown_preview_image" alt="Current shutdown image" hidden>
+                            <span class="form-hint" id="shutdown_preview_placeholder" role="status">Loading image preview…</span>
+                        </figure>
                     </div>
                     <span class="form-hint" id="shutdown_image_status" role="status" aria-live="polite">Save settings to use a new image when CoolerControl shuts down.</span>
                 </div>
@@ -3152,18 +3177,6 @@
             return warnings.length === 0;
         }
 
-        function syncOrientationFromSlider() {
-            document.getElementById('display_orientation_number').value =
-                document.getElementById('display_orientation').value;
-        }
-
-        function syncOrientationFromNumber() {
-            var number = document.getElementById('display_orientation_number');
-            if (number.checkValidity()) {
-                document.getElementById('display_orientation').value = number.value;
-            }
-        }
-
         function updateRangeValue(id, value, suffix, decimals) {
             var displayValue = decimals === undefined
                 ? value
@@ -3364,7 +3377,7 @@
                                 }
                             } else {
                                 input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
-                                if (section === 'display' && field === 'orientation') syncOrientationFromSlider();
+                                if (section === 'display' && field === 'orientation') updateRangeValue('display_orientation', input.value, '°');
                                 if (field === 'brightness') updateRangeValue('brightness', value);
                                 if (field === 'background_overlay_opacity') updateRangeValue('background_overlay', value, '', 2);
                                 if (field === 'background_image_scale_factor') updateAutoValue('background_image_scale', value, 100, '%');
@@ -3450,28 +3463,37 @@
             image.removeAttribute('src');
             placeholder.hidden = false;
             placeholder.textContent = 'Loading image preview…';
-            var timeout;
-            try {
-                if (typeof pluginFetch !== 'function') throw new Error('Plugin proxy unavailable');
-                var result = await Promise.race([
-                    pluginFetch('/background-preview?path=' + encodeURIComponent(path)),
-                    new Promise(function (_, reject) {
-                        timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 6000);
-                    })
-                ]);
-                if (generation !== shutdownPreviewGeneration) return;
-                if (!result || typeof result.image !== 'string' || result.image.length > 1500000 ||
-                    !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
-                    throw new Error('Invalid preview image');
+            // Reset restarts the plugin; the first proxy request can land during that restart.
+            for (var attempt = 0; attempt < 4; attempt++) {
+                if (attempt > 0) {
+                    await new Promise(function (resolve) { setTimeout(resolve, 800 * attempt); });
+                    if (generation !== shutdownPreviewGeneration) return;
                 }
-                image.src = result.image;
-                image.hidden = false;
-                placeholder.hidden = true;
-            } catch (error) {
-                if (generation === shutdownPreviewGeneration)
-                    placeholder.textContent = 'Image preview unavailable';
-            } finally {
-                clearTimeout(timeout);
+                var timeout;
+                try {
+                    if (typeof pluginFetch !== 'function') throw new Error('Plugin proxy unavailable');
+                    var result = await Promise.race([
+                        pluginFetch('/background-preview?path=' + encodeURIComponent(path)),
+                        new Promise(function (_, reject) {
+                            timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 4000);
+                        })
+                    ]);
+                    if (generation !== shutdownPreviewGeneration) return;
+                    if (!result || typeof result.image !== 'string' || result.image.length > 1500000 ||
+                        !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
+                        throw new Error('Invalid preview image');
+                    }
+                    image.src = result.image;
+                    image.hidden = false;
+                    placeholder.hidden = true;
+                    return;
+                } catch (error) {
+                    if (generation !== shutdownPreviewGeneration) return;
+                    if (attempt === 3)
+                        placeholder.textContent = 'Image preview unavailable';
+                } finally {
+                    clearTimeout(timeout);
+                }
             }
         }
 
@@ -3568,11 +3590,6 @@
         async function saveConfig() {
             if (shutdownImageBusy) {
                 document.getElementById('shutdown_image_status').textContent = 'Wait for the image action to finish before saving.';
-                return;
-            }
-            var orientationInput = document.getElementById('display_orientation_number');
-            if (!orientationInput.checkValidity()) {
-                orientationInput.reportValidity();
                 return;
             }
             if (!validateSensorSlots()) {
