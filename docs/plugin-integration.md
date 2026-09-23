@@ -22,6 +22,20 @@ CoolerControl stores the image and displays it when it stops. Configure a custom
 shutdown image via `paths.image_shutdown`, or keep the default file at
 `/var/lib/coolercontrol/plugins/coolerdash/shutdown.png`.
 
+The UI can import a local image into the plugin-owned directory as
+`user-shutdown-image`. Each successful import atomically replaces that one file;
+a failed import keeps the previous image. Images are limited to 16 MiB and 32
+megapixels. The UI shows a still preview of the selected image; animated
+GIFs show their first frame. Save the settings after import so CoolerDash
+restarts and registers the new shutdown image. Existing custom paths remain in
+the configuration until another image is selected. A path in a private home
+directory may be unreadable to the plugin.
+
+"Show on LCD for 5 seconds" sends the selected image to the physical display
+without stopping CoolerControl. The normal dashboard resumes after five seconds.
+This checks the image and LCD upload, but the actual CoolerControl shutdown hook
+still requires a shutdown test.
+
 CoolerDash detects PNG, GIF, JPEG, BMP, and TIFF files by content. At 0° it
 sends the original file with its matching MIME type; animated GIF support then
 depends on the LCD device and driver. At other angles it sends a rotated PNG

@@ -95,6 +95,27 @@ const char *image_file_mime_type(const char *path)
     return mime_type_for_format(gdk_pixbuf_get_file_info(path, NULL, NULL));
 }
 
+int image_file_is_supported(const char *path)
+{
+    struct stat info;
+    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN ||
+        stat(path, &info) != 0 || !S_ISREG(info.st_mode) ||
+        info.st_size <= 0 || info.st_size > 16 * 1024 * 1024)
+        return 0;
+
+    int width = 0, height = 0;
+    GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path, &width, &height);
+    if (!mime_type_for_format(format) || width <= 0 || height <= 0 ||
+        (uint64_t)width * (uint64_t)height > 32U * 1024U * 1024U)
+        return 0;
+
+    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file_at_scale(path, 1, 1, TRUE, NULL);
+    if (!pixbuf)
+        return 0;
+    g_object_unref(pixbuf);
+    return 1;
+}
+
 char *image_file_preview_data_uri(const char *path)
 {
     struct stat info;

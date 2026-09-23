@@ -131,6 +131,7 @@ void reset_display_state(void);
 
 /** Return CoolerControl's MIME type for a supported image, detected by content. */
 const char *image_file_mime_type(const char *path);
+int image_file_is_supported(const char *path);
 
 /** Return a static PNG thumbnail data URI; caller frees it with free(). */
 char *image_file_preview_data_uri(const char *path);

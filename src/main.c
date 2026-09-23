@@ -32,6 +32,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/select.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -44,6 +45,7 @@
 #include "device/config.h"
 #include "device/hwreport.h"
 #include "device/profile.h"
+#include "device/shutdown.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -60,6 +62,7 @@
 #define UPDATE_RETRY_DELAY_SECONDS 5
 #define UPDATE_PROXY_PORT 11989
 #define PREVIEW_REQUEST_LIMIT (64U * 1024U)
+#define IMPORT_REQUEST_LIMIT (512U * 1024U)
 #ifndef UPDATE_STATUS_PATH
 #define UPDATE_STATUS_PATH \
     DEFAULT_COOLERDASH_PLUGIN_DIR "/update-status.json"
@@ -107,6 +110,23 @@ typedef struct
 
 static pthread_mutex_t s_device_info_mutex = PTHREAD_MUTEX_INITIALIZER;
 static DeviceInfoSnapshot s_device_info = {0};
+
+/* Only the render thread talks to the shared CoolerControl CURL session. */
+typedef struct
+{
+    pthread_mutex_t mutex;
+    pthread_cond_t changed;
+    char path[CONFIG_MAX_PATH_LEN];
+    int rotation;
+    int state; /* 0 idle, 1 pending, 2 showing */
+    int result; /* -1 until the LCD request finishes */
+} ShutdownTest;
+
+static ShutdownTest s_shutdown_test = {
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .changed = PTHREAD_COND_INITIALIZER,
+    .result = -1,
+};
 
 int verbose_logging = 0;
 
@@ -588,7 +608,8 @@ cleanup:
     return payload;
 }
 
-static size_t parse_content_length(const char *request, const char *header_end)
+static size_t parse_content_length(const char *request, const char *header_end,
+                                   size_t limit)
 {
     const char *line = request;
     while (line && line < header_end)
@@ -605,7 +626,7 @@ static size_t parse_content_length(const char *request, const char *header_end)
             char *end = NULL;
             unsigned long length = strtoul(value, &end, 10);
             if (errno == 0 && end > value && end <= next &&
-                length <= PREVIEW_REQUEST_LIMIT)
+                length <= limit)
                 return (size_t)length;
             return SIZE_MAX;
         }
@@ -693,33 +714,117 @@ static char *render_preview_json(const char *json, size_t json_length)
     return payload;
 }
 
+static int request_has_local_host(const char *request)
+{
+    const char *end = strstr(request, "\r\n\r\n");
+    const char *line = strstr(request, "\r\n");
+    while (line && end && line < end)
+    {
+        line += 2;
+        const char *next = strstr(line, "\r\n");
+        if (!next || next > end)
+            break;
+        if ((size_t)(next - line) == strlen("Host: 127.0.0.1:11989") &&
+            strncasecmp(line, "Host: 127.0.0.1:11989", next - line) == 0)
+            return 1;
+        line = next;
+    }
+    return 0;
+}
+
+static char *queue_shutdown_test_json(const char *body, size_t length,
+                                      int *http_status)
+{
+    json_error_t error;
+    json_t *root = json_loadb(body, length, JSON_REJECT_DUPLICATES, &error);
+    if (!root)
+    {
+        *http_status = 422;
+        return strdup("{\"error\":\"Invalid test request\"}");
+    }
+    const char *token = json_string_value(json_object_get(root, "token"));
+    const char *path = json_string_value(json_object_get(root, "path"));
+    json_t *rotation_value = json_object_get(root, "rotation");
+    if (!shutdown_image_action_token_valid(token))
+    {
+        *http_status = 403;
+        json_decref(root);
+        return strdup("{\"error\":\"Action token is invalid\"}");
+    }
+    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN ||
+        !image_file_is_supported(path) || !json_is_integer(rotation_value) ||
+        json_integer_value(rotation_value) < 0 ||
+        json_integer_value(rotation_value) > 359)
+    {
+        *http_status = 422;
+        json_decref(root);
+        return strdup("{\"error\":\"Image is missing, unreadable, or unsupported\"}");
+    }
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    if (s_shutdown_test.state != 0)
+    {
+        (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+        json_decref(root);
+        *http_status = 409;
+        return strdup("{\"error\":\"LCD test already running\"}");
+    }
+    cc_safe_strcpy(s_shutdown_test.path, sizeof(s_shutdown_test.path), path);
+    s_shutdown_test.rotation = (int)json_integer_value(rotation_value);
+    s_shutdown_test.result = -1;
+    s_shutdown_test.state = 1;
+    (void)pthread_cond_broadcast(&s_shutdown_test.changed);
+    while (running && s_shutdown_test.result == -1)
+        (void)pthread_cond_wait(&s_shutdown_test.changed, &s_shutdown_test.mutex);
+    int success = s_shutdown_test.result == 1;
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+    json_decref(root);
+    *http_status = success ? 200 : 502;
+    return strdup(success ? "{\"shown\":true}" :
+                  "{\"error\":\"LCD rejected the image\"}");
+}
+
 static void serve_plugin_data(int client_fd)
 {
-    char request[PREVIEW_REQUEST_LIMIT + 4096] = {0};
+    char *request = calloc(1, IMPORT_REQUEST_LIMIT + 4096);
+    if (!request)
+        return;
+    const size_t request_capacity = IMPORT_REQUEST_LIMIT + 4096;
     size_t request_length = 0;
     size_t expected_length = 0;
-    while (request_length < sizeof(request) - 1)
+    while (request_length < request_capacity - 1)
     {
         ssize_t received = recv(client_fd, request + request_length,
-                                sizeof(request) - 1 - request_length, 0);
+                                request_capacity - 1 - request_length, 0);
         if (received <= 0)
+        {
+            free(request);
             return;
+        }
         request_length += (size_t)received;
         request[request_length] = '\0';
         char *header_end = strstr(request, "\r\n\r\n");
         if (!header_end)
             continue;
-        size_t content_length = parse_content_length(request, header_end);
+        size_t content_length = parse_content_length(request, header_end, IMPORT_REQUEST_LIMIT);
         if (content_length == SIZE_MAX)
+        {
+            free(request);
             return;
+        }
         expected_length = (size_t)(header_end + 4 - request) + content_length;
-        if (expected_length >= sizeof(request))
+        if (expected_length >= request_capacity)
+        {
+            free(request);
             return;
+        }
         if (request_length >= expected_length)
             break;
     }
     if (expected_length == 0 || request_length < expected_length)
+    {
+        free(request);
         return;
+    }
 
     const char *status = "200 OK";
     const char *content_type = "application/json";
@@ -727,7 +832,54 @@ static void serve_plugin_data(int client_fd)
     size_t body_length = strlen(body);
     char *dynamic_body = NULL;
 
-    if (strncmp(request, "GET /status HTTP/", 17) == 0)
+    if (strncmp(request, "GET /shutdown-action-token HTTP/", 32) == 0)
+    {
+        if (!request_has_local_host(request))
+            status = "403 Forbidden";
+        else
+            dynamic_body = shutdown_image_action_token_json();
+        if (dynamic_body)
+            body_length = strlen(dynamic_body);
+        else if (strcmp(status, "200 OK") == 0)
+            status = "500 Internal Server Error";
+    }
+    else if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0 ||
+             strncmp(request, "POST /shutdown-test HTTP/", 25) == 0)
+    {
+        if (!request_has_local_host(request))
+            status = "403 Forbidden";
+        else
+        {
+            char *header_end = strstr(request, "\r\n\r\n");
+            size_t content_length = parse_content_length(request, header_end,
+                                                           IMPORT_REQUEST_LIMIT);
+            int code = 422;
+            if (header_end && content_length != SIZE_MAX && content_length > 0)
+            {
+                if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0)
+                    dynamic_body = shutdown_image_import_json(header_end + 4,
+                                                              content_length, &code);
+                else if (content_length <= PREVIEW_REQUEST_LIMIT)
+                    dynamic_body = queue_shutdown_test_json(header_end + 4,
+                                                            content_length, &code);
+            }
+            if (code == 200)
+                status = "200 OK";
+            else if (code == 403)
+                status = "403 Forbidden";
+            else if (code == 409)
+                status = "409 Conflict";
+            else if (code == 413)
+                status = "413 Content Too Large";
+            else if (code == 502)
+                status = "502 Bad Gateway";
+            else
+                status = "422 Unprocessable Content";
+            if (dynamic_body)
+                body_length = strlen(dynamic_body);
+        }
+    }
+    else if (strncmp(request, "GET /status HTTP/", 17) == 0)
     {
         int status_fd = open(UPDATE_STATUS_PATH, O_RDONLY);
         if (status_fd >= 0)
@@ -777,7 +929,7 @@ static void serve_plugin_data(int client_fd)
     else if (strncmp(request, "POST /render-preview HTTP/", 26) == 0)
     {
         char *header_end = strstr(request, "\r\n\r\n");
-        size_t content_length = parse_content_length(request, header_end);
+        size_t content_length = parse_content_length(request, header_end, PREVIEW_REQUEST_LIMIT);
         if (header_end && content_length != SIZE_MAX && content_length > 0)
             dynamic_body = render_preview_json(header_end + 4, content_length);
         if (dynamic_body)
@@ -806,11 +958,13 @@ static void serve_plugin_data(int client_fd)
     if (header_length <= 0 || (size_t)header_length >= sizeof(header))
     {
         free(dynamic_body);
+        free(request);
         return;
     }
     (void)send_all(client_fd, header, (size_t)header_length);
     (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length);
     free(dynamic_body);
+    free(request);
 }
 
 static void *run_plugin_data_server(void *unused)
@@ -939,6 +1093,9 @@ static const char *resolve_shutdown_image_path(const Config *config)
     {
         if (access(config->paths_image_shutdown, R_OK) == 0)
             return config->paths_image_shutdown;
+        log_message(LOG_WARNING,
+                    "Configured shutdown image is not readable: %s (%s); using default",
+                    config->paths_image_shutdown, strerror(errno));
     }
 
     if (access(DEFAULT_SHUTDOWN_IMAGE_PATH, R_OK) == 0)
@@ -988,6 +1145,101 @@ static int register_oriented_shutdown_image(const Config *config,
         log_message(LOG_ERROR, "Cannot rotate shutdown image: %s", source_path);
     unlink(rotated_path);
     return success;
+}
+
+/* A manual test uses the live LCD API; native shutdown registration stays intact. */
+static int show_shutdown_image_for_test(const Config *config, const char *path,
+                                        int rotation, char *temporary,
+                                        size_t temporary_size)
+{
+    char uid[CC_UID_SIZE] = {0};
+    char name[CONFIG_MAX_STRING_LEN] = {0};
+    int width = 0, height = 0;
+    if (!get_cached_lcd_device_data(config, uid, sizeof(uid), name,
+                                    sizeof(name), &width, &height) || !uid[0])
+        return 0;
+    if (!image_file_is_supported(path))
+        return 0;
+    if (width <= 0)
+        width = config->display_width;
+    if (height <= 0)
+        height = config->display_height;
+
+    const char *display_path = path;
+    if (rotation != 0)
+    {
+        if (width <= 0 || height <= 0 ||
+            temporary_size < sizeof("/tmp/coolerdash-shutdown-test-XXXXXX"))
+            return 0;
+        memcpy(temporary, "/tmp/coolerdash-shutdown-test-XXXXXX",
+               sizeof("/tmp/coolerdash-shutdown-test-XXXXXX"));
+        int fd = mkstemp(temporary);
+        if (fd < 0)
+            return 0;
+        close(fd);
+        Config rotated = *config;
+        rotated.display_rotation = rotation;
+        if (!render_rotated_image_to_png(path, &rotated, width, height,
+                                         temporary) || chmod(temporary, 0644) != 0)
+        {
+            unlink(temporary);
+            temporary[0] = '\0';
+            return 0;
+        }
+        display_path = temporary;
+    }
+    if (!send_image_to_lcd(config, display_path, uid))
+    {
+        if (temporary[0])
+            unlink(temporary);
+        temporary[0] = '\0';
+        return 0;
+    }
+    return 1;
+}
+
+static int process_shutdown_test(const Config *config)
+{
+    char path[CONFIG_MAX_PATH_LEN];
+    int rotation;
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    if (s_shutdown_test.state != 1)
+    {
+        (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+        return 0;
+    }
+    cc_safe_strcpy(path, sizeof(path), s_shutdown_test.path);
+    rotation = s_shutdown_test.rotation;
+    s_shutdown_test.state = 2;
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+
+    char temporary[64] = {0};
+    int success = show_shutdown_image_for_test(config, path, rotation,
+                                               temporary, sizeof(temporary));
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    s_shutdown_test.result = success;
+    (void)pthread_cond_broadcast(&s_shutdown_test.changed);
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+
+    if (success)
+    {
+        struct timespec end;
+        if (clock_gettime(CLOCK_MONOTONIC, &end) == 0)
+        {
+            end.tv_sec += 5;
+            while (running && clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
+                                               &end, NULL) == EINTR)
+            {
+            }
+        }
+    }
+    if (temporary[0])
+        unlink(temporary);
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    s_shutdown_test.state = 0;
+    (void)pthread_cond_broadcast(&s_shutdown_test.changed);
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+    return 1;
 }
 
 /**
@@ -1340,6 +1592,45 @@ static void set_render_interval(const Config *config, struct timespec *interval)
     interval->tv_nsec = (long)((seconds - interval->tv_sec) * 1000000000.0);
 }
 
+static void wait_for_render_deadline(const struct timespec *deadline)
+{
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    while (running && !reload_config && s_shutdown_test.state != 1)
+    {
+        struct timespec now, realtime;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 ||
+            clock_gettime(CLOCK_REALTIME, &realtime) != 0)
+            break;
+        time_t seconds = deadline->tv_sec - now.tv_sec;
+        long nanoseconds = deadline->tv_nsec - now.tv_nsec;
+        if (nanoseconds < 0)
+        {
+            seconds--;
+            nanoseconds += 1000000000L;
+        }
+        if (seconds < 0 || (seconds == 0 && nanoseconds == 0))
+            break;
+        /* Poll signals at most once a second: condvar waits need not return on SIGHUP. */
+        if (seconds >= 1)
+        {
+            seconds = 1;
+            nanoseconds = 0;
+        }
+        realtime.tv_sec += seconds;
+        realtime.tv_nsec += nanoseconds;
+        if (realtime.tv_nsec >= 1000000000L)
+        {
+            realtime.tv_sec++;
+            realtime.tv_nsec -= 1000000000L;
+        }
+        int result = pthread_cond_timedwait(&s_shutdown_test.changed,
+                                             &s_shutdown_test.mutex, &realtime);
+        if (result != 0 && result != ETIMEDOUT)
+            break;
+    }
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+}
+
 /** @brief Main daemon loop: renders display on interval, handles SIGHUP. */
 static int run_daemon(Config *config)
 {
@@ -1369,6 +1660,9 @@ static int run_daemon(Config *config)
             set_render_interval(config, &interval);
         }
 
+        (void)process_shutdown_test(config);
+        if (!running)
+            break;
         draw_display_image(config);
         set_render_interval(config, &interval);
 
@@ -1380,9 +1674,7 @@ static int run_daemon(Config *config)
             next_time.tv_nsec -= 1000000000L;
         }
 
-        /* Absolute deadline: a render or a reload longer than one interval leaves it in
-           the past, and clock_nanosleep then returns at once. Drop the missed ticks
-           rather than replaying them at render speed. */
+        /* Drop missed ticks after a slow render or the five-second LCD test. */
         struct timespec now;
         if (clock_gettime(CLOCK_MONOTONIC, &now) == 0 &&
             (next_time.tv_sec < now.tv_sec ||
@@ -1391,19 +1683,7 @@ static int run_daemon(Config *config)
             next_time = now;
         }
 
-        int sleep_result;
-        while ((sleep_result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
-                                               &next_time, NULL)) == EINTR)
-        {
-            /* The deadline is absolute, so resuming is the same call. Only a shutdown or
-               a reload is worth cutting the interval short for. */
-            if (!running || reload_config)
-                break;
-        }
-        if (sleep_result != 0 && sleep_result != EINTR)
-        {
-            log_message(LOG_WARNING, "Sleep interrupted: %s", strerror(sleep_result));
-        }
+        wait_for_render_deadline(&next_time);
     }
 
     return 0;
@@ -1627,6 +1907,7 @@ static void perform_cleanup(const Config *config)
     (void)config;
     log_message(LOG_INFO, "Daemon shutdown initiated");
     stop_status_server();
+    shutdown_image_import_cleanup();
     cleanup_coolercontrol_session();
     cleanup_sensor_curl_handle();
     running = 0;
@@ -1737,6 +2018,9 @@ int main(int argc, char **argv)
     log_message(LOG_STATUS, "Starting daemon");
     int result = run_daemon(&config);
 
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    (void)pthread_cond_broadcast(&s_shutdown_test.changed);
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
     perform_cleanup(&config);
     release_single_instance();
     return result;

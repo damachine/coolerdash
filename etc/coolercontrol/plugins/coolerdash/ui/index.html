@@ -81,6 +81,32 @@
             font-weight: 700;
         }
 
+        .shutdown-preview {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 160px;
+            height: 120px;
+            margin: 12px 0;
+            overflow: hidden;
+            background: rgb(var(--bg-one));
+            border: 1px solid rgb(var(--border-one));
+            border-radius: var(--radius);
+        }
+
+        .shutdown-preview img {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .shutdown-preview img[hidden],
+        .shutdown-preview span[hidden] { display: none; }
+
+        .shutdown-preview span { margin: 0 8px; text-align: center; }
+        .shutdown-actions { margin-top: 12px; padding-top: 0; border-top: 0; }
+
         /* Header */
         .header {
             background: rgb(var(--bg-two));
@@ -949,9 +975,18 @@
 
                 <h3 class="section-title">Shutdown Image</h3>
                 <div class="form-group">
-                    <label class="form-label">Shutdown Image Path</label>
-                    <span class="form-hint">PNG, GIF, JPEG, BMP, or TIFF image displayed when CoolerControl shuts down. Format support on the LCD depends on the device. Default: /var/lib/coolercontrol/plugins/coolerdash/shutdown.png</span>
-                    <input type="text" name="paths.image_shutdown" class="form-control">
+                    <span class="form-hint">Select a PNG, GIF, JPEG, BMP, or TIFF image for the shutdown screen. Format support on the LCD depends on the device.</span>
+                    <input type="hidden" name="paths.image_shutdown" id="shutdown_image_path">
+                    <input type="file" id="shutdown_image_file" accept=".png,.gif,.jpg,.jpeg,.bmp,.tif,.tiff,image/png,image/gif,image/jpeg,image/bmp,image/tiff" hidden onchange="importShutdownImage(this)">
+                    <figure class="shutdown-preview">
+                        <img id="shutdown_preview_image" alt="Current shutdown image" hidden>
+                        <span class="form-hint" id="shutdown_preview_placeholder" role="status">Loading image preview…</span>
+                    </figure>
+                    <div class="btn-group shutdown-actions">
+                        <button type="button" class="btn btn-secondary" id="shutdown_import_button" onclick="document.getElementById('shutdown_image_file').click()">Select image</button>
+                        <button type="button" class="btn btn-secondary" id="shutdown_test_button" onclick="testShutdownImage()">Show on LCD for 5 seconds</button>
+                    </div>
+                    <span class="form-hint" id="shutdown_image_status" role="status" aria-live="polite">Save settings to use a new image when CoolerControl shuts down.</span>
                 </div>
             </div>
 
@@ -3398,10 +3433,143 @@
 
             toggleDisplayModeFields();
             validateSensorSlots();
+            updateShutdownImagePreview();
+        }
+
+        // ===== SHUTDOWN IMAGE =====
+        var shutdownImageBusy = false;
+        var shutdownPreviewGeneration = 0;
+
+        async function updateShutdownImagePreview() {
+            var generation = ++shutdownPreviewGeneration;
+            var image = document.getElementById('shutdown_preview_image');
+            var placeholder = document.getElementById('shutdown_preview_placeholder');
+            var path = document.getElementById('shutdown_image_path').value.trim() ||
+                FACTORY_DEFAULTS.paths.image_shutdown;
+            image.hidden = true;
+            image.removeAttribute('src');
+            placeholder.hidden = false;
+            placeholder.textContent = 'Loading image preview…';
+            var timeout;
+            try {
+                if (typeof pluginFetch !== 'function') throw new Error('Plugin proxy unavailable');
+                var result = await Promise.race([
+                    pluginFetch('/background-preview?path=' + encodeURIComponent(path)),
+                    new Promise(function (_, reject) {
+                        timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 6000);
+                    })
+                ]);
+                if (generation !== shutdownPreviewGeneration) return;
+                if (!result || typeof result.image !== 'string' || result.image.length > 1500000 ||
+                    !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
+                    throw new Error('Invalid preview image');
+                }
+                image.src = result.image;
+                image.hidden = false;
+                placeholder.hidden = true;
+            } catch (error) {
+                if (generation === shutdownPreviewGeneration)
+                    placeholder.textContent = 'Image preview unavailable';
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+
+        function setShutdownImageBusy(busy, message) {
+            shutdownImageBusy = busy;
+            document.getElementById('shutdown_import_button').disabled = busy;
+            document.getElementById('shutdown_test_button').disabled = busy;
+            if (message) document.getElementById('shutdown_image_status').textContent = message;
+        }
+
+        async function shutdownActionToken() {
+            if (typeof pluginFetch !== 'function') throw new Error('CoolerControl plugin proxy is unavailable');
+            var result = await pluginFetch('/shutdown-action-token');
+            if (!result || typeof result.token !== 'string') throw new Error('CoolerDash is not running');
+            return result.token;
+        }
+
+        async function shutdownPost(path, data) {
+            var result = await pluginFetch(path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!result || result.error) throw new Error(result && result.error || 'CoolerDash did not accept the request');
+            return result;
+        }
+
+        function shutdownChunkBase64(bytes) {
+            var binary = '';
+            for (var i = 0; i < bytes.length; i += 8192)
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+            return btoa(binary);
+        }
+
+        async function importShutdownImage(input) {
+            var file = input.files && input.files[0];
+            input.value = '';
+            if (!file || shutdownImageBusy) return;
+            if (file.size === 0 || file.size > 16 * 1024 * 1024) {
+                document.getElementById('shutdown_image_status').textContent = 'Choose an image of at most 16 MiB.';
+                return;
+            }
+            setShutdownImageBusy(true, 'Importing image…');
+            var token, id;
+            try {
+                token = await shutdownActionToken();
+                var begin = await shutdownPost('/shutdown-import', { op: 'begin', token: token, size: file.size });
+                if (typeof begin.id !== 'string') throw new Error('Could not start image import');
+                id = begin.id;
+                var chunkSize = 256 * 1024;
+                for (var offset = 0; offset < file.size; offset += chunkSize) {
+                    var bytes = new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer());
+                    await shutdownPost('/shutdown-import', {
+                        op: 'chunk', token: token, id: id, data: shutdownChunkBase64(bytes)
+                    });
+                }
+                var result = await shutdownPost('/shutdown-import', { op: 'finish', token: token, id: id });
+                if (typeof result.path !== 'string') throw new Error('Image import did not finish');
+                document.getElementById('shutdown_image_path').value = result.path;
+                updateShutdownImagePreview();
+                setShutdownImageBusy(false, 'Image imported. Save settings to use it at shutdown.');
+            } catch (error) {
+                if (token && id) {
+                    try { await shutdownPost('/shutdown-import', { op: 'cancel', token: token, id: id }); }
+                    catch (_) { /* The old image remains installed. */ }
+                }
+                setShutdownImageBusy(false, 'Import failed: ' + error.message);
+            }
+        }
+
+        async function testShutdownImage() {
+            if (shutdownImageBusy) return;
+            var path = document.getElementById('shutdown_image_path').value.trim();
+            if (!path) {
+                document.getElementById('shutdown_image_status').textContent = 'Select or import an image first.';
+                return;
+            }
+            setShutdownImageBusy(true, 'Sending image to LCD…');
+            try {
+                var token = await shutdownActionToken();
+                var rotation = Number(document.getElementById('display_orientation').value);
+                var result = await shutdownPost('/shutdown-test', { token: token, path: path, rotation: rotation });
+                if (!result.shown) throw new Error('LCD did not accept the image');
+                document.getElementById('shutdown_image_status').textContent = 'Showing on LCD for 5 seconds…';
+                await new Promise(function (resolve) { setTimeout(resolve, 5200); });
+                setShutdownImageBusy(false, 'Preview complete. Normal dashboard is resuming.');
+            } catch (error) {
+                setShutdownImageBusy(false, 'LCD test failed: ' + error.message);
+            }
         }
 
         // ===== SAVE / RESET =====
         async function saveConfig() {
+            if (shutdownImageBusy) {
+                document.getElementById('shutdown_image_status').textContent = 'Wait for the image action to finish before saving.';
+                return;
+            }
             var orientationInput = document.getElementById('display_orientation_number');
             if (!orientationInput.checkValidity()) {
                 orientationInput.reportValidity();
@@ -3426,6 +3594,10 @@
 
 
         async function resetConfig() {
+            if (shutdownImageBusy) {
+                document.getElementById('shutdown_image_status').textContent = 'Wait for the image action to finish before resetting.';
+                return;
+            }
             try {
                 var factoryConfig = cloneConfig(RESET_CONFIG || DEFAULT_CONFIG || FACTORY_DEFAULTS);
                 // Preserve the existing access_token — never reset it to default
