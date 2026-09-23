@@ -422,6 +422,13 @@
             transform: scale(1.1);
         }
 
+        .orientation-number {
+            width: 72px;
+            flex: 0 0 72px;
+            padding: 8px;
+            text-align: right;
+        }
+
         .range-value {
             min-width: 55px;
             text-align: right;
@@ -851,7 +858,11 @@
                     <div class="form-group">
                         <label class="form-label" for="display_orientation">Orientation (&deg; clockwise)</label>
                         <span class="form-hint">0&ndash;359&deg;. CoolerDash rotates the complete image to fit the LCD. Free corners use the background color.</span>
-                        <input type="number" name="display.orientation" id="display_orientation" class="form-control" min="0" max="359" step="1" value="0" required>
+                        <div class="range-group">
+                            <input type="range" name="display.orientation" id="display_orientation" class="range-input" min="0" max="359" step="1" value="0" oninput="syncOrientationFromSlider()">
+                            <input type="number" id="display_orientation_number" class="form-control orientation-number" min="0" max="359" step="1" value="0" aria-label="Orientation in degrees" oninput="syncOrientationFromNumber()" required>
+                            <span aria-hidden="true">&deg;</span>
+                        </div>
                     </div>
 
                     <div class="form-group bar-mode-only">
@@ -3106,6 +3117,18 @@
             return warnings.length === 0;
         }
 
+        function syncOrientationFromSlider() {
+            document.getElementById('display_orientation_number').value =
+                document.getElementById('display_orientation').value;
+        }
+
+        function syncOrientationFromNumber() {
+            var number = document.getElementById('display_orientation_number');
+            if (number.checkValidity()) {
+                document.getElementById('display_orientation').value = number.value;
+            }
+        }
+
         function updateRangeValue(id, value, suffix, decimals) {
             var displayValue = decimals === undefined
                 ? value
@@ -3306,6 +3329,7 @@
                                 }
                             } else {
                                 input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
+                                if (section === 'display' && field === 'orientation') syncOrientationFromSlider();
                                 if (field === 'brightness') updateRangeValue('brightness', value);
                                 if (field === 'background_overlay_opacity') updateRangeValue('background_overlay', value, '', 2);
                                 if (field === 'background_image_scale_factor') updateAutoValue('background_image_scale', value, 100, '%');
@@ -3378,7 +3402,7 @@
 
         // ===== SAVE / RESET =====
         async function saveConfig() {
-            var orientationInput = document.getElementById('display_orientation');
+            var orientationInput = document.getElementById('display_orientation_number');
             if (!orientationInput.checkValidity()) {
                 orientationInput.reportValidity();
                 return;
