@@ -613,7 +613,7 @@ int render_dual_preview(const struct Config *config,
     }
 
     cairo_status_t write_status =
-        cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
+        write_display_png(surface, config, config->paths_image_coolerdash);
     int success = (write_status == CAIRO_STATUS_SUCCESS);
 
     if (!success)

@@ -98,7 +98,7 @@ typedef struct Config
     uint16_t display_height;
     float display_refresh_interval;
     uint8_t lcd_brightness;
-    uint16_t lcd_orientation; // 0/90/180/270
+    uint16_t display_rotation; // Clockwise software rotation, 0..359 degrees
     char display_mode[16];
     char display_background_image_fit[16];
     uint16_t circle_switch_interval;
@@ -180,13 +180,6 @@ extern int verbose_logging;
     {                                                \
         cc_safe_strcpy((dest), sizeof(dest), (src)); \
     } while (0)
-
-/** @brief Returns 1 if orientation is 0, 90, 180, or 270. */
-static inline int is_valid_orientation(int orientation)
-{
-    return (orientation == 0 || orientation == 90 || orientation == 180 ||
-            orientation == 270);
-}
 
 // ============================================================================
 // Plugin Configuration Functions

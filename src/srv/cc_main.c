@@ -359,7 +359,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
     json_object_set_new(body, "mode", json_string("image"));
     json_object_set_new(body, "image_file_processed", json_string(image_path));
     json_object_set_new(body, "brightness", json_integer(config->lcd_brightness));
-    json_object_set_new(body, "orientation", json_integer(config->lcd_orientation));
+    json_object_set_new(body, "orientation", json_integer(0));
     json_object_set_new(body, "colors", json_array());
 
     char *json_str = json_dumps(body, JSON_COMPACT);
@@ -489,16 +489,10 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
         curl_mime_data(part, brightness_str, CURL_ZERO_TERMINATED);
     }
 
-    // orientation field
-    char orientation_str[8];
-    int olen = snprintf(orientation_str, sizeof(orientation_str), "%u",
-                        (unsigned)config->lcd_orientation);
-    if (olen > 0 && (size_t)olen < sizeof(orientation_str))
-    {
-        part = curl_mime_addpart(mime);
-        curl_mime_name(part, "orientation");
-        curl_mime_data(part, orientation_str, CURL_ZERO_TERMINATED);
-    }
+    // CoolerDash rotates the uploaded image; the device stays at 0 degrees.
+    part = curl_mime_addpart(mime);
+    curl_mime_name(part, "orientation");
+    curl_mime_data(part, "0", CURL_ZERO_TERMINATED);
 
     // image file field — CC uses "images[]" as the multipart field name
     part = curl_mime_addpart(mime);

@@ -22,8 +22,10 @@ CoolerControl stores the image and displays it when it stops. Configure a custom
 shutdown image via `paths.image_shutdown`, or keep the default file at
 `/var/lib/coolercontrol/plugins/coolerdash/shutdown.png`.
 
-CoolerDash detects PNG, GIF, JPEG, BMP, and TIFF files by content and sends the
-matching MIME type. Animated GIF support depends on the LCD device and driver.
+CoolerDash detects PNG, GIF, JPEG, BMP, and TIFF files by content. At 0° it
+sends the original file with its matching MIME type; animated GIF support then
+depends on the LCD device and driver. At other angles it sends a rotated PNG
+copy. For animated sources, that copy contains the first frame.
 
 ![Shutdown image preview](../images/shutdown.png)
 

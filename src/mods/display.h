@@ -167,6 +167,16 @@ int calculate_layout_context(const struct Config *config,
 cairo_t *create_cairo_context(const struct Config *config,
                               cairo_surface_t **surface);
 
+/** Save a rendered frame after applying its clockwise software rotation. */
+cairo_status_t write_display_png(cairo_surface_t *surface,
+                                 const struct Config *config,
+                                 const char *path);
+
+/** Rotate a static source image into an LCD-sized PNG for shutdown upload. */
+int render_rotated_image_to_png(const char *source_path,
+                                const struct Config *config,
+                                int width, int height, const char *output_path);
+
 /**
  * @brief Convert color component from 0-255 to cairo 0.0-1.0 range.
  */

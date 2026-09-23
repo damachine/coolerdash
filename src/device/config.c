@@ -153,8 +153,8 @@ static void set_display_defaults(Config *config)
 
     if (config->display_refresh_interval == 0.0f)
         config->display_refresh_interval = 3.50f;
-    if (!is_valid_orientation(config->lcd_orientation))
-        config->lcd_orientation = 0;
+    if (config->display_rotation >= 360)
+        config->display_rotation = 0;
     if (config->display_mode[0] == '\0')
         cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "split");
     if (config->display_background_image_fit[0] == '\0')
@@ -1221,9 +1221,9 @@ static void load_display_from_json(json_t *root, Config *config)
     json_t *orientation = json_object_get(display, "orientation");
     if (orientation && json_is_integer(orientation))
     {
-        int val = (int)json_integer_value(orientation);
-        if (is_valid_orientation(val))
-            config->lcd_orientation = (uint16_t)val;
+        json_int_t val = json_integer_value(orientation);
+        if (val >= 0 && val < 360)
+            config->display_rotation = (uint16_t)val;
     }
 
     json_t *width = json_object_get(display, "width");

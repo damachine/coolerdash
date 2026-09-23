@@ -66,7 +66,9 @@ Ask the contributor to run `coolerdash --hardware-report --test-lcd`. Report
 schema 2 includes the CoolerControl model, driver and LCD capabilities,
 liquidctl VID:PID/release/driver data, USB device/interface/endpoint
 descriptors, firmware, and the contributor's observations of display shape,
-visible calibration circle, centering, rotation, and distortion. USB
+visible calibration circle, centering, rotation, and distortion. The test
+uses the device's raw 0° orientation, independently of CoolerDash's software
+rotation. USB
 descriptors can confirm the available HID/bulk paths, but they cannot reveal
 the pixel encoding or upload commands; those still require an upstream driver
 implementation or a separately captured and reviewed protocol trace.

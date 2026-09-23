@@ -449,8 +449,8 @@ int render_split_preview(const struct Config *config,
     int success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
     if (success)
     {
-        success = cairo_surface_write_to_png(surface,
-                                             config->paths_image_coolerdash) ==
+        success = write_display_png(surface, config,
+                                    config->paths_image_coolerdash) ==
                   CAIRO_STATUS_SUCCESS;
     }
 

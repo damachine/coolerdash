@@ -1090,7 +1090,7 @@ int render_circle_preview(const struct Config *config,
 
     // Write PNG to file
     cairo_status_t write_status =
-        cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
+        write_display_png(surface, config, config->paths_image_coolerdash);
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 

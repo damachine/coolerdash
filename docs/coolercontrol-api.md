@@ -81,11 +81,15 @@ Content-Type: application/json
 }
 ```
 
+CoolerDash rotates the generated image before this request. It always sends
+`orientation: 0` to CoolerControl.
+
 ### Shutdown Image (CC4)
 
 Called once at startup. CC4 stores it server-side and displays it when CoolerControl stops.
-CoolerDash detects PNG, GIF, JPEG, BMP, and TIFF content and uses the matching
-multipart MIME type.
+CoolerDash detects PNG, GIF, JPEG, BMP, and TIFF content. At 0° it sends the
+source image with the matching MIME type. At other angles it sends a rotated PNG
+copy; an animated source uses its first frame.
 
 ```
 PUT {address}/devices/{uid}/settings/lcd/{channel}/shutdown-image

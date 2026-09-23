@@ -1244,6 +1244,120 @@ cairo_t *create_cairo_context(const struct Config *config,
 }
 
 /**
+ * @brief Rotate the complete rendered image into the physical LCD canvas.
+ * @details Fit the rotated bounds inside the canvas so no content is cut off.
+ * The configured background color fills corners outside the rotated image.
+ */
+static cairo_status_t write_oriented_surface_png(cairo_surface_t *source,
+                                                  const struct Config *config,
+                                                  int width, int height,
+                                                  const char *path)
+{
+    if (!source || !config || !path)
+        return CAIRO_STATUS_NULL_POINTER;
+    if (width <= 0 || height <= 0 ||
+        cairo_surface_get_type(source) != CAIRO_SURFACE_TYPE_IMAGE)
+        return CAIRO_STATUS_INVALID_SIZE;
+
+    const int source_width = cairo_image_surface_get_width(source);
+    const int source_height = cairo_image_surface_get_height(source);
+    if (source_width <= 0 || source_height <= 0)
+        return CAIRO_STATUS_INVALID_SIZE;
+
+    if (config->display_rotation == 0 &&
+        source_width == width && source_height == height)
+        return cairo_surface_write_to_png(source, path);
+
+    cairo_surface_t *target =
+        cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+    cairo_status_t status = cairo_surface_status(target);
+    if (status != CAIRO_STATUS_SUCCESS)
+    {
+        cairo_surface_destroy(target);
+        return status;
+    }
+
+    cairo_t *cr = cairo_create(target);
+    status = cairo_status(cr);
+    if (status == CAIRO_STATUS_SUCCESS)
+    {
+        set_cairo_color(cr, &config->display_background_color);
+        cairo_paint(cr);
+
+        const double radians = config->display_rotation * DISPLAY_M_PI / 180.0;
+        double cosine = cos(radians);
+        double sine = sin(radians);
+        if (fabs(cosine) < 1e-12)
+            cosine = 0.0;
+        if (fabs(sine) < 1e-12)
+            sine = 0.0;
+        const double bounds_width =
+            fabs(source_width * cosine) + fabs(source_height * sine);
+        const double bounds_height =
+            fabs(source_width * sine) + fabs(source_height * cosine);
+        const double scale = fmin((double)width / bounds_width,
+                                  (double)height / bounds_height);
+
+        cairo_translate(cr, width / 2.0, height / 2.0);
+        cairo_rotate(cr, radians);
+        cairo_scale(cr, scale, scale);
+        cairo_set_source_surface(cr, source,
+                                 -source_width / 2.0, -source_height / 2.0);
+        cairo_pattern_set_filter(cairo_get_source(cr),
+                                 config->display_rotation % 90 == 0
+                                     ? CAIRO_FILTER_NEAREST
+                                     : CAIRO_FILTER_BILINEAR);
+        cairo_paint(cr);
+        status = cairo_status(cr);
+    }
+    cairo_destroy(cr);
+    if (status == CAIRO_STATUS_SUCCESS)
+        status = cairo_surface_write_to_png(target, path);
+    cairo_surface_destroy(target);
+    return status;
+}
+
+cairo_status_t write_display_png(cairo_surface_t *surface,
+                                 const struct Config *config,
+                                 const char *path)
+{
+    if (!config)
+        return CAIRO_STATUS_NULL_POINTER;
+    return write_oriented_surface_png(surface, config,
+                                      config->display_width,
+                                      config->display_height, path);
+}
+
+int render_rotated_image_to_png(const char *source_path,
+                                const struct Config *config,
+                                int width, int height, const char *output_path)
+{
+    if (!source_path || !config || !output_path || width <= 0 || height <= 0)
+        return 0;
+
+    struct stat info;
+    int source_width = 0;
+    int source_height = 0;
+    if (stat(source_path, &info) != 0 || !S_ISREG(info.st_mode) ||
+        info.st_size <= 0 || info.st_size > 16 * 1024 * 1024 ||
+        !image_file_mime_type(source_path) ||
+        !gdk_pixbuf_get_file_info(source_path, &source_width, &source_height) ||
+        source_width <= 0 || source_height <= 0 ||
+        (uint64_t)source_width * (uint64_t)source_height >
+            32U * 1024U * 1024U)
+        return 0;
+
+    /* Animated source formats use their first frame for the shutdown image. */
+    cairo_surface_t *source = image_file_load_surface(source_path, 1);
+    if (!source)
+        return 0;
+    const cairo_status_t status = write_oriented_surface_png(
+        source, config, width, height, output_path);
+    cairo_surface_destroy(source);
+    return status == CAIRO_STATUS_SUCCESS;
+}
+
+/**
  * @brief Calculate dynamic scaling parameters based on display dimensions.
  * @details Known devices use profiles; unknown devices retain the legacy
  * resolution fallback.
@@ -1669,7 +1783,7 @@ static void draw_background_only_image(const struct Config *config)
     paint_display_background(cr, config);
     cairo_surface_flush(surface);
     const cairo_status_t write_status =
-        cairo_surface_write_to_png(surface, config->paths_image_coolerdash);
+        write_display_png(surface, config, config->paths_image_coolerdash);
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 

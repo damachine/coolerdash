@@ -1534,7 +1534,7 @@ static json_t *collect_display_config(const Config *config)
     json_object_set_new(display, "brightness",
                         json_integer(config->lcd_brightness));
     json_object_set_new(display, "orientation",
-                        json_integer(config->lcd_orientation));
+                        json_integer(config->display_rotation));
     json_object_set_new(display, "refresh_interval",
                         json_real(config->display_refresh_interval));
     json_object_set_new(display, "content_scale_factor",
@@ -1916,6 +1916,7 @@ static json_t *run_optional_lcd_test(
     }
     json_object_set_new(test, "image_width", json_integer(device->width));
     json_object_set_new(test, "image_height", json_integer(device->height));
+    json_object_set_new(test, "applied_orientation", json_integer(0));
     if (access(context->config->paths_images, W_OK) != 0)
     {
         set_test_status(test, "skipped",
@@ -1969,7 +1970,7 @@ static json_t *run_optional_lcd_test(
     json_object_set_new(test_settings, "brightness",
                         json_integer(context->config->lcd_brightness));
     json_object_set_new(test_settings, "orientation",
-                        json_integer(context->config->lcd_orientation));
+                        json_integer(0));
     json_object_set_new(test_settings, "colors", json_array());
 
     struct sigaction action;

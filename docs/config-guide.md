@@ -42,6 +42,8 @@ sudo systemctl restart coolercontrold
 | `image_background` | Optional PNG, animated GIF, JPEG, BMP, or TIFF background |
 | `image_shutdown` | PNG, GIF, JPEG, BMP, or TIFF image shown on daemon shutdown |
 
+With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdown image. Animated shutdown images use their first frame; the source file is not changed.
+
 ---
 
 ## Display
@@ -71,7 +73,7 @@ sudo systemctl restart coolercontrold
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0); GIF frame timing may shorten it |
 | `brightness` | `80` | LCD brightness 0–100% |
-| `orientation` | `0` | Rotation: `0`, `90`, `180`, `270` |
+| `orientation` | `0` | Clockwise software rotation, whole degrees `0`–`359`. CoolerControl receives `0`. The complete frame, including background images, rotates and fits the LCD; uncovered corners use the background color. Existing quarter-turn values remain valid. |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
 | `split_ring_by_sensor` | `true` | In Split and Dual modes, color both ring halves from the two visible layout sensors |

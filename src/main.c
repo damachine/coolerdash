@@ -950,6 +950,46 @@ static const char *resolve_shutdown_image_path(const Config *config)
     return NULL;
 }
 
+/** Register the shutdown image with the same software rotation as live frames. */
+static int register_oriented_shutdown_image(const Config *config,
+                                             const char *source_path,
+                                            const char *device_uid,
+                                            int device_width, int device_height)
+{
+    if (config->display_rotation == 0)
+        return register_lcd_shutdown_image_with_cc(config, source_path,
+                                                    device_uid);
+
+    const int width = device_width > 0 ? device_width : config->display_width;
+    const int height = device_height > 0 ? device_height : config->display_height;
+    if (width <= 0 || height <= 0)
+    {
+        log_message(LOG_WARNING,
+                    "Cannot rotate shutdown image without LCD dimensions");
+        return 0;
+    }
+
+    char rotated_path[] = "/tmp/coolerdash-shutdown-XXXXXX";
+    int fd = mkstemp(rotated_path);
+    if (fd < 0)
+    {
+        log_message(LOG_ERROR, "Cannot create rotated shutdown image: %s",
+                    strerror(errno));
+        return 0;
+    }
+    close(fd);
+
+    int success = render_rotated_image_to_png(source_path, config, width,
+                                               height, rotated_path);
+    if (success)
+        success = register_lcd_shutdown_image_with_cc(config, rotated_path,
+                                                       device_uid);
+    else
+        log_message(LOG_ERROR, "Cannot rotate shutdown image: %s", source_path);
+    unlink(rotated_path);
+    return success;
+}
+
 /**
  * @brief Detect if started by CoolerControl plugin system.
  */
@@ -1677,9 +1717,9 @@ int main(int argc, char **argv)
                                 shutdown_image_path);
                 }
 
-                register_lcd_shutdown_image_with_cc(&config,
-                                                    shutdown_image_path,
-                                                    shutdown_uid);
+                register_oriented_shutdown_image(&config, shutdown_image_path,
+                                                  shutdown_uid, shutdown_w,
+                                                  shutdown_h);
             }
             else
             {
