@@ -401,6 +401,19 @@
             cursor: pointer;
         }
 
+        .font-picker { position: relative; margin-top: auto; }
+        .font-picker-options {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 10;
+            width: 100%;
+            margin-top: 4px;
+            padding: 4px;
+            box-shadow: 0 8px 20px rgb(0 0 0 / 0.25);
+        }
+        .font-picker-options[hidden] { display: none; }
+
         /* Grid Layout */
         .grid {
             display: grid;
@@ -952,9 +965,11 @@
 
                     <div class="form-group">
                         <label class="form-label" for="font_face">Font Face</label>
-                        <span class="form-hint">Default: Roboto Black. Select an installed family or enter one manually.</span>
-                        <input type="text" name="font.face" id="font_face" class="form-control" list="font_face_options" autocomplete="off">
-                        <datalist id="font_face_options"></datalist>
+                        <span class="form-hint">Default: Roboto Black. Type to search installed fonts, or clear the field to browse. Manual entry also works.</span>
+                        <div class="font-picker" id="font_picker">
+                            <input type="text" name="font.face" id="font_face" class="form-control" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="font_face_options" aria-expanded="false">
+                            <select id="font_face_options" class="form-control font-picker-options" size="6" aria-label="Matching installed fonts" hidden></select>
+                        </div>
                         <span class="form-hint" id="font_face_status" role="status"></span>
                     </div>
                 </div>
@@ -3253,10 +3268,76 @@
             }
         }
 
+        var installedFontFamilies = [];
+
+        function hideFontOptions() {
+            document.getElementById('font_face_options').hidden = true;
+            document.getElementById('font_face').setAttribute('aria-expanded', 'false');
+        }
+
+        function showFontOptions() {
+            if (!installedFontFamilies.length) return;
+            var input = document.getElementById('font_face');
+            var options = document.getElementById('font_face_options');
+            var query = input.value.trim().toLocaleLowerCase();
+            var matches = installedFontFamilies.filter(function(family) {
+                return family.toLocaleLowerCase().includes(query);
+            });
+            options.textContent = '';
+            matches.slice(0, 40).forEach(function(family) {
+                var option = document.createElement('option');
+                option.value = family;
+                option.textContent = family;
+                options.appendChild(option);
+            });
+            options.size = Math.min(6, matches.length);
+            options.hidden = matches.length === 0;
+            input.setAttribute('aria-expanded', String(!options.hidden));
+            var status = document.getElementById('font_face_status');
+            status.textContent = matches.length
+                ? installedFontFamilies.length + ' installed font families available.' +
+                  (matches.length > 40 ? ' Type to narrow the list.' : '')
+                : 'No matching installed font. Manual entry still works.';
+        }
+
         async function loadSystemFonts() {
+            var input = document.getElementById('font_face');
             var options = document.getElementById('font_face_options');
             var status = document.getElementById('font_face_status');
-            if (!options || !status) return;
+            if (!input || !options || !status) return;
+
+            input.addEventListener('focus', showFontOptions);
+            input.addEventListener('input', showFontOptions);
+            input.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') hideFontOptions();
+                if (event.key === 'ArrowDown' && !options.hidden) {
+                    event.preventDefault();
+                    options.focus();
+                }
+            });
+            function chooseFontOption() {
+                if (options.selectedIndex < 0) return;
+                input.value = options.value;
+                input.focus();
+                hideFontOptions();
+                updateModePreview();
+            }
+            options.addEventListener('click', chooseFontOption);
+            options.addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    chooseFontOption();
+                } else if (event.key === 'Escape') {
+                    input.focus();
+                    hideFontOptions();
+                }
+            });
+            document.getElementById('font_picker').addEventListener('focusout', function() {
+                setTimeout(function() {
+                    if (!document.getElementById('font_picker').contains(document.activeElement))
+                        hideFontOptions();
+                }, 0);
+            });
 
             try {
                 var result = await Promise.race([
@@ -3270,7 +3351,7 @@
                 }
 
                 var seen = new Set();
-                var families = result.fonts.map(function(family) {
+                installedFontFamilies = result.fonts.map(function(family) {
                     return typeof family === 'string' ? family.trim() : '';
                 }).filter(function(family) {
                     if (!family || seen.has(family)) return false;
@@ -3280,13 +3361,8 @@
                     return a.localeCompare(b);
                 });
 
-                options.textContent = '';
-                families.forEach(function(family) {
-                    var option = document.createElement('option');
-                    option.value = family;
-                    options.appendChild(option);
-                });
-                status.textContent = families.length + ' installed font families available.';
+                status.textContent = installedFontFamilies.length + ' installed font families available.';
+                if (document.activeElement === input) showFontOptions();
             } catch (error) {
                 console.warn('Font discovery failed:', error);
                 status.textContent = 'Installed fonts unavailable; manual entry still works.';
