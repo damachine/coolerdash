@@ -540,12 +540,15 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     const ScalingParams *params)
 {
     paint_display_background(cr, config);
-    if (config->split_ring_by_sensor)
-        draw_split_sensor_ring(cr, config, data, params,
-                               config->sensor_slot_1,
-                               config->sensor_slot_3);
-    else
-        draw_sensor_ring(cr, config, data, params);
+    if (config->display_rotation == 0 || params->is_circular)
+    {
+        if (config->split_ring_by_sensor)
+            draw_split_sensor_ring(cr, config, data, params,
+                                   config->sensor_slot_1,
+                                   config->sensor_slot_3);
+        else
+            draw_sensor_ring(cr, config, data, params);
+    }
 
     if (config->dual_show_bars)
         draw_temperature_bars(cr, data, config, params);
@@ -613,7 +616,15 @@ int render_dual_preview(const struct Config *config,
     }
 
     cairo_status_t write_status =
-        write_display_png(surface, config, config->paths_image_coolerdash);
+        config->display_rotation != 0 && !scaling_params.is_circular
+            ? write_display_png_with_ring(
+                  surface, config, data, &scaling_params,
+                  config->split_ring_by_sensor,
+                  config->split_ring_by_sensor ? config->sensor_slot_1
+                                               : config->sensor_ring_sensor,
+                  config->sensor_slot_3, config->paths_image_coolerdash)
+            : write_display_png(surface, config,
+                                config->paths_image_coolerdash);
     int success = (write_status == CAIRO_STATUS_SUCCESS);
 
     if (!success)

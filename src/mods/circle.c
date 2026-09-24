@@ -1035,7 +1035,8 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
 
     // Get current slot value and draw sensor
     const char *slot_value = get_slot_value_by_index(config, current_slot_index);
-    draw_sensor_ring_for_slot(cr, config, data, params, slot_value);
+    if (config->display_rotation == 0 || params->is_circular)
+        draw_sensor_ring_for_slot(cr, config, data, params, slot_value);
     draw_single_sensor(cr, config, params, data, slot_value);
 }
 
@@ -1090,7 +1091,13 @@ int render_circle_preview(const struct Config *config,
 
     // Write PNG to file
     cairo_status_t write_status =
-        write_display_png(surface, config, config->paths_image_coolerdash);
+        config->display_rotation != 0 && !params.is_circular
+            ? write_display_png_with_ring(
+                  surface, config, data, &params, 0,
+                  get_slot_value_by_index(config, current_slot_index),
+                  NULL, config->paths_image_coolerdash)
+            : write_display_png(surface, config,
+                                config->paths_image_coolerdash);
     cairo_destroy(cr);
     cairo_surface_destroy(surface);
 

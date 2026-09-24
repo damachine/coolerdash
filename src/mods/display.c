@@ -898,7 +898,10 @@ void draw_sensor_ring_for_slot(cairo_t *cr, const struct Config *config,
                     const double dashes[2] = {
                         perimeter * progress,
                         perimeter * (1.0 - progress)};
-                    cairo_set_dash(cr, dashes, 2, 0.0);
+                    /* Move the value arc, not the rectangular outline. */
+                    const double offset =
+                        -perimeter * config->display_rotation / 360.0;
+                    cairo_set_dash(cr, dashes, 2, offset);
                 }
                 draw_rounded_rectangle_path(cr, x, y, width, height,
                                             corner_radius);
@@ -1034,6 +1037,12 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
 
     const sensor_entry_t *entries[2] = {left, right};
     const char *slots[2] = {left_slot, right_slot};
+    const double perimeter =
+        2.0 * ((double)width + (double)height - 4.0 * corner_radius) +
+        2.0 * DISPLAY_M_PI * corner_radius;
+    const double half = perimeter * 0.5;
+    /* A full turn follows one complete trip around the fixed outline. */
+    const double shift = perimeter * config->display_rotation / 360.0;
     for (int i = 0; i < 2; i++)
     {
         if (!entries[i])
@@ -1041,10 +1050,18 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
         const Color color =
             get_slot_bar_color(config, slots[i], entries[i]->value);
         cairo_save(cr);
-        cairo_rectangle(cr, i == 0 ? 0.0 : config->display_width * 0.5,
-                        0.0, config->display_width * 0.5,
-                        config->display_height);
-        cairo_clip(cr);
+        if (config->display_rotation == 0)
+        {
+            cairo_rectangle(cr, i == 0 ? 0.0 : config->display_width * 0.5,
+                            0.0, config->display_width * 0.5,
+                            config->display_height);
+            cairo_clip(cr);
+        }
+        else
+        {
+            const double dashes[2] = {half, half};
+            cairo_set_dash(cr, dashes, 2, i == 0 ? -shift : half - shift);
+        }
         set_cairo_color_alpha(cr, &color, opacity);
         draw_rounded_rectangle_path(cr, x, y, width, height, corner_radius);
         cairo_stroke(cr);
@@ -1269,10 +1286,11 @@ cairo_t *create_cairo_context(const struct Config *config,
  * @details Fit the rotated bounds inside the canvas so no content is cut off.
  * The configured background color fills corners outside the rotated image.
  */
-static cairo_status_t write_oriented_surface_png(cairo_surface_t *source,
-                                                  const struct Config *config,
-                                                  int width, int height,
-                                                  const char *path)
+static cairo_status_t write_oriented_surface_png(
+    cairo_surface_t *source, const struct Config *config,
+    int width, int height, const char *path,
+    const monitor_sensor_data_t *ring_data, const ScalingParams *ring_params,
+    int split_ring, const char *first_slot, const char *second_slot)
 {
     if (!source || !config || !path)
         return CAIRO_STATUS_NULL_POINTER;
@@ -1329,6 +1347,17 @@ static cairo_status_t write_oriented_surface_png(cairo_surface_t *source,
                                      ? CAIRO_FILTER_NEAREST
                                      : CAIRO_FILTER_BILINEAR);
         cairo_paint(cr);
+        if (ring_data && ring_params && !ring_params->is_circular)
+        {
+            /* The ring uses physical display coordinates after content rotation. */
+            cairo_identity_matrix(cr);
+            if (split_ring)
+                draw_split_sensor_ring(cr, config, ring_data, ring_params,
+                                       first_slot, second_slot);
+            else
+                draw_sensor_ring_for_slot(cr, config, ring_data, ring_params,
+                                          first_slot);
+        }
         status = cairo_status(cr);
     }
     cairo_destroy(cr);
@@ -1346,7 +1375,26 @@ cairo_status_t write_display_png(cairo_surface_t *surface,
         return CAIRO_STATUS_NULL_POINTER;
     return write_oriented_surface_png(surface, config,
                                       config->display_width,
-                                      config->display_height, path);
+                                      config->display_height, path,
+                                      NULL, NULL, 0, NULL, NULL);
+}
+
+cairo_status_t write_display_png_with_ring(cairo_surface_t *surface,
+                                           const struct Config *config,
+                                           const monitor_sensor_data_t *data,
+                                           const ScalingParams *params,
+                                           int split_ring,
+                                           const char *first_slot,
+                                           const char *second_slot,
+                                           const char *path)
+{
+    if (!config)
+        return CAIRO_STATUS_NULL_POINTER;
+    return write_oriented_surface_png(surface, config,
+                                      config->display_width,
+                                      config->display_height, path,
+                                      data, params, split_ring,
+                                      first_slot, second_slot);
 }
 
 int render_rotated_image_to_png(const char *source_path,
@@ -1373,7 +1421,8 @@ int render_rotated_image_to_png(const char *source_path,
     if (!source)
         return 0;
     const cairo_status_t status = write_oriented_surface_png(
-        source, config, width, height, output_path);
+        source, config, width, height, output_path,
+        NULL, NULL, 0, NULL, NULL);
     cairo_surface_destroy(source);
     return status == CAIRO_STATUS_SUCCESS;
 }

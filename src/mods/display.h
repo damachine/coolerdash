@@ -173,6 +173,16 @@ cairo_status_t write_display_png(cairo_surface_t *surface,
                                  const struct Config *config,
                                  const char *path);
 
+/** Keep a rectangular sensor ring at the display edge during rotation. */
+cairo_status_t write_display_png_with_ring(cairo_surface_t *surface,
+                                           const struct Config *config,
+                                           const monitor_sensor_data_t *data,
+                                           const ScalingParams *params,
+                                           int split_ring,
+                                           const char *first_slot,
+                                           const char *second_slot,
+                                           const char *path);
+
 /** Rotate a static source image into an LCD-sized PNG for shutdown upload. */
 int render_rotated_image_to_png(const char *source_path,
                                 const struct Config *config,

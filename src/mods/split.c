@@ -423,11 +423,14 @@ int render_split_preview(const struct Config *config,
             active_slots[active_count++] = configured_slots[i];
     }
 
-    if (config->split_ring_by_sensor)
-        draw_split_sensor_ring(cr, config, data, &params,
-                               active_slots[0], active_slots[1]);
-    else
-        draw_sensor_ring(cr, config, data, &params);
+    if (config->display_rotation == 0 || params.is_circular)
+    {
+        if (config->split_ring_by_sensor)
+            draw_split_sensor_ring(cr, config, data, &params,
+                                   active_slots[0], active_slots[1]);
+        else
+            draw_sensor_ring(cr, config, data, &params);
+    }
 
     if (active_count > 0)
         draw_split_pane(cr, config, data, &params, &layout, &layout.left,
@@ -449,9 +452,17 @@ int render_split_preview(const struct Config *config,
     int success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
     if (success)
     {
-        success = write_display_png(surface, config,
-                                    config->paths_image_coolerdash) ==
-                  CAIRO_STATUS_SUCCESS;
+        success =
+            (config->display_rotation != 0 && !params.is_circular
+                 ? write_display_png_with_ring(
+                       surface, config, data, &params,
+                       config->split_ring_by_sensor,
+                       config->split_ring_by_sensor ? active_slots[0]
+                                                    : config->sensor_ring_sensor,
+                       active_slots[1], config->paths_image_coolerdash)
+                 : write_display_png(surface, config,
+                                     config->paths_image_coolerdash)) ==
+            CAIRO_STATUS_SUCCESS;
     }
 
     if (!success)
