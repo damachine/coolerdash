@@ -1,54 +1,32 @@
-
-<p align="left">
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg"></a>
-  <a href="https://en.wikipedia.org/wiki/C99"><img src="https://img.shields.io/badge/C-99-blue.svg"></a>
-  <a href="https://kernel.org/"><img src="https://img.shields.io/badge/Platform-Linux-green.svg"></a>
-  <a href="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg"></a>
-</p>
-
 # CoolerDash
 
-### Linux LCD telemetry for supported AIO liquid coolers through CoolerControl, tested on multiple NZXT Kraken models.
+Linux LCD telemetry and customization for NZXT Kraken and other AIO coolers, powered by [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol). CoolerDash shows live CPU, GPU, and liquid temperatures with display layouts, sensor choices, and animated GIFs on compatible devices.
 
-**Display real-time CPU, GPU, and liquid temperatures with customizable layouts directly on your cooler's LCD.**
+<p align="center">
+  <img width="100%" alt="CoolerDash Split mode with green CPU and orange GPU temperature rings, beside Dual and Circle previews" src="images/layouts_hero.svg" />
+</p>
+
+<p align="center"><em>These are the layouts rendered for my NZXT Kraken 2023. I used previews because the reflective glass makes photos hard to read.</em></p>
+
+[Check supported devices](docs/devices.md) · [Install CoolerDash](#installation)
+
+CoolerDash works on [confirmed NZXT Kraken models](docs/devices.md), including Kraken 2023, Z63, and Plus 240. Other NZXT coolers can work if CoolerControl and [liquidctl](https://github.com/liquidctl/liquidctl) support their LCDs. CoolerControl 3.1.0 or newer is required.
+
+The Kraken 2023 Elite is [partially supported](docs/devices.md) due to [liquidctl bucket errors](https://github.com/damachine/coolerdash/issues/86). A [fix is available as a PR](https://github.com/liquidctl/liquidctl/pull/916), but its effect on this CoolerDash report is unconfirmed.
+
+<p align="left">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT license"></a>
+  <a href="https://en.wikipedia.org/wiki/C99"><img src="https://img.shields.io/badge/C-99-blue.svg" alt="C99"></a>
+  <a href="https://kernel.org/"><img src="https://img.shields.io/badge/Platform-Linux-green.svg" alt="Linux"></a>
+  <a href="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/damachine/coolerdash/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL status"></a>
+</p>
 
 ## Features
-- **Plug-In that extends the LCD functionality of [CoolerControl](https://gitlab.com/coolercontrol/coolercontrol)**
-- **Support for additional sensor values (CPU, GPU, liquid temperature, and more)**
-- **Multiple Display modes**
-- **Customizable display layouts**
-- **Animated GIF playback on the display**
-- **Integrated UI for customizing all settings**  
 
-### Split Mode
-
-**Default:** Shows CPU and GPU in two compact columns.
-
-<p align="left">
-  <img width="150" height="150" alt="Split mode preview 3" src="images/split_3_lcd.svg" />&nbsp;&nbsp;&nbsp;
-  <img width="150" height="150" alt="Split mode preview 2" src="images/split_2_lcd.svg" />&nbsp;&nbsp;&nbsp;
-  <img width="150" height="150" alt="Split mode preview 1" src="images/split_1_lcd.svg" />
-</p>
-
-### Dual Mode
-
-Shows CPU and GPU temperatures with bars.
-
-<p align="left">
-  <img width="150" height="150" alt="Dual mode preview 1" src="images/dual_1_lcd.svg" />&nbsp;&nbsp;&nbsp;
-  <img width="150" height="150" alt="Dual mode preview 2" src="images/dual_2_lcd.svg" />&nbsp;&nbsp;&nbsp;
-  <img width="150" height="150" alt="Dual mode preview 3" src="images/dual_3_lcd.svg" />
-</p>
-
-### Circle Mode
-
-**Beta:** Alternates between configured sensor slots.
-
-<p align="left">
-  <img width="150" height="150" alt="Circle mode preview 1" src="images/circle_1_lcd.svg" />&nbsp;&nbsp;&nbsp;
-  <img width="150" height="150" alt="Circle mode preview 2" src="images/circle_2_lcd.svg" />&nbsp;&nbsp;&nbsp;
-  <img width="150" height="150" alt="Circle mode preview 3" src="images/circle_3_lcd.svg" />
-</p>
+- Show CPU, GPU, liquid temperature, and other CoolerControl sensor values.
+- Choose from Split, Dual, and Circle display modes.
+- Adjust the layout and sensor values in the CoolerDash interface inside CoolerControl.
+- Play animated GIFs on the LCD (BETA).
 
 > **Officially listed by CoolerControl as a [2nd Party (Trusted) Plugin](https://docs.coolercontrol.org/automation/plugins.html#_2nd-party-trusted-plugins).**  
 > Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl.
@@ -64,7 +42,7 @@ Join the CoolerDash channel on the official CoolerControl Discord:
 - **CPU**: x86-64
 - **LCD**: AIO liquid cooler LCD displays **(NZXT, etc.)**
 
-> See the [Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md) for confirmed working hardware. In principle, all devices supported by CoolerControl/[liquidctl](https://github.com/liquidctl/liquidctl?tab=readme-ov-file#supported-devices) should work with CoolerDash. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) to help expand the list.
+> See [Supported Devices](docs/devices.md) for confirmed hardware. You can [submit a device confirmation](https://github.com/damachine/coolerdash/issues/new?template=device-confirmation.yml) for another LCD cooler.
 
 ## Installation
 
