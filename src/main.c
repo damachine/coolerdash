@@ -45,7 +45,7 @@
 #include "device/config.h"
 #include "device/hwreport.h"
 #include "device/profile.h"
-#include "device/shutdown.h"
+#include "device/images.h"
 #include "mods/display.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -745,7 +745,7 @@ static char *queue_shutdown_test_json(const char *body, size_t length,
     const char *token = json_string_value(json_object_get(root, "token"));
     const char *path = json_string_value(json_object_get(root, "path"));
     json_t *rotation_value = json_object_get(root, "rotation");
-    if (!shutdown_image_action_token_valid(token))
+    if (!image_action_token_valid(token))
     {
         *http_status = 403;
         json_decref(root);
@@ -837,13 +837,14 @@ static void serve_plugin_data(int client_fd)
         if (!request_has_local_host(request))
             status = "403 Forbidden";
         else
-            dynamic_body = shutdown_image_action_token_json();
+            dynamic_body = image_action_token_json();
         if (dynamic_body)
             body_length = strlen(dynamic_body);
         else if (strcmp(status, "200 OK") == 0)
             status = "500 Internal Server Error";
     }
     else if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0 ||
+             strncmp(request, "POST /background-import HTTP/", 29) == 0 ||
              strncmp(request, "POST /shutdown-test HTTP/", 25) == 0)
     {
         if (!request_has_local_host(request))
@@ -859,6 +860,9 @@ static void serve_plugin_data(int client_fd)
                 if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0)
                     dynamic_body = shutdown_image_import_json(header_end + 4,
                                                               content_length, &code);
+                else if (strncmp(request, "POST /background-import HTTP/", 29) == 0)
+                    dynamic_body = background_image_import_json(header_end + 4,
+                                                                content_length, &code);
                 else if (content_length <= PREVIEW_REQUEST_LIMIT)
                     dynamic_body = queue_shutdown_test_json(header_end + 4,
                                                             content_length, &code);
@@ -1907,7 +1911,7 @@ static void perform_cleanup(const Config *config)
     (void)config;
     log_message(LOG_INFO, "Daemon shutdown initiated");
     stop_status_server();
-    shutdown_image_import_cleanup();
+    image_import_cleanup();
     cleanup_coolercontrol_session();
     cleanup_sensor_curl_handle();
     running = 0;

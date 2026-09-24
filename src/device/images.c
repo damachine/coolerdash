@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
-#include "shutdown.h"
+#include "images.h"
 #include "config.h"
 #include "../mods/display.h"
 
@@ -16,13 +16,25 @@
 
 #define IMPORT_MAX_BYTES (16U * 1024U * 1024U)
 #define IMPORT_CHUNK_BYTES (256U * 1024U)
-#define IMPORT_TEMP_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/.user-shutdown-image.upload"
+#define SHUTDOWN_IMPORT_TEMP_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/.user-shutdown-image.upload"
+#define BACKGROUND_IMPORT_TEMP_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/.user-background-image.upload"
+
+static const char *import_temp_path(int background)
+{
+    return background ? BACKGROUND_IMPORT_TEMP_PATH : SHUTDOWN_IMPORT_TEMP_PATH;
+}
+
+static const char *import_target_path(int background)
+{
+    return background ? USER_BACKGROUND_IMAGE_PATH : USER_SHUTDOWN_IMAGE_PATH;
+}
 
 typedef struct
 {
     int fd;
     size_t expected;
     size_t received;
+    int background;
     char id[33];
 } ImportState;
 
@@ -59,7 +71,7 @@ static int random_hex(char output[33])
     return 1;
 }
 
-int shutdown_image_action_token_valid(const char *token)
+int image_action_token_valid(const char *token)
 {
     if (!token || strlen(token) != 32 || !s_token[0])
         return 0;
@@ -69,7 +81,7 @@ int shutdown_image_action_token_valid(const char *token)
     return diff == 0;
 }
 
-char *shutdown_image_action_token_json(void)
+char *image_action_token_json(void)
 {
     if (!s_token[0] && !random_hex(s_token))
         return NULL;
@@ -81,15 +93,17 @@ char *shutdown_image_action_token_json(void)
     return result;
 }
 
-void shutdown_image_import_cleanup(void)
+void image_import_cleanup(void)
 {
     if (s_import.fd >= 0)
         close(s_import.fd);
+    (void)unlink(SHUTDOWN_IMPORT_TEMP_PATH);
+    (void)unlink(BACKGROUND_IMPORT_TEMP_PATH);
     s_import.fd = -1;
     s_import.expected = 0;
     s_import.received = 0;
+    s_import.background = 0;
     s_import.id[0] = '\0';
-    (void)unlink(IMPORT_TEMP_PATH);
 }
 
 static char *response_error(int *status, int code, const char *message)
@@ -118,7 +132,8 @@ static int write_chunk(int fd, const unsigned char *data, size_t length)
     return 1;
 }
 
-char *shutdown_image_import_json(const char *body, size_t length, int *status)
+static char *image_import_json(const char *body, size_t length, int *status,
+                               int background)
 {
     *status = 422;
     if (!body || length == 0 || length > 512U * 1024U)
@@ -130,7 +145,7 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
     const char *op = json_string_value(json_object_get(root, "op"));
     const char *token = json_string_value(json_object_get(root, "token"));
     char *result = NULL;
-    if (!shutdown_image_action_token_valid(token))
+    if (!image_action_token_valid(token))
     {
         result = response_error(status, 403, "Action token is invalid");
         goto done;
@@ -144,13 +159,15 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
             result = response_error(status, 422, "Image must be at most 16 MiB");
             goto done;
         }
-        shutdown_image_import_cleanup();
+        image_import_cleanup();
+        s_import.background = background;
         if (!random_hex(s_import.id))
         {
             result = response_error(status, 500, "Cannot start image import");
             goto done;
         }
-        s_import.fd = open(IMPORT_TEMP_PATH, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+        s_import.fd = open(import_temp_path(background),
+                           O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
         if (s_import.fd < 0)
         {
             s_import.id[0] = '\0';
@@ -166,7 +183,8 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
     else
     {
         const char *id = json_string_value(json_object_get(root, "id"));
-        if (!id || !s_import.id[0] || strcmp(id, s_import.id) != 0 || s_import.fd < 0)
+        if (!id || !s_import.id[0] || strcmp(id, s_import.id) != 0 ||
+            s_import.fd < 0 || s_import.background != background)
         {
             result = response_error(status, 409, "No matching image import");
             goto done;
@@ -187,7 +205,7 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
                 !write_chunk(s_import.fd, decoded, decoded_size))
             {
                 g_free(decoded);
-                shutdown_image_import_cleanup();
+                image_import_cleanup();
                 result = response_error(status, 422, "Image transfer failed");
                 goto done;
             }
@@ -208,14 +226,14 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
             s_import.fd = -1;
             if (!complete)
             {
-                shutdown_image_import_cleanup();
+                image_import_cleanup();
                 result = response_error(status, 422, "Incomplete image upload");
                 goto done;
             }
-            if (!image_file_is_supported(IMPORT_TEMP_PATH) ||
-                rename(IMPORT_TEMP_PATH, USER_SHUTDOWN_IMAGE_PATH) != 0)
+            if (!image_file_is_supported(import_temp_path(background)) ||
+                rename(import_temp_path(background), import_target_path(background)) != 0)
             {
-                shutdown_image_import_cleanup();
+                image_import_cleanup();
                 result = response_error(status, 422, "Unsupported image or cannot save it");
                 goto done;
             }
@@ -227,13 +245,13 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
             }
             s_import.id[0] = '\0';
             *status = 200;
-            json_t *reply = json_pack("{s:s}", "path", USER_SHUTDOWN_IMAGE_PATH);
+            json_t *reply = json_pack("{s:s}", "path", import_target_path(background));
             result = reply ? json_dumps(reply, JSON_COMPACT) : NULL;
             json_decref(reply);
         }
         else if (op && strcmp(op, "cancel") == 0)
         {
-            shutdown_image_import_cleanup();
+            image_import_cleanup();
             *status = 200;
             result = strdup("{}\n");
         }
@@ -243,4 +261,14 @@ char *shutdown_image_import_json(const char *body, size_t length, int *status)
 done:
     json_decref(root);
     return result;
+}
+
+char *shutdown_image_import_json(const char *body, size_t length, int *status)
+{
+    return image_import_json(body, length, status, 0);
+}
+
+char *background_image_import_json(const char *body, size_t length, int *status)
+{
+    return image_import_json(body, length, status, 1);
 }

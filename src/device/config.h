@@ -30,6 +30,7 @@
 #endif
 #define DEFAULT_SHUTDOWN_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/shutdown.png"
 #define USER_SHUTDOWN_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/user-shutdown-image"
+#define USER_BACKGROUND_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/user-background-image"
 
 /** @brief RGB color; is_set=0 uses default, is_set=1 uses custom value. */
 typedef struct

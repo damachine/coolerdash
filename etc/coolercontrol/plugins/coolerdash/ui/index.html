@@ -81,7 +81,7 @@
             font-weight: 700;
         }
 
-        .shutdown-preview {
+        .image-preview {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -94,19 +94,19 @@
             border-radius: var(--radius-sm);
         }
 
-        .shutdown-preview img {
+        .image-preview img {
             display: block;
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
         }
 
-        .shutdown-preview img[hidden],
-        .shutdown-preview span[hidden] { display: none; }
+        .image-preview img[hidden],
+        .image-preview span[hidden] { display: none; }
 
-        .shutdown-preview span { margin: 0 8px; text-align: center; }
+        .image-preview span { margin: 0 8px; text-align: center; }
 
-        .shutdown-controls {
+        .image-controls {
             display: grid;
             grid-template-columns: minmax(0, 220px) minmax(0, 160px);
             gap: 14px;
@@ -114,7 +114,7 @@
             margin: 12px 0 8px;
         }
 
-        .shutdown-actions {
+        .image-actions {
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -122,12 +122,12 @@
             height: 120px;
         }
 
-        .shutdown-actions .btn { min-width: 0; padding: 10px 14px; }
+        .image-actions .btn { min-width: 0; padding: 10px 14px; }
 
         @media (max-width: 440px) {
-            .shutdown-controls { grid-template-columns: 1fr; }
-            .shutdown-actions { height: auto; }
-            .shutdown-actions .btn { min-height: 52px; }
+            .image-controls { grid-template-columns: 1fr; }
+            .image-actions { height: auto; }
+            .image-actions .btn { min-height: 52px; }
         }
 
         /* Header */
@@ -961,10 +961,20 @@
 
                 <h3 class="section-title">Background Image</h3>
                 <div class="form-group">
-                    <label class="form-label">Background Image Path</label>
-                    <span class="form-hint">Optional PNG, animated GIF, JPEG, BMP, or TIFF image displayed behind the sensor values. Leave empty to use the configured background color.</span>
-                    <input type="text" name="paths.image_background" class="form-control" onchange="refreshBackgroundPreview()">
-                    <span class="form-hint">Preview: use an absolute path readable by CoolerDash. Up to 16 MiB / 32 megapixels; GIF previews are static.</span>
+                    <span class="form-hint">Select a PNG, animated GIF, JPEG, BMP, or TIFF image to show behind the sensor values. Up to 16 MiB / 32 megapixels; GIF previews are static.</span>
+                    <input type="hidden" name="paths.image_background" id="background_image_path">
+                    <input type="file" id="background_image_file" accept=".png,.gif,.jpg,.jpeg,.bmp,.tif,.tiff,image/png,image/gif,image/jpeg,image/bmp,image/tiff" hidden onchange="importBackgroundImage(this)">
+                    <div class="image-controls">
+                        <div class="image-actions">
+                            <button type="button" class="btn btn-secondary" id="background_import_button" onclick="document.getElementById('background_image_file').click()">Select image</button>
+                            <button type="button" class="btn btn-secondary" id="background_clear_button" onclick="clearBackgroundImage()">Use background color</button>
+                        </div>
+                        <figure class="image-preview">
+                            <img id="background_preview_image" alt="Current background image" hidden>
+                            <span class="form-hint" id="background_preview_placeholder" role="status">Loading image preview…</span>
+                        </figure>
+                    </div>
+                    <span class="form-hint" id="background_image_status" role="status" aria-live="polite">Save settings to apply a new background image.</span>
                 </div>
                 <div class="grid grid-2">
                     <div class="form-group" style="grid-column: 1 / -1;">
@@ -1001,12 +1011,12 @@
                     <span class="form-hint">Select a PNG, GIF, JPEG, BMP, or TIFF image for the shutdown screen. Format support on the LCD depends on the device.</span>
                     <input type="hidden" name="paths.image_shutdown" id="shutdown_image_path">
                     <input type="file" id="shutdown_image_file" accept=".png,.gif,.jpg,.jpeg,.bmp,.tif,.tiff,image/png,image/gif,image/jpeg,image/bmp,image/tiff" hidden onchange="importShutdownImage(this)">
-                    <div class="shutdown-controls">
-                        <div class="shutdown-actions">
+                    <div class="image-controls">
+                        <div class="image-actions">
                             <button type="button" class="btn btn-secondary" id="shutdown_import_button" onclick="document.getElementById('shutdown_image_file').click()">Select image</button>
                             <button type="button" class="btn btn-secondary" id="shutdown_test_button" onclick="testShutdownImage()">Show on LCD for 5 seconds</button>
                         </div>
-                        <figure class="shutdown-preview">
+                        <figure class="image-preview">
                             <img id="shutdown_preview_image" alt="Current shutdown image" hidden>
                             <span class="form-hint" id="shutdown_preview_placeholder" role="status">Loading image preview…</span>
                         </figure>
@@ -3446,28 +3456,35 @@
 
             toggleDisplayModeFields();
             validateSensorSlots();
-            updateShutdownImagePreview();
+            updateSelectedImagePreview('background');
+            updateSelectedImagePreview('shutdown');
         }
 
-        // ===== SHUTDOWN IMAGE =====
-        var shutdownImageBusy = false;
-        var shutdownPreviewGeneration = 0;
+        // ===== IMAGE IMPORT AND PREVIEWS =====
+        var imageActionBusy = false;
+        var activeImageActionKind = 'shutdown';
+        var selectedPreviewGeneration = { background: 0, shutdown: 0 };
 
-        async function updateShutdownImagePreview() {
-            var generation = ++shutdownPreviewGeneration;
-            var image = document.getElementById('shutdown_preview_image');
-            var placeholder = document.getElementById('shutdown_preview_placeholder');
-            var path = document.getElementById('shutdown_image_path').value.trim() ||
-                FACTORY_DEFAULTS.paths.image_shutdown;
+        async function updateSelectedImagePreview(kind) {
+            var generation = ++selectedPreviewGeneration[kind];
+            var image = document.getElementById(kind + '_preview_image');
+            var placeholder = document.getElementById(kind + '_preview_placeholder');
+            var path = document.getElementById(kind + '_image_path').value.trim();
+            if (kind === 'shutdown' && !path)
+                path = FACTORY_DEFAULTS.paths.image_shutdown;
             image.hidden = true;
             image.removeAttribute('src');
             placeholder.hidden = false;
+            if (!path) {
+                placeholder.textContent = 'No background image selected';
+                return;
+            }
             placeholder.textContent = 'Loading image preview…';
             // Reset restarts the plugin; the first proxy request can land during that restart.
             for (var attempt = 0; attempt < 4; attempt++) {
                 if (attempt > 0) {
                     await new Promise(function (resolve) { setTimeout(resolve, 800 * attempt); });
-                    if (generation !== shutdownPreviewGeneration) return;
+                    if (generation !== selectedPreviewGeneration[kind]) return;
                 }
                 var timeout;
                 try {
@@ -3478,7 +3495,7 @@
                             timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 4000);
                         })
                     ]);
-                    if (generation !== shutdownPreviewGeneration) return;
+                    if (generation !== selectedPreviewGeneration[kind]) return;
                     if (!result || typeof result.image !== 'string' || result.image.length > 1500000 ||
                         !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
                         throw new Error('Invalid preview image');
@@ -3488,7 +3505,7 @@
                     placeholder.hidden = true;
                     return;
                 } catch (error) {
-                    if (generation !== shutdownPreviewGeneration) return;
+                    if (generation !== selectedPreviewGeneration[kind]) return;
                     if (attempt === 3)
                         placeholder.textContent = 'Image preview unavailable';
                 } finally {
@@ -3497,22 +3514,25 @@
             }
         }
 
-
-        function setShutdownImageBusy(busy, message) {
-            shutdownImageBusy = busy;
-            document.getElementById('shutdown_import_button').disabled = busy;
-            document.getElementById('shutdown_test_button').disabled = busy;
-            if (message) document.getElementById('shutdown_image_status').textContent = message;
+        function setImageActionBusy(kind, busy, message) {
+            imageActionBusy = busy;
+            if (busy) activeImageActionKind = kind;
+            ['background_import_button', 'background_clear_button',
+             'shutdown_import_button', 'shutdown_test_button'].forEach(function (id) {
+                document.getElementById(id).disabled = busy;
+            });
+            if (message)
+                document.getElementById(kind + '_image_status').textContent = message;
         }
 
-        async function shutdownActionToken() {
+        async function imageActionToken() {
             if (typeof pluginFetch !== 'function') throw new Error('CoolerControl plugin proxy is unavailable');
             var result = await pluginFetch('/shutdown-action-token');
             if (!result || typeof result.token !== 'string') throw new Error('CoolerDash is not running');
             return result.token;
         }
 
-        async function shutdownPost(path, data) {
+        async function imagePost(path, data) {
             var result = await pluginFetch(path, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -3522,74 +3542,96 @@
             return result;
         }
 
-        function shutdownChunkBase64(bytes) {
+        function imageChunkBase64(bytes) {
             var binary = '';
             for (var i = 0; i < bytes.length; i += 8192)
                 binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
             return btoa(binary);
         }
 
-        async function importShutdownImage(input) {
+        function importBackgroundImage(input) {
+            return importSelectedImage(input, 'background');
+        }
+
+        function importShutdownImage(input) {
+            return importSelectedImage(input, 'shutdown');
+        }
+
+        async function importSelectedImage(input, kind) {
             var file = input.files && input.files[0];
             input.value = '';
-            if (!file || shutdownImageBusy) return;
+            if (!file || imageActionBusy) return;
+            var status = document.getElementById(kind + '_image_status');
             if (file.size === 0 || file.size > 16 * 1024 * 1024) {
-                document.getElementById('shutdown_image_status').textContent = 'Choose an image of at most 16 MiB.';
+                status.textContent = 'Choose an image of at most 16 MiB.';
                 return;
             }
-            setShutdownImageBusy(true, 'Importing image…');
+            setImageActionBusy(kind, true, 'Importing image…');
             var token, id;
+            var endpoint = kind === 'background' ? '/background-import' : '/shutdown-import';
             try {
-                token = await shutdownActionToken();
-                var begin = await shutdownPost('/shutdown-import', { op: 'begin', token: token, size: file.size });
+                token = await imageActionToken();
+                var begin = await imagePost(endpoint, { op: 'begin', token: token, size: file.size });
                 if (typeof begin.id !== 'string') throw new Error('Could not start image import');
                 id = begin.id;
                 var chunkSize = 256 * 1024;
                 for (var offset = 0; offset < file.size; offset += chunkSize) {
                     var bytes = new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer());
-                    await shutdownPost('/shutdown-import', {
-                        op: 'chunk', token: token, id: id, data: shutdownChunkBase64(bytes)
+                    await imagePost(endpoint, {
+                        op: 'chunk', token: token, id: id, data: imageChunkBase64(bytes)
                     });
                 }
-                var result = await shutdownPost('/shutdown-import', { op: 'finish', token: token, id: id });
+                var result = await imagePost(endpoint, { op: 'finish', token: token, id: id });
                 if (typeof result.path !== 'string') throw new Error('Image import did not finish');
-                document.getElementById('shutdown_image_path').value = result.path;
-                updateShutdownImagePreview();
-                setShutdownImageBusy(false, 'Image imported. Save settings to use it at shutdown.');
+                document.getElementById(kind + '_image_path').value = result.path;
+                updateSelectedImagePreview(kind);
+                if (kind === 'background') refreshBackgroundPreview();
+                setImageActionBusy(kind, false,
+                    'Image imported. Save settings to use it ' +
+                    (kind === 'background' ? 'as the background.' : 'at shutdown.'));
             } catch (error) {
                 if (token && id) {
-                    try { await shutdownPost('/shutdown-import', { op: 'cancel', token: token, id: id }); }
+                    try { await imagePost(endpoint, { op: 'cancel', token: token, id: id }); }
                     catch (_) { /* The old image remains installed. */ }
                 }
-                setShutdownImageBusy(false, 'Import failed: ' + error.message);
+                setImageActionBusy(kind, false, 'Import failed: ' + error.message);
             }
         }
 
+        function clearBackgroundImage() {
+            if (imageActionBusy) return;
+            document.getElementById('background_image_path').value = '';
+            updateSelectedImagePreview('background');
+            refreshBackgroundPreview();
+            document.getElementById('background_image_status').textContent =
+                'Background color selected. Save settings to apply it.';
+        }
+
         async function testShutdownImage() {
-            if (shutdownImageBusy) return;
+            if (imageActionBusy) return;
             var path = document.getElementById('shutdown_image_path').value.trim();
             if (!path) {
                 document.getElementById('shutdown_image_status').textContent = 'Select or import an image first.';
                 return;
             }
-            setShutdownImageBusy(true, 'Sending image to LCD…');
+            setImageActionBusy('shutdown', true, 'Sending image to LCD…');
             try {
-                var token = await shutdownActionToken();
+                var token = await imageActionToken();
                 var rotation = Number(document.getElementById('display_orientation').value);
-                var result = await shutdownPost('/shutdown-test', { token: token, path: path, rotation: rotation });
+                var result = await imagePost('/shutdown-test', { token: token, path: path, rotation: rotation });
                 if (!result.shown) throw new Error('LCD did not accept the image');
                 document.getElementById('shutdown_image_status').textContent = 'Showing on LCD for 5 seconds…';
                 await new Promise(function (resolve) { setTimeout(resolve, 5200); });
-                setShutdownImageBusy(false, 'Preview complete. Normal dashboard is resuming.');
+                setImageActionBusy('shutdown', false, 'Preview complete. Normal dashboard is resuming.');
             } catch (error) {
-                setShutdownImageBusy(false, 'LCD test failed: ' + error.message);
+                setImageActionBusy('shutdown', false, 'LCD test failed: ' + error.message);
             }
         }
 
         // ===== SAVE / RESET =====
         async function saveConfig() {
-            if (shutdownImageBusy) {
-                document.getElementById('shutdown_image_status').textContent = 'Wait for the image action to finish before saving.';
+            if (imageActionBusy) {
+                document.getElementById(activeImageActionKind + '_image_status').textContent = 'Wait for the image action to finish before saving.';
                 return;
             }
             if (!validateSensorSlots()) {
@@ -3611,8 +3653,8 @@
 
 
         async function resetConfig() {
-            if (shutdownImageBusy) {
-                document.getElementById('shutdown_image_status').textContent = 'Wait for the image action to finish before resetting.';
+            if (imageActionBusy) {
+                document.getElementById(activeImageActionKind + '_image_status').textContent = 'Wait for the image action to finish before resetting.';
                 return;
             }
             try {
