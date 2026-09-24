@@ -869,13 +869,11 @@ void draw_sensor_ring_for_slot(cairo_t *cr, const struct Config *config,
         const int width = config->display_width - 2 * x;
         const int height = config->display_height - 2 * y;
         const double short_side = fmin((double)width, (double)height);
-        const double corner_radius = fmin(
-            short_side * 0.5,
-            fmax(line_width,
-                 short_side *
-                     (params->shape == DISPLAY_SHAPE_ROUNDED_SQUARE
-                          ? 0.16
-                          : 0.08)));
+        const double corner_radius = config->layout_ring_rounded_corners
+            ? fmin(short_side * 0.5,
+                   fmax(line_width, short_side *
+                       (params->shape == DISPLAY_SHAPE_ROUNDED_SQUARE ? 0.16 : 0.08)))
+            : 0.0;
 
         if (width > 2 && height > 2)
         {
@@ -1023,12 +1021,11 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
     }
 
     const double short_side = fmin((double)width, (double)height);
-    const double corner_radius = fmin(
-        short_side * 0.5,
-        fmax(line_width,
-             short_side *
-                 (params->shape == DISPLAY_SHAPE_ROUNDED_SQUARE ? 0.16
-                                                                : 0.08)));
+    const double corner_radius = config->layout_ring_rounded_corners
+        ? fmin(short_side * 0.5,
+               fmax(line_width, short_side *
+                   (params->shape == DISPLAY_SHAPE_ROUNDED_SQUARE ? 0.16 : 0.08)))
+        : 0.0;
 
     set_cairo_color_alpha(cr, &config->layout_bar_color_background,
                           0.72 * opacity);
@@ -1226,6 +1223,11 @@ int calculate_temp_fill_width(float temp_value, int max_width, float max_temp)
 void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
                                  int height, double radius)
 {
+    if (radius <= 0.0)
+    {
+        cairo_rectangle(cr, x, y, width, height);
+        return;
+    }
     cairo_new_sub_path(cr);
     cairo_arc(cr, x + width - radius, y + radius, radius, -DISPLAY_M_PI_2, 0);
     cairo_arc(cr, x + width - radius, y + height - radius, radius, 0,

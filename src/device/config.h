@@ -139,6 +139,7 @@ typedef struct Config
     float layout_bar_opacity;
     float layout_ring_width;   /**< Logical base units; 0 = automatic. */
     float layout_ring_opacity; /**< Ring opacity from 0.0 to 1.0. */
+    int layout_ring_rounded_corners; /**< 1 = rounded rectangular ring corners. */
     int layout_bar_border_enabled; // 1=enabled, 0=disabled, -1=auto (use default)
     uint8_t layout_bar_width;
     uint8_t layout_label_margin_left;

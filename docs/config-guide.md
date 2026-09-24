@@ -93,6 +93,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
     "bar_border": 1.0,
     "ring_width": 0,
     "ring_opacity": 1.0,
+    "ring_rounded_corners": true,
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,
@@ -110,6 +111,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 | `bar_border` | `0.6` | Border thickness (px) |
 | `ring_width` | `0` | Ring thickness in scaled logical units; `0` selects automatic sizing |
 | `ring_opacity` | `1.0` | Opacity of the complete ring (`0.0`–`1.0`) |
+| `ring_rounded_corners` | `true` | Round the corners of rectangular sensor rings; `false` uses square corners |
 | `bar_border_enabled` | `1` | Border on/off (`1`/`0`) |
 | `label_margin_left` | `1` | Left label margin multiplier |
 | `label_margin_bar` | `1` | Label-to-bar margin multiplier |

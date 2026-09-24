@@ -238,6 +238,8 @@ static void set_layout_defaults(Config *config)
     if (config->layout_ring_opacity < 0.0f ||
         config->layout_ring_opacity > 1.0f)
         config->layout_ring_opacity = 1.0f;
+    if (config->layout_ring_rounded_corners < 0)
+        config->layout_ring_rounded_corners = 1;
     // bar_border_enabled: -1 = auto (enabled), 0 = disabled, 1 = enabled
     if (config->layout_bar_border_enabled < 0)
         config->layout_bar_border_enabled = 1; // Default: enabled
@@ -1348,6 +1350,12 @@ static void load_layout_from_json(json_t *root, Config *config)
             config->layout_ring_opacity = (float)val;
     }
 
+    json_t *ring_rounded_corners = json_object_get(layout, "ring_rounded_corners");
+    if (json_is_boolean(ring_rounded_corners))
+        config->layout_ring_rounded_corners = json_is_true(ring_rounded_corners);
+    else if (json_is_integer(ring_rounded_corners))
+        config->layout_ring_rounded_corners = json_integer_value(ring_rounded_corners) != 0;
+
     json_t *bar_border = json_object_get(layout, "bar_border");
     if (bar_border && json_is_number(bar_border))
     {
@@ -1743,6 +1751,7 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
     config->layout_bar_opacity = -1.0f;     // Sentinel for "use default"
     config->layout_ring_width = -1.0f;      // Sentinel for automatic width
     config->layout_ring_opacity = -1.0f;    // Sentinel for fully visible
+    config->layout_ring_rounded_corners = -1; // Sentinel for rounded corners
     config->layout_bar_border_enabled = -1; // Sentinel for "auto" (enabled)
     config->circle_show_extra_info = -1;    // Sentinel for "auto" (enabled)
     config->circle_show_load = -1;

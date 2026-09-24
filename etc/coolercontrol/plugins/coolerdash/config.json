@@ -56,6 +56,7 @@
     "bar_opacity": 1,
     "ring_width": 0,
     "ring_opacity": 1,
+    "ring_rounded_corners": true,
     "bar_border_enabled": 1,
     "label_margin_left": 1,
     "label_margin_bar": 1,

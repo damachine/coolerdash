@@ -1173,6 +1173,10 @@
                                 <span class="form-hint">0.0 = transparent, 1.0 = fully visible</span>
                                 <input type="number" name="layout.ring_opacity" class="form-control" min="0" max="1" step="0.05">
                             </div>
+                            <div class="form-group" style="grid-column: 1 / -1;">
+                                <label class="display-option"><input type="checkbox" name="layout.ring_rounded_corners" id="ring_rounded_corners" value="1" onchange="updateModePreview()">Rounded Ring Corners</label>
+                                <span class="form-hint">For rectangular displays. Enabled by default.</span>
+                            </div>
                         </div>
                     </div>
                 </details>
@@ -1525,6 +1529,7 @@
                 bar_opacity: 1.0,
                 ring_width: 0,
                 ring_opacity: 1.0,
+                ring_rounded_corners: true,
                 bar_border_enabled: 1,
                 label_margin_left: 1,
                 label_margin_bar: 1,
@@ -3409,6 +3414,8 @@
             config.sensors = collectSensorConfigsFromDOM();
 
             // Checkbox fields (not included in FormData when unchecked)
+            config.layout.ring_rounded_corners =
+                document.getElementById('ring_rounded_corners').checked;
             document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
                 config.display[element.id] = element.checked;
             });
@@ -3478,6 +3485,9 @@
             }
 
             // Checkbox fields
+            document.getElementById('ring_rounded_corners').checked =
+                config.layout.ring_rounded_corners !== false &&
+                config.layout.ring_rounded_corners !== 0;
             document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
                 element.checked = !!config.display[element.id];
             });
