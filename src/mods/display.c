@@ -1041,8 +1041,10 @@ void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
         2.0 * ((double)width + (double)height - 4.0 * corner_radius) +
         2.0 * DISPLAY_M_PI * corner_radius;
     const double half = perimeter * 0.5;
-    /* A full turn follows one complete trip around the fixed outline. */
-    const double shift = perimeter * config->display_rotation / 360.0;
+    /* The path starts at the top right. The left half starts at bottom center. */
+    const double left_start = half - width * 0.5 + corner_radius;
+    const double shift = left_start +
+                         perimeter * config->display_rotation / 360.0;
     for (int i = 0; i < 2; i++)
     {
         if (!entries[i])
