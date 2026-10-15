@@ -334,7 +334,8 @@ static int parse_all_sensor_data(const char *json, monitor_sensor_data_t *data)
 
 /**
  * @brief Configure CURL for status API request.
- * @details Helper function to set up CURL options for temperature data request.
+ * @details Helper function to set up CURL options for a request of the latest
+ * status of every device.
  */
 static void configure_status_request(CURL *curl, const char *url,
                                      struct http_response *response)
@@ -350,9 +351,8 @@ static void configure_status_request(CURL *curl, const char *url,
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
-    // POST data for status request
-    const char *post_data =
-        "{\"all\":false,\"since\":\"1970-01-01T00:00:00.000Z\"}";
+    // An empty body requests only the latest status of every device
+    const char *post_data = "{}";
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
 }
 
