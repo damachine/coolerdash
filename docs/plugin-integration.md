@@ -15,7 +15,7 @@ the `***` sentinel after the token has been saved.
 Registered once at startup through CoolerControl's shutdown-image API:
 
 ```
-PUT /devices/{uid}/settings/lcd/{channel}/shutdown-image
+PUT /devices/{uid}/settings/{channel}/lcd/shutdown-image
 ```
 
 CoolerControl stores the image and displays it when it stops. Configure a custom

@@ -14,8 +14,8 @@
 |----------|--------|-------------|
 | `/devices` | GET | Device enumeration (once at startup) |
 | `/status` | POST | Temperature sensor data |
-| `/devices/{uid}/settings/lcd/{channel}` | PUT | Apply generated LCD image path |
-| `/devices/{uid}/settings/lcd/{channel}/shutdown-image` | PUT | Register shutdown image |
+| `/devices/{uid}/settings/{channel}/lcd` | PUT | Apply generated LCD image path |
+| `/devices/{uid}/settings/{channel}/lcd/shutdown-image` | PUT | Register shutdown image |
 
 Base URL: `http://localhost:11987` (configurable)
 Auth: `Authorization: Bearer cc_<uuid>`
@@ -36,7 +36,7 @@ CoolerDash and CoolerControl to run on the same host.
 
 2. Main loop (reuse session)
    - get_temperature_data()  → POST /status
-   - send_image_to_lcd()     → PUT /devices/{uid}/settings/lcd/{channel}
+   - send_image_to_lcd()     → PUT /devices/{uid}/settings/{channel}/lcd
 
 3. cleanup_coolercontrol_session()
    - curl_easy_cleanup() + curl_global_cleanup()
@@ -69,7 +69,7 @@ typedef struct {
 ### LCD Upload
 
 ```
-PUT {address}/devices/{uid}/settings/lcd/{channel}?log=false
+PUT {address}/devices/{uid}/settings/{channel}/lcd?log=false
 Content-Type: application/json
 
 {
@@ -92,7 +92,7 @@ source image with the matching MIME type. At other angles it sends a rotated PNG
 copy; an animated source uses its first frame.
 
 ```
-PUT {address}/devices/{uid}/settings/lcd/{channel}/shutdown-image
+PUT {address}/devices/{uid}/settings/{channel}/lcd/shutdown-image
 ```
 
 ### HTTP Response Buffer
@@ -221,7 +221,7 @@ curl -X POST http://127.0.0.1:11987/status \
     -d '{"all":false,"since":"1970-01-01T00:00:00.000Z"}' | jq
 
 # Apply generated LCD image
-curl -X PUT "http://127.0.0.1:11987/devices/{UID}/settings/lcd/{CHANNEL}?log=false" \
+curl -X PUT "http://127.0.0.1:11987/devices/{UID}/settings/{CHANNEL}/lcd?log=false" \
     -H "Authorization: Bearer cc_<uuid>" \
     -H "Content-Type: application/json" \
     -d '{"mode":"image","image_file_processed":"/var/lib/coolercontrol/plugins/coolerdash/coolerdash.png","brightness":80,"orientation":0,"colors":[]}'

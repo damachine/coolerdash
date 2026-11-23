@@ -323,7 +323,7 @@ static int check_upload_response(CURLcode res, long http_response_code,
  * @brief Sends an image path to the LCD display via JSON settings endpoint.
  * @details Instead of uploading the full image binary via multipart, this sends
  * the file path to CoolerControl which reads the image directly from disk.
- * Uses PUT /devices/{uid}/settings/lcd/{channel} with LcdSettings JSON body.
+ * Uses PUT /devices/{uid}/settings/{channel}/lcd with LcdSettings JSON body.
  */
 int send_image_to_lcd(const Config *config, const char *image_path,
                       const char *device_uid)
@@ -340,7 +340,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 
     char upload_url[CC_URL_SIZE];
     int written = snprintf(upload_url, sizeof(upload_url),
-                           "%s/devices/%s/settings/lcd/%s?log=false",
+                           "%s/devices/%s/settings/%s/lcd?log=false",
                            config->daemon_address, device_uid, lcd_channel);
     if (!validate_snprintf(written, sizeof(upload_url), upload_url))
     {
@@ -419,7 +419,7 @@ int send_image_to_lcd(const Config *config, const char *image_path,
 /**
  * @brief Register shutdown image with CoolerControl's native LCD shutdown image API.
  * @details Uploads the shutdown image to CC at daemon startup via multipart PUT to
- *          /devices/{uid}/settings/lcd/{channel}/shutdown-image.
+ *          /devices/{uid}/settings/{channel}/lcd/shutdown-image.
  *          CC stores the image internally and applies it automatically when the
  *          CC daemon shuts down. Handles 404 gracefully (CC version too old).
  */
@@ -458,7 +458,7 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
 
     char url[CC_URL_SIZE];
     int written = snprintf(url, sizeof(url),
-                           "%s/devices/%s/settings/lcd/%s/shutdown-image",
+                           "%s/devices/%s/settings/%s/lcd/shutdown-image",
                            config->daemon_address, device_uid, lcd_channel);
     if (!validate_snprintf(written, sizeof(url), url))
     {
