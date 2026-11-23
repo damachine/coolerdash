@@ -101,6 +101,8 @@ jobs:
             libcurl4-openssl-dev \
             libfontconfig1-dev \
             libgdk-pixbuf-2.0-dev \
+            libhidapi-dev \
+            libusb-1.0-0-dev \
             libjansson-dev \
             fonts-roboto \
             systemd \
@@ -121,6 +123,8 @@ jobs:
             fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf2-devel \
+            hidapi-devel \
+            libusb1-devel \
             jansson-devel \
             google-roboto-fonts \
             systemd \
@@ -146,6 +150,8 @@ jobs:
             fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf2-devel \
+            hidapi-devel \
+            libusb1-devel \
             jansson-devel \
             google-roboto-fonts \
             systemd \
@@ -170,6 +176,10 @@ jobs:
             fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf-devel \
+            libhidapi-dev \
+            libusb-1.0-0-dev \
+            'pkgconfig(hidapi-hidraw)' \
+            'pkgconfig(libusb-1.0)' \
             libjansson-devel \
             google-roboto-fonts \
             systemd \

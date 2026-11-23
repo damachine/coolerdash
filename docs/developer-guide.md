@@ -74,11 +74,12 @@ Compiler flags:
 ```makefile
 CFLAGS ?= -Wall -Wextra -O2
 CFLAGS += -std=c99
-CPPFLAGS += -Iinclude $(shell pkg-config --cflags cairo fontconfig gdk-pixbuf-2.0 jansson libcurl)
-LDLIBS = $(shell pkg-config --libs cairo fontconfig gdk-pixbuf-2.0 jansson libcurl) -lm
+PKG_DEPS = cairo fontconfig gdk-pixbuf-2.0 jansson libcurl libusb-1.0 hidapi-hidraw
+CPPFLAGS += -Iinclude $(shell pkg-config --cflags $(PKG_DEPS))
+LDLIBS = $(shell pkg-config --libs $(PKG_DEPS)) -lm -pthread
 ```
 
-Dependencies: `cairo`, `coolercontrold`, `fontconfig`, `gdk-pixbuf`, `jansson`, `libcurl`, `glibc`, `ttf-roboto`
+Dependencies: `cairo`, `coolercontrold`, `fontconfig`, `gdk-pixbuf`, `jansson`, `libcurl`, `libusb`, `hidapi`, `glibc`, `ttf-roboto`
 
 ---
 

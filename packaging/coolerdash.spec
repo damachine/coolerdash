@@ -18,6 +18,8 @@ BuildRequires:  pkgconfig(fontconfig)
 BuildRequires:  pkgconfig(gdk-pixbuf-2.0)
 BuildRequires:  pkgconfig(jansson)
 BuildRequires:  pkgconfig(libcurl)
+BuildRequires:  pkgconfig(hidapi-hidraw)
+BuildRequires:  pkgconfig(libusb-1.0)
 
 # Shared lib deps are auto-detected by rpmbuild
 Requires:       google-roboto-fonts

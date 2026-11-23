@@ -15,7 +15,7 @@
 
 /*
  * Geometry is deliberately conservative: only verified native resolutions and
- * shapes live here. A zero FPS value means that no stable limit is known yet.
+ * shapes live here. Stream rates limit CoolerDash's USB traffic.
  */
 static const DisplayProfile display_profiles[] = {
     {"NZXT Kraken Z series", NZXT_VENDOR_ID, 0x3008, 320, 320,
@@ -28,11 +28,11 @@ static const DisplayProfile display_profiles[] = {
      "kraken", "2023", "elite"},
     {"NZXT Kraken 2023", NZXT_VENDOR_ID, 0x300e, 240, 240,
      DISPLAY_SHAPE_RECTANGULAR, 1.0, 0.5, 0.5,
-     DISPLAY_TRANSPORT_IMAGE_UPLOAD, 0x00, 0,
+     DISPLAY_TRANSPORT_STREAM_RGB565, 2, 5,
      "kraken", "2023", NULL},
     {"NZXT Kraken Elite (2024)", NZXT_VENDOR_ID, 0x3012, 640, 640,
      DISPLAY_SHAPE_CIRCULAR, 1.0, 0.5, 0.5,
-     DISPLAY_TRANSPORT_IMAGE_UPLOAD, 0x00, 0,
+     DISPLAY_TRANSPORT_STREAM_Q565, 0, 12,
      "kraken", "2024", "elite"},
     {"NZXT Kraken Plus (2025)", NZXT_VENDOR_ID, 0x3014, 240, 240,
      DISPLAY_SHAPE_RECTANGULAR, 1.0, 0.5, 0.5,
@@ -70,6 +70,27 @@ static int dimensions_match(const DisplayProfile *profile,
            screen_height == profile->native_height;
 }
 
+static const DisplayProfile *match_profile_name(const char *device_name,
+                                                int width, int height)
+{
+    const size_t count = sizeof(display_profiles) / sizeof(display_profiles[0]);
+    for (size_t i = 0; i < count; i++)
+    {
+        const DisplayProfile *profile = &display_profiles[i];
+        if (((width == 0 && height == 0) || dimensions_match(profile, width, height)) &&
+            contains_token_ci(device_name, profile->match_token_1) &&
+            contains_token_ci(device_name, profile->match_token_2) &&
+            contains_token_ci(device_name, profile->match_token_3))
+            return profile;
+    }
+    return NULL;
+}
+
+const DisplayProfile *identify_display_profile(const char *device_name)
+{
+    return match_profile_name(device_name, 0, 0);
+}
+
 const DisplayProfile *resolve_display_profile(uint16_t vendor_id,
                                               uint16_t product_id,
                                               const char *device_name,
@@ -88,19 +109,9 @@ const DisplayProfile *resolve_display_profile(uint16_t vendor_id,
         }
     }
 
-    for (size_t i = 0; i < count; i++)
-    {
-        const DisplayProfile *profile = &display_profiles[i];
-        if (dimensions_match(profile, screen_width, screen_height) &&
-            contains_token_ci(device_name, profile->match_token_1) &&
-            contains_token_ci(device_name, profile->match_token_2) &&
-            contains_token_ci(device_name, profile->match_token_3))
-        {
-            return profile;
-        }
-    }
-
-    return NULL;
+    return screen_width > 0 && screen_height > 0
+               ? match_profile_name(device_name, screen_width, screen_height)
+               : NULL;
 }
 
 int calculate_circle_chord_bounds(double center_x, double center_y,
@@ -148,7 +159,13 @@ const char *display_shape_name(DisplayShape shape)
 
 const char *display_transport_name(DisplayTransport transport)
 {
-    return transport == DISPLAY_TRANSPORT_STREAM_BGR888
-               ? "stream-bgr888"
-               : "image-upload";
+    switch (transport)
+    {
+    case DISPLAY_TRANSPORT_STREAM_RGB565:
+        return "stream-rgb565";
+    case DISPLAY_TRANSPORT_STREAM_Q565:
+        return "stream-q565";
+    default:
+        return "image-upload";
+    }
 }

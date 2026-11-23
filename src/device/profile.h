@@ -21,13 +21,13 @@ typedef enum
 typedef enum
 {
     DISPLAY_TRANSPORT_IMAGE_UPLOAD = 0,
-    DISPLAY_TRANSPORT_STREAM_BGR888
+    DISPLAY_TRANSPORT_STREAM_RGB565 = 0x06,
+    DISPLAY_TRANSPORT_STREAM_Q565 = 0x08
 } DisplayTransport;
 
 /**
  * @brief Immutable hardware display metadata.
- * @details Transport fields describe the preferred CoolerDash integration
- * path. CoolerDash currently uploads rendered images through CoolerControl.
+ * @details Direct LCD streaming requires a supported device and firmware.
  */
 typedef struct
 {
@@ -41,8 +41,8 @@ typedef struct
     double center_x_ratio;
     double center_y_ratio;
     DisplayTransport preferred_transport;
-    uint8_t stream_mode;
-    uint8_t recommended_fps; /**< 0 when not verified */
+    uint8_t stream_firmware_major; /**< 0 if there is no firmware restriction */
+    uint8_t stream_fps; /**< Maximum frame rate for the direct LCD stream */
     const char *match_token_1;
     const char *match_token_2;
     const char *match_token_3;
@@ -58,6 +58,9 @@ const DisplayProfile *resolve_display_profile(uint16_t vendor_id,
                                               const char *device_name,
                                               int screen_width,
                                               int screen_height);
+
+/** Match the model name when CoolerControl's LCD channel is disabled. */
+const DisplayProfile *identify_display_profile(const char *device_name);
 
 /** @brief Calculate the narrowest circle chord spanning a vertical region. */
 int calculate_circle_chord_bounds(double center_x, double center_y,
