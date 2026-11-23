@@ -22,6 +22,7 @@
 
 // Include project headers
 #include "../device/config.h"
+#include "../device/profile.h"
 
 // Basic constants
 #define CC_NAME_SIZE 128
@@ -58,6 +59,8 @@ const char *get_cached_lcd_channel(const struct Config *config);
 
 /** Older CoolerControl versions omit gif_supported. Let the upload decide. */
 int lcd_allows_native_gif(const struct Config *config);
+
+const DisplayProfile *cc_released_lcd_profile(const struct Config *config);
 
 /**
  * @brief Initialize device information cache.

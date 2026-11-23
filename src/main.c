@@ -47,6 +47,7 @@
 #include "device/profile.h"
 #include "device/images.h"
 #include "mods/display.h"
+#include "mods/stream.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
 #include "srv/cc_sensor.h"
@@ -119,7 +120,7 @@ typedef struct
     char path[CONFIG_MAX_PATH_LEN];
     int rotation;
     int state; /* 0 idle, 1 pending, 2 showing */
-    int result; /* -1 until the LCD request finishes */
+    int result; /* -1 pending, -2 unavailable during direct LCD streaming */
 } ShutdownTest;
 
 static ShutdownTest s_shutdown_test = {
@@ -476,7 +477,20 @@ static int send_all(int fd, const char *data, size_t length)
 static void update_device_info_snapshot(const Config *config)
 {
     DeviceInfoSnapshot next = {0};
-    if (get_cached_lcd_device_data(config, next.device_uid,
+    const DisplayProfile *stream_profile = stream_active_profile();
+    if (stream_profile)
+    {
+        next.screen_width = stream_profile->native_width;
+        next.screen_height = stream_profile->native_height;
+        cc_safe_strcpy(next.device_name, sizeof(next.device_name),
+                       stream_profile->name);
+        cc_safe_strcpy(next.display_profile, sizeof(next.display_profile),
+                       stream_profile->name);
+        cc_safe_strcpy(next.display_shape, sizeof(next.display_shape),
+                       display_shape_name(stream_profile->shape));
+    }
+    else if (!stream_selected() &&
+             get_cached_lcd_device_data(config, next.device_uid,
                                    sizeof(next.device_uid), next.device_name,
                                    sizeof(next.device_name),
                                    &next.screen_width, &next.screen_height))
@@ -775,9 +789,15 @@ static char *queue_shutdown_test_json(const char *body, size_t length,
     (void)pthread_cond_broadcast(&s_shutdown_test.changed);
     while (running && s_shutdown_test.result == -1)
         (void)pthread_cond_wait(&s_shutdown_test.changed, &s_shutdown_test.mutex);
-    int success = s_shutdown_test.result == 1;
+    int result = s_shutdown_test.result;
     (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
     json_decref(root);
+    if (result == -2)
+    {
+        *http_status = 409;
+        return strdup("{\"error\":\"The shutdown image test is unavailable during direct LCD streaming\"}");
+    }
+    int success = result == 1;
     *http_status = success ? 200 : 502;
     return strdup(success ? "{\"shown\":true}" :
                   "{\"error\":\"LCD rejected the image\"}");
@@ -1218,10 +1238,12 @@ static int process_shutdown_test(const Config *config)
     (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
 
     char temporary[64] = {0};
-    int success = show_shutdown_image_for_test(config, path, rotation,
+    const int streaming = stream_selected();
+    int success = !streaming &&
+                  show_shutdown_image_for_test(config, path, rotation,
                                                temporary, sizeof(temporary));
     (void)pthread_mutex_lock(&s_shutdown_test.mutex);
-    s_shutdown_test.result = success;
+    s_shutdown_test.result = streaming ? -2 : success;
     (void)pthread_cond_broadcast(&s_shutdown_test.changed);
     (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
 
@@ -1546,6 +1568,7 @@ static void reload_daemon_config(Config *config)
 {
     log_message(LOG_STATUS, "SIGHUP received — reloading configuration...");
 
+    stream_stop();
     cleanup_sensor_curl_handle();
     reset_coolercontrol_session();
     reset_device_cache();
@@ -1566,6 +1589,13 @@ static void reload_daemon_config(Config *config)
     {
         log_message(LOG_ERROR,
                     "Config reload: session re-init failed — continuing with degraded state");
+        return;
+    }
+
+    stream_start(config);
+    if (stream_selected())
+    {
+        update_device_info_snapshot(config);
         return;
     }
 
@@ -1663,7 +1693,22 @@ static int run_daemon(Config *config)
             restore_native_gif_after_test();
         if (!running)
             break;
-        draw_display_image(config);
+        if (stream_selected())
+        {
+            const int was_active = stream_active_profile() != NULL;
+            const int64_t deadline_us = stream_draw();
+            if (deadline_us)
+            {
+                next_time.tv_sec = deadline_us / 1000000;
+                next_time.tv_nsec = (deadline_us % 1000000) * 1000;
+                wait_for_render_deadline(&next_time);
+                continue;
+            }
+            if (was_active)
+                update_device_info_snapshot(config);
+        }
+        else
+            draw_display_image(config);
 
         next_time.tv_sec += interval.tv_sec;
         next_time.tv_nsec += interval.tv_nsec;
@@ -1831,7 +1876,8 @@ static int initialize_coolercontrol_services(const Config *config)
         return -1;
     }
 
-    if (!init_device_cache(config))
+    stream_start(config);
+    if (!stream_selected() && !init_device_cache(config))
     {
         log_message(LOG_ERROR, "Failed to initialize device cache");
         fprintf(stderr,
@@ -1906,6 +1952,7 @@ static void perform_cleanup(const Config *config)
     (void)config;
     log_message(LOG_INFO, "Daemon shutdown initiated");
     stop_status_server();
+    stream_stop();
     image_import_cleanup();
     cleanup_coolercontrol_session();
     cleanup_sensor_curl_handle();
@@ -1972,11 +2019,19 @@ int main(int argc, char **argv)
 
     start_status_server();
 
-    log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
-    initialize_device_info(&config);
+    if (stream_selected())
+    {
+        update_device_info_snapshot(&config);
+    }
+    else
+    {
+        log_message(LOG_STATUS, "CoolerDash initializing device cache...\n");
+        initialize_device_info(&config);
+    }
 
     // Register shutdown image with CoolerControl at startup.
     // CC stores it internally and applies it automatically when CC shuts down.
+    if (!stream_selected())
     {
         const char *shutdown_image_path = resolve_shutdown_image_path(&config);
         if (shutdown_image_path)
@@ -2009,10 +2064,15 @@ int main(int argc, char **argv)
         }
     }
 
-    // Render initial image immediately so the PNG exists on disk
-    // before CC applies saved LCD settings (avoids startup race condition)
-    log_message(LOG_INFO, "Rendering initial display image...");
-    draw_display_image(&config);
+    // Apply the initial display immediately, including generating the PNG
+    // before CoolerControl tries to restore a saved image path.
+    if (stream_selected())
+        stream_draw();
+    else
+    {
+        log_message(LOG_INFO, "Rendering initial display image...");
+        draw_display_image(&config);
+    }
 
     log_message(LOG_STATUS, "Starting daemon");
     int result = run_daemon(&config);

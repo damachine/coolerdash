@@ -10,6 +10,30 @@ save it under Plugins > CoolerDash > Connection. CoolerDash persists the token
 with restricted permissions in `credentials.json`; `config.json` only contains
 the `***` sentinel after the token has been saved.
 
+## Animated GIF Backgrounds
+
+Select an animated GIF as the background and save. CoolerDash streams it behind
+live sensor values in Split, Dual, and Circle and applies the configured fit,
+opacity, and rotation. It chooses the LCD format for the detected device.
+
+| Device | Direct stream | Frame rate limit |
+|---|---|---|
+| Kraken Elite V2 (`1e71:3012`) | Q565 at 640 × 640 | 12 fps |
+| Kraken Base (2023, `1e71:300e`) with firmware 2.x | RGB565 at 240 × 240 | 5 fps |
+
+For direct LCD access, connect to the local CoolerControl daemon. Reset the LCD
+setting and disable that LCD channel. Keep the cooler enabled so CoolerControl
+can read sensors and manage the pump and fans. The unprivileged plugin account
+needs access to the LCD's USB and hidraw nodes. With the LCD channel enabled,
+CoolerControl can receive a still frame with live sensors or the original GIF
+on devices that support native playback with all sensor slots disabled.
+
+The stream accepts a GIF up to 16 MiB with a canvas up to 2048×2048 and a
+64 MiB decoded frame budget. CoolerDash polls sensors at most once per second.
+A USB failure releases the LCD and stops the stream until
+the next configuration reload or restart. The CoolerControl shutdown image
+test requires an enabled LCD channel.
+
 ## Shutdown Image
 
 Registered once at startup through CoolerControl's shutdown-image API:

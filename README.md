@@ -27,7 +27,9 @@ The Kraken 2023 Elite is [partially supported](docs/devices.md) due to [liquidct
 - Choose from Split, Dual, and Circle display modes.
 - Adjust the layout and sensor values in the CoolerDash interface inside CoolerControl.
 - Play GIFs through CoolerControl on compatible LCDs with all sensor slots
-  disabled.
+  disabled. Supported Kraken models also provide
+  [GIF backgrounds with live sensors](docs/plugin-integration.md#animated-gif-backgrounds)
+  in all display modes.
 
 > **Officially listed by CoolerControl as a [2nd Party (Trusted) Plugin](https://docs.coolercontrol.org/automation/plugins.html#_2nd-party-trusted-plugins).**  
 > Special thanks to [@codifryed](https://github.com/codifryed), the founder of CoolerControl.

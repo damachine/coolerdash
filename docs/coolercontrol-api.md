@@ -87,8 +87,11 @@ CoolerDash rotates the generated image before this request. It always sends
 
 With all sensor slots disabled, CoolerDash can upload a complete GIF as
 multipart form data with `mode=image` and `images[]`. Native playback uses
-CoolerControl's cover fit and 90° rotation steps. The standard CoolerControl
-upload uses the GIF's first frame when showing live sensor values.
+CoolerControl's cover fit and 90° rotation steps. When a supported device's
+LCD is released in CoolerControl, CoolerDash reads live sensor values from
+`/status` and streams the composed frames in the format selected by the
+device profile. The standard CoolerControl upload uses the GIF's first frame
+when showing live sensor values.
 
 ### Shutdown Image (CC4)
 

@@ -808,11 +808,9 @@ static int process_device_cache_response(const Config *config,
 /**
  * @brief Initialize device cache by fetching device information once.
  */
-static int initialize_device_cache(const Config *config)
+static int fetch_device_data(const Config *config, const char *path,
+                              http_response *chunk, int local_only)
 {
-    if (device_cache.initialized)
-        return 1;
-
     if (!config)
         return 0;
 
@@ -821,37 +819,137 @@ static int initialize_device_cache(const Config *config)
         return 0;
 
     char url[512];
-    int ret = snprintf(url, sizeof(url), "%s/devices", config->daemon_address);
+    int ret = snprintf(url, sizeof(url), "%s%s", config->daemon_address, path);
     if (ret >= (int)sizeof(url) || ret < 0)
     {
         curl_easy_cleanup(curl);
         return 0;
     }
 
-    http_response chunk = {0};
-    chunk.data = malloc(4096);
-    if (!chunk.data)
+    if (!cc_init_response_buffer(chunk, 4096))
     {
         curl_easy_cleanup(curl);
         return 0;
     }
-    chunk.size = 0;
-    chunk.capacity = 4096;
-
     struct curl_slist *headers = NULL;
-    configure_device_cache_curl(curl, config, url, &chunk, &headers);
+    configure_device_cache_curl(curl, config, url, chunk, &headers);
+    if (local_only)
+        curl_easy_setopt(curl, CURLOPT_NOPROXY, "*");
 
-    int success = 0;
-    if (curl_easy_perform(curl) == CURLE_OK)
-    {
-        success = process_device_cache_response(config, &chunk);
-    }
-
-    free(chunk.data);
+    CURLcode result = curl_easy_perform(curl);
+    long status = 0;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &status);
+    char *peer = NULL;
+    if (local_only)
+        curl_easy_getinfo(curl, CURLINFO_PRIMARY_IP, &peer);
+    const int peer_allowed = !local_only ||
+        (peer && (strncmp(peer, "127.", 4) == 0 || strcmp(peer, "::1") == 0));
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+    if (result != CURLE_OK || status != 200 || !peer_allowed)
+    {
+        cc_cleanup_response_buffer(chunk);
+        return 0;
+    }
+    return 1;
+}
 
+static int initialize_device_cache(const Config *config)
+{
+    if (device_cache.initialized)
+        return 1;
+
+    http_response chunk = {0};
+    if (!fetch_device_data(config, "/devices", &chunk, 0))
+        return 0;
+    int success = process_device_cache_response(config, &chunk);
+    cc_cleanup_response_buffer(&chunk);
     return success;
+}
+
+/* The USB transport verifies the local VID:PID. Only the local CoolerControl
+ * daemon can confirm that this LCD is released. */
+const DisplayProfile *cc_released_lcd_profile(const Config *config)
+{
+    http_response response = {0};
+    if (!fetch_device_data(config, "/devices", &response, 1))
+        return NULL;
+
+    populate_device_name_cache(response.data);
+    json_t *root = json_loads(response.data, 0, NULL);
+    cc_cleanup_response_buffer(&response);
+    const json_t *devices = json_object_get(root, "devices");
+    const json_t *device;
+    size_t index;
+    char uid[CC_UID_SIZE] = {0};
+    const DisplayProfile *match = NULL;
+    json_array_foreach(devices, index, device)
+    {
+        const char *name = json_string_value(json_object_get(device, "name"));
+        const char *type = extract_device_type_from_json(device);
+        const DisplayProfile *profile = identify_display_profile(name);
+        if (!profile || !profile->stream_fps ||
+            !type || strcmp(type, "Liquidctl") != 0)
+            continue;
+
+        const json_t *info = json_object_get(device, "info");
+        const json_t *channels = json_object_get(info, "channels");
+        const char *id = json_string_value(json_object_get(device, "uid"));
+        if (match || !json_is_object(channels) || !id || strlen(id) != 64 ||
+            strspn(id, "0123456789abcdefABCDEF") != 64)
+        {
+            match = NULL;
+            break;
+        }
+        if (json_object_get(channels, "lcd") ||
+            json_object_get(channels, "display") ||
+            json_object_get(channels, "screen"))
+        {
+            log_message(LOG_WARNING, "GIF with sensors: %s LCD channel is enabled in CoolerControl",
+                        profile->name);
+            break;
+        }
+        if (profile->stream_firmware_major)
+        {
+            char firmware[CC_FIRMWARE_SIZE] = {0};
+            extract_lcd_firmware(device, firmware, sizeof(firmware));
+            const size_t major_digits = strspn(firmware, "0123456789");
+            if (major_digits == 0 || firmware[major_digits] != '.' ||
+                strtoul(firmware, NULL, 10) != profile->stream_firmware_major ||
+                !isdigit((unsigned char)firmware[major_digits + 1]))
+            {
+                log_message(LOG_WARNING, "GIF with sensors: %s requires confirmed firmware %u.x",
+                            profile->name, profile->stream_firmware_major);
+                break;
+            }
+        }
+        cc_safe_strcpy(uid, sizeof(uid), id);
+        match = profile;
+    }
+    json_decref(root);
+    if (!match)
+        return NULL;
+
+    char path[CC_URL_SIZE];
+    snprintf(path, sizeof(path), "/devices/%s/settings", uid);
+    if (!fetch_device_data(config, path, &response, 1))
+        return NULL;
+    root = json_loads(response.data, 0, NULL);
+    cc_cleanup_response_buffer(&response);
+    const json_t *settings = json_object_get(root, "settings");
+    int released = json_is_array(settings);
+    json_array_foreach(settings, index, device)
+    {
+        if (json_is_object(json_object_get(device, "lcd")))
+        {
+            log_message(LOG_WARNING, "GIF with sensors: %s has a saved LCD setting in CoolerControl",
+                        match->name);
+            released = 0;
+            break;
+        }
+    }
+    json_decref(root);
+    return released ? match : NULL;
 }
 
 /**

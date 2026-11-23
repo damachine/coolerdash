@@ -147,9 +147,10 @@ static void try_set_lcd_dimensions(Config *config)
 /**
  * @brief Set display default values with LCD device fallback.
  */
-static void set_display_defaults(Config *config)
+static void set_display_defaults(Config *config, int use_device_cache)
 {
-    try_set_lcd_dimensions(config);
+    if (use_device_cache)
+        try_set_lcd_dimensions(config);
 
     if (config->display_refresh_interval == 0.0f)
         config->display_refresh_interval = 3.50f;
@@ -623,7 +624,7 @@ static void validate_sensor_slots(Config *config)
 /**
  * @brief Apply all system default values for missing fields.
  */
-static void apply_system_defaults(Config *config)
+static void apply_system_defaults(Config *config, int use_device_cache)
 {
     if (!config)
         return;
@@ -631,7 +632,7 @@ static void apply_system_defaults(Config *config)
     set_daemon_defaults(config);
     set_paths_defaults(config);
     set_device_detection_defaults(config);
-    set_display_defaults(config);
+    set_display_defaults(config, use_device_cache);
     set_layout_defaults(config);
     set_font_defaults(config);
     set_default_sensor_configs(config);
@@ -1826,8 +1827,8 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
         log_message(LOG_INFO, "No config.json found, using hardcoded defaults");
     }
 
-    // Apply defaults for any missing fields
-    apply_system_defaults(config);
+    /* Read-only callers supply LCD dimensions from their snapshot or report. */
+    apply_system_defaults(config, allow_writes);
 
     return loaded_from_json;
 }

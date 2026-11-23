@@ -20,18 +20,18 @@ the first path available without redesigning the renderer later.
 |--------|-------|------------|-------|----------------------------|
 | `1e71:3008` | Kraken Z series | 320×320 | circular | image upload |
 | `1e71:300c` | Kraken 2023 Elite | 640×640 | circular | image upload |
-| `1e71:300e` | Kraken 2023 | 240×240 | rectangular | image upload |
-| `1e71:3012` | Kraken Elite (2024), RGB and non-RGB | 640×640 | circular | image upload |
+| `1e71:300e` | Kraken 2023 | 240×240 | rectangular | RGB565 stream with firmware 2.x |
+| `1e71:3012` | Kraken Elite (2024), RGB and non-RGB | 640×640 | circular | Q565 stream |
 | `1e71:3014` | Kraken Plus (2025), RGB and non-RGB | 240×240 | rectangular | image upload |
 
-Transport values are capability metadata only. CoolerDash still sends rendered
-PNG files through CoolerControl.
+The direct stream applies to animated backgrounds with live sensors and
+requires exclusive LCD access. CoolerDash sends PNG files through
+CoolerControl for the standard display path.
 
 The USB IDs and native resolutions follow liquidctl's device table. Product
 generation names and panel specifications follow NZXT's published specs. Panel
-refresh rate is not the same as a safe image-upload rate, so
-`recommended_fps` remains `0` until continuous updates have been verified on
-real hardware.
+refresh rate describes the panel. The `stream_fps` setting limits how often
+CoolerDash sends a frame over USB.
 
 ## Circular Safe Area
 
@@ -55,10 +55,10 @@ Add one `DisplayProfile` entry in `src/device/profile.c` with:
 - exact native width and height
 - shape
 - visible diameter and center ratios
-- preferred transport metadata
+- stream format, firmware requirement, and limit for devices with a verified LCD protocol
 - conservative model-name match tokens
 
-Use `recommended_fps = 0` until a stable rate has been verified on hardware.
+Use `stream_fps = 0` for devices that use CoolerControl image uploads.
 Unknown displays retain the old `>240px = circular` fallback to avoid breaking
 existing installations.
 
