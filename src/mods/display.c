@@ -37,30 +37,27 @@
 #include "dual.h"
 #include "split.h"
 
-typedef struct BackgroundAnimationState
+/* Preview requests load their own image. This cache belongs to the render thread. */
+static struct
 {
     char path[CONFIG_MAX_PATH_LEN];
-    GdkPixbufAnimation *animation;
-    GdkPixbufAnimationIter *iterator;
-    int frame_delay_ms;
-} BackgroundAnimationState;
+    cairo_surface_t *surface;
+} background_image;
 
-static BackgroundAnimationState background_animation = {
-    .path = {0},
-    .animation = NULL,
-    .iterator = NULL,
-    .frame_delay_ms = -1,
-};
-
-static void reset_background_animation(void)
+/* Owned by the daemon's render thread. Try native playback once per config. */
+static enum
 {
-    if (background_animation.iterator)
-        g_object_unref(background_animation.iterator);
-    if (background_animation.animation)
-        g_object_unref(background_animation.animation);
+    NATIVE_GIF_PENDING,
+    NATIVE_GIF_INACTIVE,
+    NATIVE_GIF_ACTIVE
+} native_gif = NATIVE_GIF_PENDING;
 
-    memset(&background_animation, 0, sizeof(background_animation));
-    background_animation.frame_delay_ms = -1;
+static void reset_background_image(void)
+{
+    if (background_image.surface)
+        cairo_surface_destroy(background_image.surface);
+    background_image.surface = NULL;
+    background_image.path[0] = '\0';
 }
 
 static const char *mime_type_for_format(GdkPixbufFormat *format)
@@ -130,8 +127,7 @@ char *image_file_preview_data_uri(const char *path)
         (uint64_t)width * (uint64_t)height > 32U * 1024U * 1024U)
         return NULL;
 
-    /* A separate pixbuf produces a still frame without touching the live
-     * animation state, which belongs to the rendering thread. */
+    /* Load the thumbnail independently of the daemon's background cache. */
     GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file_at_scale(path, 480, 480, TRUE, NULL);
     if (!pixbuf)
         return NULL;
@@ -158,53 +154,6 @@ char *image_file_preview_data_uri(const char *path)
     g_free(encoded);
     return result;
 }
-
-/* GdkPixbuf 2.44 deprecated its animation API without an in-library replacement.
- * Keep GIF playback compatible with older distributions; scope the deprecation
- * exception to this adapter so other warnings still fail strict builds. */
-G_GNUC_BEGIN_IGNORE_DEPRECATIONS
-static GdkPixbuf *background_image_get_pixbuf(const char *path)
-{
-    if (!path || path[0] == '\0')
-    {
-        reset_background_animation();
-        return NULL;
-    }
-
-    if (strcmp(background_animation.path, path) != 0)
-    {
-        reset_background_animation();
-
-        if (!image_file_mime_type(path))
-            return NULL;
-
-        GError *error = NULL;
-        background_animation.animation =
-            gdk_pixbuf_animation_new_from_file(path, &error);
-        if (!background_animation.animation)
-        {
-            if (error)
-                g_error_free(error);
-            return NULL;
-        }
-
-        background_animation.iterator =
-            gdk_pixbuf_animation_get_iter(background_animation.animation, NULL);
-        if (!background_animation.iterator)
-        {
-            reset_background_animation();
-            return NULL;
-        }
-
-        SAFE_STRCPY(background_animation.path, path);
-    }
-
-    gdk_pixbuf_animation_iter_advance(background_animation.iterator, NULL);
-    background_animation.frame_delay_ms =
-        gdk_pixbuf_animation_iter_get_delay_time(background_animation.iterator);
-    return gdk_pixbuf_animation_iter_get_pixbuf(background_animation.iterator);
-}
-G_GNUC_END_IGNORE_DEPRECATIONS
 
 static cairo_surface_t *pixbuf_to_cairo_surface(GdkPixbuf *pixbuf)
 {
@@ -260,28 +209,31 @@ static cairo_surface_t *pixbuf_to_cairo_surface(GdkPixbuf *pixbuf)
     return surface;
 }
 
-static cairo_surface_t *image_file_load_surface(const char *path,
-                                                int static_frame)
+static cairo_surface_t *image_file_load_surface(const char *path, int use_cache)
 {
-    if (!static_frame)
-        return pixbuf_to_cairo_surface(background_image_get_pixbuf(path));
-
-    GError *error = NULL;
-    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(path, &error);
-    if (!pixbuf)
+    if (use_cache)
     {
-        if (error)
-            g_error_free(error);
-        return NULL;
+        if (background_image.surface && strcmp(background_image.path, path) == 0)
+            return cairo_surface_reference(background_image.surface);
+
+        reset_background_image();
+        if (!image_file_mime_type(path))
+            return NULL;
     }
+
+    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(path, NULL);
+    if (!pixbuf)
+        return NULL;
+
     cairo_surface_t *surface = pixbuf_to_cairo_surface(pixbuf);
     g_object_unref(pixbuf);
-    return surface;
-}
 
-int display_background_animation_delay_ms(void)
-{
-    return background_animation.frame_delay_ms;
+    if (use_cache && surface)
+    {
+        background_image.surface = cairo_surface_reference(surface);
+        SAFE_STRCPY(background_image.path, path);
+    }
+    return surface;
 }
 
 static double clamp_double(double value, double min_value, double max_value)
@@ -1110,7 +1062,8 @@ static void paint_background_overlay(cairo_t *cr, const struct Config *config)
 /**
  * @brief Paint configured background image or fallback color.
  */
-void paint_display_background(cairo_t *cr, const struct Config *config)
+static void paint_display_background_surface(cairo_t *cr, const struct Config *config,
+                                       cairo_surface_t *background)
 {
     static char last_failed_path[CONFIG_MAX_PATH_LEN] = {0};
 
@@ -1120,14 +1073,9 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
     set_cairo_color(cr, &config->display_background_color);
     cairo_paint(cr);
 
-    if (config->paths_image_background[0] != '\0')
+    if (background)
     {
-        cairo_surface_t *background =
-            image_file_load_surface(config->paths_image_background,
-                                    config->preview_render);
-
-        if (background &&
-            cairo_surface_status(background) == CAIRO_STATUS_SUCCESS)
+        if (cairo_surface_status(background) == CAIRO_STATUS_SUCCESS)
         {
             const int image_width = cairo_image_surface_get_width(background);
             const int image_height = cairo_image_surface_get_height(background);
@@ -1183,15 +1131,15 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
                 cairo_restore(cr);
 
                 paint_background_overlay(cr, config);
-                cairo_surface_destroy(background);
                 if (!config->preview_render)
                     last_failed_path[0] = '\0';
                 return;
             }
-
-            cairo_surface_destroy(background);
         }
+    }
 
+    if (config->paths_image_background[0] != '\0')
+    {
         if (!config->preview_render &&
             strcmp(last_failed_path, config->paths_image_background) != 0)
         {
@@ -1202,7 +1150,20 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
         }
     }
 
-    return;
+}
+
+void paint_display_background(cairo_t *cr, const struct Config *config)
+{
+    if (!cr || !config)
+        return;
+
+    cairo_surface_t *image = NULL;
+    if (config->paths_image_background[0])
+        image = image_file_load_surface(config->paths_image_background,
+                                        !config->preview_render);
+    paint_display_background_surface(cr, config, image);
+    if (image)
+        cairo_surface_destroy(image);
 }
 
 /**
@@ -1421,7 +1382,7 @@ int render_rotated_image_to_png(const char *source_path,
         return 0;
 
     /* Animated source formats use their first frame for the shutdown image. */
-    cairo_surface_t *source = image_file_load_surface(source_path, 1);
+    cairo_surface_t *source = image_file_load_surface(source_path, 0);
     if (!source)
         return 0;
     const cairo_status_t status = write_oriented_surface_png(
@@ -1843,12 +1804,69 @@ float get_slot_font_size(const struct Config *config, const char *slot_value)
  */
 void reset_display_state(void)
 {
-    reset_background_animation();
+    native_gif = NATIVE_GIF_PENDING;
+    reset_background_image();
     reset_circle_state();
+}
+
+void restore_native_gif_after_test(void)
+{
+    if (native_gif == NATIVE_GIF_ACTIVE)
+        native_gif = NATIVE_GIF_PENDING;
+}
+
+static int try_native_background_gif(const struct Config *config,
+                                      const char *device_uid)
+{
+    /* CoolerControl fits the GIF to cover the screen and rotates in 90° steps. */
+    const Color *background = &config->display_background_color;
+    if (config->display_rotation % 90 != 0 ||
+        strcmp(config->display_background_image_fit, "cover") != 0 ||
+        (config->background_image_scale_factor > 0.0f &&
+         config->background_image_scale_factor != 1.0f) ||
+        config->display_background_overlay_opacity > 0.0f ||
+        background->r || background->g || background->b ||
+        !lcd_allows_native_gif(config))
+        return 0;
+
+    const char *path = config->paths_image_background;
+    if (!image_file_is_supported(path))
+        return 0;
+    const char *mime_type = image_file_mime_type(path);
+    if (!mime_type || strcmp(mime_type, "image/gif") != 0)
+        return 0;
+    if (!send_gif_to_lcd(config, path, device_uid))
+    {
+        log_message(LOG_WARNING, "Showing a still image after native GIF upload failed");
+        return 0;
+    }
+
+    reset_background_image();
+    log_message(LOG_STATUS, "Native GIF applied through CoolerControl");
+    return 1;
 }
 
 static void draw_background_only_image(const struct Config *config)
 {
+    if (native_gif == NATIVE_GIF_ACTIVE)
+        return;
+
+    char device_uid[CC_UID_SIZE] = {0};
+    const int device_available =
+        is_session_initialized() &&
+        get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
+                                   NULL, 0, NULL, NULL) &&
+        device_uid[0] != '\0';
+
+    if (device_available && native_gif == NATIVE_GIF_PENDING)
+    {
+        native_gif = try_native_background_gif(config, device_uid)
+                         ? NATIVE_GIF_ACTIVE
+                         : NATIVE_GIF_INACTIVE;
+        if (native_gif == NATIVE_GIF_ACTIVE)
+            return;
+    }
+
     cairo_surface_t *surface = NULL;
     cairo_t *cr = create_cairo_context(config, &surface);
     if (!cr)
@@ -1868,14 +1886,8 @@ static void draw_background_only_image(const struct Config *config)
         return;
     }
 
-    char device_uid[128] = {0};
-    if (is_session_initialized() &&
-        get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
-                                   NULL, 0, NULL, NULL) &&
-        device_uid[0] != '\0')
-    {
+    if (device_available)
         send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
-    }
 }
 
 void draw_display_image(const struct Config *config)

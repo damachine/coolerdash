@@ -15,6 +15,7 @@
 | `/devices` | GET | Device enumeration (once at startup) |
 | `/status` | POST | Temperature sensor data |
 | `/devices/{uid}/settings/{channel}/lcd` | PUT | Apply generated LCD image path |
+| `/devices/{uid}/settings/{channel}/lcd/images` | PUT | Upload GIF for native playback |
 | `/devices/{uid}/settings/{channel}/lcd/shutdown-image` | PUT | Register shutdown image |
 
 Base URL: `http://localhost:11987` (configurable)
@@ -83,6 +84,11 @@ Content-Type: application/json
 
 CoolerDash rotates the generated image before this request. It always sends
 `orientation: 0` to CoolerControl.
+
+With all sensor slots disabled, CoolerDash can upload a complete GIF as
+multipart form data with `mode=image` and `images[]`. Native playback uses
+CoolerControl's cover fit and 90° rotation steps. The standard CoolerControl
+upload uses the GIF's first frame when showing live sensor values.
 
 ### Shutdown Image (CC4)
 

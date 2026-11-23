@@ -71,7 +71,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 |-----|---------|-------------|
 | `mode` | `split` | `split`, `dual`, or `circle` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
-| `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0); GIF frame timing may shorten it |
+| `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Clockwise software rotation, whole degrees `0`–`359`. CoolerControl receives `0`. The complete frame, including background images, rotates and fits the LCD; uncovered corners use the background color. Existing quarter-turn values remain valid. |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |

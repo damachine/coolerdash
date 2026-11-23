@@ -1583,15 +1583,10 @@ static void reload_daemon_config(Config *config)
     log_message(LOG_STATUS, "Configuration reloaded successfully");
 }
 
-/** @brief Select the shorter of the configured refresh and GIF frame delay. */
+/** @brief Convert the configured display refresh interval to a timespec. */
 static void set_render_interval(const Config *config, struct timespec *interval)
 {
-    double seconds = config->display_refresh_interval;
-    const int animation_delay_ms = display_background_animation_delay_ms();
-
-    if (animation_delay_ms > 0 && animation_delay_ms / 1000.0 < seconds)
-        seconds = animation_delay_ms / 1000.0;
-
+    const double seconds = config->display_refresh_interval;
     interval->tv_sec = (time_t)seconds;
     interval->tv_nsec = (long)((seconds - interval->tv_sec) * 1000000000.0);
 }
@@ -1664,11 +1659,11 @@ static int run_daemon(Config *config)
             set_render_interval(config, &interval);
         }
 
-        (void)process_shutdown_test(config);
+        if (process_shutdown_test(config))
+            restore_native_gif_after_test();
         if (!running)
             break;
         draw_display_image(config);
-        set_render_interval(config, &interval);
 
         next_time.tv_sec += interval.tv_sec;
         next_time.tv_nsec += interval.tv_nsec;

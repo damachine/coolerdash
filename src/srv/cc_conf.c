@@ -61,6 +61,7 @@ static struct
     int screen_width;
     int screen_height;
     int is_circular;
+    int gif_unsupported;
 } device_cache = {0};
 
 /** @brief Name/type cache for all devices (populated from /devices). */
@@ -532,12 +533,8 @@ static int score_lcd_candidate(const Config *config, const char *device_uid,
  * @brief Search for the best CoolerControl LCD device candidate.
  * @details Uses UID, LCD metadata, and configurable allow/block heuristics.
  */
-static int search_lcd_device(const Config *config, const json_t *devices, char *lcd_uid,
-                             size_t uid_size, int *found_lcd_device,
-                             int *screen_width, int *screen_height,
-                             char *device_name, size_t name_size,
-                             char *lcd_channel, size_t channel_size,
-                             char *firmware, size_t firmware_size)
+static const json_t *search_lcd_device(const Config *config,
+                                       const json_t *devices)
 {
     const json_t *best_dev = NULL;
     int best_score = -1001;
@@ -603,22 +600,13 @@ static int search_lcd_device(const Config *config, const json_t *devices, char *
                     uid_value[0] != '\0' ? uid_value : "n/a");
     }
 
-    if (best_dev)
-    {
-        extract_lcd_device_info(best_dev, lcd_uid, uid_size, found_lcd_device,
-                                screen_width, screen_height, device_name,
-                                name_size, lcd_channel, channel_size, firmware,
-                                firmware_size);
-        return 1;
-    }
-
     if (candidate_count == 0)
     {
         log_message(LOG_WARNING,
                     "No suitable LCD device candidates found after filtering");
     }
 
-    return 0;
+    return best_dev;
 }
 
 /**
@@ -630,7 +618,7 @@ static int parse_lcd_device_data(const Config *config, const char *json,
                                  int *screen_height, char *device_name,
                                  size_t name_size, char *lcd_channel,
                                  size_t channel_size, char *firmware,
-                                 size_t firmware_size)
+                                 size_t firmware_size, int *gif_unsupported)
 {
     if (!json)
         return 0;
@@ -655,13 +643,19 @@ static int parse_lcd_device_data(const Config *config, const char *json,
         return 0;
     }
 
-    int result = search_lcd_device(config, devices, lcd_uid, uid_size,
-                                   found_lcd_device, screen_width,
-                                   screen_height, device_name, name_size,
-                                   lcd_channel, channel_size, firmware,
-                                   firmware_size);
+    const json_t *device = search_lcd_device(config, devices);
+    const int found = device != NULL;
+    if (found)
+    {
+        extract_lcd_device_info(device, lcd_uid, uid_size, found_lcd_device,
+                                screen_width, screen_height, device_name,
+                                name_size, lcd_channel, channel_size, firmware,
+                                firmware_size);
+        const json_t *lcd_info = get_lcd_info_from_device(device);
+        *gif_unsupported = json_is_false(json_object_get(lcd_info, "gif_supported"));
+    }
     json_decref(root);
-    return result;
+    return found;
 }
 
 /**
@@ -771,7 +765,7 @@ static int process_device_cache_response(const Config *config,
         &device_cache.screen_height, device_cache.device_name,
         sizeof(device_cache.device_name), device_cache.lcd_channel,
         sizeof(device_cache.lcd_channel), device_cache.firmware_version,
-        sizeof(device_cache.firmware_version));
+        sizeof(device_cache.firmware_version), &device_cache.gif_unsupported);
 
     if (result && found_lcd_device)
     {
@@ -903,6 +897,11 @@ const char *get_cached_lcd_channel(const Config *config)
     if (!initialize_device_cache(config) || device_cache.lcd_channel[0] == '\0')
         return NULL;
     return device_cache.lcd_channel;
+}
+
+int lcd_allows_native_gif(const Config *config)
+{
+    return initialize_device_cache(config) && !device_cache.gif_unsupported;
 }
 
 /**

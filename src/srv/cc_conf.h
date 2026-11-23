@@ -56,6 +56,9 @@ const char *get_cached_lcd_firmware_version(const struct Config *config);
 /** @brief Return the cached channel name used by the selected LCD device. */
 const char *get_cached_lcd_channel(const struct Config *config);
 
+/** Older CoolerControl versions omit gif_supported. Let the upload decide. */
+int lcd_allows_native_gif(const struct Config *config);
+
 /**
  * @brief Initialize device information cache.
  * @details Fetches and caches device information once at startup for better

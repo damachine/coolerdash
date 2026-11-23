@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
@@ -29,6 +28,8 @@
 #include "../mods/display.h"
 #include "cc_conf.h"
 #include "cc_main.h"
+
+#define CC_GIF_UPLOAD_TIMEOUT_SECONDS 15L
 
 /**
  * @brief Initialize HTTP response buffer with specified capacity.
@@ -306,7 +307,7 @@ static int validate_upload_params(const char *image_path,
 static int check_upload_response(CURLcode res, long http_response_code,
                                  const http_response *response)
 {
-    if (res == CURLE_OK && http_response_code == 200)
+    if (res == CURLE_OK && (http_response_code == 200 || http_response_code == 204))
         return 1;
 
     log_message(LOG_ERROR, "LCD upload failed: CURL code %d, HTTP code %ld", res,
@@ -416,89 +417,63 @@ int send_image_to_lcd(const Config *config, const char *image_path,
     return success;
 }
 
-/**
- * @brief Register shutdown image with CoolerControl's native LCD shutdown image API.
- * @details Uploads the shutdown image to CC at daemon startup via multipart PUT to
- *          /devices/{uid}/settings/{channel}/lcd/shutdown-image.
- *          CC stores the image internally and applies it automatically when the
- *          CC daemon shuts down. Handles 404 gracefully (CC version too old).
- */
-int register_lcd_shutdown_image_with_cc(const Config *config,
-                                        const char *image_path,
-                                        const char *device_uid)
+static int add_lcd_form_field(curl_mime *mime, const char *name,
+                              const char *value)
+{
+    curl_mimepart *part = curl_mime_addpart(mime);
+    return part && curl_mime_name(part, name) == CURLE_OK &&
+           curl_mime_data(part, value, CURL_ZERO_TERMINATED) == CURLE_OK;
+}
+
+static int upload_lcd_image(const Config *config, const char *image_path,
+                             const char *device_uid, const char *mime_type,
+                             int shutdown)
 {
     if (!validate_upload_params(image_path, device_uid))
         return 0;
-
     const char *lcd_channel = get_cached_lcd_channel(config);
     if (!lcd_channel)
     {
-        log_message(LOG_WARNING,
-                    "No LCD channel available for shutdown image registration");
-        return 0;
-    }
-
-    // Verify the shutdown image file exists before attempting upload
-    if (access(image_path, F_OK) != 0)
-    {
-        log_message(LOG_WARNING,
-                    "Shutdown image not found, skipping registration: %s",
-                    image_path);
-        return 0;
-    }
-
-    const char *image_mime_type = image_file_mime_type(image_path);
-    if (!image_mime_type)
-    {
-        log_message(LOG_WARNING,
-                    "Unsupported shutdown image format, skipping registration: %s",
-                    image_path);
+        log_message(LOG_WARNING, "No LCD channel available for image upload");
         return 0;
     }
 
     char url[CC_URL_SIZE];
     int written = snprintf(url, sizeof(url),
-                           "%s/devices/%s/settings/%s/lcd/shutdown-image",
-                           config->daemon_address, device_uid, lcd_channel);
+                           "%s/devices/%s/settings/%s/lcd/%s",
+                           config->daemon_address, device_uid, lcd_channel,
+                           shutdown ? "shutdown-image" : "images");
     if (!validate_snprintf(written, sizeof(url), url))
     {
-        log_message(LOG_ERROR, "Shutdown image URL truncated");
+        log_message(LOG_ERROR, "LCD image upload URL truncated");
         return 0;
     }
 
     curl_mime *mime = curl_mime_init(cc_session.curl_handle);
     if (!mime)
     {
-        log_message(LOG_ERROR, "Failed to init multipart form for shutdown image");
+        log_message(LOG_ERROR, "Failed to initialize LCD image upload");
         return 0;
     }
 
-    // mode field
-    curl_mimepart *part = curl_mime_addpart(mime);
-    curl_mime_name(part, "mode");
-    curl_mime_data(part, "image", CURL_ZERO_TERMINATED);
+    char brightness[8], orientation[8];
+    snprintf(brightness, sizeof(brightness), "%u", (unsigned)config->lcd_brightness);
+    /* The shutdown image has already been rotated by CoolerDash. */
+    snprintf(orientation, sizeof(orientation), "%u",
+             shutdown ? 0U : (unsigned)config->display_rotation);
 
-    // brightness field
-    char brightness_str[8];
-    int blen = snprintf(brightness_str, sizeof(brightness_str), "%u",
-                        (unsigned)config->lcd_brightness);
-    if (blen > 0 && (size_t)blen < sizeof(brightness_str))
+    curl_mimepart *file = curl_mime_addpart(mime);
+    if (!file || curl_mime_name(file, "images[]") != CURLE_OK ||
+        curl_mime_filedata(file, image_path) != CURLE_OK ||
+        curl_mime_type(file, mime_type) != CURLE_OK ||
+        !add_lcd_form_field(mime, "mode", "image") ||
+        !add_lcd_form_field(mime, "brightness", brightness) ||
+        !add_lcd_form_field(mime, "orientation", orientation))
     {
-        part = curl_mime_addpart(mime);
-        curl_mime_name(part, "brightness");
-        curl_mime_data(part, brightness_str, CURL_ZERO_TERMINATED);
+        log_message(LOG_ERROR, "Failed to prepare LCD image upload: %s", image_path);
+        curl_mime_free(mime);
+        return 0;
     }
-
-    // CoolerDash rotates the uploaded image; the device stays at 0 degrees.
-    part = curl_mime_addpart(mime);
-    curl_mime_name(part, "orientation");
-    curl_mime_data(part, "0", CURL_ZERO_TERMINATED);
-
-    // image file field — CC uses "images[]" as the multipart field name
-    part = curl_mime_addpart(mime);
-    curl_mime_name(part, "images[]");
-    curl_mime_filedata(part, image_path);
-    curl_mime_type(part, image_mime_type);
 
     http_response response = {0};
     if (!cc_init_response_buffer(&response, 4096))
@@ -507,8 +482,13 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
         return 0;
     }
 
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, cc_session.access_token);
+    struct curl_slist *headers = curl_slist_append(NULL, cc_session.access_token);
+    if (!headers)
+    {
+        cc_cleanup_response_buffer(&response);
+        curl_mime_free(mime);
+        return 0;
+    }
 
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_URL, url);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CUSTOMREQUEST, "PUT");
@@ -521,41 +501,53 @@ int register_lcd_shutdown_image_with_cc(const Config *config,
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_CONNECTTIMEOUT,
                      CC_CONNECT_TIMEOUT_SECONDS);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_TIMEOUT,
-                     CC_REQUEST_TIMEOUT_SECONDS);
+                     shutdown ? CC_REQUEST_TIMEOUT_SECONDS : CC_GIF_UPLOAD_TIMEOUT_SECONDS);
     curl_easy_setopt(cc_session.curl_handle, CURLOPT_NOSIGNAL, 1L);
 
     CURLcode res = curl_easy_perform(cc_session.curl_handle);
     long http_code = 0;
     curl_easy_getinfo(cc_session.curl_handle, CURLINFO_RESPONSE_CODE, &http_code);
 
-    int success = 0;
-    if (res == CURLE_OK && (http_code == 200 || http_code == 204))
+    int success;
+    if (shutdown && res == CURLE_OK && http_code == 404)
     {
-        log_message(LOG_STATUS,
-                    "Shutdown image registered with CoolerControl");
-        success = 1;
-    }
-    else if (res == CURLE_OK && http_code == 404)
-    {
-        // CC version too old — not a fatal error, coolerdash runs normally
         log_message(LOG_INFO,
                     "CC shutdown image API not available (requires CC >= 4.3)");
         success = 1;
     }
     else
     {
-        log_message(LOG_WARNING,
-                    "Shutdown image registration failed: CURL %d, HTTP %ld",
-                    (int)res, http_code);
+        success = check_upload_response(res, http_code, &response);
+        if (success && shutdown)
+            log_message(LOG_STATUS, "Shutdown image registered with CoolerControl");
     }
 
-    // Cleanup: MIMEPOST must be cleared explicitly before reset_curl_request_options
-    cc_cleanup_response_buffer(&response);
-    if (headers)
-        curl_slist_free_all(headers);
-    curl_mime_free(mime);
-    curl_easy_setopt(cc_session.curl_handle, CURLOPT_MIMEPOST, NULL);
     reset_curl_request_options();
+    cc_cleanup_response_buffer(&response);
+    curl_slist_free_all(headers);
+    curl_mime_free(mime);
 
     return success;
+}
+
+int send_gif_to_lcd(const Config *config, const char *path, const char *device_uid)
+{
+    return upload_lcd_image(config, path, device_uid, "image/gif", 0);
+}
+
+int register_lcd_shutdown_image_with_cc(const Config *config,
+                                        const char *image_path,
+                                        const char *device_uid)
+{
+    if (!validate_upload_params(image_path, device_uid))
+        return 0;
+
+    const char *mime_type = image_file_mime_type(image_path);
+    if (!mime_type)
+    {
+        log_message(LOG_WARNING, "Cannot read supported shutdown image: %s", image_path);
+        return 0;
+    }
+
+    return upload_lcd_image(config, image_path, device_uid, mime_type, 1);
 }
