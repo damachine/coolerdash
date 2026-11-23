@@ -48,9 +48,6 @@ static void draw_single_temperature_bar_slot(cairo_t *cr,
 static void draw_labels(cairo_t *cr, const struct Config *config,
                         const monitor_sensor_data_t *data,
                         const ScalingParams *params);
-static void render_display_content(cairo_t *cr, const struct Config *config,
-                                   const monitor_sensor_data_t *data,
-                                   const ScalingParams *params);
 
 typedef struct
 {
@@ -535,11 +532,10 @@ static void draw_labels(cairo_t *cr, const struct Config *config,
 /**
  * @brief Render display content to cairo context.
  */
-static void render_display_content(cairo_t *cr, const struct Config *config,
-                                   const monitor_sensor_data_t *data,
-    const ScalingParams *params)
+int paint_dual_overlay(cairo_t *cr, const struct Config *config,
+                        const monitor_sensor_data_t *data,
+                        const ScalingParams *params)
 {
-    paint_display_background(cr, config);
     if (config->display_rotation == 0 || params->is_circular)
     {
         if (config->split_ring_by_sensor)
@@ -563,6 +559,7 @@ static void render_display_content(cairo_t *cr, const struct Config *config,
     cairo_set_font_size(cr, config->font_size_labels);
     set_cairo_color(cr, &config->font_color_label);
     draw_labels(cr, config, data, params);
+    return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
 }
 
 /**
@@ -603,10 +600,8 @@ int render_dual_preview(const struct Config *config,
     if (!cr)
         return 0;
 
-    render_display_content(cr, config, data, &scaling_params);
-
-    cairo_surface_flush(surface);
-    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+    paint_display_background(cr, config);
+    if (!paint_dual_overlay(cr, config, data, &scaling_params))
     {
         log_message(LOG_ERROR, "Cairo drawing error: %s",
                     cairo_status_to_string(cairo_status(cr)));

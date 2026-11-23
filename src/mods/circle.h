@@ -22,6 +22,7 @@
 
 // Include project headers
 #include "../srv/cc_sensor.h"
+#include "display.h"
 
 // Forward declarations
 struct Config;
@@ -32,6 +33,10 @@ struct Config;
  * triggers alternating single-sensor display rendering.
  */
 void draw_circle_image(const struct Config *config);
+
+int paint_circle_overlay(cairo_t *cr, const struct Config *config,
+                         const monitor_sensor_data_t *data,
+                         const ScalingParams *params);
 
 /** Render circle mode to config->paths_image_coolerdash without uploading it. */
 int render_circle_preview(const struct Config *config,

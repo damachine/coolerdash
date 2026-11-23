@@ -28,6 +28,8 @@
 // Include for monitor_sensor_data_t
 #include "../srv/cc_sensor.h"
 
+struct _GdkPixbuf;
+
 // ============================================================================
 // Mathematical Constants for Cairo Graphics
 // ============================================================================
@@ -108,6 +110,11 @@ void draw_display_image(const struct Config *config);
 /** Render deterministic sample data without sending anything to the LCD. */
 int render_display_preview(const struct Config *config,
                            const char *device_name);
+
+/** Paint the selected layout onto an existing frame or transparent surface. */
+int paint_display_overlay(cairo_t *cr, const struct Config *config,
+                           const monitor_sensor_data_t *data,
+                           const ScalingParams *params);
 
 /** Draw the optional sensor-value ring shared by every display mode. */
 void draw_sensor_ring(cairo_t *cr, const struct Config *config,
@@ -335,6 +342,9 @@ void calculate_bar_bounds(const struct Config *config,
  * configured background color is used.
  */
 void paint_display_background(cairo_t *cr, const struct Config *config);
+void paint_display_background_surface(cairo_t *cr, const struct Config *config,
+                                       cairo_surface_t *background);
+cairo_surface_t *pixbuf_to_cairo_surface(struct _GdkPixbuf *pixbuf);
 
 /**
  * @brief Calculate temperature fill width with bounds checking.

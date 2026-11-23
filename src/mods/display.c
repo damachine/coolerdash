@@ -155,7 +155,7 @@ char *image_file_preview_data_uri(const char *path)
     return result;
 }
 
-static cairo_surface_t *pixbuf_to_cairo_surface(GdkPixbuf *pixbuf)
+cairo_surface_t *pixbuf_to_cairo_surface(GdkPixbuf *pixbuf)
 {
     if (!pixbuf)
         return NULL;
@@ -1062,7 +1062,7 @@ static void paint_background_overlay(cairo_t *cr, const struct Config *config)
 /**
  * @brief Paint configured background image or fallback color.
  */
-static void paint_display_background_surface(cairo_t *cr, const struct Config *config,
+void paint_display_background_surface(cairo_t *cr, const struct Config *config,
                                        cairo_surface_t *background)
 {
     static char last_failed_path[CONFIG_MAX_PATH_LEN] = {0};
@@ -1890,6 +1890,37 @@ static void draw_background_only_image(const struct Config *config)
         send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
 }
 
+typedef struct
+{
+    const char *name;
+    void (*draw)(const Config *);
+    int (*preview)(const Config *, const monitor_sensor_data_t *, const char *);
+    int (*paint)(cairo_t *, const Config *, const monitor_sensor_data_t *,
+                 const ScalingParams *);
+} DisplayMode;
+
+static const DisplayMode *get_display_mode(const Config *config)
+{
+    static const DisplayMode modes[] = {
+        {"dual", draw_dual_image, render_dual_preview, paint_dual_overlay},
+        {"circle", draw_circle_image, render_circle_preview, paint_circle_overlay},
+        {"split", draw_split_image, render_split_preview, paint_split_overlay},
+    };
+    for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
+    {
+        if (strcmp(config->display_mode, modes[i].name) == 0)
+            return &modes[i];
+    }
+    return &modes[0];
+}
+
+int paint_display_overlay(cairo_t *cr, const struct Config *config,
+                           const monitor_sensor_data_t *data,
+                           const ScalingParams *params)
+{
+    return get_display_mode(config)->paint(cr, config, data, params);
+}
+
 void draw_display_image(const struct Config *config)
 {
     if (!config)
@@ -1904,22 +1935,7 @@ void draw_display_image(const struct Config *config)
         return;
     }
 
-    // Check display mode and dispatch to appropriate renderer
-    if (strcmp(config->display_mode, "circle") == 0)
-    {
-        // Circle mode: alternating single sensor display
-        draw_circle_image(config);
-    }
-    else if (strcmp(config->display_mode, "split") == 0)
-    {
-        // Split mode: CPU/GPU columns without bars
-        draw_split_image(config);
-    }
-    else
-    {
-        // Dual mode (default): simultaneous CPU+GPU display
-        draw_dual_image(config);
-    }
+    get_display_mode(config)->draw(config);
 }
 
 static void add_preview_entry(monitor_sensor_data_t *data,
@@ -1988,9 +2004,5 @@ int render_display_preview(const struct Config *config,
     add_preview_sensor(&data, config->sensor_slot_3, 32.5f);
     add_preview_sensor(&data, config->sensor_ring_sensor, 32.5f);
 
-    if (strcmp(config->display_mode, "circle") == 0)
-        return render_circle_preview(config, &data, device_name);
-    if (strcmp(config->display_mode, "split") == 0)
-        return render_split_preview(config, &data, device_name);
-    return render_dual_preview(config, &data, device_name);
+    return get_display_mode(config)->preview(config, &data, device_name);
 }

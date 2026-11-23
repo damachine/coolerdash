@@ -504,7 +504,8 @@ static void update_sensor_mode(const struct Config *config)
 {
     time_t current_time = time(NULL);
 
-    if (last_switch_time == 0)
+    if (last_switch_time == 0 ||
+        !slot_is_active(get_slot_value_by_index(config, current_slot_index)))
     {
         // Initialize to first active slot
         current_slot_index = find_next_active_slot(config, 0);
@@ -547,14 +548,14 @@ static void update_sensor_mode(const struct Config *config)
  * @param config Configuration
  * @param params Scaling parameters
  * @param data Sensor data
- * @param slot_value Current slot sensor value ("cpu", "gpu", "liquid")
+ * @param slot_index Index of the sensor to draw
  */
 static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                const ScalingParams *params,
                                const monitor_sensor_data_t *data,
-                               const char *slot_value)
+                               int slot_index)
 {
-    if (!cr || !config || !params || !data || !slot_value)
+    if (!cr || !config || !params || !data)
         return;
 
     LayoutContext geometry = {0};
@@ -562,6 +563,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
         return;
 
     // Skip if slot is not active
+    const char *slot_value = get_slot_value_by_index(config, slot_index);
     if (!slot_is_active(slot_value))
         return;
 
@@ -585,7 +587,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
     int effective_bar_width = params->safe_bar_width;
     const int bar_height = config->circle_show_bar
-        ? get_scaled_slot_bar_height(config, params, get_slot_name_by_index(current_slot_index))
+        ? get_scaled_slot_bar_height(config, params, get_slot_name_by_index(slot_index))
         : 0;
     int bar_x = (int)lround(params->safe_content_margin);
 
@@ -638,8 +640,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
             "scaled(height=%d gap=%.1f) bar_y=%d center_y=%.1f "
             "value_gap=%.1f value_box=%.1fx%.1f label_box_y=%.1f "
             "label_box_h=%.1f safe_width=%d",
-            get_slot_name_by_index(current_slot_index),
-            get_slot_bar_height(config, get_slot_name_by_index(current_slot_index)),
+            get_slot_name_by_index(slot_index),
+            get_slot_bar_height(config, get_slot_name_by_index(slot_index)),
             config->layout_bar_gap, bar_height, region_gap, bar_y,
             geometry.center_y, value_bar_gap, value_box_y, value_box_height, label_box_y,
             label_box_height, effective_bar_width);
@@ -1018,26 +1020,26 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
     }
 }
 
-/**
- * @brief Render complete circle mode display.
- */
-static void render_display_content(cairo_t *cr, const struct Config *config,
-                                   const monitor_sensor_data_t *data,
-                                   const ScalingParams *params)
+static int displayed_circle_slot(const struct Config *config)
 {
-    if (!cr || !config || !data || !params)
-        return;
+    if (config->preview_render)
+        return find_next_active_slot(config, 0);
+    return current_slot_index;
+}
 
-    paint_display_background(cr, config);
+int paint_circle_overlay(cairo_t *cr, const struct Config *config,
+                         const monitor_sensor_data_t *data,
+                         const ScalingParams *params)
+{
+    if (!config->preview_render)
+        update_sensor_mode(config);
 
-    // Update sensor mode (check if configured interval elapsed)
-    update_sensor_mode(config);
-
-    // Get current slot value and draw sensor
-    const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+    const int slot = displayed_circle_slot(config);
     if (config->display_rotation == 0 || params->is_circular)
-        draw_sensor_ring_for_slot(cr, config, data, params, slot_value);
-    draw_single_sensor(cr, config, params, data, slot_value);
+        draw_sensor_ring_for_slot(cr, config, data, params,
+                                  get_slot_value_by_index(config, slot));
+    draw_single_sensor(cr, config, params, data, slot);
+    return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
 }
 
 /**
@@ -1060,7 +1062,8 @@ int render_circle_preview(const struct Config *config,
     // Verbose logging only
     if (verbose_logging)
     {
-        const char *slot_value = get_slot_value_by_index(config, current_slot_index);
+        const char *slot_value =
+            get_slot_value_by_index(config, displayed_circle_slot(config));
         const char *label = get_slot_label(config, data, slot_value);
         float temp = get_slot_temperature(data, slot_value);
         log_message(LOG_INFO,
@@ -1077,10 +1080,8 @@ int render_circle_preview(const struct Config *config,
     if (!cr)
         return 0;
 
-    render_display_content(cr, config, data, &params);
-
-    cairo_surface_flush(surface);
-    if (cairo_status(cr) != CAIRO_STATUS_SUCCESS)
+    paint_display_background(cr, config);
+    if (!paint_circle_overlay(cr, config, data, &params))
     {
         log_message(LOG_ERROR, "Cairo drawing error: %s",
                     cairo_status_to_string(cairo_status(cr)));
@@ -1094,7 +1095,7 @@ int render_circle_preview(const struct Config *config,
         config->display_rotation != 0 && !params.is_circular
             ? write_display_png_with_ring(
                   surface, config, data, &params, 0,
-                  get_slot_value_by_index(config, current_slot_index),
+                  get_slot_value_by_index(config, displayed_circle_slot(config)),
                   NULL, config->paths_image_coolerdash)
             : write_display_png(surface, config,
                                 config->paths_image_coolerdash);

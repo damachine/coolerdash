@@ -385,6 +385,63 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
     }
 }
 
+static void get_split_slots(const struct Config *config, const char *slots[2])
+{
+    const char *configured_slots[] = {
+        config->sensor_slot_1,
+        config->sensor_slot_2,
+        config->sensor_slot_3,
+    };
+    int active_count = 0;
+    for (size_t i = 0; i < sizeof(configured_slots) / sizeof(configured_slots[0]) &&
+                       active_count < 2;
+         i++)
+    {
+        if (slot_is_active(configured_slots[i]))
+            slots[active_count++] = configured_slots[i];
+    }
+}
+
+int paint_split_overlay(cairo_t *cr, const struct Config *config,
+                        const monitor_sensor_data_t *data,
+                        const ScalingParams *params)
+{
+    SplitLayout layout = {0};
+    if (!calculate_split_layout(config, params, &layout))
+    {
+        log_message(LOG_ERROR, "Split mode: display is too small for two columns");
+        return 0;
+    }
+
+    const char *active_slots[2] = {NULL, NULL};
+    get_split_slots(config, active_slots);
+    if (config->display_rotation == 0 || params->is_circular)
+    {
+        if (config->split_ring_by_sensor)
+            draw_split_sensor_ring(cr, config, data, params,
+                                   active_slots[0], active_slots[1]);
+        else
+            draw_sensor_ring(cr, config, data, params);
+    }
+
+    if (active_slots[0])
+        draw_split_pane(cr, config, data, params, &layout, &layout.left,
+                        active_slots[0]);
+    if (active_slots[1])
+        draw_split_pane(cr, config, data, params, &layout, &layout.right,
+                        active_slots[1]);
+
+    cairo_save(cr);
+    cairo_set_line_width(cr, fmax(1.0, scale_value_avg(params, 1.4)));
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    set_cairo_color_alpha(cr, &config->font_color_label, 0.62);
+    cairo_move_to(cr, layout.divider_x, layout.top);
+    cairo_line_to(cr, layout.divider_x, layout.bottom);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+    return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+}
+
 int render_split_preview(const struct Config *config,
                          const monitor_sensor_data_t *data,
                          const char *device_name)
@@ -397,61 +454,12 @@ int render_split_preview(const struct Config *config,
     if (!cr)
         return 0;
 
-    SplitLayout layout = {0};
-    if (!calculate_split_layout(config, &params, &layout))
-    {
-        log_message(LOG_ERROR, "Split mode: display is too small for two columns");
-        cairo_destroy(cr);
-        cairo_surface_destroy(surface);
-        return 0;
-    }
-
     paint_display_background(cr, config);
-
-    const char *active_slots[2] = {NULL, NULL};
-    const char *configured_slots[] = {
-        config->sensor_slot_1,
-        config->sensor_slot_2,
-        config->sensor_slot_3,
-    };
-    int active_count = 0;
-    for (size_t i = 0; i < sizeof(configured_slots) / sizeof(configured_slots[0]) &&
-                       active_count < 2;
-         i++)
-    {
-        if (slot_is_active(configured_slots[i]))
-            active_slots[active_count++] = configured_slots[i];
-    }
-
-    if (config->display_rotation == 0 || params.is_circular)
-    {
-        if (config->split_ring_by_sensor)
-            draw_split_sensor_ring(cr, config, data, &params,
-                                   active_slots[0], active_slots[1]);
-        else
-            draw_sensor_ring(cr, config, data, &params);
-    }
-
-    if (active_count > 0)
-        draw_split_pane(cr, config, data, &params, &layout, &layout.left,
-                        active_slots[0]);
-    if (active_count > 1)
-        draw_split_pane(cr, config, data, &params, &layout, &layout.right,
-                        active_slots[1]);
-
-    cairo_save(cr);
-    cairo_set_line_width(cr, fmax(1.0, scale_value_avg(&params, 1.4)));
-    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-    set_cairo_color_alpha(cr, &config->font_color_label, 0.62);
-    cairo_move_to(cr, layout.divider_x, layout.top);
-    cairo_line_to(cr, layout.divider_x, layout.bottom);
-    cairo_stroke(cr);
-    cairo_restore(cr);
-
-    cairo_surface_flush(surface);
-    int success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+    int success = paint_split_overlay(cr, config, data, &params);
     if (success)
     {
+        const char *active_slots[2] = {NULL, NULL};
+        get_split_slots(config, active_slots);
         success =
             (config->display_rotation != 0 && !params.is_circular
                  ? write_display_png_with_ring(
