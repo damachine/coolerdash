@@ -421,6 +421,19 @@ static char *redact_text(const ReportContext *context, const char *input)
     return current;
 }
 
+static uid_t report_invoking_uid(uid_t real_uid, uid_t effective_uid,
+                                 const char *sudo_uid)
+{
+    if (effective_uid != 0 || !sudo_uid || !string_is_uint(sudo_uid))
+        return real_uid;
+
+    errno = 0;
+    unsigned long parsed = strtoul(sudo_uid, NULL, 10);
+    return errno == 0 && parsed <= (unsigned long)(uid_t)-1
+               ? (uid_t)parsed
+               : real_uid;
+}
+
 static int resolve_default_output_dir(char *buffer, size_t buffer_size,
                                       uid_t real_uid, uid_t effective_uid,
                                       const char *sudo_uid)
@@ -428,18 +441,8 @@ static int resolve_default_output_dir(char *buffer, size_t buffer_size,
     if (!buffer || buffer_size == 0)
         return 0;
 
-    uid_t uid = real_uid;
-    if (effective_uid == 0)
-    {
-        if (string_is_uint(sudo_uid))
-        {
-            unsigned long parsed = strtoul(sudo_uid, NULL, 10);
-            if (parsed <= (unsigned long)(uid_t)-1)
-                uid = (uid_t)parsed;
-        }
-    }
-
-    const struct passwd *entry = getpwuid(uid);
+    const struct passwd *entry = getpwuid(
+        report_invoking_uid(real_uid, effective_uid, sudo_uid));
     if (!entry || !entry->pw_dir || entry->pw_dir[0] != '/')
         return 0;
 
@@ -2417,9 +2420,7 @@ int run_hardware_report(const Config *config,
     add_secret(&context, config->access_token);
     add_secret(&context, config->daemon_address);
 
-    uid_t invoking_uid = getuid();
-    if (geteuid() == 0 && string_is_uint(getenv("SUDO_UID")))
-        invoking_uid = (uid_t)strtoul(getenv("SUDO_UID"), NULL, 10);
+    uid_t invoking_uid = report_invoking_uid(getuid(), geteuid(), getenv("SUDO_UID"));
     const struct passwd *invoking_user = getpwuid(invoking_uid);
     if (invoking_user)
         add_secret(&context, invoking_user->pw_name);

@@ -552,6 +552,9 @@ static int slot_is_active_str(const char *slot)
     return strcmp(slot, "none") != 0;
 }
 
+static const char *const slot_names[] = {
+    "sensor_slot_1", "sensor_slot_2", "sensor_slot_3"};
+
 /**
  * @brief Validate sensor slot configuration.
  * @details Checks for duplicates (excluding "none") and validates slot values.
@@ -566,7 +569,6 @@ static void validate_sensor_slots(Config *config)
 
     const int dual = strcmp(config->display_mode, "dual") == 0;
     char *slots[] = {config->sensor_slot_1, config->sensor_slot_2, config->sensor_slot_3};
-    const char *slot_names[] = {"sensor_slot_1", "sensor_slot_2", "sensor_slot_3"};
     const char *defaults[] = {"cpu", dual ? "none" : "gpu", dual ? "gpu" : "none"};
     for (int i = 0; i < 3; i++)
     {
@@ -648,9 +650,9 @@ static int read_color_from_json(json_t *color_obj, Color *color)
     if (!r || !g || !b || !json_is_integer(r) || !json_is_integer(g) || !json_is_integer(b))
         return 0;
 
-    int r_val = (int)json_integer_value(r);
-    int g_val = (int)json_integer_value(g);
-    int b_val = (int)json_integer_value(b);
+    json_int_t r_val = json_integer_value(r);
+    json_int_t g_val = json_integer_value(g);
+    json_int_t b_val = json_integer_value(b);
 
     if (r_val < 0 || r_val > 255 || g_val < 0 || g_val > 255 || b_val < 0 || b_val > 255)
         return 0;
@@ -1125,7 +1127,7 @@ static void load_display_from_json(json_t *root, Config *config)
     json_t *circle_interval = json_object_get(display, "circle_switch_interval");
     if (circle_interval && json_is_integer(circle_interval))
     {
-        int val = (int)json_integer_value(circle_interval);
+        json_int_t val = json_integer_value(circle_interval);
         if (val >= 1 && val <= 60)
             config->circle_switch_interval = (uint16_t)val;
     }
@@ -1211,7 +1213,7 @@ static void load_display_from_json(json_t *root, Config *config)
     json_t *brightness = json_object_get(display, "brightness");
     if (brightness && json_is_integer(brightness))
     {
-        int val = (int)json_integer_value(brightness);
+        json_int_t val = json_integer_value(brightness);
         if (val >= 0 && val <= 100)
             config->lcd_brightness = (uint8_t)val;
     }
@@ -1227,7 +1229,7 @@ static void load_display_from_json(json_t *root, Config *config)
     json_t *width = json_object_get(display, "width");
     if (width && json_is_integer(width))
     {
-        int val = (int)json_integer_value(width);
+        json_int_t val = json_integer_value(width);
         if (val >= 100 && val <= 1024)
             config->display_width = (uint16_t)val;
     }
@@ -1235,7 +1237,7 @@ static void load_display_from_json(json_t *root, Config *config)
     json_t *height = json_object_get(display, "height");
     if (height && json_is_integer(height))
     {
-        int val = (int)json_integer_value(height);
+        json_int_t val = json_integer_value(height);
         if (val >= 100 && val <= 1024)
             config->display_height = (uint16_t)val;
     }
@@ -1248,44 +1250,15 @@ static void load_display_from_json(json_t *root, Config *config)
             config->display_content_scale_factor = (float)val;
     }
 
-    // Sensor slot configuration
-    json_t *slot_1 = json_object_get(display, "sensor_slot_1");
-    if (slot_1 && json_is_string(slot_1))
+    char *slots[] = {config->sensor_slot_1, config->sensor_slot_2, config->sensor_slot_3};
+    for (size_t i = 0; i < sizeof(slots) / sizeof(slots[0]); i++)
     {
-        const char *value = json_string_value(slot_1);
-        if (value)
-            cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), value);
-    }
-    else if (slot_1 && !json_is_string(slot_1))
-    {
-        log_message(LOG_WARNING, "sensor_slot_1 has non-string type, using default '%s'",
-                    config->sensor_slot_1);
-    }
-
-    json_t *slot_2 = json_object_get(display, "sensor_slot_2");
-    if (slot_2 && json_is_string(slot_2))
-    {
-        const char *value = json_string_value(slot_2);
-        if (value)
-            cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), value);
-    }
-    else if (slot_2 && !json_is_string(slot_2))
-    {
-        log_message(LOG_WARNING, "sensor_slot_2 has non-string type, using default '%s'",
-                    config->sensor_slot_2);
-    }
-
-    json_t *slot_3 = json_object_get(display, "sensor_slot_3");
-    if (slot_3 && json_is_string(slot_3))
-    {
-        const char *value = json_string_value(slot_3);
-        if (value)
-            cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), value);
-    }
-    else if (slot_3 && !json_is_string(slot_3))
-    {
-        log_message(LOG_WARNING, "sensor_slot_3 has non-string type, using default '%s'",
-                    config->sensor_slot_3);
+        json_t *slot = json_object_get(display, slot_names[i]);
+        if (json_is_string(slot))
+            cc_safe_strcpy(slots[i], CONFIG_MAX_SENSOR_SLOT_LEN, json_string_value(slot));
+        else if (slot)
+            log_message(LOG_WARNING, "%s has non-string type, using default '%s'",
+                        slot_names[i], slots[i]);
     }
 }
 
@@ -1508,7 +1481,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     json_t *bar_height = json_object_get(layout, "bar_height");
     if (bar_height && json_is_integer(bar_height))
     {
-        int val = (int)json_integer_value(bar_height);
+        json_int_t val = json_integer_value(bar_height);
         if (val > 0 && val <= 100)
             config->layout_bar_height = (uint16_t)val;
     }
@@ -1516,7 +1489,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     json_t *bar_width = json_object_get(layout, "bar_width");
     if (bar_width && json_is_integer(bar_width))
     {
-        int val = (int)json_integer_value(bar_width);
+        json_int_t val = json_integer_value(bar_width);
         if (val >= 1 && val <= 100)
             config->layout_bar_width = (uint8_t)val;
     }
@@ -1574,13 +1547,13 @@ static void load_layout_from_json(json_t *root, Config *config)
         if (json_is_boolean(bar_border_enabled))
             config->layout_bar_border_enabled = json_is_true(bar_border_enabled) ? 1 : 0;
         else if (json_is_integer(bar_border_enabled))
-            config->layout_bar_border_enabled = (int)json_integer_value(bar_border_enabled) != 0 ? 1 : 0;
+            config->layout_bar_border_enabled = json_integer_value(bar_border_enabled) != 0;
     }
 
     json_t *label_margin_left = json_object_get(layout, "label_margin_left");
     if (label_margin_left && json_is_integer(label_margin_left))
     {
-        int val = (int)json_integer_value(label_margin_left);
+        json_int_t val = json_integer_value(label_margin_left);
         if (val >= 0 && val <= 50)
             config->layout_label_margin_left = (uint8_t)val;
     }
@@ -1588,7 +1561,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     json_t *label_margin_bar = json_object_get(layout, "label_margin_bar");
     if (label_margin_bar && json_is_integer(label_margin_bar))
     {
-        int val = (int)json_integer_value(label_margin_bar);
+        json_int_t val = json_integer_value(label_margin_bar);
         if (val >= 0 && val <= 20)
             config->layout_label_margin_bar = (uint8_t)val;
     }
@@ -1597,7 +1570,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     json_t *bar_height_1 = json_object_get(layout, "bar_height_1");
     if (bar_height_1 && json_is_integer(bar_height_1))
     {
-        int val = (int)json_integer_value(bar_height_1);
+        json_int_t val = json_integer_value(bar_height_1);
         if (val >= 0 && val <= 100)
             config->layout_bar_height_1 = (uint16_t)val;
     }
@@ -1605,7 +1578,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     json_t *bar_height_2 = json_object_get(layout, "bar_height_2");
     if (bar_height_2 && json_is_integer(bar_height_2))
     {
-        int val = (int)json_integer_value(bar_height_2);
+        json_int_t val = json_integer_value(bar_height_2);
         if (val >= 0 && val <= 100)
             config->layout_bar_height_2 = (uint16_t)val;
     }
@@ -1613,7 +1586,7 @@ static void load_layout_from_json(json_t *root, Config *config)
     json_t *bar_height_3 = json_object_get(layout, "bar_height_3");
     if (bar_height_3 && json_is_integer(bar_height_3))
     {
-        int val = (int)json_integer_value(bar_height_3);
+        json_int_t val = json_integer_value(bar_height_3);
         if (val >= 0 && val <= 100)
             config->layout_bar_height_3 = (uint16_t)val;
     }
