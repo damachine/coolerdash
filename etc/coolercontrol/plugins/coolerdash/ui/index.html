@@ -812,6 +812,9 @@
                                 <option value="custom">Custom Layout</option>
                             </select>
                         </div>
+                        <label class="display-option">
+                            <input type="checkbox" name="display.show_clock" id="show_clock" value="1">Show Clock
+                        </label>
 
                         <div class="form-group" id="circle_layout_group" style="display: none;">
                             <label class="form-label" for="circle_layout">Circle Layout</label>
@@ -870,6 +873,10 @@
                                 <path class="mode-preview-ring-path" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#343434" stroke-width="8"/>
                                 <path class="mode-preview-ring-path" id="mode_preview_ring_value" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#00ff00" stroke-width="8" stroke-dasharray="0 100"/>
                                 <path class="mode-preview-ring-path" id="mode_preview_ring_value_secondary" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#ff8c00" stroke-width="8" style="display: none;"/>
+                            </g>
+                            <g id="mode_preview_clock" style="display: none;">
+                                <rect x="94" y="206" width="52" height="20" rx="6" fill="#0a0d14" opacity=".82"/>
+                                <text x="120" y="221" text-anchor="middle" font-family="monospace" font-size="13" font-weight="bold" fill="#f5f7ff">12:34</text>
                             </g>
                             </g>
                             <image id="mode_preview_rendered" x="7" y="7" width="226" height="226" preserveAspectRatio="xMidYMid meet" clip-path="url(#preview_screen_clip)" style="display: none;"/>
@@ -1630,6 +1637,7 @@
                 refresh_interval: 3.5,
                 brightness: 80,
                 orientation: 0,
+                show_clock: false,
                 background_image_fit: "cover",
                 background_image_scale_factor: 0.0,
                 background_overlay_opacity: 0.0,
@@ -3162,6 +3170,8 @@
             });
             document.getElementById('mode_preview_title').textContent = mode + ' layout preview: ' + descriptions[mode];
             document.getElementById('mode_preview_description').textContent = descriptions[mode];
+            document.getElementById('mode_preview_clock').style.display =
+                document.getElementById('show_clock').checked ? '' : 'none';
             var ring = document.getElementById('mode_preview_ring');
             var splitRingEnabled = (mode === 'split' || mode === 'dual') &&
                 document.getElementById('split_ring_by_sensor').checked;
@@ -3566,6 +3576,7 @@
             config.sensors = collectSensorConfigsFromDOM();
 
             // Checkbox fields (not included in FormData when unchecked)
+            config.display.show_clock = document.getElementById('show_clock').checked;
             config.layout.ring_rounded_corners =
                 document.getElementById('ring_rounded_corners').checked;
             document.querySelectorAll('[data-element-mode] input').forEach(function (element) {
@@ -3639,6 +3650,9 @@
             }
 
             // Checkbox fields
+            var showClock = config.display.show_clock;
+            document.getElementById('show_clock').checked =
+                showClock === true || (typeof showClock === 'number' && showClock !== 0);
             document.getElementById('ring_rounded_corners').checked =
                 config.layout.ring_rounded_corners !== false &&
                 config.layout.ring_rounded_corners !== 0;

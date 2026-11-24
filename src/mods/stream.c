@@ -231,6 +231,11 @@ static int update_overlay(gint64 now)
             success = paint_display_overlay(cr, &layout, &sensors,
                                              &animation.scaling);
     }
+    if (success)
+    {
+        paint_display_clock(cr, &animation.config);
+        success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+    }
     cairo_destroy(cr);
     return success;
 }
@@ -268,7 +273,8 @@ void stream_stop(void)
 void stream_start(const Config *config)
 {
     if (!is_session_initialized() ||
-        (display_uses_sensor_slots(config) && !display_needs_sensor_data(config)) ||
+        (display_uses_sensor_slots(config) && !display_needs_sensor_data(config) &&
+         !config->display_show_clock) ||
         !config->paths_image_background[0])
         return;
 

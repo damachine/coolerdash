@@ -37,6 +37,7 @@
     "refresh_interval": 3.5,
     "brightness": 80,
     "orientation": 0,
+    "show_clock": false,
     "background_image_fit": "cover",
     "background_image_scale_factor": 0,
     "background_overlay_opacity": 0,

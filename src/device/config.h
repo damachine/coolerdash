@@ -137,6 +137,7 @@ typedef struct Config
     float display_refresh_interval;
     uint8_t lcd_brightness;
     uint16_t display_rotation; // Clockwise software rotation, 0..359 degrees
+    int display_show_clock;
     char display_mode[16];
     CustomLayout custom_layout;
     char display_background_image_fit[16];

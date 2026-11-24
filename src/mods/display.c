@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
@@ -1373,16 +1374,44 @@ static cairo_status_t write_oriented_surface_png(
     return status;
 }
 
+void paint_display_clock(cairo_t *cr, const Config *config)
+{
+    if (!config->display_show_clock)
+        return;
+
+    char clock[6] = "12:34";
+    if (!config->preview_render)
+    {
+        const time_t now = time(NULL);
+        struct tm local;
+        if (!localtime_r(&now, &local) || !strftime(clock, sizeof(clock), "%H:%M", &local))
+            return;
+    }
+
+    const double scale = fmin(config->display_width, config->display_height) / 240.0;
+    cairo_save(cr);
+    cairo_translate(cr, config->display_width / 2.0, config->display_height * 0.90);
+    cairo_scale(cr, scale, scale);
+    cairo_new_path(cr);
+    draw_rounded_rectangle_path(cr, -26, -10, 52, 20, 6);
+    cairo_set_source_rgba(cr, 0.04, 0.05, 0.08, 0.82);
+    cairo_fill(cr);
+
+    cairo_select_font_face(cr, "monospace", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+    cairo_set_font_size(cr, 13);
+    cairo_text_extents_t ink;
+    cairo_text_extents(cr, clock, &ink);
+    cairo_move_to(cr, -ink.x_bearing - ink.width / 2, -ink.y_bearing - ink.height / 2);
+    cairo_set_source_rgb(cr, 0.96, 0.97, 1.0);
+    cairo_show_text(cr, clock);
+    cairo_restore(cr);
+}
+
 cairo_status_t write_display_png(cairo_surface_t *surface,
                                  const struct Config *config,
                                  const char *path)
 {
-    if (!config)
-        return CAIRO_STATUS_NULL_POINTER;
-    return write_oriented_surface_png(surface, config,
-                                      config->display_width,
-                                      config->display_height, path,
-                                      NULL, NULL, 0, NULL, NULL);
+    return write_display_png_with_ring(surface, config, NULL, NULL, 0, NULL, NULL, path);
 }
 
 cairo_status_t write_display_png_with_ring(cairo_surface_t *surface,
@@ -1394,8 +1423,17 @@ cairo_status_t write_display_png_with_ring(cairo_surface_t *surface,
                                            const char *second_slot,
                                            const char *path)
 {
-    if (!config)
+    if (!surface || !config || !path)
         return CAIRO_STATUS_NULL_POINTER;
+    if (config->display_show_clock && config->display_width && config->display_height)
+    {
+        cairo_t *cr = cairo_create(surface);
+        paint_display_clock(cr, config);
+        const cairo_status_t status = cairo_status(cr);
+        cairo_destroy(cr);
+        if (status != CAIRO_STATUS_SUCCESS)
+            return status;
+    }
     return write_oriented_surface_png(surface, config,
                                       config->display_width,
                                       config->display_height, path,
@@ -1901,7 +1939,7 @@ static void draw_background_only_image(const struct Config *config)
                                    NULL, 0, NULL, NULL) &&
         device_uid[0] != '\0';
 
-    if (device_available && native_gif == NATIVE_GIF_PENDING)
+    if (device_available && native_gif == NATIVE_GIF_PENDING && !config->display_show_clock)
     {
         native_gif = try_native_background_gif(config, device_uid)
                          ? NATIVE_GIF_ACTIVE

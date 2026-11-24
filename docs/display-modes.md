@@ -12,6 +12,9 @@ for backwards-compatible output.
 
 Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, or `--circle`.
 
+Enable **Show Clock** to display the local time at the bottom of any mode.
+The option is off by default.
+
 ## Custom Layout
 
 Open **Display → Custom Layout** in the CoolerControl plugin. Create a blank

@@ -121,6 +121,7 @@ int display_uses_sensor_slots(const Config *config);
 int display_needs_sensor_data(const Config *config);
 void draw_segment_bar(cairo_t *cr, double x, double y, double width, double height,
                       int segments, double progress, const Color *color);
+void paint_display_clock(cairo_t *cr, const Config *config);
 
 /** Draw the optional sensor-value ring shared by every display mode. */
 void draw_sensor_ring(cairo_t *cr, const struct Config *config,

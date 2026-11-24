@@ -1149,14 +1149,14 @@ static void load_display_from_json(json_t *root, Config *config)
         "circle_show_load", "circle_show_rpm", "circle_show_watts",
         "circle_show_frequency", "circle_show_bar",
         "dual_show_bars", "split_show_load", "split_show_watts", "split_show_rpm",
-        "split_ring_by_sensor", "sensor_ring_enabled"
+        "split_ring_by_sensor", "sensor_ring_enabled", "show_clock"
     };
     int *element_flags[] = {
         &config->circle_show_load, &config->circle_show_rpm,
         &config->circle_show_watts, &config->circle_show_frequency,
         &config->circle_show_bar, &config->dual_show_bars,
         &config->split_show_load, &config->split_show_watts, &config->split_show_rpm,
-        &config->split_ring_by_sensor, &config->sensor_ring_enabled
+        &config->split_ring_by_sensor, &config->sensor_ring_enabled, &config->display_show_clock
     };
     for (size_t i = 0; i < sizeof(element_keys) / sizeof(element_keys[0]); ++i)
     {

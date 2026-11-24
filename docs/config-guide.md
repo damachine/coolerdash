@@ -56,6 +56,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
     "refresh_interval": 3.5,
     "brightness": 80,
     "orientation": 0,
+    "show_clock": false,
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
     "split_ring_by_sensor": true,
@@ -74,6 +75,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Clockwise software rotation, whole degrees `0`–`359`. CoolerControl receives `0`. The complete frame, including background images, rotates and fits the LCD; uncovered corners use the background color. Existing quarter-turn values remain valid. |
+| `show_clock` | `false` | Show local time (HH:MM) below the layout in any display mode. |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
 | `split_ring_by_sensor` | `true` | In Split and Dual modes, color both ring halves from the two visible layout sensors |
