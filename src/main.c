@@ -691,7 +691,7 @@ static char *render_preview_json(const char *json, size_t json_length)
     const int loaded = load_plugin_config_read_only(&preview, config_path);
     unlink(config_path);
     rmdir(temp_dir);
-    if (!loaded)
+    if (!loaded || preview.invalid_custom_layout)
         return NULL;
 
     char image_path[] = "/tmp/coolerdash-preview-image-XXXXXX";
@@ -711,15 +711,33 @@ static char *render_preview_json(const char *json, size_t json_length)
     if (preview.display_height == 0 && snapshot.screen_height > 0)
         preview.display_height = (uint16_t)snapshot.screen_height;
     preview.preview_render = 1;
+    const int native_preview = !display_uses_sensor_slots(&preview);
+    if (native_preview)
+    {
+        if (!preview.display_width)
+            preview.display_width = 240;
+        if (!preview.display_height)
+            preview.display_height = 240;
+    }
 
     char *image = NULL;
     if (render_display_preview(&preview, snapshot.device_name))
-        image = image_file_preview_data_uri(image_path);
+        image = native_preview ? rendered_png_data_uri(image_path) : image_file_preview_data_uri(image_path);
     unlink(image_path);
     if (!image)
         return NULL;
 
-    json_t *root = json_pack("{s:s}", "image", image);
+    json_t *root;
+    if (native_preview)
+    {
+        ScalingParams params = {0};
+        calculate_scaling_params(&preview, &params, snapshot.device_name);
+        root = json_pack("{s:s,s:i,s:i,s:s}", "image", image,
+                         "width", (int)preview.display_width, "height", (int)preview.display_height,
+                         "shape", display_shape_name(params.shape));
+    }
+    else
+        root = json_pack("{s:s}", "image", image);
     free(image);
     if (!root)
         return NULL;
@@ -1314,8 +1332,9 @@ static void show_help(const char *program_name)
         "  dual              Shows two sensor values with temperature bars\n");
     printf("  split             Shows CPU and GPU in two bar-free columns\n");
     printf("  circle            Alternating mode using the configured interval\n");
+    printf("  custom            Use the selected layout from the layout bank\n");
     printf("                    Configure via config.json [display] "
-           "mode=dual|split|circle or CLI flags\n\n");
+           "mode=dual|split|circle|custom or CLI flags\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl restart coolercontrold     # Restart CoolerControl "
            "(reloads plugin)\n");
@@ -1919,9 +1938,11 @@ static void initialize_device_info(Config *config)
 
     log_message(LOG_STATUS, "Device: %s [%s]", name_display, uid_display);
 
-    if (!display_has_active_sensor_slots(config))
+    if (!display_needs_sensor_data(config))
     {
-        log_message(LOG_STATUS, "Background-only mode: all sensor slots disabled");
+        log_message(LOG_STATUS, "%s", display_uses_sensor_slots(config)
+                     ? "Background-only mode: all sensor slots disabled"
+                     : "Custom layout does not need sensor data");
     }
     else if (get_sensor_monitor_data(config, &temp_data))
     {

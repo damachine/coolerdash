@@ -24,7 +24,8 @@ The Kraken 2023 Elite is [partially supported](docs/devices.md) due to [liquidct
 ## Features
 
 - Show CPU, GPU, liquid temperature, and other CoolerControl sensor values.
-- Choose from Split, Dual, and Circle display modes.
+- Choose Split, Dual, Circle, or your own [custom layouts](docs/display-modes.md#custom-layout).
+- Build LCD layouts with drag-and-drop widgets, save them in the Layout Bank, and share them as JSON files.
 - Adjust the layout and sensor values in the CoolerDash interface inside CoolerControl.
 - Play GIFs through CoolerControl on compatible LCDs with all sensor slots
   disabled. Supported Kraken models also provide
@@ -246,7 +247,7 @@ liquidctl --list
 
 - **[Configuration Guide](https://github.com/damachine/coolerdash/blob/master/docs/config-guide.md)** - All configuration options
 - **[Supported Devices](https://github.com/damachine/coolerdash/blob/master/docs/devices.md)** - Confirmed working hardware
-- **[Display Modes Guide](https://github.com/damachine/coolerdash/blob/master/docs/display-modes.md)** - Dual, Split, and Circle mode reference
+- **[Display Modes Guide](docs/display-modes.md)** - Dual, Split, Circle, and Custom Layout reference
 - **[Developer Guide](https://github.com/damachine/coolerdash/blob/master/docs/developer-guide.md)** - Architecture and API integration
 - **[Display Detection](https://github.com/damachine/coolerdash/blob/master/docs/display-detection.md)** - Display shape detection
 - **[CoolerControl API Guide](https://github.com/damachine/coolerdash/blob/master/docs/coolercontrol-api.md)** - API module documentation

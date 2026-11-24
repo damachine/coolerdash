@@ -77,10 +77,44 @@ typedef struct
     float label_to_bar_gap;               /**< Gap below bar as % of available_height (0 = auto) */
 } SensorConfig;
 
+#define CUSTOM_LAYOUT_MAX_ELEMENTS 24
+#define CUSTOM_LAYOUT_NAME_SIZE 65
+#define CUSTOM_LAYOUT_TEXT_SIZE 97
+#define CUSTOM_LAYOUT_GRID 1000
+
+typedef enum
+{
+    CUSTOM_VALUE,
+    CUSTOM_TEXT,
+    CUSTOM_CLOCK,
+    CUSTOM_BAR,
+    CUSTOM_RING,
+    CUSTOM_FRAME
+} CustomElementType;
+
+typedef struct
+{
+    CustomElementType type;
+    int x, y, width, height;
+    int font_size, monospace, segments;
+    double minimum, maximum;
+    Color color;
+    char text[CUSTOM_LAYOUT_TEXT_SIZE];
+    char source[CONFIG_MAX_SENSOR_SLOT_LEN];
+} CustomElement;
+
+typedef struct
+{
+    int count;
+    int needs_sensors;
+    CustomElement elements[CUSTOM_LAYOUT_MAX_ELEMENTS];
+} CustomLayout;
+
 /** @brief All CoolerDash settings: daemon, paths, display, theme, sensors. */
 typedef struct Config
 {
     int preview_render; /**< Internal: render one static preview frame only. */
+    int invalid_custom_layout;
 
     // Daemon configuration
     char daemon_address[CONFIG_MAX_STRING_LEN];
@@ -104,6 +138,7 @@ typedef struct Config
     uint8_t lcd_brightness;
     uint16_t display_rotation; // Clockwise software rotation, 0..359 degrees
     char display_mode[16];
+    CustomLayout custom_layout;
     char display_background_image_fit[16];
     uint16_t circle_switch_interval;
     char circle_layout[16]; // "classic" or "centered"

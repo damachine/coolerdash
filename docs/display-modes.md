@@ -1,8 +1,8 @@
 # Display Modes
 
-Three modes: **split** (default), **dual**, and **circle**.
+CoolerDash offers **Split** (default), **Dual**, **Circle**, and **Custom Layout**.
 
-All three modes can add the optional **Sensor Ring** overlay. Split and Dual
+Split, Dual, and Circle can add the optional **Sensor Ring** overlay. Split and Dual
 can instead divide the ring between their two visible sensors. In Circle mode,
 the normal ring follows the sensor currently shown on the display. In other
 modes, `display.sensor_ring_sensor` selects its sensor and defaults to `liquid`.
@@ -11,6 +11,28 @@ the same threshold colors as its bars and values. The overlay is off by default
 for backwards-compatible output.
 
 Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, or `--circle`.
+
+## Custom Layout
+
+Open **Display → Custom Layout** in the CoolerControl plugin. Create a blank
+layout or copy the **Terminal**, **Monitor**, or **Activity Rings** template.
+Click a widget to add it in the center, or drag it from the palette onto the
+display. Drag a widget to move it and use its corner handle to resize it.
+You can also edit its coordinates and size in the inspector or use the arrow
+keys once the widget has focus. Hold Alt to resize with the arrow keys.
+
+Choose a local sensor in the inspector for each value, bar, or ring. A missing
+reading displays a dash or an empty gauge. The Cairo preview uses sample
+readings. Use **1:1 pixels** to check readability and **LCD orientation** to
+preview the configured rotation.
+
+Give the layout a name, select it in the Layout Bank, and click **Save** to
+apply it to the LCD. **Export JSON** shows the selected layout with its colors
+and widgets. In CoolerControl, copy the JSON into a `.json` file to share it.
+Imported layouts appear as new entries. CPU, GPU, and liquid
+temperature keep their standard bindings. Assign any device-specific sources
+again after import. Background images and GIFs come from the local background
+setting. Resetting plugin settings keeps saved layouts and selects Split.
 
 ## Display Elements
 
@@ -53,20 +75,12 @@ src/mods/
 ├── display.c/h    # Mode dispatcher
 ├── dual.c/h       # Dual mode
 ├── circle.c/h     # Circle mode
+├── custom.c/h     # Custom layout widgets
 └── split.c/h      # Split mode
 ```
 
-Dispatcher (`display.c`):
-```c
-void draw_display_image(const struct Config *config) {
-    if (strcmp(config->display_mode, "circle") == 0)
-        draw_circle_image(config);
-    else if (strcmp(config->display_mode, "split") == 0)
-        draw_split_image(config);
-    else
-        draw_dual_image(config);
-}
-```
+The dispatcher selects the image, preview, and overlay functions for the
+configured mode.
 
 ---
 

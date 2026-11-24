@@ -34,6 +34,7 @@
 #include "../srv/cc_sensor.h"
 #include "circle.h"
 #include "display.h"
+#include "custom.h"
 #include "dual.h"
 #include "split.h"
 
@@ -113,6 +114,36 @@ int image_file_is_supported(const char *path)
     return 1;
 }
 
+static char *png_data_uri(const char *png, size_t png_size)
+{
+    gchar *encoded = g_base64_encode((const guchar *)png, png_size);
+    if (!encoded)
+        return NULL;
+    const char prefix[] = "data:image/png;base64,";
+    const size_t size = sizeof(prefix) + strlen(encoded);
+    char *result = malloc(size);
+    if (result)
+        snprintf(result, size, "%s%s", prefix, encoded);
+    g_free(encoded);
+    return result;
+}
+
+char *rendered_png_data_uri(const char *path)
+{
+    /* The renderer created this PNG in a private temporary file. Keep its
+       original pixel dimensions for the editor's 1:1 view. */
+    struct stat info;
+    if (stat(path, &info) != 0 || info.st_size <= 0 || info.st_size > 2 * 1024 * 1024)
+        return NULL;
+    gchar *png;
+    gsize size;
+    if (!g_file_get_contents(path, &png, &size, NULL))
+        return NULL;
+    char *uri = png_data_uri(png, size);
+    g_free(png);
+    return uri;
+}
+
 char *image_file_preview_data_uri(const char *path)
 {
     struct stat info;
@@ -142,16 +173,8 @@ char *image_file_preview_data_uri(const char *path)
         g_free(png);
         return NULL;
     }
-    gchar *encoded = g_base64_encode((const guchar *)png, png_size);
+    char *result = png_data_uri(png, png_size);
     g_free(png);
-    if (!encoded)
-        return NULL;
-    const char prefix[] = "data:image/png;base64,";
-    const size_t size = sizeof(prefix) + strlen(encoded);
-    char *result = malloc(size);
-    if (result)
-        snprintf(result, size, "%s%s", prefix, encoded);
-    g_free(encoded);
     return result;
 }
 
@@ -1041,9 +1064,27 @@ void calculate_bar_bounds(const struct Config *config,
     *bar_width = (int)lround(safe_width);
 }
 
-/**
- * @brief Paint a configured overlay over a loaded background image.
- */
+void draw_segment_bar(cairo_t *cr, double x, double y, double width, double height,
+                      int segments, double progress, const Color *color)
+{
+    const double step = width / segments;
+    const double gap = segments > 1 ? fmin(step * 0.24, height * 0.4) : 0;
+    cairo_save(cr);
+    for (int i = 0; i < segments; i++)
+        cairo_rectangle(cr, x + step * i, y, step - gap, height);
+    cairo_clip(cr);
+    set_cairo_color_alpha(cr, color, 0.22);
+    cairo_paint(cr);
+    if (progress > 0)
+    {
+        set_cairo_color(cr, color);
+        cairo_rectangle(cr, x, y, width * progress, height);
+        cairo_fill(cr);
+    }
+    cairo_restore(cr);
+}
+
+/** Paint a configured overlay over a loaded background image. */
 static void paint_background_overlay(cairo_t *cr, const struct Config *config)
 {
     if (config->display_background_overlay_opacity <= 0.0f)
@@ -1416,8 +1457,10 @@ void calculate_scaling_params(const struct Config *config,
 
     const DisplayProfile *profile = resolve_display_profile(
         0, 0, device_name, config->display_width, config->display_height);
+    const int rectangular_canvas = !display_uses_sensor_slots(config) &&
+                                   config->display_width != config->display_height;
     params->shape = profile ? profile->shape
-                            : (is_circular_display_device(
+                            : (!rectangular_canvas && is_circular_display_device(
                                    device_name, config->display_width,
                                    config->display_height)
                                    ? DISPLAY_SHAPE_CIRCULAR
@@ -1890,9 +1933,45 @@ static void draw_background_only_image(const struct Config *config)
         send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
 }
 
+static int render_overlay_frame(const Config *config, const monitor_sensor_data_t *data,
+                                const char *device_name)
+{
+    ScalingParams params = {0};
+    calculate_scaling_params(config, &params, device_name);
+    cairo_surface_t *surface = NULL;
+    cairo_t *cr = create_cairo_context(config, &surface);
+    if (!cr)
+        return 0;
+    paint_display_background(cr, config);
+    int success = paint_display_overlay(cr, config, data, &params) &&
+                  write_display_png(surface, config, config->paths_image_coolerdash) == CAIRO_STATUS_SUCCESS;
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    return success;
+}
+
+static void draw_overlay_image(const Config *config)
+{
+    monitor_sensor_data_t data = {0};
+    if (display_needs_sensor_data(config) && !get_sensor_monitor_data(config, &data))
+        data.sensor_count = 0;
+
+    char device_uid[CC_UID_SIZE] = {0};
+    char device_name[CONFIG_MAX_STRING_LEN] = {0};
+    int width = 0;
+    int height = 0;
+    int available = get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
+                                               device_name, sizeof(device_name), &width, &height);
+    if (!render_overlay_frame(config, &data, device_name))
+        log_message(LOG_ERROR, "Display rendering failed in %s mode", config->display_mode);
+    else if (available && is_session_initialized() && device_uid[0])
+        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
+}
+
 typedef struct
 {
     const char *name;
+    int uses_sensor_slots;
     void (*draw)(const Config *);
     int (*preview)(const Config *, const monitor_sensor_data_t *, const char *);
     int (*paint)(cairo_t *, const Config *, const monitor_sensor_data_t *,
@@ -1902,9 +1981,10 @@ typedef struct
 static const DisplayMode *get_display_mode(const Config *config)
 {
     static const DisplayMode modes[] = {
-        {"dual", draw_dual_image, render_dual_preview, paint_dual_overlay},
-        {"circle", draw_circle_image, render_circle_preview, paint_circle_overlay},
-        {"split", draw_split_image, render_split_preview, paint_split_overlay},
+        {"dual", 1, draw_dual_image, render_dual_preview, paint_dual_overlay},
+        {"circle", 1, draw_circle_image, render_circle_preview, paint_circle_overlay},
+        {"split", 1, draw_split_image, render_split_preview, paint_split_overlay},
+        {"custom", 0, draw_overlay_image, render_overlay_frame, paint_custom_overlay},
     };
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
     {
@@ -1912,6 +1992,18 @@ static const DisplayMode *get_display_mode(const Config *config)
             return &modes[i];
     }
     return &modes[0];
+}
+
+int display_uses_sensor_slots(const Config *config)
+{
+    return get_display_mode(config)->uses_sensor_slots;
+}
+
+int display_needs_sensor_data(const Config *config)
+{
+    if (display_uses_sensor_slots(config))
+        return display_has_active_sensor_slots(config);
+    return strcmp(config->display_mode, "custom") != 0 || config->custom_layout.needs_sensors;
 }
 
 int paint_display_overlay(cairo_t *cr, const struct Config *config,
@@ -1929,7 +2021,7 @@ void draw_display_image(const struct Config *config)
         return;
     }
 
-    if (!display_has_active_sensor_slots(config))
+    if (display_uses_sensor_slots(config) && !display_has_active_sensor_slots(config))
     {
         draw_background_only_image(config);
         return;
@@ -1992,6 +2084,44 @@ static void add_preview_sensor(monitor_sensor_data_t *data,
     add_preview_entry(data, slot_value, SENSOR_CATEGORY_FREQ, 4200.0f, "MHz");
 }
 
+static void add_custom_preview_sensors(monitor_sensor_data_t *data, const CustomLayout *layout)
+{
+    static const struct
+    {
+        const char *suffix;
+        sensor_category_t category;
+        float value;
+        const char *unit;
+    } samples[] = {
+        {" RPM", SENSOR_CATEGORY_RPM, 1450, "RPM"},
+        {" Duty", SENSOR_CATEGORY_DUTY, 54, "%"},
+        {" Watts", SENSOR_CATEGORY_WATTS, 125, "W"},
+        {" Freq", SENSOR_CATEGORY_FREQ, 4200, "MHz"},
+    };
+    for (int i = 0; i < layout->count; i++)
+    {
+        const char *source = layout->elements[i].source;
+        if (!source[0] || find_sensor_for_slot(data, source))
+            continue;
+        size_t length = strlen(source);
+        size_t sample = 0;
+        while (sample < sizeof(samples) / sizeof(samples[0]))
+        {
+            size_t suffix = strlen(samples[sample].suffix);
+            if (length > suffix && strcmp(source + length - suffix, samples[sample].suffix) == 0)
+                break;
+            sample++;
+        }
+        if (sample < sizeof(samples) / sizeof(samples[0]))
+            add_preview_entry(data, source, samples[sample].category,
+                              samples[sample].value, samples[sample].unit);
+        else
+            add_preview_entry(data, source, SENSOR_CATEGORY_TEMP,
+                              strcmp(source, "liquid") == 0 ? 32.5f :
+                              strcmp(source, "gpu") == 0 ? 62.0f : 45.0f, "°C");
+    }
+}
+
 int render_display_preview(const struct Config *config,
                            const char *device_name)
 {
@@ -1999,10 +2129,15 @@ int render_display_preview(const struct Config *config,
         return 0;
 
     monitor_sensor_data_t data = {0};
-    add_preview_sensor(&data, config->sensor_slot_1, 45.0f);
-    add_preview_sensor(&data, config->sensor_slot_2, 62.0f);
-    add_preview_sensor(&data, config->sensor_slot_3, 32.5f);
-    add_preview_sensor(&data, config->sensor_ring_sensor, 32.5f);
+    if (strcmp(config->display_mode, "custom") == 0)
+        add_custom_preview_sensors(&data, &config->custom_layout);
+    else
+    {
+        add_preview_sensor(&data, config->sensor_slot_1, 45.0f);
+        add_preview_sensor(&data, config->sensor_slot_2, 62.0f);
+        add_preview_sensor(&data, config->sensor_slot_3, 32.5f);
+        add_preview_sensor(&data, config->sensor_ring_sensor, 32.5f);
+    }
 
     return get_display_mode(config)->preview(config, &data, device_name);
 }

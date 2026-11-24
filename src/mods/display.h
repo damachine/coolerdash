@@ -116,6 +116,12 @@ int paint_display_overlay(cairo_t *cr, const struct Config *config,
                            const monitor_sensor_data_t *data,
                            const ScalingParams *params);
 
+/** The built-in sensor-slot modes can switch to background-only playback. */
+int display_uses_sensor_slots(const Config *config);
+int display_needs_sensor_data(const Config *config);
+void draw_segment_bar(cairo_t *cr, double x, double y, double width, double height,
+                      int segments, double progress, const Color *color);
+
 /** Draw the optional sensor-value ring shared by every display mode. */
 void draw_sensor_ring(cairo_t *cr, const struct Config *config,
                       const monitor_sensor_data_t *data,
@@ -145,6 +151,7 @@ int image_file_is_supported(const char *path);
 
 /** Return a static PNG thumbnail data URI; caller frees it with free(). */
 char *image_file_preview_data_uri(const char *path);
+char *rendered_png_data_uri(const char *path);
 
 // ============================================================================
 // Shared Cairo Rendering Helpers

@@ -49,6 +49,52 @@
 
         .mode-layout > * { min-width: 0; }
 
+        #custom_layout_editor { margin: 16px 0 24px; }
+        #custom_layout_editor[hidden], #custom_layout_editor [hidden],
+        .mode-preview[hidden], [id^="legacy_"][hidden] { display: none; }
+        .mode-layout.custom-mode { grid-template-columns: minmax(0, 1fr); }
+        .custom-actions, .custom-palette, .custom-options {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        }
+        .custom-actions select { flex: 1 1 160px; width: auto; }
+        .custom-options { margin: 12px 0; }
+        .custom-palette { margin: 8px 0; }
+        .custom-palette .btn, .custom-actions .btn { padding: 5px 9px; }
+        .custom-editor-grid {
+            display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 0.65fr);
+            gap: 16px; align-items: start; margin-top: 12px;
+        }
+        @media (max-width: 630px) { .custom-editor-grid { grid-template-columns: 1fr; } }
+        .custom-screen-scroll {
+            overflow: auto; background: rgb(var(--bg-one)); padding: 10px;
+            border: 1px solid rgb(var(--border-one)); border-radius: var(--radius-sm);
+        }
+        .custom-screen {
+            position: relative; width: 240px; max-width: 100%; aspect-ratio: 1;
+            margin-inline: auto; touch-action: none;
+        }
+        .custom-screen.actual-pixels { max-width: none; }
+        .custom-screen img {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            pointer-events: none; user-select: none;
+        }
+        .custom-screen.dragging img { opacity: 0.6; }
+        .custom-target {
+            position: absolute; display: block; background: none; cursor: move;
+            border: 1px solid transparent; padding: 0; color: white;
+        }
+        .custom-target:hover, .custom-target:focus-visible, .custom-target.selected {
+            border-color: #70baff; box-shadow: 0 0 0 1px #122338;
+        }
+        .custom-target [data-resize] {
+            position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px;
+            background: #70baff; cursor: nwse-resize;
+        }
+        .custom-properties .form-group, .custom-layer { margin-bottom: 8px; }
+        .custom-layer .form-control { margin-bottom: 6px; }
+        .custom-geometry { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        #custom_export_text { font-family: monospace; resize: vertical; }
+
         .mode-controls { display: flex; flex-direction: column; gap: 16px; }
         .mode-controls .form-group { height: auto; }
         .display-elements { border: 0; padding: 0; margin: 0; min-width: 0; }
@@ -763,6 +809,7 @@
                                 <option value="dual">Dual (CPU + GPU simultaneously)</option>
                                 <option value="split">Split (CPU + GPU columns)</option>
                                 <option value="circle">Circle (Alternating display)</option>
+                                <option value="custom">Custom Layout</option>
                             </select>
                         </div>
 
@@ -790,7 +837,7 @@
                                 <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_bar" id="circle_show_bar" value="1">Temperature Bar</label>
                             </div>
                         </fieldset>
-                        <div class="form-group">
+                        <div class="form-group" id="legacy_sensor_ring_group">
                             <label class="display-option"><input type="checkbox" name="display.sensor_ring_enabled" id="sensor_ring_enabled" value="1" onchange="selectRingMode('sensor')">Sensor Ring</label>
                             <span class="form-hint" id="sensor_ring_hint">Show a threshold-colored value ring around any layout.</span>
                             <select name="display.sensor_ring_sensor" id="sensor_ring_sensor" class="form-control sensor-slot-select">
@@ -835,7 +882,79 @@
                     </figure>
                 </div>
 
-                <div class="alert">
+                <section id="custom_layout_editor" aria-label="Custom layouts" hidden>
+                    <h3 class="section-title">Layout Bank</h3>
+                    <div class="custom-actions">
+                        <select id="custom_saved_layout" class="form-control" aria-label="Active layout"></select>
+                        <button type="button" class="btn btn-secondary" id="custom_new">New</button>
+                        <button type="button" class="btn btn-secondary" id="custom_duplicate">Duplicate</button>
+                        <button type="button" class="btn btn-secondary" id="custom_delete">Delete</button>
+                    </div>
+                    <div class="custom-actions custom-options" id="custom_delete_prompt" hidden>
+                        <span id="custom_delete_label"></span>
+                        <button type="button" class="btn btn-secondary" id="custom_cancel_delete">Cancel</button>
+                        <button type="button" class="btn btn-secondary" id="custom_confirm_delete">Delete Layout</button>
+                    </div>
+                    <div class="custom-options">
+                        <label for="custom_template">Start from</label>
+                        <select id="custom_template" class="form-control" style="width: auto;">
+                            <option>Terminal</option>
+                            <option>Monitor</option>
+                            <option>Activity Rings</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary" id="custom_use_template">Use Template</button>
+                        <button type="button" class="btn btn-secondary" id="custom_import">Import JSON</button>
+                        <button type="button" class="btn btn-secondary" id="custom_export">Export JSON</button>
+                        <input type="file" id="custom_file" accept=".json,application/json" hidden>
+                    </div>
+                    <div id="custom_export_panel" hidden>
+                        <label for="custom_export_text">Layout JSON</label>
+                        <textarea id="custom_export_text" class="form-control" rows="7" readonly></textarea>
+                        <div class="custom-actions">
+                            <button type="button" class="btn btn-secondary" id="custom_copy">Copy JSON</button>
+                            <button type="button" class="btn btn-secondary" id="custom_download">Download JSON</button>
+                            <button type="button" class="btn btn-secondary" id="custom_close_export">Close</button>
+                        </div>
+                    </div>
+                    <p class="form-hint" id="custom_status" role="status"></p>
+                    <div id="custom_workspace" hidden>
+                        <div class="grid grid-2">
+                            <label class="form-group">Layout name <input id="custom_name" class="form-control" maxlength="64"></label>
+                            <label class="form-group">Layout background <input id="custom_background" class="color-swatch" type="color"></label>
+                        </div>
+                        <span class="form-hint">Click a widget to add it or drag it onto the display.</span>
+                        <div class="custom-palette" id="custom_palette"></div>
+                        <div class="custom-editor-grid">
+                            <div>
+                                <div class="custom-screen-scroll">
+                                    <div id="custom_screen" class="custom-screen">
+                                        <img id="custom_preview_image" alt="LCD preview with sample values" draggable="false" hidden>
+                                        <div id="custom_targets"></div>
+                                    </div>
+                                </div>
+                                <div class="custom-options">
+                                    <label class="display-option"><input id="custom_actual" type="checkbox">1:1 pixels</label>
+                                    <label class="display-option"><input id="custom_oriented" type="checkbox">LCD orientation</label>
+                                </div>
+                                <span id="custom_preview_status" class="form-hint" role="status"></span>
+                            </div>
+                            <div>
+                                <div class="custom-layer" id="custom_layer_tools">
+                                    <label for="custom_layers">Layers (bottom to top)</label>
+                                    <select id="custom_layers" class="form-control"></select>
+                                    <div class="custom-actions">
+                                        <button type="button" class="btn btn-secondary" id="custom_back">Move Back</button>
+                                        <button type="button" class="btn btn-secondary" id="custom_front">Move Forward</button>
+                                        <button type="button" class="btn btn-secondary" id="custom_remove">Remove</button>
+                                    </div>
+                                </div>
+                                <div id="custom_properties" class="custom-properties"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="alert" id="legacy_sensor_help">
                     <strong>Sensor Assignment</strong>
                     Assign sensors to display positions. Use &ldquo;None&rdquo; to disable a slot.
                     Discovered sensors from CoolerControl API appear automatically.
@@ -901,7 +1020,7 @@
 
                 <h3 class="section-title">Display</h3>
                 <div class="grid grid-2">
-                    <div class="form-group" style="grid-column: 1 / -1;">
+                    <div class="form-group" id="legacy_display_background" style="grid-column: 1 / -1;">
                         <label class="form-label">Display Background</label>
                         <div class="color-group">
                             <input type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
@@ -2088,6 +2207,7 @@
 
                 discoveredSensors = sensors;
                 updateSensorSlotOptions();
+                customLayouts.renderProperties();
                 // Re-render sensor configs to show all discovered CC4 sensors
                 renderSensorConfigs({ sensors: currentSensorConfig });
 
@@ -2905,32 +3025,41 @@
         var renderPreviewTimer = null;
         var renderPreviewGeneration = 0;
 
+        async function requestCairoPreview(config) {
+            let timeout;
+            try {
+                const result = await Promise.race([
+                    pluginFetch('/render-preview', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(config)
+                    }),
+                    new Promise((_, reject) => {
+                        timeout = setTimeout(() => reject(new Error('Preview timed out')), 6000);
+                    })
+                ]);
+                if (!result || typeof result.image !== 'string' || result.image.length > 4000000 ||
+                    !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image))
+                    throw new Error('Invalid preview image');
+                return result;
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
         function scheduleRenderedPreview() {
             var generation = ++renderPreviewGeneration;
             clearTimeout(renderPreviewTimer);
             renderPreviewTimer = setTimeout(async function () {
                 var image = document.getElementById('mode_preview_rendered');
                 var status = document.getElementById('render_preview_status');
-                var timeout;
                 status.textContent = 'Rendering Cairo preview\u2026';
                 try {
                     var previewConfig = buildConfig();
                     if (previewConfig.daemon) previewConfig.daemon.access_token = '';
-                    var result = await Promise.race([
-                        pluginFetch('/render-preview', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(previewConfig)
-                        }),
-                        new Promise(function (_, reject) {
-                            timeout = setTimeout(function () { reject(new Error('Preview timed out')); }, 6000);
-                        })
-                    ]);
+                    delete previewConfig.custom_layouts;
+                    var result = await requestCairoPreview(previewConfig);
                     if (generation !== renderPreviewGeneration) return;
-                    if (!result || typeof result.image !== 'string' || result.image.length > 4000000 ||
-                        !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image)) {
-                        throw new Error('Invalid preview image');
-                    }
                     image.setAttribute('href', result.image);
                     image.style.display = '';
                     status.textContent = 'Cairo renderer preview';
@@ -2940,8 +3069,6 @@
                         image.style.display = 'none';
                         status.textContent = 'Static preview fallback';
                     }
-                } finally {
-                    clearTimeout(timeout);
                 }
             }, 400);
         }
@@ -3001,6 +3128,10 @@
         }
 
         function updateModePreview() {
+            if (document.getElementById('display_mode').value === 'custom') {
+                customLayouts.schedulePreview();
+                return;
+            }
             updateBackgroundPreview();
             var angle = Number(document.getElementById('display_orientation').value);
             if (!Number.isInteger(angle) || angle < 0 || angle > 359) angle = 0;
@@ -3111,7 +3242,22 @@
             var mode = document.getElementById('display_mode').value;
             var isCircle = mode === 'circle';
             var isSplit = mode === 'split';
+            var isCustom = mode === 'custom';
             var sensorGrid = document.getElementById('sensor_grid');
+            document.querySelector('.mode-layout').classList.toggle('custom-mode', isCustom);
+            document.getElementById('custom_layout_editor').hidden = !isCustom;
+            document.querySelector('.mode-preview').hidden = isCustom;
+            document.getElementById('display_elements_group').hidden = isCustom;
+            document.getElementById('legacy_sensor_ring_group').hidden = isCustom;
+            document.getElementById('legacy_sensor_help').hidden = isCustom;
+            document.getElementById('legacy_display_background').hidden = isCustom;
+            sensorGrid.style.display = isCustom ? 'none' : '';
+            if (isCustom) {
+                ++renderPreviewGeneration;
+                clearTimeout(renderPreviewTimer);
+            } else {
+                customLayouts.schedulePreview();
+            }
             document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
             document.getElementById('circle_layout_group').style.display = isCircle ? 'block' : 'none';
             document.querySelectorAll('[data-element-mode]').forEach(function (element) {
@@ -3136,11 +3282,13 @@
             if (sensorRingSelect) sensorRingSelect.style.display = isCircle ? 'none' : '';
             var barControls = document.querySelectorAll('.bar-mode-only');
             for (var b = 0; b < barControls.length; b++) {
-                barControls[b].style.display = isSplit ? 'none' : '';
+                barControls[b].style.display = (isSplit || isCustom) ? 'none' : '';
             }
             var layoutHint = document.getElementById('layout_mode_hint');
             if (layoutHint) {
-                layoutHint.innerHTML = isSplit
+                layoutHint.innerHTML = isCustom
+                    ? 'Set widget position, size, colors and fonts in the Custom Layout editor on the Display tab.'
+                    : isSplit
                     ? '<strong>Resolution-aware split layout</strong> The divider and both text columns adapt automatically to the detected LCD shape and size. Temperature values use each sensor\'s threshold colors.'
                     : '<strong>Resolution-aware layout</strong> Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.';
             }
@@ -3176,6 +3324,10 @@
 
         function validateSensorSlots() {
             var mode = document.getElementById('display_mode').value;
+            if (mode === 'custom') {
+                document.getElementById('sensor_slot_warning').style.display = 'none';
+                return true;
+            }
             var slotUp = document.getElementById('sensor_slot_1').value;
             var slotMid = document.getElementById('sensor_slot_2').value;
             var slotDown = document.getElementById('sensor_slot_3').value;
@@ -3432,6 +3584,8 @@
             }
 
             var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
+            var bank = customLayouts.bank();
+            if (bank.items.length) merged.custom_layouts = bank;
             if (merged.display) {
                 delete merged.display.split_scale_factor;
                 delete merged.display.text_scale_factor;
@@ -3452,7 +3606,7 @@
             // Standard form fields (non-sensor, non-color)
             for (var section in config) {
                 if (!config.hasOwnProperty(section)) continue;
-                if (section === 'sensors' || section === 'colors') continue;
+                if (section === 'sensors' || section === 'colors' || section === 'custom_layouts') continue;
                 var fields = config[section];
                 if (typeof fields === 'object' && fields !== null) {
                     for (var field in fields) {
@@ -3540,6 +3694,7 @@
             currentSensorConfig = config.sensors || {};
             renderSensorConfigs(config);
 
+            customLayouts.load(config.custom_layouts);
             toggleDisplayModeFields();
             validateSensorSlots();
             updateSelectedImagePreview('background');
@@ -3724,6 +3879,8 @@
                 alert("Please fix sensor slot warnings before saving.");
                 return;
             }
+            if (document.getElementById('display_mode').value === 'custom' && !customLayouts.canSave())
+                return;
 
             var config = buildConfig();
             try {
@@ -3732,7 +3889,10 @@
                 close();
             } catch (error) {
                 console.error("Save failed:", error);
-                alert("Save failed: " + error.message);
+                if (document.getElementById('display_mode').value === 'custom')
+                    customLayouts.showStatus('Save failed. ' + error.message);
+                else
+                    alert("Save failed: " + error.message);
             }
         }
 
@@ -3745,6 +3905,9 @@
             }
             try {
                 var factoryConfig = cloneConfig(RESET_CONFIG || DEFAULT_CONFIG || FACTORY_DEFAULTS);
+                var savedLayouts = customLayouts.savedItems();
+                if (savedLayouts.length)
+                    factoryConfig.custom_layouts = { active_id: '', items: savedLayouts };
                 // Preserve the existing access_token — never reset it to default
                 var tokenInput = document.querySelector('[name="daemon.access_token"]');
                 var existingToken = (tokenInput && tokenInput.dataset.realToken) || '';
@@ -3806,6 +3969,7 @@
                 sensors: Object.assign({}, defaults.sensors || {}),
                 positioning: Object.assign({}, defaults.positioning || {}, config.positioning || {})
             };
+            if (config.custom_layouts) merged.custom_layouts = config.custom_layouts;
 
             // Deep merge sensor configs (skip corrupt numeric keys)
             for (var id in sensors) {
@@ -3884,6 +4048,596 @@
 
             return merged;
         }
+
+        // ===== CUSTOM LAYOUT BANK =====
+        const customLayouts = (() => {
+            const byId = id => document.getElementById('custom_' + id);
+            const editor = byId('layout_editor');
+            const screen = byId('screen');
+            const mode = document.getElementById('display_mode');
+            const grid = 1000;
+            const elementLimit = 24;
+            const fileLimit = 32 * 1024;
+            const standard = { cpu: 'CPU Temperature', gpu: 'GPU Temperature', liquid: 'Liquid Temperature' };
+            const labels = { value: 'Sensor Value', text: 'Text', clock: 'Clock', bar: 'Bar', ring: 'Ring', frame: 'Frame' };
+            const encoder = new TextEncoder();
+            let bank = { active_id: '', items: [] };
+            let savedBank = cloneConfig(bank);
+            let selected = -1;
+            let drag = null;
+            let previewTimer;
+            let previewGeneration = 0;
+            let nativeSize = { width: 240, height: 240 };
+
+            const current = () => bank.items.find(item => item.id === bank.active_id);
+            const widget = () => current()?.elements[selected];
+            const say = text => { byId('status').textContent = text; };
+            const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
+            const integer = (value, low, high) => Number.isInteger(value) && value >= low && value <= high;
+            const color = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+            const string = (value, max) => typeof value === 'string' &&
+                !/[\u0000-\u001f\u007f\uD800-\uDFFF]/u.test(value) && encoder.encode(value).length <= max;
+            const bound = type => type === 'value' || type === 'bar' || type === 'ring';
+            const gauge = type => type === 'bar' || type === 'ring';
+            const typing = type => type === 'value' || type === 'text' || type === 'clock';
+            const portable = source => Object.hasOwn(standard, source);
+            const dynamic = source => /^[^:]+:.+$/.test(source);
+
+            function cleanElement(input) {
+                if (!input || !Object.hasOwn(labels, input.type) ||
+                    !integer(input.x, 0, grid) || !integer(input.y, 0, grid) ||
+                    !integer(input.w, 20, grid - input.x) || !integer(input.h, 20, grid - input.y) ||
+                    !color(input.color))
+                    throw new Error('Invalid widget type, position, size, or color.');
+                const { type, x, y, w, h } = input;
+                const result = { type, x, y, w, h, color: input.color };
+                if (typing(type)) {
+                    if (!integer(input.size, 8, 120) || !['sans', 'mono'].includes(input.font))
+                        throw new Error('Invalid widget font or size.');
+                    Object.assign(result, { size: input.size, font: input.font });
+                    if (type !== 'clock') {
+                        if (!string(input.text, 96)) throw new Error('Invalid widget text.');
+                        result.text = input.text;
+                    }
+                }
+                if (bound(type)) {
+                    if (!string(input.source, 255) ||
+                        (input.source && !portable(input.source) && !dynamic(input.source)))
+                        throw new Error('Invalid sensor source.');
+                    result.source = input.source;
+                }
+                if (gauge(type)) {
+                    if (!Number.isFinite(input.min) || !Number.isFinite(input.max) ||
+                        input.min < -1000000 || input.max > 1000000 || input.min >= input.max)
+                        throw new Error('Set a maximum greater than the minimum.');
+                    Object.assign(result, { min: input.min, max: input.max });
+                }
+                if (type === 'bar') {
+                    if (!integer(input.segments, 1, 24)) throw new Error('Invalid number of bar segments.');
+                    result.segments = input.segments;
+                }
+                return result;
+            }
+
+            function cleanLayout(input) {
+                if (!input || input.version !== 1 || !string(input.name, 64) || !input.name.trim() ||
+                    !color(input.background) || !Array.isArray(input.elements) || input.elements.length > elementLimit)
+                    throw new Error('Expected a version 1 layout with a name, background color and up to 24 widgets.');
+                return {
+                    version: 1, name: input.name.trim(), background: input.background,
+                    elements: input.elements.map(cleanElement)
+                };
+            }
+
+            function make(type, x, y, w, h, settings) {
+                const element = { type, x, y, w, h, color: '#e9f1ff' };
+                if (typing(type)) Object.assign(element, { size: 22, font: 'sans' });
+                if (type === 'value' || type === 'text') element.text = type === 'text' ? 'Text' : '';
+                if (bound(type)) element.source = 'cpu';
+                if (gauge(type)) Object.assign(element, { min: 0, max: 100, color: '#64dacc' });
+                if (type === 'bar') element.segments = 1;
+                return Object.assign(element, settings);
+            }
+
+            function template(name) {
+                const value = (source, text, x, y, w, h, settings) =>
+                    make('value', x, y, w, h, Object.assign({ source, text }, settings));
+                const elements = [];
+                let background = '#131d29';
+                if (name === 'Terminal') {
+                    background = '#141927';
+                    elements.push(make('text', 220, 215, 570, 100, {
+                        text: '>_', font: 'mono', size: 17, color: '#91b6ff'
+                    }));
+                    ['cpu', 'gpu', 'liquid'].forEach((source, index) => {
+                        elements.push(value(source, ['CPU', 'GPU', 'Liquid'][index], 220, 320 + index * 118,
+                            600, 95, { font: 'mono', size: 18, color: '#e6edff' }));
+                    });
+                    elements.push(make('bar', 220, 684, 560, 42, { segments: 12, color: '#91b6ff' }));
+                } else if (name === 'Monitor') {
+                    elements.push(make('clock', 300, 160, 400, 120, { font: 'mono', size: 23 }));
+                    ['cpu', 'gpu'].forEach((source, index) => {
+                        const y = 304 + index * 206;
+                        const accent = index ? '#9babff' : '#64dacc';
+                        elements.push(make('frame', 172, y, 656, 177, { color: accent }));
+                        elements.push(value(source, source.toUpperCase(), 217, y + 19, 565, 90, { font: 'mono', size: 18 }));
+                        elements.push(make('bar', 220, y + 119, 560, 35, { source, segments: 10, color: accent }));
+                    });
+                } else if (name === 'Activity Rings') {
+                    background = '#101626';
+                    ['cpu', 'gpu', 'liquid'].forEach((source, index) => {
+                        const inset = 55 + index * 65;
+                        elements.push(make('ring', inset, inset, grid - 2 * inset, grid - 2 * inset, {
+                            source, color: ['#ff6685', '#b4eb79', '#5cdef5'][index]
+                        }));
+                    });
+                    elements.push(value('cpu', '', 260, 375, 480, 190, { size: 34 }));
+                    elements.push(make('text', 427, 566, 146, 94, { text: 'CPU', size: 15, color: '#ff8da2' }));
+                }
+                return { version: 1, name, background, elements };
+            }
+
+            function load(input) {
+                bank = { active_id: '', items: [] };
+                const ids = new Map();
+                if (Array.isArray(input?.items)) {
+                    for (const item of input.items)
+                        ids.set(item?.id, (ids.get(item?.id) || 0) + 1);
+                    for (const item of input.items) {
+                        try {
+                            if (!string(item?.id, 48) || !item.id || ids.get(item.id) !== 1)
+                                throw new Error('Invalid layout ID.');
+                            bank.items.push(Object.assign(cleanLayout(item), { id: item.id }));
+                        } catch (error) {
+                            console.warn('Skipping invalid LCD layout:', error.message);
+                        }
+                    }
+                }
+                if (bank.items.some(item => item.id === input?.active_id)) bank.active_id = input.active_id;
+                savedBank = cloneConfig(bank);
+                selected = -1;
+                if (mode.value === 'custom' && !current()) {
+                    mode.value = 'split';
+                    say('The active Custom Layout was unavailable. Split is selected.');
+                }
+                update();
+            }
+
+            function addLayout(layout) {
+                let id;
+                do {
+                    id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+                } while (bank.items.some(item => item.id === id));
+                bank.items.push(Object.assign(cleanLayout(layout), { id }));
+                selectLayout(id);
+            }
+
+            function selectLayout(id) {
+                bank.active_id = id;
+                selected = -1;
+                byId('preview_image').hidden = true;
+                byId('delete_prompt').hidden = true;
+                byId('export_panel').hidden = true;
+                say('');
+                update();
+            }
+
+            function elementLabel(element) {
+                if (element.text) return element.text;
+                if (portable(element.source)) return labels[element.type] + ' · ' + standard[element.source];
+                return labels[element.type];
+            }
+
+            function positionTarget(target, element) {
+                Object.assign(target.style, {
+                    left: element.x / 10 + '%', top: element.y / 10 + '%',
+                    width: element.w / 10 + '%', height: element.h / 10 + '%'
+                });
+            }
+
+            function renderTargets() {
+                const elements = current()?.elements || [];
+                const targets = byId('targets');
+                targets.hidden = byId('oriented').checked;
+                targets.replaceChildren(...elements.map((element, index) => {
+                    const target = document.createElement('button');
+                    target.type = 'button';
+                    target.className = 'custom-target';
+                    target.dataset.widget = index;
+                    target.setAttribute('aria-label', elementLabel(element));
+                    positionTarget(target, element);
+                    if (index === selected) {
+                        target.classList.add('selected');
+                        target.style.zIndex = '1';
+                        const handle = document.createElement('span');
+                        handle.dataset.resize = 'true';
+                        handle.setAttribute('aria-hidden', 'true');
+                        target.append(handle);
+                    }
+                    return target;
+                }));
+            }
+
+            function renderProperties() {
+                const element = widget();
+                const properties = byId('properties');
+                properties.replaceChildren();
+                if (!element) return;
+
+                function field(parent, title, key, control) {
+                    const label = document.createElement('label');
+                    label.className = 'form-group';
+                    label.textContent = title + ' ';
+                    control.className = control.type === 'color' ? 'color-swatch' : 'form-control';
+                    control.value = element[key];
+                    control.dataset.property = key;
+                    control.addEventListener('change', () => {
+                        let value = control.type === 'number' ? control.valueAsNumber : control.value;
+                        if (key === 'x') value = clamp(value, 0, grid - element.w);
+                        if (key === 'y') value = clamp(value, 0, grid - element.h);
+                        if (key === 'w') value = clamp(value, 20, grid - element.x);
+                        if (key === 'h') value = clamp(value, 20, grid - element.y);
+                        const next = { ...element, [key]: value };
+                        if (key === 'source' && gauge(element.type) && value) {
+                            const category = discoveredSensors.find(sensor => sensor.id === value)?.category;
+                            Object.assign(next, { min: 0, max: { rpm: 3000, watts: 250, freq: 6000 }[category] || 100 });
+                        }
+                        try {
+                            Object.assign(element, cleanElement(next));
+                            control.value = element[key];
+                            if (key === 'source' && gauge(element.type)) {
+                                properties.querySelector('[data-property="min"]').value = element.min;
+                                properties.querySelector('[data-property="max"]').value = element.max;
+                            }
+                            say('');
+                            renderLayers();
+                            renderTargets();
+                            schedulePreview();
+                        } catch (error) {
+                            say(error.message);
+                            control.value = element[key];
+                        }
+                    });
+                    label.append(control);
+                    parent.append(label);
+                }
+
+                function input(parent, title, key, type, attrs) {
+                    const control = document.createElement('input');
+                    control.type = type;
+                    Object.assign(control, attrs);
+                    field(parent, title, key, control);
+                }
+
+                if (bound(element.type)) {
+                    const sources = new Map([['', 'Assign a sensor'], ...Object.entries(standard)]);
+                    for (const sensor of discoveredSensors) sources.set(sensor.id, sensor.label);
+                    if (!sources.has(element.source))
+                        sources.set(element.source, 'Unavailable · ' + element.source.split(':').slice(1).join(':'));
+                    const select = document.createElement('select');
+                    for (const [id, title] of sources) select.add(new Option(title, id));
+                    field(properties, 'Sensor', 'source', select);
+                }
+                if (typing(element.type)) {
+                    if (element.type !== 'clock')
+                        input(properties, element.type === 'value' ? 'Label' : 'Text', 'text', 'text', { maxLength: 96 });
+                    const font = document.createElement('select');
+                    font.add(new Option('Sans-serif', 'sans'));
+                    font.add(new Option('Monospace', 'mono'));
+                    field(properties, 'Font', 'font', font);
+                    input(properties, 'Font size at 240 px', 'size', 'number', { min: 8, max: 120 });
+                }
+                if (gauge(element.type)) {
+                    input(properties, 'Minimum', 'min', 'number', { step: 'any' });
+                    input(properties, 'Maximum', 'max', 'number', { step: 'any' });
+                }
+                if (element.type === 'bar')
+                    input(properties, 'Segments', 'segments', 'number', { min: 1, max: 24 });
+                input(properties, 'Color', 'color', 'color');
+                const geometry = document.createElement('div');
+                geometry.className = 'custom-geometry';
+                const titles = { x: 'X', y: 'Y', w: 'Width', h: 'Height' };
+                for (const [key, title] of Object.entries(titles))
+                    input(geometry, title + ' (per 1000)', key, 'number', { min: 0, max: grid });
+                properties.append(geometry);
+            }
+
+            function renderLayers() {
+                const layers = byId('layers');
+                const elements = current().elements;
+                byId('layer_tools').hidden = !elements.length;
+                layers.replaceChildren(new Option('Select a widget', '-1'),
+                    ...elements.map((element, index) => new Option(elementLabel(element), index)));
+                layers.value = selected;
+                byId('back').disabled = selected <= 0;
+                byId('front').disabled = selected < 0 || selected >= elements.length - 1;
+                byId('remove').disabled = selected < 0;
+            }
+
+            function update() {
+                const layout = current();
+                const saved = byId('saved_layout');
+                saved.replaceChildren(new Option('Select a layout', ''),
+                    ...bank.items.map(item => new Option(item.name, item.id)));
+                saved.value = bank.active_id;
+                byId('workspace').hidden = !layout;
+                for (const id of ['duplicate', 'delete', 'export']) byId(id).disabled = !layout;
+                schedulePreview();
+                if (!layout) return;
+                byId('name').value = layout.name;
+                byId('background').value = layout.background;
+                screen.style.background = layout.background;
+                renderLayers();
+                renderTargets();
+                renderProperties();
+            }
+
+            function setNativeSize(width, height, shape) {
+                nativeSize = { width, height };
+                screen.style.width = width + 'px';
+                screen.style.aspectRatio = width + ' / ' + height;
+                byId('preview_image').style.clipPath = shape === 'circular' ? 'circle(closest-side)' :
+                    shape === 'rounded-square' ? 'inset(0 round 3%)' : '';
+            }
+
+            function schedulePreview() {
+                const generation = ++previewGeneration;
+                clearTimeout(previewTimer);
+                if (!current() || mode.value !== 'custom') return;
+                const status = byId('preview_status');
+                status.textContent = 'Updating preview…';
+                previewTimer = setTimeout(async () => {
+                    try {
+                        const config = buildConfig();
+                        if (!byId('oriented').checked) config.display.orientation = 0;
+                        const request = {
+                            display: config.display,
+                            paths: { image_background: config.paths.image_background },
+                            custom_layouts: { active_id: bank.active_id, items: [current()] }
+                        };
+                        const result = await requestCairoPreview(request);
+                        if (generation !== previewGeneration) return;
+                        if (!integer(result.width, 1, 4096) || !integer(result.height, 1, 4096))
+                            throw new Error('Invalid LCD dimensions');
+                        setNativeSize(result.width, result.height, result.shape);
+                        Object.assign(byId('preview_image'), { src: result.image, hidden: false });
+                        status.textContent = nativeSize.width + ' × ' + nativeSize.height + ' px · Sample values';
+                    } catch (error) {
+                        if (generation !== previewGeneration) return;
+                        byId('preview_image').hidden = true;
+                        status.textContent = 'Cairo preview unavailable. ' + error.message;
+                    }
+                }, 260);
+            }
+
+            function addWidget(key, point = { x: 500, y: 500 }) {
+                const elements = current().elements;
+                if (elements.length >= elementLimit) {
+                    say('This layout already has 24 widgets.');
+                    return;
+                }
+                const source = portable(key) ? key : '';
+                const type = source ? 'value' : key;
+                const [w, h] = { ring: [500, 500], frame: [420, 220], bar: [420, 70] }[type] || [520, 150];
+                const element = make(type, clamp(point.x - w / 2, 0, grid - w),
+                    clamp(point.y - h / 2, 0, grid - h), w, h);
+                if (source) {
+                    element.source = source;
+                    element.text = source === 'liquid' ? 'Liquid' : source.toUpperCase();
+                }
+                elements.push(element);
+                selected = elements.length - 1;
+                byId('oriented').checked = false;
+                say('');
+                update();
+            }
+
+            function pointAt(event) {
+                const box = screen.getBoundingClientRect();
+                return {
+                    x: Math.round((event.clientX - box.left) * grid / box.width),
+                    y: Math.round((event.clientY - box.top) * grid / box.height)
+                };
+            }
+
+            function moveElement(element, origin, dx, dy, resize) {
+                if (resize) {
+                    element.w = clamp(origin.w + dx, 20, grid - origin.x);
+                    element.h = clamp(origin.h + dy, 20, grid - origin.y);
+                } else {
+                    element.x = clamp(origin.x + dx, 0, grid - origin.w);
+                    element.y = clamp(origin.y + dy, 0, grid - origin.h);
+                }
+            }
+
+            screen.addEventListener('pointerdown', event => {
+                const target = event.target.closest('[data-widget]');
+                if (drag || event.button !== 0 || !target) return;
+                selected = Number(target.dataset.widget);
+                drag = { pointer: event.pointerId, point: pointAt(event), origin: { ...widget() },
+                    resize: event.target.hasAttribute('data-resize') };
+                screen.setPointerCapture(event.pointerId);
+                screen.classList.add('dragging');
+                renderTargets();
+                event.preventDefault();
+            });
+            screen.addEventListener('pointermove', event => {
+                if (drag?.pointer !== event.pointerId) return;
+                const point = pointAt(event);
+                moveElement(widget(), drag.origin, point.x - drag.point.x, point.y - drag.point.y, drag.resize);
+                positionTarget(screen.querySelector('.selected'), widget());
+            });
+            function endDrag(event) {
+                if (drag?.pointer !== event.pointerId) return;
+                if (event.type !== 'pointerup') Object.assign(widget(), drag.origin);
+                drag = null;
+                screen.classList.remove('dragging');
+                update();
+                screen.querySelector('.selected')?.focus({ preventScroll: true });
+            }
+            for (const event of ['pointerup', 'pointercancel', 'lostpointercapture'])
+                screen.addEventListener(event, endDrag);
+            screen.addEventListener('focusin', event => {
+                if (event.target.hasAttribute('data-widget') && !drag)
+                    byId('layers').value = event.target.dataset.widget;
+            });
+            screen.addEventListener('click', event => {
+                const target = event.target.closest('[data-widget]');
+                if (target && selected !== Number(target.dataset.widget)) {
+                    selected = Number(target.dataset.widget);
+                    update();
+                    screen.querySelector('.selected')?.focus({ preventScroll: true });
+                }
+            });
+            screen.addEventListener('keydown', event => {
+                const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
+                if (!direction || !event.target.hasAttribute('data-widget')) return;
+                event.preventDefault();
+                selected = Number(event.target.dataset.widget);
+                const step = event.shiftKey ? 40 : 10;
+                moveElement(widget(), { ...widget() }, direction[0] * step, direction[1] * step, event.altKey);
+                update();
+                screen.querySelector('.selected')?.focus({ preventScroll: true });
+            });
+            const dragType = 'application/x-coolerdash-widget';
+            screen.addEventListener('dragover', event => {
+                if (event.dataTransfer.types.includes(dragType) && !byId('oriented').checked)
+                    event.preventDefault();
+            });
+            screen.addEventListener('drop', event => {
+                const key = event.dataTransfer.getData(dragType);
+                if (byId('oriented').checked || (!portable(key) && !Object.hasOwn(labels, key))) return;
+                event.preventDefault();
+                addWidget(key, pointAt(event));
+            });
+
+            for (const [key, label] of Object.entries({ ...standard, ...labels })) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-secondary';
+                button.textContent = label;
+                button.draggable = true;
+                button.addEventListener('click', () => addWidget(key));
+                button.addEventListener('dragstart', event => {
+                    event.dataTransfer.setData(dragType, key);
+                    event.dataTransfer.effectAllowed = 'copy';
+                });
+                byId('palette').append(button);
+            }
+            byId('saved_layout').addEventListener('change', event => selectLayout(event.target.value));
+            byId('new').addEventListener('click', () => addLayout(template('Untitled Layout')));
+            byId('use_template').addEventListener('click', () => addLayout(template(byId('template').value)));
+            byId('duplicate').addEventListener('click', () => {
+                const chars = Array.from(current().name);
+                while (encoder.encode(chars.join('')).length > 57) chars.pop();
+                addLayout({ ...current(), name: chars.join('').trimEnd() + ' (copy)' });
+            });
+            byId('delete').addEventListener('click', () => {
+                byId('delete_label').textContent = 'Delete “' + current().name + '”?';
+                byId('delete_prompt').hidden = false;
+            });
+            byId('cancel_delete').addEventListener('click', () => { byId('delete_prompt').hidden = true; });
+            byId('confirm_delete').addEventListener('click', () => {
+                bank.items = bank.items.filter(item => item.id !== bank.active_id);
+                selectLayout('');
+                mode.value = 'split';
+                toggleDisplayModeFields();
+            });
+            byId('name').addEventListener('change', event => {
+                const name = event.target.value.trim();
+                if (!name || !string(name, 64)) {
+                    say('Enter a layout name up to 64 bytes long.');
+                    event.target.value = current().name;
+                    return;
+                }
+                current().name = name;
+                say('');
+                update();
+            });
+            byId('background').addEventListener('input', event => {
+                current().background = event.target.value;
+                screen.style.background = event.target.value;
+                schedulePreview();
+            });
+            byId('layers').addEventListener('change', event => { selected = Number(event.target.value); update(); });
+            function reorder(offset) {
+                const elements = current().elements;
+                const other = selected + offset;
+                [elements[selected], elements[other]] = [elements[other], elements[selected]];
+                selected = other;
+                update();
+            }
+            byId('back').addEventListener('click', () => reorder(-1));
+            byId('front').addEventListener('click', () => reorder(1));
+            byId('remove').addEventListener('click', () => {
+                current().elements.splice(selected, 1);
+                selected = -1;
+                update();
+            });
+            byId('actual').addEventListener('change', event => screen.classList.toggle('actual-pixels', event.target.checked));
+            byId('oriented').addEventListener('change', () => {
+                byId('preview_image').hidden = true;
+                renderTargets();
+                schedulePreview();
+            });
+            byId('import').addEventListener('click', () => byId('file').click());
+            byId('file').addEventListener('change', async event => {
+                const file = event.target.files[0];
+                event.target.value = '';
+                if (!file) return;
+                try {
+                    if (file.size > fileLimit) throw new Error('Select a JSON file up to 32 KiB.');
+                    const layout = cleanLayout(JSON.parse(await file.text()));
+                    for (const element of layout.elements)
+                        if (element.source && !portable(element.source)) element.source = '';
+                    addLayout(layout);
+                    say(layout.elements.some(element => bound(element.type) && !element.source)
+                        ? 'Layout imported. Assign the local sensors in its widgets.' : 'Layout imported.');
+                } catch (error) {
+                    say('Import failed. ' + error.message);
+                }
+            });
+            byId('export').addEventListener('click', () => {
+                const layout = cleanLayout(current());
+                for (const element of layout.elements)
+                    if (element.source && !portable(element.source)) element.source = '';
+                byId('export_text').value = JSON.stringify(layout, null, 2) + '\n';
+                byId('download').hidden = isInCoolerControl;
+                byId('export_panel').hidden = false;
+                byId('export_text').focus();
+                byId('export_text').select();
+                say(isInCoolerControl ? 'Copy the JSON into a .json file to share it.' : '');
+            });
+            byId('copy').addEventListener('click', () => {
+                const textarea = byId('export_text');
+                textarea.focus();
+                textarea.select();
+                const copied = document.execCommand('copy');
+                say(copied ? 'JSON copied.' : 'Use your keyboard’s Copy shortcut to copy the selected JSON.');
+            });
+            byId('download').addEventListener('click', () => {
+                const file = new Blob([byId('export_text').value], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(file);
+                link.download = (current().name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'coolerdash-layout') + '.json';
+                const url = link.href;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            });
+            byId('close_export').addEventListener('click', () => { byId('export_panel').hidden = true; });
+            for (const event of ['input', 'change'])
+                editor.addEventListener(event, event => event.stopPropagation());
+
+            return {
+                load, schedulePreview, renderProperties, showStatus: say, bank: () => cloneConfig(bank),
+                savedItems: () => cloneConfig(savedBank.items),
+                canSave: () => {
+                    if (current()) return true;
+                    say('Select, create or import a layout before saving.');
+                    return false;
+                }
+            };
+        })();
 
         // ===== INITIALIZATION =====
         ccRunPluginScript(async function() {

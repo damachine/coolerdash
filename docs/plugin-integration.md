@@ -120,6 +120,9 @@ endpoint writes only private temporary files, does not save the configuration,
 does not query live sensors and never uploads an image to the LCD. Requests are
 limited to 64 KiB.
 
+The Custom Layout editor sends only the active draft and the display settings
+it needs. Its preview keeps the rendered image at the device resolution.
+
 ## System Font Selection
 
 The Font Face field loads installed family names from Fontconfig through the

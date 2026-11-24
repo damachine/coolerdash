@@ -26,6 +26,7 @@
 
 #include "config.h"
 #include "../srv/cc_conf.h"
+#include "../srv/cc_sensor.h"
 
 #define CONFIG_LAYOUT_U16_UNSET UINT16_MAX
 #define CONFIG_LAYOUT_U8_UNSET UINT8_MAX
@@ -1294,6 +1295,150 @@ static void load_display_from_json(json_t *root, Config *config)
     }
 }
 
+static int custom_integer(json_t *object, const char *key, int min, int max,
+                          int *result)
+{
+    json_t *field = json_object_get(object, key);
+    json_int_t value = json_integer_value(field);
+    if (!json_is_integer(field) || value < min || value > max)
+        return 0;
+    *result = (int)value;
+    return 1;
+}
+
+static const char *custom_string(json_t *object, const char *key, size_t limit)
+{
+    json_t *field = json_object_get(object, key);
+    const char *value = json_string_value(field);
+    if (!value || json_string_length(field) >= limit)
+        return NULL;
+    for (const unsigned char *p = (const unsigned char *)value; *p; p++)
+        if (*p < 32 || *p == 127)
+            return NULL;
+    return value;
+}
+
+static int custom_color(json_t *object, const char *key, Color *result)
+{
+    const char *value = custom_string(object, key, 8);
+    if (!value || strlen(value) != 7 || value[0] != '#' ||
+        strspn(value + 1, "0123456789abcdefABCDEF") != 6)
+        return 0;
+    unsigned long rgb = strtoul(value + 1, NULL, 16);
+    *result = (Color){(uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb, 1};
+    return 1;
+}
+
+static int load_custom_element(json_t *object, CustomElement *element)
+{
+    static const char *types[] = {"value", "text", "clock", "bar", "ring", "frame"};
+    const char *type = json_string_value(json_object_get(object, "type"));
+    size_t index = 0;
+    while (index < sizeof(types) / sizeof(types[0]) &&
+           (!type || strcmp(type, types[index]) != 0))
+        index++;
+    if (index == sizeof(types) / sizeof(types[0]) ||
+        !custom_integer(object, "x", 0, CUSTOM_LAYOUT_GRID, &element->x) ||
+        !custom_integer(object, "y", 0, CUSTOM_LAYOUT_GRID, &element->y) ||
+        !custom_integer(object, "w", 20, CUSTOM_LAYOUT_GRID - element->x,
+                        &element->width) ||
+        !custom_integer(object, "h", 20, CUSTOM_LAYOUT_GRID - element->y,
+                        &element->height) ||
+        !custom_color(object, "color", &element->color))
+        return 0;
+    element->type = (CustomElementType)index;
+
+    if (element->type <= CUSTOM_CLOCK)
+    {
+        const char *font = json_string_value(json_object_get(object, "font"));
+        if (!font || (strcmp(font, "sans") != 0 && strcmp(font, "mono") != 0) ||
+            !custom_integer(object, "size", 8, 120, &element->font_size))
+            return 0;
+        element->monospace = strcmp(font, "mono") == 0;
+        if (element->type != CUSTOM_CLOCK)
+        {
+            const char *label = custom_string(object, "text", sizeof(element->text));
+            if (!label)
+                return 0;
+            SAFE_STRCPY(element->text, label);
+        }
+    }
+
+    if (element->type == CUSTOM_VALUE || element->type == CUSTOM_BAR ||
+        element->type == CUSTOM_RING)
+    {
+        const char *source = custom_string(object, "source", sizeof(element->source));
+        const char *separator = source ? strchr(source, ':') : NULL;
+        if (!source || (*source && !is_legacy_sensor_slot(source) &&
+                        (!separator || separator == source || !separator[1])) ||
+            strcmp(source, "none") == 0)
+            return 0;
+        SAFE_STRCPY(element->source, source);
+    }
+
+    if (element->type == CUSTOM_BAR || element->type == CUSTOM_RING)
+    {
+        json_t *min = json_object_get(object, "min");
+        json_t *max = json_object_get(object, "max");
+        element->minimum = json_number_value(min);
+        element->maximum = json_number_value(max);
+        if (!json_is_number(min) || !json_is_number(max) ||
+            element->minimum < -1000000 || element->maximum > 1000000 ||
+            element->minimum >= element->maximum)
+            return 0;
+    }
+    return element->type != CUSTOM_BAR ||
+           custom_integer(object, "segments", 1, 24, &element->segments);
+}
+
+static int load_active_custom_layout(json_t *root, Config *config)
+{
+    json_t *bank = json_object_get(root, "custom_layouts");
+    const char *active = custom_string(bank, "active_id", 49);
+    json_t *items = json_object_get(bank, "items");
+    if (!active || !*active || !json_is_array(items))
+        return 0;
+
+    json_t *item = NULL;
+    json_t *candidate;
+    size_t index;
+    json_array_foreach(items, index, candidate)
+    {
+        const char *id = custom_string(candidate, "id", 49);
+        if (id && strcmp(id, active) == 0)
+        {
+            if (item)
+                return 0;
+            item = candidate;
+        }
+    }
+
+    int version;
+    Color background;
+    const char *name = custom_string(item, "name", CUSTOM_LAYOUT_NAME_SIZE);
+    json_t *elements = json_object_get(item, "elements");
+    if (!name || name[strspn(name, " ")] == '\0' ||
+        !custom_integer(item, "version", 1, 1, &version) ||
+        !custom_color(item, "background", &background) || !json_is_array(elements) ||
+        json_array_size(elements) > CUSTOM_LAYOUT_MAX_ELEMENTS)
+        return 0;
+
+    CustomLayout *layout = &config->custom_layout;
+    int needs_sensors = 0;
+    json_array_foreach(elements, index, candidate)
+    {
+        CustomElement *element = &layout->elements[index];
+        if (!load_custom_element(candidate, element))
+            return 0;
+        if (element->source[0])
+            needs_sensors = 1;
+    }
+    layout->count = (int)json_array_size(elements);
+    layout->needs_sensors = needs_sensors;
+    config->display_background_color = background;
+    return 1;
+}
+
 /**
  * @brief Load layout settings from JSON.
  */
@@ -1791,6 +1936,13 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
             load_font_from_json(root, config);
             load_sensors_from_json(root, config);
             load_positioning_from_json(root, config);
+            if (strcmp(config->display_mode, "custom") == 0 &&
+                !load_active_custom_layout(root, config))
+            {
+                config->invalid_custom_layout = 1;
+                SAFE_STRCPY(config->display_mode, "split");
+                log_message(LOG_WARNING, "Invalid active custom layout; using Split mode");
+            }
 
             /* Normal daemon startup keeps the config human-readable. */
             if (allow_writes)

@@ -69,7 +69,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `split` | `split`, `dual`, or `circle` |
+| `mode` | `split` | `split`, `dual`, `circle`, or `custom` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
@@ -77,9 +77,39 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
 | `split_ring_by_sensor` | `true` | In Split and Dual modes, color both ring halves from the two visible layout sensors |
-| `sensor_ring_enabled` | `false` | Add the sensor-value ring to any display mode |
+| `sensor_ring_enabled` | `false` | Add the sensor-value ring in Split, Dual, or Circle mode |
 | `sensor_ring_sensor` | `liquid` | Sensor that controls the ring outside Circle mode; Circle follows its active sensor |
 | `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot; set all visible slots to `none` for a background-only display |
+
+---
+
+## Custom Layouts
+
+The [Layout Bank](display-modes.md#custom-layout) stores layouts in
+`custom_layouts.items`. Set `custom_layouts.active_id` to one item's ID and
+`display.mode` to `custom` to show it. An invalid or missing active layout
+falls back to Split.
+
+```json
+{
+  "active_id": "cpu",
+  "items": [{
+    "id": "cpu",
+    "version": 1,
+    "name": "CPU",
+    "background": "#141927",
+    "elements": [{
+      "type": "value", "x": 220, "y": 400, "w": 560, "h": 200,
+      "source": "cpu", "text": "CPU", "size": 32,
+      "font": "mono", "color": "#e9f1ff"
+    }]
+  }]
+}
+```
+
+The coordinates use a 0–1000 scale relative to the LCD's width and height.
+Later elements draw over earlier ones. The font size is in pixels at 240 px.
+An exported file contains a single item with its `id` omitted.
 
 ---
 

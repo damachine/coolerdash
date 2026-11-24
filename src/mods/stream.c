@@ -170,6 +170,7 @@ G_GNUC_END_IGNORE_DEPRECATIONS
 static void *poll_sensors(void *arg)
 {
     const Config *config = arg;
+    const int uses_slots = display_uses_sensor_slots(config);
     pthread_mutex_lock(&sensor_lock);
     while (!animation.sensor_stop)
     {
@@ -177,8 +178,10 @@ static void *poll_sensors(void *arg)
         monitor_sensor_data_t sensors = {0};
         const int success = get_sensor_monitor_data(config, &sensors);
         pthread_mutex_lock(&sensor_lock);
-        if (success)
+        if (success || !uses_slots)
         {
+            if (!success)
+                sensors.sensor_count = 0;
             animation.sensors = sensors;
             animation.overlay_dirty = 1;
         }
@@ -211,7 +214,9 @@ static int update_overlay(gint64 now)
     cairo_paint(cr);
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     int success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
-    if (success && sensors.sensor_count)
+    if (success && !display_uses_sensor_slots(&animation.config))
+        success = paint_display_overlay(cr, &animation.config, &sensors, &animation.scaling);
+    else if (success && sensors.sensor_count)
     {
         Config layout = animation.config;
         /* The stream rotates the composed background and overlay together. */
@@ -262,7 +267,8 @@ void stream_stop(void)
 
 void stream_start(const Config *config)
 {
-    if (!is_session_initialized() || !display_has_active_sensor_slots(config) ||
+    if (!is_session_initialized() ||
+        (display_uses_sensor_slots(config) && !display_needs_sensor_data(config)) ||
         !config->paths_image_background[0])
         return;
 
@@ -290,11 +296,12 @@ void stream_start(const Config *config)
         cairo_surface_status(animation.overlay) == CAIRO_STATUS_SUCCESS)
     {
         animation.lcd = lcd_stream_open(profile);
+        const int needs_sensors = display_needs_sensor_data(config);
         if (animation.lcd &&
-            pthread_create(&animation.sensor_thread, NULL, poll_sensors,
-                           &animation.config) == 0)
+            (!needs_sensors || pthread_create(&animation.sensor_thread, NULL,
+                                              poll_sensors, &animation.config) == 0))
         {
-            animation.sensor_thread_started = 1;
+            animation.sensor_thread_started = needs_sensors;
             selected = 1;
             log_message(LOG_STATUS, "LCD stream: %s (%s), up to %u fps",
                         profile->name, display_transport_name(profile->preferred_transport),
