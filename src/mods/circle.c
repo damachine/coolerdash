@@ -726,7 +726,6 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                                   natural_value_layout.font_size * 0.5,
                                   &duty_layout);
 
-        double duty_region_width = 0.0;
         double value_x = row_x;
         double value_width = row_width;
         if (duty_layout.active && natural_value_layout.active)
@@ -737,7 +736,7 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                 natural_value_layout.block_left;
             const double natural_total =
                 duty_layout.total_width + natural_value_width;
-            duty_region_width =
+            double duty_region_width =
                 natural_total > 0.0
                     ? available_width *
                           (duty_layout.total_width / natural_total)
@@ -954,24 +953,6 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
                 if (extra_font_size < min_extra_font)
                     extra_font_size = min_extra_font;
             }
-
-            cairo_set_font_size(cr, extra_font_size);
-            cairo_font_extents(cr, &font_ext);
-            cairo_text_extents(cr, has_extra_line ? extra_buf : "",
-                               &extra_text_ext);
-            cairo_text_extents(cr, has_rpm_line ? line2_buf : "",
-                               &line2_text_ext);
-            const double scaled_line_height =
-                font_ext.ascent + font_ext.descent;
-            const double scaled_block_top =
-                fmax(label_box_y, label_ink_bottom) + extra_padding_top;
-            extra_y = scaled_block_top + font_ext.ascent;
-            line2_y = has_extra_line
-                          ? extra_y + scaled_line_height + extra_padding_top
-                          : extra_y;
-            rendered_bottom =
-                scaled_block_top + (scaled_line_height * line_count) +
-                (extra_padding_top * (line_count - 1));
 
             // Only render if it fits within the display height after autoshrink.
             if (rendered_bottom <= geometry.bottom)

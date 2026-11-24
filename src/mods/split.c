@@ -73,7 +73,7 @@ static void draw_centered_value_with_small_unit(
         return;
 
     const size_t text_len = strlen(text);
-    const char unit = text_len > 0 ? text[text_len - 1] : '\0';
+    const char unit = text[text_len - 1];
     if (unit != '%' && unit != 'W')
     {
         draw_centered_text(cr, text, center_x, center_y, preferred_size,
@@ -91,7 +91,7 @@ static void draw_centered_value_with_small_unit(
     number[number_len] = '\0';
 
     double number_size = fmax(1.0, preferred_size);
-    double unit_size = number_size * 0.5;
+    double unit_size;
     const double unit_gap = fmax(1.0, scale_value_avg(params, 1.0));
     cairo_text_extents_t number_ext = {0};
     cairo_text_extents_t unit_ext = {0};
@@ -100,7 +100,7 @@ static void draw_centered_value_with_small_unit(
     double content_height = 0.0;
     char unit_text[2] = {unit, '\0'};
 
-    while (number_size > 1.0)
+    for (;;)
     {
         cairo_set_font_size(cr, number_size);
         cairo_text_extents(cr, number, &number_ext);
@@ -114,23 +114,11 @@ static void draw_centered_value_with_small_unit(
         content_height =
             fmax(number_ext.height,
                  number_ext.height * 0.08 + unit_ext.height);
-        if (total_width <= max_width && content_height <= max_height)
+        if ((total_width <= max_width && content_height <= max_height) ||
+            number_size <= 1.0)
             break;
-        number_size *= 0.92;
+        number_size = fmax(1.0, number_size * 0.92);
     }
-
-    number_size = fmax(1.0, number_size);
-    unit_size = number_size * 0.5;
-    cairo_set_font_size(cr, number_size);
-    cairo_text_extents(cr, number, &number_ext);
-    cairo_set_font_size(cr, unit_size);
-    cairo_text_extents(cr, unit_text, &unit_ext);
-    number_width = fmax(number_ext.x_advance, number_ext.width);
-    total_width = number_width + unit_gap +
-                  fmax(unit_ext.x_advance, unit_ext.width);
-    content_height =
-        fmax(number_ext.height,
-             number_ext.height * 0.08 + unit_ext.height);
 
     const double block_left = center_x - total_width * 0.5;
     const double block_top = center_y - content_height * 0.5;
@@ -159,14 +147,14 @@ static double draw_centered_temperature(cairo_t *cr, const char *number,
         return 0.0;
 
     double number_size = fmax(6.0, preferred_size);
-    double degree_size = number_size * 0.50;
+    double degree_size;
     const double degree_gap = fmax(0.5, scale_value_avg(params, 0.5));
     cairo_text_extents_t number_ext = {0};
     cairo_text_extents_t degree_ext = {0};
     cairo_font_extents_t number_font_ext = {0};
     double total_width = 0.0;
 
-    while (number_size > 1.0)
+    for (;;)
     {
         cairo_set_font_size(cr, number_size);
         cairo_text_extents(cr, number, &number_ext);
@@ -179,21 +167,14 @@ static double draw_centered_temperature(cairo_t *cr, const char *number,
         total_width = fmax(number_ext.x_advance, number_ext.width) +
                       degree_gap +
                       fmax(degree_ext.x_advance, degree_ext.width);
-        if (total_width <= max_width &&
-            number_font_ext.ascent + number_font_ext.descent <= max_height)
+        if ((total_width <= max_width &&
+             number_font_ext.ascent + number_font_ext.descent <= max_height) ||
+            number_size <= 1.0)
             break;
 
         number_size *= 0.92;
     }
 
-    cairo_set_font_size(cr, number_size);
-    cairo_text_extents(cr, number, &number_ext);
-    cairo_font_extents(cr, &number_font_ext);
-    degree_size = number_size * 0.50;
-    cairo_set_font_size(cr, degree_size);
-    cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
-    total_width = fmax(number_ext.x_advance, number_ext.width) + degree_gap +
-                  fmax(degree_ext.x_advance, degree_ext.width);
     const double number_width = fmax(number_ext.x_advance, number_ext.width);
     const double block_left = center_x - total_width / 2.0;
     const double number_baseline =

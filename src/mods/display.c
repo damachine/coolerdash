@@ -488,6 +488,38 @@ void format_slot_value_text(char *buffer, size_t buffer_size,
         snprintf(buffer, buffer_size, "%d", (int)temp_value);
 }
 
+typedef struct
+{
+    cairo_text_extents_t number;
+    cairo_text_extents_t degree;
+    double number_width;
+    double width;
+    double height;
+} SlotValueMetrics;
+
+static SlotValueMetrics measure_slot_value(cairo_t *cr, const char *value_text,
+                                           double font_size, int is_temp,
+                                           int degree_spacing)
+{
+    SlotValueMetrics metrics = {0};
+    cairo_set_font_size(cr, font_size);
+    cairo_text_extents(cr, value_text, &metrics.number);
+    metrics.number_width = fmax(metrics.number.x_advance, metrics.number.width);
+    metrics.width = metrics.number_width;
+    metrics.height = metrics.number.height;
+    if (is_temp)
+    {
+        cairo_set_font_size(cr, font_size / 2.05);
+        cairo_text_extents(cr, "\xC2\xB0", &metrics.degree);
+        cairo_set_font_size(cr, font_size);
+        metrics.width += degree_spacing +
+                         fmax(metrics.degree.x_advance, metrics.degree.width);
+        metrics.height = fmax(metrics.height,
+                              metrics.number.height * 0.08 + metrics.degree.height);
+    }
+    return metrics;
+}
+
 /**
  * @brief Measure and optionally render a right-aligned sensor value block.
  */
@@ -517,11 +549,9 @@ void layout_and_render_slot_value(cairo_t *cr,
         scale_value_x(params, (double)get_slot_offset_x(config, slot_value));
     const double offset_y =
         scale_value_y(params, (double)get_slot_offset_y(config, slot_value));
+    const int scaled_spacing = get_scaled_degree_spacing(config, params);
     const int degree_spacing =
-        is_temp ? ((get_scaled_degree_spacing(config, params) > 1)
-                       ? (int)lround(get_scaled_degree_spacing(config, params) * 0.65)
-                       : 1)
-                : get_scaled_degree_spacing(config, params);
+        scaled_spacing > 1 ? (int)lround(scaled_spacing * 0.65) : 1;
     const double temp_margin_factor =
         (config->layout_label_margin_left > 0)
             ? (config->layout_label_margin_left / 200.0)
@@ -546,137 +576,48 @@ void layout_and_render_slot_value(cairo_t *cr,
         (configured_scaled_font_size > 0.0)
             ? configured_scaled_font_size
             : auto_font_size;
-    cairo_text_extents_t number_ext = {0};
-    cairo_text_extents_t degree_ext = {0};
     double font_size = preferred_font_size;
-    double degree_font_size = font_size / 2.05;
-    double total_width = 0.0;
-    double number_width = 0.0;
-    double content_height = 0.0;
+    SlotValueMetrics metrics;
 
-    while (1)
+    for (;;)
     {
-        cairo_set_font_size(cr, font_size);
-        cairo_text_extents(cr, value_text, &number_ext);
-        number_width = fmax(number_ext.x_advance, number_ext.width);
-
-        degree_font_size = font_size / 2.05;
-        degree_ext = (cairo_text_extents_t){0};
-        if (is_temp)
-        {
-            cairo_set_font_size(cr, degree_font_size);
-            cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
-            cairo_set_font_size(cr, font_size);
-        }
-
-        total_width = number_width +
-                      (is_temp
-                           ? (degree_spacing +
-                              fmax(degree_ext.x_advance, degree_ext.width))
-                           : 0.0);
-        content_height = number_ext.height;
-        if (is_temp)
-            content_height = fmax(content_height,
-                                  number_ext.height * 0.08 + degree_ext.height);
-
-        if ((total_width <= available_width &&
-             content_height <= available_height) ||
-            font_size <= 1.0)
+        metrics = measure_slot_value(cr, value_text, font_size, is_temp,
+                                     degree_spacing);
+        if ((metrics.width <= available_width &&
+             metrics.height <= available_height) || font_size <= 1.0)
             break;
-
-        font_size *= 0.93;
-        if (font_size < 1.0)
-            font_size = 1.0;
+        font_size = fmax(1.0, font_size * 0.93);
     }
 
     if (configured_scaled_font_size <= 0.0)
     {
         double growth_step = fmax(0.5, scale_value_avg(params, 1.0));
-
         while (growth_step >= 0.25)
         {
-            while (1)
+            for (;;)
             {
-                const double candidate_font_size = font_size + growth_step;
-                cairo_text_extents_t candidate_number_ext = {0};
-                cairo_text_extents_t candidate_degree_ext = {0};
-                double candidate_number_width = 0.0;
-                double candidate_total_width = 0.0;
-                double candidate_content_height = 0.0;
-                double candidate_degree_font_size = candidate_font_size / 2.05;
-
-                cairo_set_font_size(cr, candidate_font_size);
-                cairo_text_extents(cr, value_text, &candidate_number_ext);
-                candidate_number_width =
-                    fmax(candidate_number_ext.x_advance,
-                         candidate_number_ext.width);
-
-                if (is_temp)
-                {
-                    cairo_set_font_size(cr, candidate_degree_font_size);
-                    cairo_text_extents(cr, "\xC2\xB0", &candidate_degree_ext);
-                    cairo_set_font_size(cr, candidate_font_size);
-                }
-
-                candidate_total_width = candidate_number_width +
-                                        (is_temp
-                                             ? (degree_spacing +
-                                                fmax(candidate_degree_ext.x_advance,
-                                                     candidate_degree_ext.width))
-                                             : 0.0);
-                candidate_content_height = candidate_number_ext.height;
-                if (is_temp)
-                    candidate_content_height =
-                        fmax(candidate_content_height,
-                             candidate_number_ext.height * 0.08 +
-                                 candidate_degree_ext.height);
-
-                if (candidate_total_width > available_width ||
-                    candidate_content_height > available_height)
+                const double candidate_size = font_size + growth_step;
+                SlotValueMetrics candidate = measure_slot_value(
+                    cr, value_text, candidate_size, is_temp, degree_spacing);
+                if (candidate.width > available_width ||
+                    candidate.height > available_height)
                     break;
-
-                font_size = candidate_font_size;
-                degree_font_size = candidate_degree_font_size;
-                number_ext = candidate_number_ext;
-                degree_ext = candidate_degree_ext;
-                number_width = candidate_number_width;
-                total_width = candidate_total_width;
-                content_height = candidate_content_height;
+                font_size = candidate_size;
+                metrics = candidate;
             }
-
             growth_step *= 0.5;
         }
-    }
-
-    degree_font_size = font_size / 2.05;
-    cairo_set_font_size(cr, font_size);
-    cairo_text_extents(cr, value_text, &number_ext);
-    number_width = fmax(number_ext.x_advance, number_ext.width);
-    degree_ext = (cairo_text_extents_t){0};
-    if (is_temp)
-    {
-        cairo_set_font_size(cr, degree_font_size);
-        cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
         cairo_set_font_size(cr, font_size);
     }
-    total_width = number_width +
-                  (is_temp
-                       ? degree_spacing +
-                             fmax(degree_ext.x_advance, degree_ext.width)
-                       : 0.0);
-    content_height = number_ext.height;
-    if (is_temp)
-        content_height = fmax(content_height,
-                              number_ext.height * 0.08 + degree_ext.height);
 
     const double requested_right =
         box_x + box_width - right_margin + offset_x;
     const double minimum_left = box_x + inner_padding_x;
     const double maximum_left =
         fmax(minimum_left,
-             box_x + box_width - right_margin - total_width);
+             box_x + box_width - right_margin - metrics.width);
     const double block_left =
-        clamp_double(requested_right - total_width,
+        clamp_double(requested_right - metrics.width,
                      minimum_left, maximum_left);
 
     double block_top;
@@ -684,7 +625,7 @@ void layout_and_render_slot_value(cairo_t *cr,
     {
         const double ink_bottom =
             box_y + box_height - inner_padding_y + offset_y;
-        block_top = ink_bottom - content_height;
+        block_top = ink_bottom - metrics.height;
     }
     else
     {
@@ -694,26 +635,26 @@ void layout_and_render_slot_value(cairo_t *cr,
     const double minimum_top = box_y + inner_padding_y;
     const double maximum_top =
         fmax(minimum_top,
-             box_y + box_height - inner_padding_y - content_height);
+             box_y + box_height - inner_padding_y - metrics.height);
     block_top = clamp_double(block_top, minimum_top, maximum_top);
 
-    const double local_baseline = -number_ext.y_bearing;
+    const double local_baseline = -metrics.number.y_bearing;
     const double baseline_y = block_top + local_baseline;
 
     if (draw_output)
     {
-        cairo_set_font_size(cr, font_size);
-        cairo_move_to(cr, block_left - number_ext.x_bearing, baseline_y);
+        cairo_move_to(cr, block_left - metrics.number.x_bearing, baseline_y);
         cairo_show_text(cr, value_text);
 
         if (is_temp)
         {
-            const double degree_top = block_top + number_ext.height * 0.08;
+            const double degree_top = block_top + metrics.number.height * 0.08;
             const double degree_x =
-                block_left + number_width + degree_spacing - degree_ext.x_bearing;
-            const double degree_y = degree_top - degree_ext.y_bearing;
+                block_left + metrics.number_width + degree_spacing -
+                metrics.degree.x_bearing;
+            const double degree_y = degree_top - metrics.degree.y_bearing;
 
-            cairo_set_font_size(cr, degree_font_size);
+            cairo_set_font_size(cr, font_size / 2.05);
             cairo_move_to(cr, degree_x, degree_y);
             cairo_show_text(cr, "\xC2\xB0");
             cairo_set_font_size(cr, font_size);
@@ -722,9 +663,9 @@ void layout_and_render_slot_value(cairo_t *cr,
 
     layout->active = 1;
     layout->block_left = block_left;
-    layout->block_right = block_left + total_width;
+    layout->block_right = block_left + metrics.width;
     layout->block_top = block_top;
-    layout->block_bottom = block_top + content_height;
+    layout->block_bottom = block_top + metrics.height;
     layout->baseline_y = baseline_y;
     layout->font_size = font_size;
 }
@@ -1481,19 +1422,11 @@ int render_rotated_image_to_png(const char *source_path,
 void calculate_scaling_params(const struct Config *config,
                               ScalingParams *params, const char *device_name)
 {
-    const double base_width = 240.0;
-    const double base_height = 240.0;
-    const double min_dimension =
-        (config->display_width < config->display_height)
-            ? (double)config->display_width
-            : (double)config->display_height;
-    const double base_min_dimension =
-        (base_width < base_height) ? base_width : base_height;
-
-    params->scale_x = config->display_width / base_width;
-    params->scale_y = config->display_height / base_height;
-    params->scale_uniform =
-        (base_min_dimension > 0.0) ? (min_dimension / base_min_dimension) : 1.0;
+    const double base_size = 240.0;
+    const double min_dimension = fmin(config->display_width, config->display_height);
+    params->scale_x = config->display_width / base_size;
+    params->scale_y = config->display_height / base_size;
+    params->scale_uniform = min_dimension / base_size;
 
     const DisplayProfile *profile = resolve_display_profile(
         0, 0, device_name, config->display_width, config->display_height);
