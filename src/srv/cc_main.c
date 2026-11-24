@@ -221,27 +221,9 @@ void cleanup_coolercontrol_session(void)
     if (cleanup_done)
         return;
 
-    int all_cleaned = 1;
-
-    // Clean up CURL handle
-    if (cc_session.curl_handle)
-    {
-        curl_easy_cleanup(cc_session.curl_handle);
-        cc_session.curl_handle = NULL;
-    }
-
-    // Perform global CURL cleanup
+    reset_coolercontrol_session();
     curl_global_cleanup();
-
-    // Mark session as uninitialized
-    cc_session.session_initialized = 0;
-    cc_session.access_token[0] = '\0';
-
-    // Set cleanup flag only if all operations succeeded
-    if (all_cleaned)
-    {
-        cleanup_done = 1;
-    }
+    cleanup_done = 1;
 }
 
 /**
