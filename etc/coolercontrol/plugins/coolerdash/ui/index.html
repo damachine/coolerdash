@@ -1840,7 +1840,6 @@
         ]);
 
         let DEFAULT_CONFIG = null;
-        let RESET_CONFIG = null;
         let currentTab = 5;
         let discoveredSensors = [];
         let currentSensorConfig = {};
@@ -2116,46 +2115,22 @@
             return channels || {};
         }
 
-        function getDeviceLcdInfo(device) {
+        function findDeviceLcd(device) {
             var channels = getDeviceChannels(device);
-
-            var preferredKeys = ['lcd', 'display', 'screen'];
-            for (var i = 0; i < preferredKeys.length; i++) {
-                var channel = channels[preferredKeys[i]];
-                if (channel && channel.lcd_info && channel.lcd_info.screen_width > 0 && channel.lcd_info.screen_height > 0) {
-                    return channel.lcd_info;
-                }
+            var names = new Set(['lcd', 'display', 'screen', ...Object.keys(channels)]);
+            var fallback = '';
+            for (var name of names) {
+                var info = channels[name]?.lcd_info;
+                if (!(info?.screen_width > 0)) continue;
+                if (info.screen_height > 0) return { name: name, info: info };
+                if (!fallback) fallback = name;
             }
-
-            for (var key in channels) {
-                if (channels.hasOwnProperty(key) && channels[key] && channels[key].lcd_info && channels[key].lcd_info.screen_width > 0 && channels[key].lcd_info.screen_height > 0) {
-                    return channels[key].lcd_info;
-                }
-            }
-
-            return null;
-        }
-
-        function getDeviceLcdChannel(device) {
-            var channels = getDeviceChannels(device);
-            var preferredKeys = ['lcd', 'display', 'screen'];
-            for (var i = 0; i < preferredKeys.length; i++) {
-                var channel = channels[preferredKeys[i]];
-                if (channel && channel.lcd_info && channel.lcd_info.screen_width > 0 && channel.lcd_info.screen_height > 0) {
-                    return preferredKeys[i];
-                }
-            }
-            for (var key in channels) {
-                if (channels.hasOwnProperty(key) && channels[key] && channels[key].lcd_info && channels[key].lcd_info.screen_width > 0) {
-                    return key;
-                }
-            }
-            return 'lcd';
+            return { name: fallback || 'lcd', info: null };
         }
 
         function scoreDetectedDevice(device, detectionSettings) {
             if (!device || !device.uid) return -1000;
-            var lcdInfo = getDeviceLcdInfo(device);
+            var lcdInfo = findDeviceLcd(device).info;
 
             if (candidateMatchesPatterns(device, detectionSettings.blocklist)) return -1000;
             if (candidateMatchesPatterns(device, detectionSettings.allowlist)) {
@@ -2386,14 +2361,13 @@
 
                 // Group discovered sensors by device
                 if (discoveredSensors.length > 0) {
-                    var byDevice = {};
+                    var byDevice = Object.create(null);
                     for (var s = 0; s < discoveredSensors.length; s++) {
                         var sensor = discoveredSensors[s];
                         if (!byDevice[sensor.device]) byDevice[sensor.device] = [];
                         byDevice[sensor.device].push(sensor);
                     }
                     for (var device in byDevice) {
-                        if (!byDevice.hasOwnProperty(device)) continue;
                         var group = document.createElement('optgroup');
                         group.label = device;
                         var deviceSensors = byDevice[device];
@@ -2737,7 +2711,7 @@
         }
 
         function collectSensorConfigsFromDOM() {
-            var sensors = {};
+            var sensors = Object.create(null);
             var sections = document.querySelectorAll('.sensor-config-section');
             for (var i = 0; i < sections.length; i++) {
                 var section = sections[i];
@@ -2840,9 +2814,10 @@
                     var liquidctlVer = (found.info && found.info.driver_info && found.info.driver_info.version) || '\u2014';
                     document.getElementById('device-liquidctl').textContent = liquidctlVer;
 
-                    var lcdInfo = getDeviceLcdInfo(found);
+                    var lcd = findDeviceLcd(found);
+                    var lcdInfo = lcd.info;
                     detectedDeviceUid = found.uid || '';
-                    detectedLcdChannel = getDeviceLcdChannel(found);
+                    detectedLcdChannel = lcd.name;
                     var width = lcdInfo ? (lcdInfo.screen_width || 0) : 0;
                     var height = lcdInfo ? (lcdInfo.screen_height || 0) : 0;
 
@@ -3295,9 +3270,8 @@
                 var status = document.getElementById('render_preview_status');
                 status.textContent = 'Rendering Cairo preview\u2026';
                 try {
-                    var previewConfig = buildConfig();
+                    var previewConfig = buildConfig({ includeLayouts: false });
                     if (previewConfig.daemon) previewConfig.daemon.access_token = '';
-                    delete previewConfig.custom_layouts;
                     var result = await requestCairoPreview(previewConfig);
                     if (generation !== renderPreviewGeneration) return;
                     if (['terminal', 'activity-rings'].includes(previewConfig.display.mode) && result.shape)
@@ -3609,11 +3583,9 @@
             }
             var slot1Label = document.getElementById('sensor_slot_1_label');
             var slot2Label = document.getElementById('sensor_slot_2_label');
-            var slot1Hint = document.getElementById('sensor_slot_1_hint');
             var slot2Hint = document.getElementById('sensor_slot_2_hint');
             if (slot1Label) slot1Label.textContent = isSplit ? 'Left' : 'Slot 1';
             if (slot2Label) slot2Label.textContent = isSplit ? 'Right' : 'Slot 2';
-            if (slot1Hint) slot1Hint.textContent = isSplit ? 'Default: CPU' : 'Default: CPU';
             if (slot2Hint) slot2Hint.textContent = isSplit ? 'Default: GPU' : 'Default: GPU (Circle only)';
             updateModePreview();
             validateSensorSlots();
@@ -3711,13 +3683,11 @@
                 }
 
                 var parsedConfig = JSON.parse(await response.text());
-                RESET_CONFIG = cloneConfig(fallbackDefaults);
                 DEFAULT_CONFIG = mergeConfigWithDefaults(parsedConfig, fallbackDefaults);
                 return DEFAULT_CONFIG;
             } catch (error) {
                 console.warn('Falling back to embedded factory defaults:', error);
-                RESET_CONFIG = fallbackDefaults;
-                DEFAULT_CONFIG = cloneConfig(fallbackDefaults);
+                DEFAULT_CONFIG = fallbackDefaults;
                 return DEFAULT_CONFIG;
             }
         }
@@ -3852,7 +3822,7 @@
         }
 
         // ===== BUILD CONFIG FROM FORM =====
-        function buildConfig() {
+        function buildConfig({ includeLayouts = true } = {}) {
             var form = document.getElementById('configForm');
             var formData = new FormData(form);
             var config = {
@@ -3911,8 +3881,10 @@
             }
 
             var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
-            var bank = customLayouts.bank();
-            if (bank.items.length) merged.custom_layouts = bank;
+            if (includeLayouts) {
+                var bank = customLayouts.bank();
+                if (bank.items.length) merged.custom_layouts = bank;
+            }
             if (merged.display) {
                 delete merged.display.split_scale_factor;
                 delete merged.display.text_scale_factor;
@@ -4236,7 +4208,7 @@
                 return;
             }
             try {
-                var factoryConfig = cloneConfig(RESET_CONFIG || DEFAULT_CONFIG || FACTORY_DEFAULTS);
+                var factoryConfig = cloneConfig(FACTORY_DEFAULTS);
                 var savedLayouts = customLayouts.savedItems();
                 if (savedLayouts.length)
                     factoryConfig.custom_layouts = { active_id: '', items: savedLayouts };
@@ -4263,11 +4235,9 @@
         function mergeConfigWithDefaults(config, defaultConfig) {
             var defaults = defaultConfig || FACTORY_DEFAULTS;
             var sensors = config.sensors || {};
-            var needsMigration = false;
 
             // Detect legacy format: top-level cpu/gpu/liquid sections
             if (!config.sensors && (config.cpu || config.gpu || config.liquid)) {
-                needsMigration = true;
                 if (config.cpu) sensors.cpu = config.cpu;
                 if (config.gpu) sensors.gpu = config.gpu;
                 if (config.liquid) sensors.liquid = config.liquid;
@@ -4298,23 +4268,23 @@
                 layout: Object.assign({}, defaults.layout || {}, config.layout || {}),
                 colors: Object.assign({}, defaults.colors || {}, config.colors || {}),
                 font: Object.assign({}, defaults.font || {}, config.font || {}),
-                sensors: Object.assign({}, defaults.sensors || {}),
+                sensors: Object.assign(Object.create(null), defaults.sensors || {}),
                 positioning: Object.assign({}, defaults.positioning || {}, config.positioning || {})
             };
             if (config.custom_layouts) merged.custom_layouts = config.custom_layouts;
 
             // Deep merge sensor configs (skip corrupt numeric keys)
-            for (var id in sensors) {
-                if (!sensors.hasOwnProperty(id)) continue;
+            for (var [id, settings] of Object.entries(sensors)) {
+                if (!settings || typeof settings !== 'object' || Array.isArray(settings)) continue;
                 // Remove corrupt numeric sensor IDs from old parseFloat bug
                 if (/^\d+$/.test(id)) continue;
                 var sensorDefaults = merged.sensors[id] || getDefaultSensorConfig(id);
-                merged.sensors[id] = Object.assign({}, sensorDefaults, sensors[id]);
+                merged.sensors[id] = Object.assign({}, sensorDefaults, settings);
                 // Deep merge color objects
                 var colorKeys = ['threshold_1_color', 'threshold_2_color', 'threshold_3_color', 'threshold_4_color'];
                 for (var c = 0; c < colorKeys.length; c++) {
-                    if (sensors[id][colorKeys[c]]) {
-                        merged.sensors[id][colorKeys[c]] = Object.assign({}, sensorDefaults[colorKeys[c]] || {}, sensors[id][colorKeys[c]]);
+                    if (settings[colorKeys[c]]) {
+                        merged.sensors[id][colorKeys[c]] = Object.assign({}, sensorDefaults[colorKeys[c]] || {}, settings[colorKeys[c]]);
                     }
                 }
             }
@@ -4969,7 +4939,7 @@
                 status.textContent = 'Updating preview…';
                 previewTimer = setTimeout(async () => {
                     try {
-                        const config = buildConfig();
+                        const config = buildConfig({ includeLayouts: false });
                         const layout = current();
                         if (!byId('oriented').checked) config.display.orientation = 0;
                         const previews = await Promise.allSettled(layout.screens.map(async part => {
