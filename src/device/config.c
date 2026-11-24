@@ -158,7 +158,7 @@ static void set_display_defaults(Config *config, int use_device_cache)
     if (config->display_rotation >= 360)
         config->display_rotation = 0;
     if (config->display_mode[0] == '\0')
-        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "split");
+        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), "dual");
     if (config->display_background_image_fit[0] == '\0')
         cc_safe_strcpy(config->display_background_image_fit,
                        sizeof(config->display_background_image_fit), "cover");
@@ -205,14 +205,6 @@ static void set_display_defaults(Config *config, int use_device_cache)
     if (config->display_background_overlay_opacity < 0.0f ||
         config->display_background_overlay_opacity > 1.0f)
         config->display_background_overlay_opacity = 0.0f;
-
-    // Sensor slot defaults (flexible sensor assignment)
-    if (config->sensor_slot_1[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
-    if (config->sensor_slot_2[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
-    if (config->sensor_slot_3[0] == '\0')
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
 }
 
 /**
@@ -571,27 +563,20 @@ static void validate_sensor_slots(Config *config)
 
     int reset_needed = 0;
 
-    // Validate slot values (must be cpu/gpu/liquid/none)
-    if (!is_valid_sensor_slot(config->sensor_slot_1))
+    const int dual = strcmp(config->display_mode, "dual") == 0;
+    char *slots[] = {config->sensor_slot_1, config->sensor_slot_2, config->sensor_slot_3};
+    const char *slot_names[] = {"sensor_slot_1", "sensor_slot_2", "sensor_slot_3"};
+    const char *defaults[] = {"cpu", dual ? "none" : "gpu", dual ? "gpu" : "none"};
+    for (int i = 0; i < 3; i++)
     {
-        log_message(LOG_WARNING, "Invalid sensor_slot_1 value, using 'cpu'");
-        cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
-    }
-    if (!is_valid_sensor_slot(config->sensor_slot_2))
-    {
-        log_message(LOG_WARNING, "Invalid sensor_slot_2 value, using 'gpu'");
-        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
-    }
-    if (!is_valid_sensor_slot(config->sensor_slot_3))
-    {
-        log_message(LOG_WARNING, "Invalid sensor_slot_3 value, using 'none'");
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
+        if (is_valid_sensor_slot(slots[i]))
+            continue;
+        if (slots[i][0])
+            log_message(LOG_WARNING, "Invalid %s value, using '%s'", slot_names[i], defaults[i]);
+        cc_safe_strcpy(slots[i], CONFIG_MAX_SENSOR_SLOT_LEN, defaults[i]);
     }
 
     // Check for duplicates (only among active slots, "none" can appear multiple times)
-    const char *slots[] = {config->sensor_slot_1, config->sensor_slot_2, config->sensor_slot_3};
-    const char *slot_names[] = {"sensor_slot_1", "sensor_slot_2", "sensor_slot_3"};
-
     for (int i = 0; i < 3; i++)
     {
         if (!slot_is_active_str(slots[i]))
@@ -617,10 +602,10 @@ static void validate_sensor_slots(Config *config)
     // Reset to defaults if validation failed
     if (reset_needed)
     {
-        cc_safe_strcpy(config->sensor_slot_1, sizeof(config->sensor_slot_1), "cpu");
-        cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
-        cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
-        log_message(LOG_STATUS, "Sensor slots reset to defaults: 1=cpu, 2=gpu, 3=none");
+        for (int i = 0; i < 3; i++)
+            cc_safe_strcpy(slots[i], CONFIG_MAX_SENSOR_SLOT_LEN, defaults[i]);
+        log_message(LOG_STATUS, "Sensor slots reset to defaults: 1=%s, 2=%s, 3=%s",
+                    defaults[0], defaults[1], defaults[2]);
     }
 }
 

@@ -50,7 +50,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 
 ```json
 "display": {
-    "mode": "split",
+    "mode": "dual",
     "width": 0,
     "height": 0,
     "refresh_interval": 3.5,
@@ -59,18 +59,19 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
     "show_clock": false,
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
+    "dual_show_bars": true,
     "split_ring_by_sensor": true,
     "sensor_ring_enabled": false,
     "sensor_ring_sensor": "liquid",
     "sensor_slot_1": "cpu",
-    "sensor_slot_2": "gpu",
-    "sensor_slot_3": "none"
+    "sensor_slot_2": "none",
+    "sensor_slot_3": "gpu"
 }
 ```
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `split` | `split`, `dual`, `circle`, `terminal`, or `custom` |
+| `mode` | `dual` | `dual`, `split`, `circle`, `terminal`, or `custom` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
@@ -79,10 +80,11 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 | `tty_icon` | `large` | Prompt icon in TTY mode. Choose `large`, `small`, or `off`. |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
+| `dual_show_bars` | `true` | Show the temperature bars in Dual mode |
 | `split_ring_by_sensor` | `true` | In Split and Dual modes, color both ring halves from the two visible layout sensors |
 | `sensor_ring_enabled` | `false` | Add the sensor-value ring in Split, Dual, or Circle mode |
 | `sensor_ring_sensor` | `liquid` | Sensor that controls the ring outside Circle mode; Circle follows its active sensor |
-| `sensor_slot_1/2/3` | `cpu`/`gpu`/`none` | Sensor assignment per slot; set all visible slots to `none` for a background-only display |
+| `sensor_slot_1/2/3` | `cpu`/`none`/`gpu` in Dual | Sensor assignment per slot. Set all visible slots to `none` for a background-only display. |
 
 ---
 

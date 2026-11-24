@@ -1,6 +1,6 @@
 # Display Modes
 
-CoolerDash offers **Split** (default), **Dual**, **Circle**, **TTY (Terminal)**, and **Custom Layout**.
+CoolerDash offers **Dual** (default), **Split**, **Circle**, **TTY (Terminal)**, and **Custom Layout**.
 
 Split, Dual, and Circle can add the optional **Sensor Ring** overlay. Split and Dual
 can instead divide the ring between their two visible sensors. In Circle mode,
@@ -49,7 +49,7 @@ and widgets. In CoolerControl, copy the JSON into a `.json` file to share it.
 Imported layouts appear as new entries. CPU, GPU, and liquid
 temperature keep their standard bindings. Assign any device-specific sources
 again after import. Background images and GIFs come from the local background
-setting. Resetting plugin settings keeps saved layouts and selects Split.
+setting. Resetting plugin settings keeps saved layouts and selects Dual.
 
 ## Display Elements
 

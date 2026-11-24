@@ -1584,6 +1584,32 @@ static void setup_enhanced_signal_handlers(void)
         log_message(LOG_ERROR, "Failed to block SIGPIPE: %s", strerror(rc));
 }
 
+static void apply_display_mode_override(Config *config)
+{
+    const char *mode = s_display_mode_override;
+    if (!mode[0])
+        return;
+
+    if (strcmp(config->sensor_slot_1, "cpu") == 0)
+    {
+        if ((strcmp(mode, "split") == 0 || strcmp(mode, "circle") == 0) &&
+            strcmp(config->display_mode, "dual") == 0 &&
+            strcmp(config->sensor_slot_2, "none") == 0 && strcmp(config->sensor_slot_3, "gpu") == 0)
+        {
+            cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "gpu");
+            cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "none");
+        }
+        else if (strcmp(mode, "dual") == 0 && strcmp(config->display_mode, "split") == 0 &&
+                 strcmp(config->sensor_slot_2, "gpu") == 0 && strcmp(config->sensor_slot_3, "none") == 0)
+        {
+            cc_safe_strcpy(config->sensor_slot_2, sizeof(config->sensor_slot_2), "none");
+            cc_safe_strcpy(config->sensor_slot_3, sizeof(config->sensor_slot_3), "gpu");
+        }
+    }
+    cc_safe_strcpy(config->display_mode, sizeof(config->display_mode), mode);
+    log_message(LOG_INFO, "Display mode overridden by CLI: %s", config->display_mode);
+}
+
 /** @brief Re-read config.json on SIGHUP; re-init session and device cache. */
 static void reload_daemon_config(Config *config)
 {
@@ -1597,13 +1623,7 @@ static void reload_daemon_config(Config *config)
 
     load_plugin_config(config, s_config_path);
 
-    if (s_display_mode_override[0] != '\0')
-    {
-        cc_safe_strcpy(config->display_mode, sizeof(config->display_mode),
-                       s_display_mode_override);
-        log_message(LOG_INFO, "Display mode overridden by CLI: %s",
-                    config->display_mode);
-    }
+    apply_display_mode_override(config);
 
     // 4. Re-initialize CoolerControl session with potentially new token/address
     if (!init_coolercontrol_session(config))
@@ -2027,14 +2047,7 @@ int main(int argc, char **argv)
     write_update_status("");
     refresh_update_status_async();
 
-    // Apply CLI display mode override if provided
-    if (s_display_mode_override[0] != '\0')
-    {
-        cc_safe_strcpy(config.display_mode, sizeof(config.display_mode),
-                       s_display_mode_override);
-        log_message(LOG_INFO, "Display mode overridden by CLI: %s",
-                    config.display_mode);
-    }
+    apply_display_mode_override(&config);
 
     g_config_ptr = &config;
 
