@@ -46,6 +46,7 @@
 #include "device/hwreport.h"
 #include "device/profile.h"
 #include "device/images.h"
+#include "mods/custom.h"
 #include "mods/display.h"
 #include "mods/stream.h"
 #include "srv/cc_conf.h"
@@ -1768,6 +1769,16 @@ static int run_daemon(Config *config)
              (next_time.tv_sec == now.tv_sec && next_time.tv_nsec < now.tv_nsec)))
         {
             next_time = now;
+        }
+
+        const int64_t screen_deadline = custom_screen_deadline_us(config);
+        if (screen_deadline > 0)
+        {
+            const struct timespec switch_time = {screen_deadline / 1000000,
+                                                 (screen_deadline % 1000000) * 1000};
+            if (switch_time.tv_sec < next_time.tv_sec ||
+                (switch_time.tv_sec == next_time.tv_sec && switch_time.tv_nsec < next_time.tv_nsec))
+                next_time = switch_time;
         }
 
         wait_for_render_deadline(&next_time);

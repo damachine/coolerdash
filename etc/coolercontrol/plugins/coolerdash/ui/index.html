@@ -62,6 +62,32 @@
         .custom-options { margin: 12px 0; }
         .custom-palette { margin: 8px 0; }
         .custom-palette .btn, .custom-actions .btn { padding: 5px 9px; }
+        .custom-screens {
+            display: grid; grid-template-columns: repeat(5, minmax(0, 112px)); gap: 8px;
+        }
+        .custom-screen-choice {
+            display: grid; gap: 4px; padding: 6px; border-radius: var(--radius-sm);
+            background: rgb(var(--bg-one)); border: 1px solid rgb(var(--border-one));
+            color: inherit; cursor: pointer; text-align: center;
+        }
+        .custom-screen-choice[aria-pressed="true"] { border-color: #70baff; }
+        .custom-screen-thumb, .custom-screen-thumb img { width: 100%; display: block; }
+        .custom-screen-thumb { aspect-ratio: 1; overflow: hidden; }
+        .custom-screen-controls {
+            display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 200px);
+            align-items: end; gap: 8px 16px; margin: 12px 0 16px;
+        }
+        .custom-screen-source {
+            display: grid; grid-template-columns: minmax(0, 1fr) auto;
+            align-items: end; gap: 8px;
+        }
+        .custom-screen-controls .form-group { height: auto; min-width: 0; }
+        .custom-screen-controls .form-control, .custom-screen-controls .btn {
+            height: 42px; padding: 0 12px;
+        }
+        .custom-screen-controls .custom-actions { grid-column: 1 / -1; }
+        .custom-screen-controls .custom-actions .btn { flex: 0 1 auto; }
+        @media (max-width: 540px) { .custom-screen-controls { grid-template-columns: minmax(0, 1fr); } }
         .custom-editor-grid {
             display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 0.65fr);
             gap: 16px; align-items: start; margin-top: 12px;
@@ -963,7 +989,23 @@
                             <label class="form-group">Layout name <input id="custom_name" class="form-control" maxlength="64"></label>
                             <label class="form-group">Layout background <input id="custom_background" class="color-swatch" type="color"></label>
                         </div>
-                        <span class="form-hint">Click a widget to add it or drag it onto the display.</span>
+                        <div id="custom_screens" class="custom-screens" role="group" aria-label="Layout screens"></div>
+                        <div class="custom-screen-controls">
+                            <div class="custom-screen-source">
+                                <label class="form-group"><span class="form-label" id="custom_screen_source_label">Replace Screen 1 with</span>
+                                    <select class="form-control" id="custom_screen_source"></select>
+                                </label>
+                                <button type="button" class="btn btn-secondary" id="custom_replace_screen" disabled>Apply</button>
+                            </div>
+                            <label class="form-group"><span class="form-label" id="custom_duration_label">Screen 1 Duration (Seconds)</span>
+                                <input type="number" class="form-control" id="custom_duration" min="1" max="60" step="1" value="6">
+                            </label>
+                            <div class="custom-actions">
+                                <button type="button" class="btn btn-secondary" id="custom_add_screen">Add Screen</button>
+                                <button type="button" class="btn btn-secondary" id="custom_remove_screen">Remove Screen</button>
+                            </div>
+                        </div>
+                        <span class="form-hint">Click a widget to add it or drag it onto the display. Press Delete to remove the focused widget.</span>
                         <div class="custom-palette" id="custom_palette"></div>
                         <div class="custom-editor-grid">
                             <div>
@@ -4215,7 +4257,9 @@
             const mode = document.getElementById('display_mode');
             const grid = 1000;
             const elementLimit = 24;
-            const fileLimit = 32 * 1024;
+            const screenLimit = 5;
+            const defaultDuration = 6;
+            const fileLimit = screenLimit * 32 * 1024;
             const standard = { cpu: 'CPU Temperature', gpu: 'GPU Temperature', liquid: 'Liquid Temperature' };
             const sources = {
                 ...standard, 'cpu-load': 'CPU Load', 'gpu-load': 'GPU Load',
@@ -4226,6 +4270,7 @@
                 dual: 'Dual', split: 'Split', circle: 'Circle', terminal: 'TTY (Terminal)',
                 'activity-rings': 'Activity Rings'
             };
+            const reservedNames = new Set(Object.values(templateNames).map(name => name.toLowerCase()));
             const labels = { value: 'Sensor Value', text: 'Text', clock: 'Clock', bar: 'Bar', ring: 'Ring', frame: 'Frame' };
             const ringFields = [
                 { key: 'ring_thickness', title: 'Thickness at 240 px (0 = auto)', min: 0, max: 120, initial: 0 },
@@ -4236,6 +4281,7 @@
             const encoder = new TextEncoder();
             let bank = { active_id: '', items: [] };
             let savedBank = cloneConfig(bank);
+            let activeScreen = 0;
             let selected = -1;
             let drag = null;
             let previewTimer;
@@ -4243,7 +4289,8 @@
             let nativeSize = { width: 240, height: 240 };
 
             const current = () => bank.items.find(item => item.id === bank.active_id);
-            const widget = () => current()?.elements[selected];
+            const screenElements = () => current()?.screens[activeScreen]?.elements;
+            const widget = () => screenElements()?.[selected];
             const say = text => { byId('status').textContent = text; };
             const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
             const integer = (value, low, high) => Number.isInteger(value) && value >= low && value <= high;
@@ -4301,13 +4348,34 @@
             }
 
             function cleanLayout(input) {
-                if (!input || input.version !== 1 || !string(input.name, 64) || !input.name.trim() ||
-                    !color(input.background) || !Array.isArray(input.elements) || input.elements.length > elementLimit)
-                    throw new Error('Expected a version 1 layout with a name, background color and up to 24 widgets.');
+                if (!input || ![1, 2].includes(input.version) || !string(input.name, 64) ||
+                    !input.name.trim() || !color(input.background))
+                    throw new Error('Expected a layout with version 1 or 2, a name and a background color.');
+                const screens = input.version === 1 ? [{ elements: input.elements, duration: input.duration }] : input.screens;
+                const fallbackDuration = input.version === 1 || input.switch_interval === undefined
+                    ? defaultDuration : input.switch_interval;
+                if (!Array.isArray(screens) || !integer(screens.length, 1, screenLimit))
+                    throw new Error('A layout needs one to ' + screenLimit + ' screens.');
+                if (!integer(fallbackDuration, 1, 60))
+                    throw new Error('Set the screen duration to 1–60 seconds.');
                 return {
-                    version: 1, name: input.name.trim(), background: input.background,
-                    elements: input.elements.map(cleanElement)
+                    version: 2, name: input.name.trim(), background: input.background,
+                    screens: screens.map(screen => {
+                        if (!Array.isArray(screen?.elements) || screen.elements.length > elementLimit)
+                            throw new Error('Each screen can contain up to 24 widgets.');
+                        const duration = screen.duration === undefined ? fallbackDuration : screen.duration;
+                        if (!integer(duration, 1, 60))
+                            throw new Error('Set the screen duration to 1–60 seconds.');
+                        return { duration, elements: screen.elements.map(cleanElement) };
+                    })
                 };
+            }
+
+            function serializeLayout(layout) {
+                const { screens, ...details } = layout;
+                return screens.length === 1 && screens[0].duration === defaultDuration
+                    ? { ...details, version: 1, elements: screens[0].elements }
+                    : { ...details, screens };
             }
 
             function make(type, x, y, w, h, settings) {
@@ -4409,6 +4477,20 @@
                 return { version: 1, name: templateNames[id] || 'Untitled Layout', background, elements };
             }
 
+            function copyName(name) {
+                const taken = new Set(bank.items.map(item => item.name.toLowerCase()));
+                const chars = Array.from(name);
+                let index = 1;
+                let copy;
+                do {
+                    const suffix = index === 1 ? ' (copy)' : ' (copy ' + index + ')';
+                    while (encoder.encode(chars.join('')).length > 64 - suffix.length) chars.pop();
+                    copy = chars.join('').trimEnd() + suffix;
+                    index++;
+                } while (taken.has(copy.toLowerCase()));
+                return copy;
+            }
+
             function load(input) {
                 bank = { active_id: '', items: [] };
                 const ids = new Map();
@@ -4425,9 +4507,15 @@
                         }
                     }
                 }
+                for (const item of bank.items) {
+                    if (reservedNames.has(item.name.toLowerCase())) item.name = copyName(item.name);
+                }
                 if (bank.items.some(item => item.id === input?.active_id)) bank.active_id = input.active_id;
                 savedBank = cloneConfig(bank);
+                activeScreen = 0;
                 selected = -1;
+                byId('screen_source').value = '';
+                clearScreenPreviews();
                 const missingActiveLayout = mode.value === 'custom' && !current();
                 if (missingActiveLayout) {
                     mode.value = 'split';
@@ -4442,14 +4530,18 @@
                 do {
                     id = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
                 } while (bank.items.some(item => item.id === id));
-                bank.items.push(Object.assign(cleanLayout(layout), { id }));
+                const item = cleanLayout(layout);
+                if (reservedNames.has(item.name.toLowerCase())) item.name = copyName(item.name);
+                bank.items.push({ ...item, id });
                 selectLayout(id);
             }
 
             function selectLayout(id) {
                 bank.active_id = id;
+                activeScreen = 0;
                 selected = -1;
-                byId('preview_image').hidden = true;
+                byId('screen_source').value = '';
+                clearScreenPreviews();
                 byId('delete_prompt').hidden = true;
                 byId('export_panel').hidden = true;
                 say('');
@@ -4470,7 +4562,7 @@
             }
 
             function renderTargets() {
-                const elements = current()?.elements || [];
+                const elements = screenElements() || [];
                 const targets = byId('targets');
                 targets.hidden = byId('oriented').checked;
                 targets.replaceChildren(...elements.map((element, index) => {
@@ -4581,7 +4673,7 @@
 
             function renderLayers() {
                 const layers = byId('layers');
-                const elements = current().elements;
+                const elements = screenElements();
                 byId('layer_tools').hidden = !elements.length;
                 layers.replaceChildren(new Option('Select a widget', '-1'),
                     ...elements.map((element, index) => new Option(elementLabel(element), index)));
@@ -4589,6 +4681,85 @@
                 byId('back').disabled = selected <= 0;
                 byId('front').disabled = selected < 0 || selected >= elements.length - 1;
                 byId('remove').disabled = selected < 0;
+            }
+
+            const screenCards = Array.from({ length: screenLimit }, (_, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'custom-screen-choice';
+                button.setAttribute('aria-label', 'Edit screen ' + (index + 1));
+                button.addEventListener('click', () => selectScreen(index));
+                const tile = document.createElement('span');
+                tile.className = 'custom-screen-thumb';
+                const image = document.createElement('img');
+                image.alt = '';
+                image.hidden = true;
+                tile.append(image);
+                const number = document.createElement('span');
+                number.textContent = index + 1;
+                button.append(tile, number);
+                byId('screens').append(button);
+                return { button, tile, image, result: null };
+            });
+
+            function clearScreenPreview(card) {
+                card.result = null;
+                card.image.hidden = true;
+                card.image.removeAttribute('src');
+            }
+
+            function clearScreenPreviews() {
+                screenCards.forEach(clearScreenPreview);
+                byId('preview_image').hidden = true;
+            }
+
+            function selectScreen(index) {
+                if (drag || index === activeScreen || !current()?.screens[index]) return;
+                activeScreen = index;
+                selected = -1;
+                byId('screen_source').value = '';
+                showSelectedPreview();
+                say('');
+                update();
+            }
+
+            function renderScreens(layout) {
+                const count = layout.screens.length;
+                for (const [index, card] of screenCards.entries()) {
+                    card.button.hidden = index >= count;
+                    card.button.setAttribute('aria-pressed', index === activeScreen);
+                    card.tile.style.background = layout.background;
+                }
+                byId('add_screen').disabled = count === screenLimit;
+                byId('remove_screen').disabled = count === 1;
+                byId('duration_label').textContent = 'Screen ' + (activeScreen + 1) + ' Duration (Seconds)';
+                byId('duration').value = layout.screens[activeScreen].duration;
+                byId('screen_source_label').textContent = 'Replace Screen ' + (activeScreen + 1) + ' with';
+                renderScreenSources(count);
+            }
+
+            function renderScreenSources(count) {
+                const source = byId('screen_source');
+                const previous = source.value;
+                const templates = document.createElement('optgroup');
+                templates.label = 'Templates';
+                const templateOptions = Object.entries(templateNames).map(([id, name]) =>
+                    new Option(name, 'template:' + id));
+                templates.append(...templateOptions);
+
+                const otherScreens = document.createElement('optgroup');
+                otherScreens.label = 'Copy from another screen';
+                const screenOptions = [];
+                for (let index = 0; index < count; index++) {
+                    if (index !== activeScreen) screenOptions.push(new Option('Screen ' + (index + 1), 'screen:' + index));
+                }
+                otherScreens.append(...screenOptions);
+
+                source.replaceChildren(new Option('Choose a template or screen', ''), templates,
+                    ...(screenOptions.length ? [otherScreens] : []));
+                source.value = [...templateOptions, ...screenOptions].some(option => option.value === previous)
+                    ? previous : '';
+                byId('replace_screen').disabled = !source.value;
             }
 
             function update() {
@@ -4604,6 +4775,7 @@
                 byId('name').value = layout.name;
                 byId('background').value = layout.background;
                 screen.style.background = layout.background;
+                renderScreens(layout);
                 renderLayers();
                 renderTargets();
                 renderProperties();
@@ -4613,8 +4785,22 @@
                 nativeSize = { width, height };
                 screen.style.width = width + 'px';
                 screen.style.aspectRatio = width + ' / ' + height;
-                byId('preview_image').style.clipPath = shape === 'circular' ? 'circle(closest-side)' :
+                const clip = shape === 'circular' ? 'circle(closest-side)' :
                     shape === 'rounded-square' ? 'inset(0 round 3%)' : '';
+                byId('preview_image').style.clipPath = clip;
+                for (const { tile } of screenCards) {
+                    tile.style.aspectRatio = width + ' / ' + height;
+                    tile.style.clipPath = clip;
+                }
+            }
+
+            function showSelectedPreview() {
+                const result = screenCards[activeScreen].result;
+                const image = byId('preview_image');
+                image.hidden = !result;
+                if (!result) return;
+                setNativeSize(result.width, result.height, result.shape);
+                image.src = result.image;
             }
 
             function schedulePreview() {
@@ -4626,18 +4812,30 @@
                 previewTimer = setTimeout(async () => {
                     try {
                         const config = buildConfig();
+                        const layout = current();
                         if (!byId('oriented').checked) config.display.orientation = 0;
-                        const request = {
-                            display: config.display,
-                            paths: { image_background: config.paths.image_background },
-                            custom_layouts: { active_id: bank.active_id, items: [current()] }
-                        };
-                        const result = await requestCairoPreview(request);
+                        const previews = await Promise.allSettled(layout.screens.map(async part => {
+                            const item = { id: layout.id, version: 1, name: layout.name,
+                                background: layout.background, elements: part.elements };
+                            const result = await requestCairoPreview({
+                                display: config.display,
+                                paths: { image_background: config.paths.image_background },
+                                custom_layouts: { active_id: item.id, items: [item] }
+                            });
+                            if (!integer(result.width, 1, 4096) || !integer(result.height, 1, 4096))
+                                throw new Error('Invalid LCD dimensions');
+                            return result;
+                        }));
                         if (generation !== previewGeneration) return;
-                        if (!integer(result.width, 1, 4096) || !integer(result.height, 1, 4096))
-                            throw new Error('Invalid LCD dimensions');
-                        setNativeSize(result.width, result.height, result.shape);
-                        Object.assign(byId('preview_image'), { src: result.image, hidden: false });
+                        previews.forEach((preview, index) => {
+                            const card = screenCards[index];
+                            card.result = preview.status === 'fulfilled' ? preview.value : null;
+                            card.image.hidden = !card.result;
+                            if (card.result) card.image.src = card.result.image;
+                        });
+                        showSelectedPreview();
+                        if (previews[activeScreen].status === 'rejected')
+                            throw previews[activeScreen].reason;
                         status.textContent = nativeSize.width + ' × ' + nativeSize.height + ' px · Sample values';
                     } catch (error) {
                         if (generation !== previewGeneration) return;
@@ -4648,9 +4846,9 @@
             }
 
             function addWidget(key, point = { x: 500, y: 500 }) {
-                const elements = current().elements;
+                const elements = screenElements();
                 if (elements.length >= elementLimit) {
-                    say('This layout already has 24 widgets.');
+                    say('This screen already has 24 widgets.');
                     return;
                 }
                 const source = portable(key) ? key : '';
@@ -4736,6 +4934,15 @@
                 update();
                 screen.querySelector('.selected')?.focus({ preventScroll: true });
             });
+            editor.addEventListener('keydown', event => {
+                if (event.key !== 'Delete' || event.repeat || drag) return;
+                const target = event.target.closest('[data-widget]');
+                if (!target && event.target !== byId('layers')) return;
+                const index = target ? Number(target.dataset.widget) : selected;
+                if (!screenElements()?.[index]) return;
+                event.preventDefault();
+                removeWidget(index);
+            });
             const dragType = 'application/x-coolerdash-widget';
             screen.addEventListener('dragover', event => {
                 if (event.dataTransfer.types.includes(dragType) && !byId('oriented').checked)
@@ -4767,9 +4974,7 @@
                 byId('template').add(new Option(title, id));
             byId('use_template').addEventListener('click', () => addLayout(template(byId('template').value)));
             byId('duplicate').addEventListener('click', () => {
-                const chars = Array.from(current().name);
-                while (encoder.encode(chars.join('')).length > 57) chars.pop();
-                addLayout({ ...current(), name: chars.join('').trimEnd() + ' (copy)' });
+                addLayout({ ...current(), name: copyName(current().name) });
             });
             byId('delete').addEventListener('click', () => {
                 byId('delete_label').textContent = 'Delete “' + current().name + '”?';
@@ -4789,6 +4994,11 @@
                     event.target.value = current().name;
                     return;
                 }
+                if (reservedNames.has(name.toLowerCase())) {
+                    say('Choose a name that differs from the built-in templates.');
+                    event.target.value = current().name;
+                    return;
+                }
                 current().name = name;
                 say('');
                 update();
@@ -4796,11 +5006,66 @@
             byId('background').addEventListener('input', event => {
                 current().background = event.target.value;
                 screen.style.background = event.target.value;
+                renderScreens(current());
                 schedulePreview();
+            });
+            byId('add_screen').addEventListener('click', () => {
+                const layout = current();
+                if (drag || !layout || layout.screens.length >= screenLimit) return;
+                layout.screens.push({ duration: defaultDuration, elements: [] });
+                selectScreen(layout.screens.length - 1);
+                screenCards[activeScreen].button.focus({ preventScroll: true });
+            });
+            byId('remove_screen').addEventListener('click', () => {
+                const layout = current();
+                if (drag || !layout || layout.screens.length <= 1) return;
+                layout.screens.splice(activeScreen, 1);
+                activeScreen = Math.min(activeScreen, layout.screens.length - 1);
+                selected = -1;
+                byId('screen_source').value = '';
+                clearScreenPreviews();
+                update();
+                screenCards[activeScreen].button.focus({ preventScroll: true });
+            });
+            byId('screen_source').addEventListener('change', event => {
+                byId('replace_screen').disabled = !event.target.value;
+            });
+            byId('replace_screen').addEventListener('click', () => {
+                const layout = current();
+                if (drag || !layout) return;
+                const source = byId('screen_source');
+                const [kind, id] = source.value.split(':');
+                if (kind === 'template' && Object.hasOwn(templateNames, id)) {
+                    layout.screens[activeScreen].elements = template(id).elements;
+                } else if (kind === 'screen') {
+                    const index = Number(id);
+                    if (!integer(index, 0, layout.screens.length - 1) || index === activeScreen) return;
+                    layout.screens[activeScreen] = cloneConfig(layout.screens[index]);
+                } else {
+                    return;
+                }
+                selected = -1;
+                source.value = '';
+                clearScreenPreview(screenCards[activeScreen]);
+                showSelectedPreview();
+                say('');
+                update();
+                source.focus({ preventScroll: true });
+            });
+            byId('duration').addEventListener('change', event => {
+                const part = current().screens[activeScreen];
+                const duration = event.target.valueAsNumber;
+                if (!integer(duration, 1, 60)) {
+                    say('Set the screen duration to 1–60 seconds.');
+                    event.target.value = part.duration;
+                    return;
+                }
+                part.duration = duration;
+                say('');
             });
             byId('layers').addEventListener('change', event => { selected = Number(event.target.value); update(); });
             function reorder(offset) {
-                const elements = current().elements;
+                const elements = screenElements();
                 const other = selected + offset;
                 [elements[selected], elements[other]] = [elements[other], elements[selected]];
                 selected = other;
@@ -4808,11 +5073,16 @@
             }
             byId('back').addEventListener('click', () => reorder(-1));
             byId('front').addEventListener('click', () => reorder(1));
-            byId('remove').addEventListener('click', () => {
-                current().elements.splice(selected, 1);
+            function removeWidget(index) {
+                const elements = screenElements();
+                if (!elements?.[index]) return;
+                elements.splice(index, 1);
                 selected = -1;
                 update();
-            });
+                const focus = elements.length ? byId('layers') : byId('palette').querySelector('button');
+                focus?.focus({ preventScroll: true });
+            }
+            byId('remove').addEventListener('click', () => removeWidget(selected));
             byId('actual').addEventListener('change', event => screen.classList.toggle('actual-pixels', event.target.checked));
             byId('oriented').addEventListener('change', () => {
                 byId('preview_image').hidden = true;
@@ -4825,12 +5095,13 @@
                 event.target.value = '';
                 if (!file) return;
                 try {
-                    if (file.size > fileLimit) throw new Error('Select a JSON file up to 32 KiB.');
+                    if (file.size > fileLimit) throw new Error('Select a JSON file up to ' + fileLimit / 1024 + ' KiB.');
                     const layout = cleanLayout(JSON.parse(await file.text()));
-                    for (const element of layout.elements)
+                    const widgets = layout.screens.flatMap(screen => screen.elements);
+                    for (const element of widgets)
                         if (element.source && !portable(element.source)) element.source = '';
                     addLayout(layout);
-                    say(layout.elements.some(element => bound(element.type) && !element.source)
+                    say(widgets.some(element => bound(element.type) && !element.source)
                         ? 'Layout imported. Assign the local sensors in its widgets.' : 'Layout imported.');
                 } catch (error) {
                     say('Import failed. ' + error.message);
@@ -4838,9 +5109,10 @@
             });
             byId('export').addEventListener('click', () => {
                 const layout = cleanLayout(current());
-                for (const element of layout.elements)
-                    if (element.source && !portable(element.source)) element.source = '';
-                byId('export_text').value = JSON.stringify(layout, null, 2) + '\n';
+                for (const screen of layout.screens)
+                    for (const element of screen.elements)
+                        if (element.source && !portable(element.source)) element.source = '';
+                byId('export_text').value = JSON.stringify(serializeLayout(layout), null, 2) + '\n';
                 byId('download').hidden = isInCoolerControl;
                 byId('export_panel').hidden = false;
                 byId('export_text').focus();
@@ -4868,8 +5140,9 @@
                 editor.addEventListener(event, event => event.stopPropagation());
 
             return {
-                load, schedulePreview, renderProperties, renderActivityPreview, showStatus: say, bank: () => cloneConfig(bank),
-                savedItems: () => cloneConfig(savedBank.items),
+                load, schedulePreview, renderProperties, renderActivityPreview, showStatus: say,
+                bank: () => cloneConfig({ active_id: bank.active_id, items: bank.items.map(serializeLayout) }),
+                savedItems: () => cloneConfig(savedBank.items.map(serializeLayout)),
                 canSave: () => {
                     if (current()) return true;
                     say('Select, create or import a layout before saving.');

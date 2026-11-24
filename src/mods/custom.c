@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include "custom.h"
@@ -149,7 +150,7 @@ static const sensor_entry_t *widget_sensor(const Config *config, const monitor_s
 static int paint_widget_layout(cairo_t *cr, const Config *config,
                                const monitor_sensor_data_t *data,
                                const ScalingParams *params,
-                               const CustomLayout *layout)
+                               const CustomScreen *screen)
 {
     const double sx = (double)config->display_width / CUSTOM_LAYOUT_GRID;
     const double sy = (double)config->display_height / CUSTOM_LAYOUT_GRID;
@@ -162,9 +163,9 @@ static int paint_widget_layout(cairo_t *cr, const Config *config,
     }
 
     WidgetReadings readings = {0};
-    for (int i = 0; i < layout->count; i++)
+    for (int i = 0; i < screen->count; i++)
     {
-        const CustomElement *element = &layout->elements[i];
+        const CustomElement *element = &screen->elements[i];
         const sensor_entry_t *sensor = element->source[0]
                                            ? widget_sensor(config, data, element->source, &readings)
                                            : NULL;
@@ -203,18 +204,55 @@ static int paint_widget_layout(cairo_t *cr, const Config *config,
     return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
 }
 
+static int active_screen = 0;
+static int64_t screen_started_us = -1;
+
+void reset_custom_state(void)
+{
+    active_screen = 0;
+    screen_started_us = -1;
+}
+
+int64_t custom_screen_deadline_us(const Config *config)
+{
+    const CustomLayout *layout = &config->custom_layout;
+    if (layout->screen_count <= 1 || active_screen >= layout->screen_count ||
+        screen_started_us < 0 || config->preview_render || strcmp(config->display_mode, "custom") != 0)
+        return 0;
+    return screen_started_us + (int64_t)layout->screens[active_screen].duration * 1000000;
+}
+
 int paint_custom_overlay(cairo_t *cr, const Config *config,
                          const monitor_sensor_data_t *data,
                          const ScalingParams *params)
 {
-    return paint_widget_layout(cr, config, data, params, &config->custom_layout);
+    const CustomLayout *layout = &config->custom_layout;
+    if (config->preview_render || layout->screen_count <= 1)
+        return paint_widget_layout(cr, config, data, params, &layout->screens[0]);
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)
+    {
+        const int64_t now_us = (int64_t)now.tv_sec * 1000000 + now.tv_nsec / 1000;
+        if (screen_started_us < 0 || active_screen >= layout->screen_count)
+        {
+            active_screen = 0;
+            screen_started_us = now_us;
+        }
+        else if (now_us >= custom_screen_deadline_us(config))
+        {
+            active_screen = (active_screen + 1) % layout->screen_count;
+            screen_started_us = now_us;
+        }
+    }
+    return paint_widget_layout(cr, config, data, params, &layout->screens[active_screen]);
 }
 
 int paint_activity_rings_overlay(cairo_t *cr, const Config *config,
                                  const monitor_sensor_data_t *data,
                                  const ScalingParams *params)
 {
-    static const CustomLayout layout = {
+    static const CustomScreen screen = {
         .count = 5,
         .elements = {
             {.type = CUSTOM_RING, .x = 55, .y = 55, .width = 890, .height = 890,
@@ -236,7 +274,7 @@ int paint_activity_rings_overlay(cairo_t *cr, const Config *config,
         cairo_translate(cr, config->display_width * 0.075, config->display_height * 0.025);
         cairo_scale(cr, 0.85, 0.85);
     }
-    const int painted = paint_widget_layout(cr, config, data, params, &layout);
+    const int painted = paint_widget_layout(cr, config, data, params, &screen);
     cairo_restore(cr);
     return painted;
 }

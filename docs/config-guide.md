@@ -116,6 +116,13 @@ The coordinates use a 0–1000 scale relative to the LCD's width and height.
 Later elements draw over earlier ones. The font size is in pixels at 240 px.
 An exported file contains a single item with its `id` omitted.
 
+A layout with several screens uses `version: 2` and a `screens` array of one
+to five objects. Each screen has its own `elements` array with up to 24
+widgets and its own `duration` from 1 to 60 seconds. It defaults to 6 seconds.
+An existing `switch_interval` supplies the duration for any screen without
+its own value. Single-screen layouts with the default duration can use
+version 1 and the top-level `elements` array shown above.
+
 Ring widgets accept these optional fields:
 
 | Key | Default | Range and meaning |

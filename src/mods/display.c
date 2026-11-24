@@ -1890,6 +1890,7 @@ void reset_display_state(void)
     native_gif = NATIVE_GIF_PENDING;
     reset_background_image();
     reset_circle_state();
+    reset_custom_state();
 }
 
 void restore_native_gif_after_test(void)
@@ -2134,7 +2135,7 @@ static void add_processor_preview_channels(monitor_sensor_data_t *data)
     add_preview_entry(data, "gpu", SENSOR_CATEGORY_WATTS, 134, "W");
 }
 
-static void add_custom_preview_sensors(monitor_sensor_data_t *data, const CustomLayout *layout)
+static void add_custom_preview_sensors(monitor_sensor_data_t *data, const CustomScreen *screen)
 {
     static const struct
     {
@@ -2149,9 +2150,9 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
         {" Freq", SENSOR_CATEGORY_FREQ, 4200, "MHz"},
     };
     int needs_processor_channels = 0;
-    for (int i = 0; i < layout->count; i++)
+    for (int i = 0; i < screen->count; i++)
     {
-        const char *source = layout->elements[i].source;
+        const char *source = screen->elements[i].source;
         const CustomSource kind = get_custom_source(source);
         if (kind != CUSTOM_SOURCE_SENSOR)
         {
@@ -2203,7 +2204,7 @@ int render_display_preview(const struct Config *config,
         add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
     }
     else if (strcmp(config->display_mode, "custom") == 0)
-        add_custom_preview_sensors(&data, &config->custom_layout);
+        add_custom_preview_sensors(&data, &config->custom_layout.screens[0]);
     else
     {
         add_preview_sensor(&data, config->sensor_slot_1, 45.0f);

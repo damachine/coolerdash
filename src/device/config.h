@@ -78,6 +78,8 @@ typedef struct
 } SensorConfig;
 
 #define CUSTOM_LAYOUT_MAX_ELEMENTS 24
+#define CUSTOM_LAYOUT_MAX_SCREENS 5
+#define CUSTOM_SCREEN_DEFAULT_DURATION 6
 #define CUSTOM_LAYOUT_NAME_SIZE 65
 #define CUSTOM_LAYOUT_TEXT_SIZE 97
 #define CUSTOM_LAYOUT_GRID 1000
@@ -121,8 +123,15 @@ typedef struct
 typedef struct
 {
     int count;
-    int needs_sensors;
+    int duration;
     CustomElement elements[CUSTOM_LAYOUT_MAX_ELEMENTS];
+} CustomScreen;
+
+typedef struct
+{
+    int screen_count;
+    int needs_sensors;
+    CustomScreen screens[CUSTOM_LAYOUT_MAX_SCREENS];
 } CustomLayout;
 
 typedef enum

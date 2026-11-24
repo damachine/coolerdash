@@ -48,10 +48,21 @@ Open **Display → Custom Layout** in the CoolerControl plugin. Start with an
 editable copy of **Dual**, **Split**, **Circle**, **TTY (Terminal)**, or
 **Activity Rings**, or create a blank layout with **New**. The Circle template
 starts with a CPU widget you can bind to another sensor.
+Use **Add Screen** to create up to five screens in a layout. Select a numbered
+preview to edit that screen's widgets. Under **Replace Screen**, pick a
+template or copy another screen and click **Apply**. A template replaces the
+widgets. A screen copy includes the widgets and duration.
+
+The LCD cycles through the screens in order. Set **Screen Duration** for
+each screen from 1 to 60 seconds. New screens start at 6 seconds. The layout
+background applies to all its screens.
+
 Click a widget to add it in the center, or drag it from the palette onto the
 display. Drag a widget to move it and use its corner handle to resize it.
 You can also edit its coordinates and size in the inspector or use the arrow
 keys once the widget has focus. Hold Alt to resize with the arrow keys.
+Press **Delete** while a widget or its entry in the layer list has focus to
+remove it.
 
 Choose a local sensor in the inspector for each value, bar, or ring. A missing
 reading displays a dash or an empty gauge. A ring turns the sensor's range
@@ -60,7 +71,8 @@ number of segments, and color in the inspector. The Cairo preview uses sample
 readings. Use **1:1 pixels** to check readability and **LCD orientation** to
 preview the configured rotation.
 
-Give the layout a name, select it in the Layout Bank, and click **Save** to
+Give the layout a name distinct from the built-in templates. Template copies
+get their own names when you create them. Select a layout in the bank and click **Save** to
 apply it to the LCD. **Export JSON** shows the selected layout with its colors
 and widgets. In CoolerControl, copy the JSON into a `.json` file to share it.
 Imported layouts appear as new entries. Built-in temperature, processor load,

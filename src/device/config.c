@@ -1414,6 +1414,30 @@ static int load_custom_element(json_t *object, CustomElement *element)
     return 1;
 }
 
+static int load_custom_screen(json_t *object, CustomScreen *screen, int *needs_sensors,
+                              int default_duration)
+{
+    json_t *elements = json_object_get(object, "elements");
+    screen->duration = default_duration;
+    if (!json_is_array(elements) || json_array_size(elements) > CUSTOM_LAYOUT_MAX_ELEMENTS ||
+        !custom_optional_integer(object, "duration", 1, 60, &screen->duration))
+        return 0;
+
+    size_t index;
+    json_t *candidate;
+    json_array_foreach(elements, index, candidate)
+    {
+        CustomElement *element = &screen->elements[index];
+        if (!load_custom_element(candidate, element))
+            return 0;
+        const CustomSource source = get_custom_source(element->source);
+        if (element->source[0] && source != CUSTOM_SOURCE_RAM_USED && source != CUSTOM_SOURCE_RAM_LOAD)
+            *needs_sensors = 1;
+    }
+    screen->count = (int)json_array_size(elements);
+    return 1;
+}
+
 static int load_active_custom_layout(json_t *root, Config *config)
 {
     json_t *bank = json_object_get(root, "custom_layouts");
@@ -1439,26 +1463,35 @@ static int load_active_custom_layout(json_t *root, Config *config)
     int version;
     Color background;
     const char *name = custom_string(item, "name", CUSTOM_LAYOUT_NAME_SIZE);
-    json_t *elements = json_object_get(item, "elements");
     if (!name || name[strspn(name, " ")] == '\0' ||
-        !custom_integer(item, "version", 1, 1, &version) ||
-        !custom_color(item, "background", &background) || !json_is_array(elements) ||
-        json_array_size(elements) > CUSTOM_LAYOUT_MAX_ELEMENTS)
+        !custom_integer(item, "version", 1, 2, &version) ||
+        !custom_color(item, "background", &background))
         return 0;
 
     CustomLayout *layout = &config->custom_layout;
-    int needs_sensors = 0;
-    json_array_foreach(elements, index, candidate)
+    if (version == 1)
     {
-        CustomElement *element = &layout->elements[index];
-        if (!load_custom_element(candidate, element))
+        if (!load_custom_screen(item, &layout->screens[0], &layout->needs_sensors,
+                                CUSTOM_SCREEN_DEFAULT_DURATION))
             return 0;
-        const CustomSource source = get_custom_source(element->source);
-        if (element->source[0] && source != CUSTOM_SOURCE_RAM_USED && source != CUSTOM_SOURCE_RAM_LOAD)
-            needs_sensors = 1;
+        layout->screen_count = 1;
     }
-    layout->count = (int)json_array_size(elements);
-    layout->needs_sensors = needs_sensors;
+    else
+    {
+        json_t *screens = json_object_get(item, "screens");
+        const size_t count = json_array_size(screens);
+        int default_duration = CUSTOM_SCREEN_DEFAULT_DURATION;
+        if (!count || count > CUSTOM_LAYOUT_MAX_SCREENS ||
+            !custom_optional_integer(item, "switch_interval", 1, 60, &default_duration))
+            return 0;
+        json_array_foreach(screens, index, candidate)
+        {
+            if (!load_custom_screen(candidate, &layout->screens[index], &layout->needs_sensors,
+                                    default_duration))
+                return 0;
+        }
+        layout->screen_count = (int)count;
+    }
     config->display_background_color = background;
     return 1;
 }

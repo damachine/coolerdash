@@ -5,6 +5,7 @@
 #include "../device/lcd.h"
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
+#include "custom.h"
 #include "display.h"
 #include <fcntl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
@@ -236,6 +237,9 @@ static int update_overlay(gint64 now)
         paint_display_clock(cr, &animation.config);
         success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
     }
+    const int64_t screen_deadline = custom_screen_deadline_us(&animation.config);
+    if (screen_deadline > 0 && screen_deadline < animation.next_overlay)
+        animation.next_overlay = screen_deadline;
     cairo_destroy(cr);
     return success;
 }
