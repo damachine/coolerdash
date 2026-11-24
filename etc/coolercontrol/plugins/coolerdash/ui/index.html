@@ -443,6 +443,15 @@
             margin-bottom: 8px;
         }
 
+        #setting_help {
+            position: fixed; z-index: 1000;
+            max-width: min(22rem, calc(100vw - 16px));
+            padding: 8px 10px; border: 1px solid rgb(var(--border-one));
+            border-radius: var(--radius-sm); background: rgb(var(--bg-two));
+            color: rgb(var(--text-color)); box-shadow: 0 4px 16px rgb(0 0 0 / 0.35);
+            font-size: 13px; line-height: 1.4; overflow-wrap: anywhere;
+        }
+
         .form-control {
             width: 100%;
             padding: 11px 14px;
@@ -784,12 +793,12 @@
 
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab" onclick="switchTab(0)">Setup</button>
-            <button class="tab" onclick="switchTab(1)">Display</button>
-            <button class="tab" onclick="switchTab(2)">Layout</button>
-            <button class="tab" onclick="switchTab(3)">Sensors</button>
-            <button class="tab" onclick="switchTab(4)">Device</button>
-            <button class="tab active" onclick="switchTab(5)">Info</button>
+            <button data-help="Set the CoolerControl API address and access token." class="tab" onclick="switchTab(0)">Setup</button>
+            <button data-help="Choose what the LCD shows and edit custom layouts." class="tab" onclick="switchTab(1)">Display</button>
+            <button data-help="Adjust spacing, bars, rings, and text sizes." class="tab" onclick="switchTab(2)">Layout</button>
+            <button data-help="Set display labels, thresholds, and colors for each sensor." class="tab" onclick="switchTab(3)">Sensors</button>
+            <button data-help="Adjust LCD detection and see which device CoolerDash found." class="tab" onclick="switchTab(4)">Device</button>
+            <button data-help="See plugin versions, release links, and system information." class="tab active" onclick="switchTab(5)">Info</button>
         </div>
 
         <form id="configForm" oninput="updateModePreview()" onchange="updateModePreview()">
@@ -803,7 +812,7 @@
                 <div class="form-group">
                     <label class="form-label">API Address</label>
                     <span class="form-hint">Default: http://localhost:11987</span>
-                    <input type="text" name="daemon.address" class="form-control" required>
+                    <input data-help="Use localhost when CoolerControl runs on the same machine." type="text" name="daemon.address" class="form-control" required>
                 </div>
 
                 <h3 class="section-title">Authentication &mdash; CC4 (Bearer Token)</h3>
@@ -820,7 +829,7 @@
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
                     <span class="form-hint">Enter a CC4 Bearer token.</span>
-                    <input type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    <input data-help="Paste an access token created in CoolerControl." type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
                 </div>
             </div>
 
@@ -833,7 +842,7 @@
                         <div class="form-group">
                             <label class="form-label">Display Mode</label>
                             <span class="form-hint">Select how sensors are arranged on the display.</span>
-                            <select name="display.mode" id="display_mode" class="form-control" onchange="selectDisplayMode()">
+                            <select data-help="Choose a built-in display mode or an editable layout." name="display.mode" id="display_mode" class="form-control" onchange="selectDisplayMode()">
                                 <option value="dual">Dual (CPU + GPU simultaneously)</option>
                                 <option value="split">Split (CPU + GPU columns)</option>
                                 <option value="circle">Circle (Alternating display)</option>
@@ -843,11 +852,11 @@
                             </select>
                         </div>
                         <label class="display-option">
-                            <input type="checkbox" name="display.show_clock" id="show_clock" value="1">Show Clock
+                            <input data-help="Show the local time at the bottom of the LCD." type="checkbox" name="display.show_clock" id="show_clock" value="1">Show Clock
                         </label>
                         <div class="form-group" id="tty_icon_group" style="display: none;">
                             <label class="form-label" for="tty_icon">TTY Icon</label>
-                            <select name="display.tty_icon" id="tty_icon" class="form-control">
+                            <select data-help="Choose a large or small prompt. Off also hides the LOAD label." name="display.tty_icon" id="tty_icon" class="form-control">
                                 <option value="large">Large</option>
                                 <option value="small">Small &gt;_</option>
                                 <option value="off">Off</option>
@@ -857,7 +866,7 @@
                         <div class="form-group" id="circle_layout_group" style="display: none;">
                             <label class="form-label" for="circle_layout">Circle Layout</label>
                             <span class="form-hint">Choose how the active sensor is displayed.</span>
-                            <select name="display.circle_layout" id="circle_layout" class="form-control" onchange="updateModePreview()">
+                            <select data-help="Choose Classic or center the temperature and sensor details." name="display.circle_layout" id="circle_layout" class="form-control" onchange="updateModePreview()">
                                 <option value="classic">Mode 1 — Classic</option>
                                 <option value="centered">Mode 2 — Centered</option>
                             </select>
@@ -866,22 +875,22 @@
                             <legend class="form-label">Display Elements</legend>
                             <span class="form-hint">Choose what to show. The layout adapts to the visible elements.</span>
                             <div class="display-options">
-                                <label class="display-option" data-element-mode="dual"><input type="checkbox" name="display.dual_show_bars" id="dual_show_bars" value="1">Temperature Bars</label>
-                                <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_load" id="split_show_load" value="1">Load (%)</label>
-                                <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_watts" id="split_show_watts" value="1">Power (W)</label>
-                                <label class="display-option" data-element-mode="split"><input type="checkbox" name="display.split_show_rpm" id="split_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
-                                <label class="display-option" data-element-mode="split dual" title="Color both ring halves from the two visible layout sensors."><input type="checkbox" name="display.split_ring_by_sensor" id="split_ring_by_sensor" value="1" onchange="selectRingMode('split')">Split Sensor Ring</label>
-                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_load" id="circle_show_load" value="1">Load (%)</label>
-                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_rpm" id="circle_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
-                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_watts" id="circle_show_watts" value="1">Power (W)</label>
-                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_frequency" id="circle_show_frequency" value="1">Frequency (GHz / MHz)</label>
-                                <label class="display-option" data-element-mode="circle"><input type="checkbox" name="display.circle_show_bar" id="circle_show_bar" value="1">Temperature Bar</label>
+                                <label class="display-option" data-element-mode="dual"><input data-help="Show temperature bars below the two sensor values." type="checkbox" name="display.dual_show_bars" id="dual_show_bars" value="1">Temperature Bars</label>
+                                <label class="display-option" data-element-mode="split"><input data-help="Show processor load as a percentage in each column." type="checkbox" name="display.split_show_load" id="split_show_load" value="1">Load (%)</label>
+                                <label class="display-option" data-element-mode="split"><input data-help="Show power use in watts in each column." type="checkbox" name="display.split_show_watts" id="split_show_watts" value="1">Power (W)</label>
+                                <label class="display-option" data-element-mode="split"><input data-help="Show fan or pump speed. The CPU column uses the cooler speed." type="checkbox" name="display.split_show_rpm" id="split_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
+                                <label class="display-option" data-element-mode="split dual"><input data-help="Color each half of the ring using one of the two displayed sensors." type="checkbox" name="display.split_ring_by_sensor" id="split_ring_by_sensor" value="1" onchange="selectRingMode('split')">Split Sensor Ring</label>
+                                <label class="display-option" data-element-mode="circle"><input data-help="Show processor load beside the temperature when the sensor reports it." type="checkbox" name="display.circle_show_load" id="circle_show_load" value="1">Load (%)</label>
+                                <label class="display-option" data-element-mode="circle"><input data-help="Show fan or pump speed when a reading is available." type="checkbox" name="display.circle_show_rpm" id="circle_show_rpm" value="1">Fan / Pump Speed (RPM)</label>
+                                <label class="display-option" data-element-mode="circle"><input data-help="Show power use when a reading is available." type="checkbox" name="display.circle_show_watts" id="circle_show_watts" value="1">Power (W)</label>
+                                <label class="display-option" data-element-mode="circle"><input data-help="Show clock speed in GHz or MHz when a reading is available." type="checkbox" name="display.circle_show_frequency" id="circle_show_frequency" value="1">Frequency (GHz / MHz)</label>
+                                <label class="display-option" data-element-mode="circle"><input data-help="Show a bar that fills as the temperature rises." type="checkbox" name="display.circle_show_bar" id="circle_show_bar" value="1">Temperature Bar</label>
                             </div>
                         </fieldset>
                         <div class="form-group" id="legacy_sensor_ring_group">
                             <label class="display-option"><input type="checkbox" name="display.sensor_ring_enabled" id="sensor_ring_enabled" value="1" onchange="selectRingMode('sensor')">Sensor Ring</label>
-                            <span class="form-hint" id="sensor_ring_hint">Show a threshold-colored value ring around any layout.</span>
-                            <select name="display.sensor_ring_sensor" id="sensor_ring_sensor" class="form-control sensor-slot-select">
+                            <span class="form-hint" id="sensor_ring_hint">Draw a ring that changes color with the sensor reading.</span>
+                            <select data-help="Choose the sensor that controls the ring." name="display.sensor_ring_sensor" id="sensor_ring_sensor" class="form-control sensor-slot-select">
                                 <optgroup label="Standard">
                                     <option value="liquid">Liquid</option>
                                     <option value="cpu">CPU</option>
@@ -956,53 +965,53 @@
                 <section id="custom_layout_editor" aria-label="Custom layouts" hidden>
                     <h3 class="section-title">Layout Bank</h3>
                     <div class="custom-actions">
-                        <select id="custom_saved_layout" class="form-control" aria-label="Active layout"></select>
-                        <button type="button" class="btn btn-secondary" id="custom_new">New</button>
-                        <button type="button" class="btn btn-secondary" id="custom_duplicate">Duplicate</button>
-                        <button type="button" class="btn btn-secondary" id="custom_delete">Delete</button>
+                        <select data-help="Choose a saved layout to edit or show on the LCD." id="custom_saved_layout" class="form-control" aria-label="Active layout"></select>
+                        <button data-help="Create a blank custom layout." type="button" class="btn btn-secondary" id="custom_new">New</button>
+                        <button data-help="Make an editable copy of this layout and all its screens." type="button" class="btn btn-secondary" id="custom_duplicate">Duplicate</button>
+                        <button data-help="Review the layout before removing it from the bank." type="button" class="btn btn-secondary" id="custom_delete">Delete</button>
                     </div>
                     <div class="custom-actions custom-options" id="custom_delete_prompt" hidden>
                         <span id="custom_delete_label"></span>
-                        <button type="button" class="btn btn-secondary" id="custom_cancel_delete">Cancel</button>
-                        <button type="button" class="btn btn-secondary" id="custom_confirm_delete">Delete Layout</button>
+                        <button data-help="Keep this layout and close the confirmation." type="button" class="btn btn-secondary" id="custom_cancel_delete">Cancel</button>
+                        <button data-help="Remove this layout from the bank. Save to keep the change." type="button" class="btn btn-secondary" id="custom_confirm_delete">Delete Layout</button>
                     </div>
                     <div class="custom-options">
                         <label for="custom_template">Start from</label>
-                        <select id="custom_template" class="form-control" style="width: auto;"></select>
-                        <button type="button" class="btn btn-secondary" id="custom_use_template">Use Template</button>
-                        <button type="button" class="btn btn-secondary" id="custom_import">Import JSON</button>
-                        <button type="button" class="btn btn-secondary" id="custom_export">Export JSON</button>
+                        <select data-help="Choose a built-in design as a starting point." id="custom_template" class="form-control" style="width: auto;"></select>
+                        <button data-help="Create a new editable layout from the selected template." type="button" class="btn btn-secondary" id="custom_use_template">Use Template</button>
+                        <button data-help="Add a layout from a CoolerDash JSON file." type="button" class="btn btn-secondary" id="custom_import">Import JSON</button>
+                        <button data-help="Open the selected layout as JSON to back it up or share it." type="button" class="btn btn-secondary" id="custom_export">Export JSON</button>
                         <input type="file" id="custom_file" accept=".json,application/json" hidden>
                     </div>
                     <div id="custom_export_panel" hidden>
                         <label for="custom_export_text">Layout JSON</label>
-                        <textarea id="custom_export_text" class="form-control" rows="7" readonly></textarea>
+                        <textarea data-help="Copy this text into a JSON file to keep a copy of the layout." id="custom_export_text" class="form-control" rows="7" readonly></textarea>
                         <div class="custom-actions">
-                            <button type="button" class="btn btn-secondary" id="custom_copy">Copy JSON</button>
-                            <button type="button" class="btn btn-secondary" id="custom_download">Download JSON</button>
-                            <button type="button" class="btn btn-secondary" id="custom_close_export">Close</button>
+                            <button data-help="Copy the layout JSON to the clipboard." type="button" class="btn btn-secondary" id="custom_copy">Copy JSON</button>
+                            <button data-help="Save the layout JSON as a file." type="button" class="btn btn-secondary" id="custom_download">Download JSON</button>
+                            <button data-help="Close the JSON panel and return to the editor." type="button" class="btn btn-secondary" id="custom_close_export">Close</button>
                         </div>
                     </div>
                     <p class="form-hint" id="custom_status" role="status"></p>
                     <div id="custom_workspace" hidden>
                         <div class="grid grid-2">
-                            <label class="form-group">Layout name <input id="custom_name" class="form-control" maxlength="64"></label>
-                            <label class="form-group">Layout background <input id="custom_background" class="color-swatch" type="color"></label>
+                            <label class="form-group">Layout name <input data-help="Give this layout its own name. Built-in template names are reserved." id="custom_name" class="form-control" maxlength="64"></label>
+                            <label class="form-group">Layout background <input data-help="Choose the background color for every screen in this layout." id="custom_background" class="color-swatch" type="color"></label>
                         </div>
                         <div id="custom_screens" class="custom-screens" role="group" aria-label="Layout screens"></div>
                         <div class="custom-screen-controls">
                             <div class="custom-screen-source">
                                 <label class="form-group"><span class="form-label" id="custom_screen_source_label">Replace Screen 1 with</span>
-                                    <select class="form-control" id="custom_screen_source"></select>
+                                    <select data-help="Choose a template or another screen to copy into the selected screen." class="form-control" id="custom_screen_source"></select>
                                 </label>
-                                <button type="button" class="btn btn-secondary" id="custom_replace_screen" disabled>Apply</button>
+                                <button data-help="Replace the selected screen with the chosen source." type="button" class="btn btn-secondary" id="custom_replace_screen" disabled>Apply</button>
                             </div>
                             <label class="form-group"><span class="form-label" id="custom_duration_label">Screen 1 Duration (Seconds)</span>
-                                <input type="number" class="form-control" id="custom_duration" min="1" max="60" step="1" value="6">
+                                <input data-help="Set how long this screen stays on the LCD before switching." type="number" class="form-control" id="custom_duration" min="1" max="60" step="1" value="6">
                             </label>
                             <div class="custom-actions">
-                                <button type="button" class="btn btn-secondary" id="custom_add_screen">Add Screen</button>
-                                <button type="button" class="btn btn-secondary" id="custom_remove_screen">Remove Screen</button>
+                                <button data-help="Add a blank screen. A layout can hold up to five screens." type="button" class="btn btn-secondary" id="custom_add_screen">Add Screen</button>
+                                <button data-help="Remove the selected screen. Each layout needs at least one screen." type="button" class="btn btn-secondary" id="custom_remove_screen">Remove Screen</button>
                             </div>
                         </div>
                         <span class="form-hint">Click a widget to add it or drag it onto the display. Press Delete to remove the focused widget.</span>
@@ -1016,19 +1025,19 @@
                                     </div>
                                 </div>
                                 <div class="custom-options">
-                                    <label class="display-option"><input id="custom_actual" type="checkbox">1:1 pixels</label>
-                                    <label class="display-option"><input id="custom_oriented" type="checkbox">LCD orientation</label>
+                                    <label class="display-option"><input data-help="Show the preview at the LCD pixel size." id="custom_actual" type="checkbox">1:1 pixels</label>
+                                    <label class="display-option"><input data-help="Preview the configured LCD rotation. Clear this option to move widgets." id="custom_oriented" type="checkbox">LCD orientation</label>
                                 </div>
                                 <span id="custom_preview_status" class="form-hint" role="status"></span>
                             </div>
                             <div>
                                 <div class="custom-layer" id="custom_layer_tools">
                                     <label for="custom_layers">Layers (bottom to top)</label>
-                                    <select id="custom_layers" class="form-control"></select>
+                                    <select data-help="Select a widget to edit. The list runs from back to front." id="custom_layers" class="form-control"></select>
                                     <div class="custom-actions">
-                                        <button type="button" class="btn btn-secondary" id="custom_back">Move Back</button>
-                                        <button type="button" class="btn btn-secondary" id="custom_front">Move Forward</button>
-                                        <button type="button" class="btn btn-secondary" id="custom_remove">Remove</button>
+                                        <button data-help="Move the widget behind the previous layer." type="button" class="btn btn-secondary" id="custom_back">Move Back</button>
+                                        <button data-help="Move the widget in front of the next layer." type="button" class="btn btn-secondary" id="custom_front">Move Forward</button>
+                                        <button data-help="Remove the selected widget. You can also press Delete." type="button" class="btn btn-secondary" id="custom_remove" aria-keyshortcuts="Delete">Remove</button>
                                     </div>
                                 </div>
                                 <div id="custom_properties" class="custom-properties"></div>
@@ -1046,8 +1055,8 @@
                 <div class="grid grid-2">
                     <div class="form-group">
                         <label class="form-label">Refresh Interval (Seconds)</label>
-                        <span class="form-hint">0.2 - 60 seconds (Default: 2.5)</span>
-                        <input type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
+                        <span class="form-hint">0.2 to 60 seconds. Default: 3.5</span>
+                        <input data-help="Set how often the LCD updates. The default is 3.5 seconds." type="number" name="display.refresh_interval" class="form-control" min="0.2" max="60" step="0.1">
                     </div>
                     <div class="form-group" id="circle_interval_group" style="display: none;">
                         <label class="form-label">Switch Interval (Seconds)</label>
@@ -1060,7 +1069,7 @@
                     <div class="form-group" id="sensor_slot_1_group">
                         <label class="form-label" id="sensor_slot_1_label">Slot 1</label>
                         <span class="form-hint" id="sensor_slot_1_hint">Default: CPU</span>
-                        <select name="display.sensor_slot_1" id="sensor_slot_1" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                        <select data-help="Choose the first sensor. In Split mode, it appears on the left." name="display.sensor_slot_1" id="sensor_slot_1" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
                                 <option value="gpu">GPU</option>
@@ -1073,7 +1082,7 @@
                     <div class="form-group" id="sensor_slot_2_group">
                         <label class="form-label" id="sensor_slot_2_label">Slot 2</label>
                         <span class="form-hint" id="sensor_slot_2_hint">Default: GPU (Circle only)</span>
-                        <select name="display.sensor_slot_2" id="sensor_slot_2" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                        <select data-help="Choose the second sensor. In Split mode, it appears on the right." name="display.sensor_slot_2" id="sensor_slot_2" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
                                 <option value="gpu">GPU</option>
@@ -1086,7 +1095,7 @@
                     <div class="form-group" id="sensor_slot_3_group">
                         <label class="form-label" id="sensor_slot_3_label">Slot 3</label>
                         <span class="form-hint" id="sensor_slot_3_hint">Default: Liquid (Circle) / GPU (Dual)</span>
-                        <select name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
+                        <select data-help="Choose the lower sensor in Dual or the third sensor in Circle." name="display.sensor_slot_3" id="sensor_slot_3" class="form-control sensor-slot-select" onchange="validateSensorSlots()">
                             <optgroup label="Standard">
                                 <option value="cpu">CPU</option>
                                 <option value="gpu">GPU</option>
@@ -1106,7 +1115,7 @@
                     <div class="form-group" id="legacy_display_background" style="grid-column: 1 / -1;">
                         <label class="form-label">Display Background</label>
                         <div class="color-group">
-                            <input type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
+                            <input data-help="Set the LCD color behind the layout and in any uncovered space." type="color" id="color_display_background" class="color-swatch" onchange="updateColorRGB('color_display_background', 'rgb_display_background')">
                             <span class="color-rgb" id="rgb_display_background"></span>
                         </div>
                     </div>
@@ -1115,7 +1124,7 @@
                         <label class="form-label">Brightness (%)</label>
                         <span class="form-hint">Default: 80%</span>
                         <div class="range-group">
-                            <input type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
+                            <input data-help="Set the LCD brightness from 0 to 100 percent." type="range" name="display.brightness" id="brightness" class="range-input" min="0" max="100" step="1" oninput="updateRangeValue('brightness', this.value)">
                             <span class="range-value" id="brightness_value">80%</span>
                         </div>
                     </div>
@@ -1132,7 +1141,7 @@
                     <div class="form-group bar-mode-only">
                         <label class="form-label">Bar Background</label>
                         <div class="color-group">
-                            <input type="color" id="color_bar_background" class="color-swatch" onchange="updateColorRGB('color_bar_background', 'rgb_bar_background')">
+                            <input data-help="Choose the color behind the filled part of a temperature bar." type="color" id="color_bar_background" class="color-swatch" onchange="updateColorRGB('color_bar_background', 'rgb_bar_background')">
                             <span class="color-rgb" id="rgb_bar_background"></span>
                         </div>
                     </div>
@@ -1140,7 +1149,7 @@
                     <div class="form-group bar-mode-only">
                         <label class="form-label">Bar Border</label>
                         <div class="color-group">
-                            <input type="color" id="color_bar_border" class="color-swatch" onchange="updateColorRGB('color_bar_border', 'rgb_bar_border')">
+                            <input data-help="Choose the color of the outline around temperature bars." type="color" id="color_bar_border" class="color-swatch" onchange="updateColorRGB('color_bar_border', 'rgb_bar_border')">
                             <span class="color-rgb" id="rgb_bar_border"></span>
                         </div>
                     </div>
@@ -1152,7 +1161,7 @@
                     <div class="form-group" id="value_text_group">
                         <label class="form-label" for="color_font_temp" id="value_text_label">Temperature Text</label>
                         <div class="color-group">
-                            <input type="color" id="color_font_temp" class="color-swatch" onchange="updateColorRGB('color_font_temp', 'rgb_font_temp')">
+                            <input data-help="Choose the text color for displayed readings." type="color" id="color_font_temp" class="color-swatch" onchange="updateColorRGB('color_font_temp', 'rgb_font_temp')">
                             <span class="color-rgb" id="rgb_font_temp"></span>
                         </div>
                     </div>
@@ -1165,7 +1174,7 @@
                         <label class="form-label" for="color_font_label">Label Text</label>
                         <span class="form-hint" id="split_label_text_hint" hidden>Also used for load, power and RPM values.</span>
                         <div class="color-group">
-                            <input type="color" id="color_font_label" class="color-swatch" onchange="updateColorRGB('color_font_label', 'rgb_font_label')">
+                            <input data-help="Choose the label color. Split also uses it for load, power, and speed." type="color" id="color_font_label" class="color-swatch" onchange="updateColorRGB('color_font_label', 'rgb_font_label')">
                             <span class="color-rgb" id="rgb_font_label"></span>
                         </div>
                     </div>
@@ -1177,7 +1186,7 @@
                         <input type="hidden" name="font.tty_face" id="tty_font_face">
                         <div class="font-picker" id="font_picker">
                             <input type="text" id="font_face" class="form-control" placeholder="Roboto Black" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="font_face_options" aria-expanded="false">
-                            <select id="font_face_options" class="form-control font-picker-options" size="6" aria-label="Matching installed fonts" hidden></select>
+                            <select data-help="Choose an installed font from the search results." id="font_face_options" class="form-control font-picker-options" size="6" aria-label="Matching installed fonts" hidden></select>
                         </div>
                         <span class="form-hint" id="font_face_status" role="status"></span>
                     </div>
@@ -1190,8 +1199,8 @@
                     <input type="file" id="background_image_file" accept=".png,.gif,.jpg,.jpeg,.bmp,.tif,.tiff,image/png,image/gif,image/jpeg,image/bmp,image/tiff" hidden onchange="importBackgroundImage(this)">
                     <div class="image-controls">
                         <div class="image-actions">
-                            <button type="button" class="btn btn-secondary" id="background_import_button" onclick="document.getElementById('background_image_file').click()">Select image</button>
-                            <button type="button" class="btn btn-secondary" id="background_clear_button" onclick="clearBackgroundImage()">Use background color</button>
+                            <button data-help="Choose an image for the LCD background. Save to apply it." type="button" class="btn btn-secondary" id="background_import_button" onclick="document.getElementById('background_image_file').click()">Select image</button>
+                            <button data-help="Switch back to the display background color. Save to apply it." type="button" class="btn btn-secondary" id="background_clear_button" onclick="clearBackgroundImage()">Use background color</button>
                         </div>
                         <figure class="image-preview">
                             <img id="background_preview_image" alt="Current background image" hidden>
@@ -1204,7 +1213,7 @@
                     <div class="form-group" style="grid-column: 1 / -1;">
                         <label class="form-label">Background Fit</label>
                         <span class="form-hint">Default: Cover</span>
-                        <select name="display.background_image_fit" class="form-control">
+                        <select data-help="Choose how the image fits the LCD. Cover fills it and can crop the edges." name="display.background_image_fit" class="form-control">
                             <option value="cover">Cover</option>
                             <option value="contain">Contain</option>
                             <option value="stretch">Stretch</option>
@@ -1214,7 +1223,7 @@
                         <label class="form-label">Image Overlay Opacity</label>
                         <span class="form-hint">0.0 = off, 1.0 = solid overlay using Display Background color</span>
                         <div class="range-group">
-                            <input type="range" name="display.background_overlay_opacity" id="background_overlay" class="range-input" min="0" max="1" step="0.05" oninput="updateRangeValue('background_overlay', this.value, '', 2)">
+                            <input data-help="Blend the display background color over the image. Use 0 for no overlay." type="range" name="display.background_overlay_opacity" id="background_overlay" class="range-input" min="0" max="1" step="0.05" oninput="updateRangeValue('background_overlay', this.value, '', 2)">
                             <span class="range-value" id="background_overlay_value">0.00</span>
                         </div>
                         <div class="range-limits"><span>0.0</span><span>1.0</span></div>
@@ -1237,8 +1246,8 @@
                     <input type="file" id="shutdown_image_file" accept=".png,.gif,.jpg,.jpeg,.bmp,.tif,.tiff,image/png,image/gif,image/jpeg,image/bmp,image/tiff" hidden onchange="importShutdownImage(this)">
                     <div class="image-controls">
                         <div class="image-actions">
-                            <button type="button" class="btn btn-secondary" id="shutdown_import_button" onclick="document.getElementById('shutdown_image_file').click()">Select image</button>
-                            <button type="button" class="btn btn-secondary" id="shutdown_test_button" onclick="testShutdownImage()">Show on LCD for 5 seconds</button>
+                            <button data-help="Choose the image to show when CoolerControl shuts down. Save to apply it." type="button" class="btn btn-secondary" id="shutdown_import_button" onclick="document.getElementById('shutdown_image_file').click()">Select image</button>
+                            <button data-help="Preview the shutdown image on the LCD for five seconds." type="button" class="btn btn-secondary" id="shutdown_test_button" onclick="testShutdownImage()">Show on LCD for 5 seconds</button>
                         </div>
                         <figure class="image-preview">
                             <img id="shutdown_preview_image" alt="Current shutdown image" hidden>
@@ -1263,22 +1272,22 @@
                 </div>
 
                 <details class="collapsible-details">
-                    <summary>Geometry</summary>
+                    <summary data-help="Set the display size and how much space the layout can use.">Geometry</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
                             <div class="form-group" style="grid-column: 1 / -1;">
                                 <label class="form-label">Safe Area Scale</label>
                                 <span class="form-hint">Base layout safety area. Default: 0.98</span>
-                                <input type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
+                                <input data-help="Set how much of the LCD width and height the layout can use." type="number" name="display.content_scale_factor" class="form-control" min="0.5" max="1.0" step="0.01">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Width (Pixels)</label>
-                                <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
+                                <span class="form-hint">Use 0 to read the size from CoolerControl. Enter a fixed size as a fallback.</span>
                                 <input type="number" name="display.width" class="form-control" min="0" max="1024">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Height (Pixels)</label>
-                                <span class="form-hint">0 = automatic. Live device LCD size from CoolerControl is preferred at runtime; use a fixed value only as fallback/testing override.</span>
+                                <span class="form-hint">Use 0 to read the size from CoolerControl. Enter a fixed size as a fallback.</span>
                                 <input type="number" name="display.height" class="form-control" min="0" max="1024">
                             </div>
                         </div>
@@ -1286,104 +1295,104 @@
                 </details>
 
                 <details class="collapsible-details bar-mode-only" style="margin-top: 12px;">
-                    <summary>Bar Dimensions</summary>
+                    <summary data-help="Set the default height, width, and spacing of bars.">Bar Dimensions</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
                             <div class="form-group">
                                 <label class="form-label">Default Bar Height</label>
-                                <span class="form-hint">Logical base units at 240x240. Default: 24</span>
-                                <input type="number" name="layout.bar_height" class="form-control" min="1" max="100">
+                                <span class="form-hint">Pixels at 240 × 240. Default: 20</span>
+                                <input data-help="Set the default bar height in pixels on a 240-pixel display." type="number" name="layout.bar_height" class="form-control" min="1" max="100">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Bar Width (%)</label>
                                 <span class="form-hint">Percentage of the safe drawable width. Default: 98</span>
-                                <input type="number" name="layout.bar_width" class="form-control" min="1" max="100">
+                                <input data-help="Set the bar width as a percentage of the available width." type="number" name="layout.bar_width" class="form-control" min="1" max="100">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Bar Gap</label>
-                                <span class="form-hint">Logical base units scaled to the LCD. Default: 12</span>
-                                <input type="number" name="layout.bar_gap" class="form-control" min="0" max="100">
+                                <span class="form-hint">Pixels at 240 × 240. Default: 10</span>
+                                <input data-help="Set the gap between temperature bars on a 240-pixel display." type="number" name="layout.bar_gap" class="form-control" min="0" max="100">
                             </div>
                         </div>
                     </div>
                 </details>
 
                 <details class="collapsible-details bar-mode-only" style="margin-top: 12px;">
-                    <summary>Individual Bar Heights</summary>
+                    <summary data-help="Set a different bar height for each sensor slot.">Individual Bar Heights</summary>
                     <div class="collapsible-details-content">
                         <span class="form-hint" style="margin-bottom: 12px; display: block;">Set to 0 to use default bar height</span>
                         <div class="grid grid-3">
                             <div class="form-group">
                                 <label class="form-label">Slot 1 Height</label>
                                 <span class="form-hint">0 = inherit global bar height</span>
-                                <input type="number" name="layout.bar_height_1" class="form-control" min="0" max="100">
+                                <input data-help="Set the first bar height. Use 0 to keep the default height." type="number" name="layout.bar_height_1" class="form-control" min="0" max="100">
                             </div>
                             <div class="form-group" id="bar_height_2_group">
                                 <label class="form-label">Slot 2 Height</label>
                                 <span class="form-hint">0 = inherit global bar height</span>
-                                <input type="number" name="layout.bar_height_2" class="form-control" min="0" max="100">
+                                <input data-help="Set the second bar height. Use 0 to keep the default height." type="number" name="layout.bar_height_2" class="form-control" min="0" max="100">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Slot 3 Height</label>
                                 <span class="form-hint">0 = inherit global bar height</span>
-                                <input type="number" name="layout.bar_height_3" class="form-control" min="0" max="100">
+                                <input data-help="Set the third bar height. Use 0 to keep the default height." type="number" name="layout.bar_height_3" class="form-control" min="0" max="100">
                             </div>
                         </div>
                     </div>
                 </details>
 
                 <details class="collapsible-details bar-mode-only" style="margin-top: 12px;">
-                    <summary>Border &amp; Margins</summary>
+                    <summary data-help="Adjust bar outlines, opacity, and spacing around labels.">Border &amp; Margins</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
                             <div class="form-group">
                                 <label class="form-label">Show Border</label>
                                 <span class="form-hint">Default: On</span>
-                                <select name="layout.bar_border_enabled" class="form-control">
+                                <select data-help="Show or hide the outline around temperature bars." name="layout.bar_border_enabled" class="form-control">
                                     <option value="1">On</option>
                                     <option value="0">Off</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Border Thickness</label>
-                                <span class="form-hint">Logical base units, scaled uniformly. Default: 1.0</span>
-                                <input type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
+                                <span class="form-hint">Pixels at 240 × 240. Default: 0.6</span>
+                                <input data-help="Set the bar outline thickness on a 240-pixel display." type="number" name="layout.bar_border" class="form-control" min="0" max="10" step="0.1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Bar Opacity</label>
                                 <span class="form-hint">0.0 = transparent, 1.0 = fully visible</span>
-                                <input type="number" name="layout.bar_opacity" class="form-control" min="0" max="1" step="0.05">
+                                <input data-help="Set bar opacity. Use 0 for transparent or 1 for fully visible." type="number" name="layout.bar_opacity" class="form-control" min="0" max="1" step="0.05">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Left Margin</label>
                                 <span class="form-hint">Percentage of the safe drawable width. Default: 1</span>
-                                <input type="number" name="layout.label_margin_left" class="form-control" min="0" max="50">
+                                <input data-help="Set the left label margin as a percentage of the available width." type="number" name="layout.label_margin_left" class="form-control" min="0" max="50">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Bar Margin</label>
                                 <span class="form-hint">Percentage of the effective display band height. Default: 1</span>
-                                <input type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
+                                <input data-help="Set the space between the bar and its label." type="number" name="layout.label_margin_bar" class="form-control" min="0" max="20">
                             </div>
                         </div>
                     </div>
                 </details>
 
                 <details class="collapsible-details" id="layout_sensor_ring_settings" style="margin-top: 12px;">
-                    <summary>Sensor Ring</summary>
+                    <summary data-help="Set the ring thickness, opacity, and corner shape.">Sensor Ring</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
                             <div class="form-group">
                                 <label class="form-label">Ring Thickness</label>
                                 <span class="form-hint">Logical base units scaled to the LCD. 0 = automatic.</span>
-                                <input type="number" name="layout.ring_width" class="form-control" min="0" max="30" step="0.5">
+                                <input data-help="Set ring thickness in pixels on a 240-pixel display. Use 0 for automatic sizing." type="number" name="layout.ring_width" class="form-control" min="0" max="30" step="0.5">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Ring Opacity</label>
                                 <span class="form-hint">0.0 = transparent, 1.0 = fully visible</span>
-                                <input type="number" name="layout.ring_opacity" class="form-control" min="0" max="1" step="0.05">
+                                <input data-help="Set ring opacity. Use 0 for transparent or 1 for fully visible." type="number" name="layout.ring_opacity" class="form-control" min="0" max="1" step="0.05">
                             </div>
                             <div class="form-group" style="grid-column: 1 / -1;">
-                                <label class="display-option"><input type="checkbox" name="layout.ring_rounded_corners" id="ring_rounded_corners" value="1" onchange="updateModePreview()">Rounded Ring Corners</label>
+                                <label class="display-option"><input data-help="Round the corners of the sensor ring on rectangular LCDs." type="checkbox" name="layout.ring_rounded_corners" id="ring_rounded_corners" value="1" onchange="updateModePreview()">Rounded Ring Corners</label>
                                 <span class="form-hint">For rectangular displays. Enabled by default.</span>
                             </div>
                         </div>
@@ -1391,14 +1400,14 @@
                 </details>
 
                 <details class="collapsible-details" id="layout_font_size_settings" style="margin-top: 12px;">
-                    <summary>Font Sizes</summary>
+                    <summary data-help="Set size limits for the text shown on the LCD.">Font Sizes</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-3">
                             <div class="form-group">
                                 <label class="form-label">Temperature Size</label>
                                 <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
                                 <div class="range-group">
-                                    <input type="range" name="font.size_temp" id="font_size_temp" class="range-input" min="0" max="200" step="1" oninput="updateAutoValue('font_size_temp', this.value, 1, ' px')">
+                                    <input data-help="Limit the temperature text size. Use 0 to fit the available space." type="range" name="font.size_temp" id="font_size_temp" class="range-input" min="0" max="200" step="1" oninput="updateAutoValue('font_size_temp', this.value, 1, ' px')">
                                     <span class="range-value" id="font_size_temp_value">Auto</span>
                                 </div>
                                 <div class="range-limits"><span>Auto</span><span>200 px</span></div>
@@ -1407,7 +1416,7 @@
                                 <label class="form-label">Label Size</label>
                                 <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
                                 <div class="range-group">
-                                    <input type="range" name="font.size_labels" id="font_size_labels" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_labels', this.value, 1, ' px')">
+                                    <input data-help="Limit the label text size. Use 0 to fit the available space." type="range" name="font.size_labels" id="font_size_labels" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_labels', this.value, 1, ' px')">
                                     <span class="range-value" id="font_size_labels_value">Auto</span>
                                 </div>
                                 <div class="range-limits"><span>Auto</span><span>100 px</span></div>
@@ -1416,7 +1425,7 @@
                                 <label class="form-label">Utilization Size</label>
                                 <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
                                 <div class="range-group">
-                                    <input type="range" name="font.size_duty" id="font_size_duty" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_duty', this.value, 1, ' px')">
+                                    <input data-help="Limit the load text size. Use 0 to fit the available space." type="range" name="font.size_duty" id="font_size_duty" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_duty', this.value, 1, ' px')">
                                     <span class="range-value" id="font_size_duty_value">Auto</span>
                                 </div>
                                 <div class="range-limits"><span>Auto</span><span>100 px</span></div>
@@ -1425,7 +1434,7 @@
                                 <label class="form-label">Power / Extra Info Size</label>
                                 <span class="form-hint">0 = fill the available region; other values are safe upper limits.</span>
                                 <div class="range-group">
-                                    <input type="range" name="font.size_watts" id="font_size_watts" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_watts', this.value, 1, ' px')">
+                                    <input data-help="Limit the power and extra readings text size. Use 0 to fit the available space." type="range" name="font.size_watts" id="font_size_watts" class="range-input" min="0" max="100" step="1" oninput="updateAutoValue('font_size_watts', this.value, 1, ' px')">
                                     <span class="range-value" id="font_size_watts_value">Auto</span>
                                 </div>
                                 <div class="range-limits"><span>Auto</span><span>100 px</span></div>
@@ -1435,7 +1444,7 @@
                 </details>
 
                 <details class="collapsible-details" style="margin-top: 12px;">
-                    <summary>Global Positioning</summary>
+                    <summary data-help="Adjust margins, label offsets, and the gap before the degree symbol.">Global Positioning</summary>
                     <div class="collapsible-details-content">
                         <div class="alert">
                             <strong>Global Offsets</strong>
@@ -1445,29 +1454,29 @@
                             <div class="form-group">
                                 <label class="form-label">Label X Offset</label>
                                 <span class="form-hint">Logical units, scaled uniformly after auto-layout. Default: 0</span>
-                                <input type="number" name="positioning.label_offset_x" class="form-control" step="1">
+                                <input data-help="Move labels left or right after automatic layout." type="number" name="positioning.label_offset_x" class="form-control" step="1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Label Y Offset</label>
                                 <span class="form-hint">Logical units, scaled uniformly after auto-layout. Default: 0</span>
-                                <input type="number" name="positioning.label_offset_y" class="form-control" step="1">
+                                <input data-help="Move labels up or down after automatic layout." type="number" name="positioning.label_offset_y" class="form-control" step="1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Degree Symbol Spacing</label>
-                                <span class="form-hint">Logical units, scaled uniformly. Default: 16</span>
-                                <input type="number" name="positioning.degree_spacing" class="form-control" min="0" max="100">
+                                <span class="form-hint">Pixels at 240 × 240. Default: 12</span>
+                                <input data-help="Set the gap between the temperature number and its degree symbol." type="number" name="positioning.degree_spacing" class="form-control" min="0" max="100">
                             </div>
                         </div>
                         <div class="grid grid-2" style="margin-top: 12px;">
                             <div class="form-group">
                                 <label class="form-label">Margin Top</label>
                                 <span class="form-hint">Vertical top margin in logical units. 0 = auto (circular ~3%, rectangular 0)</span>
-                                <input type="number" name="positioning.margin_top" class="form-control" step="1">
+                                <input data-help="Set the space above the layout. Use 0 for automatic spacing." type="number" name="positioning.margin_top" class="form-control" step="1">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Margin Bottom</label>
                                 <span class="form-hint">Vertical bottom margin in logical units. 0 = auto (circular ~3%, rectangular 0)</span>
-                                <input type="number" name="positioning.margin_bottom" class="form-control" step="1">
+                                <input data-help="Set the space below the layout. Use 0 for automatic spacing." type="number" name="positioning.margin_bottom" class="form-control" step="1">
                             </div>
                         </div>
                     </div>
@@ -1501,7 +1510,7 @@
                     <div class="form-group">
                         <label class="form-label">Detection Mode</label>
                         <span class="form-hint">Strict is recommended. Relax only if your LCD is not detected automatically.</span>
-                        <select name="device_detection.mode" class="form-control">
+                        <select data-help="Start with Strict. Use Balanced or Relaxed if detection misses your LCD." name="device_detection.mode" class="form-control">
                             <option value="strict">Strict</option>
                             <option value="balanced">Balanced</option>
                             <option value="relaxed">Relaxed</option>
@@ -1519,12 +1528,12 @@
                     <div class="form-group">
                         <label class="form-label">Allowlist</label>
                         <span class="form-hint">Force-enable matching candidates even if strict mode would skip them.</span>
-                        <textarea name="device_detection.allowlist" class="form-control" rows="5" spellcheck="false" placeholder="kraken&#10;my-lcd-uid"></textarea>
+                        <textarea data-help="Include matching devices even in Strict mode. Enter one name, type, or device ID per line." name="device_detection.allowlist" class="form-control" rows="5" spellcheck="false" placeholder="kraken&#10;my-lcd-uid"></textarea>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Blocklist</label>
                         <span class="form-hint">Reject matching candidates before scoring. Useful for liquidctl mainboards and chipset devices.</span>
-                        <textarea name="device_detection.blocklist" class="form-control" rows="5" spellcheck="false" placeholder="mainboard&#10;motherboard&#10;chipset"></textarea>
+                        <textarea data-help="Exclude matching devices from detection. Enter one name, type, or device ID per line." name="device_detection.blocklist" class="form-control" rows="5" spellcheck="false" placeholder="mainboard&#10;motherboard&#10;chipset"></textarea>
                     </div>
                 </div>
 
@@ -1578,7 +1587,7 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-secondary" onclick="refreshDeviceInfo()" style="width: auto; padding: 10px 20px; margin-top: 8px;">
+                    <button data-help="Read the current LCD details from CoolerControl." type="button" class="btn btn-secondary" onclick="refreshDeviceInfo()" style="width: auto; padding: 10px 20px; margin-top: 8px;">
                         &#x1F504; Refresh Device Info
                     </button>
                 </div>
@@ -1638,15 +1647,15 @@
                 <div class="device-info-card">
                     <div class="info-item">
                         <div class="info-item-label">Bug Reports &amp; Feature Requests</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a></div>
+                        <div class="info-item-value"><a data-help="Report a problem or request a feature." href="https://github.com/damachine/coolerdash/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a></div>
                     </div>
                     <div class="info-item">
                         <div class="info-item-label">Discussions</div>
-                        <div class="info-item-value"><a href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a></div>
+                        <div class="info-item-value"><a data-help="Ask a question or share a layout with other users." href="https://github.com/damachine/coolerdash/discussions" target="_blank" rel="noopener noreferrer">GitHub Discussions</a></div>
                     </div>
                     <div class="info-item" style="margin-bottom: 0;">
                         <div class="info-item-label">Discord</div>
-                        <div class="info-item-value"><a href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener noreferrer">CoolerControl Discord &mdash; #coolerdash</a></div>
+                        <div class="info-item-value"><a data-help="Open the CoolerDash channel in the CoolerControl Discord server." href="https://discord.com/channels/908873022105079848/1461781766791499981" target="_blank" rel="noopener noreferrer">CoolerControl Discord &mdash; #coolerdash</a></div>
                     </div>
                 </div>
 
@@ -1671,8 +1680,8 @@
 
         <!-- Buttons -->
         <div class="btn-group">
-            <button type="button" class="btn btn-primary" onclick="saveConfig()">Save</button>
-            <button type="button" class="btn btn-secondary" onclick="resetConfig()">Reset</button>
+            <button data-help="Save the configuration, restart CoolerDash, and apply it to the LCD." type="button" class="btn btn-primary" onclick="saveConfig()">Save</button>
+            <button data-help="Restore the default configuration and select Dual. Saved layouts stay in the bank." type="button" class="btn btn-secondary" onclick="resetConfig()">Reset</button>
         </div>
 
         <!-- Restart Notice -->
@@ -1682,6 +1691,8 @@
             </p>
         </div>
     </div>
+
+    <div id="setting_help" role="tooltip" hidden></div>
 
     <script>
         // ===== FACTORY DEFAULT CONFIGURATION =====
@@ -2314,12 +2325,12 @@
                     setSensorDiscoveryStatus('warn',
                         '<strong>No extra sensors found</strong> &mdash; CoolerControl API is reachable, but returned no temperature or channel data.<br>' +
                         '<span style="color:rgb(var(--text-color-secondary))">Only Standard sensors (CPU, GPU, Liquid) are shown. ' +
-                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--accent));cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
+                        '<button type="button" data-help="Read the sensor list again from CoolerControl." onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--accent));cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
                     );
                 } else {
                     setSensorDiscoveryStatus('ok',
                         '&#x2714; <strong>' + sensors.length + ' sensor(s) discovered</strong> from CoolerControl API &mdash; see &ldquo;CC4 Sensors&rdquo; section below. ' +
-                        '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--text-color-secondary));cursor:pointer;font-size:12px;padding:0;text-decoration:underline;">Refresh</button>'
+                        '<button type="button" data-help="Read the sensor list again from CoolerControl." onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--text-color-secondary));cursor:pointer;font-size:12px;padding:0;text-decoration:underline;">Refresh</button>'
                     );
                 }
             } catch (error) {
@@ -2327,7 +2338,7 @@
                 setSensorDiscoveryStatus('error',
                     '<strong>CC4 Sensor Discovery failed</strong> &mdash; ' + escapeHtml(error.message) + '.<br>' +
                     '<span style="color:rgb(var(--text-color-secondary))">Make sure CoolerControl is running and the API address in the <strong>Connection</strong> tab is correct. ' +
-                    '<button type="button" onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--accent));cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
+                    '<button type="button" data-help="Read the sensor list again from CoolerControl." onclick="retrySensorDiscovery()" style="background:none;border:none;color:rgb(var(--accent));cursor:pointer;font-size:13px;padding:0;text-decoration:underline;">Retry discovery</button></span>'
                 );
             }
         }
@@ -2577,7 +2588,7 @@
 
                 section.innerHTML =
                     '<details class="sensor-details">' +
-                        '<summary>' + displayName + '</summary>' +
+                        '<summary data-help="Open the display and color settings for this sensor.">' + displayName + '</summary>' +
                         '<div class="sensor-details-content">' +
 
                             // Display section
@@ -2586,32 +2597,32 @@
                                 '<div class="form-group">' +
                                     '<label class="form-label">Label</label>' +
                                     '<span class="form-hint">Custom label (empty = auto)</span>' +
-                                    '<input type="text" data-sensor="' + eSensorId + '" data-field="label" class="form-control sensor-field" value="' + eLabel + '" maxlength="31" placeholder="auto">' +
+                                    '<input type="text" data-sensor="' + eSensorId + '" data-field="label" data-help="Set the name shown on the LCD. Leave it blank to use the sensor name." class="form-control sensor-field" value="' + eLabel + '" maxlength="31" placeholder="auto">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Font Size</label>' +
                                     '<span class="form-hint">Default: auto (0 = dynamic/global)</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="font_size_temp" class="form-control sensor-field" value="' + eFontSize + '" min="0" max="300" step="1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="font_size_temp" data-help="Limit the temperature text size for this sensor. Use 0 to follow the global size." class="form-control sensor-field" value="' + eFontSize + '" min="0" max="300" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">X Offset</label>' +
                                     '<span class="form-hint">Auto-layout fine-tuning only</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_x" class="form-control sensor-field" value="' + eOffsetX + '" step="1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_x" data-help="Move the display elements for this sensor left or right." class="form-control sensor-field" value="' + eOffsetX + '" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Y Offset</label>' +
                                     '<span class="form-hint">Auto-layout fine-tuning only</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" class="form-control sensor-field" value="' + eOffsetY + '" step="1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="offset_y" data-help="Move the display elements for this sensor up or down." class="form-control sensor-field" value="' + eOffsetY + '" step="1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Value Gap</label>' +
                                     '<span class="form-hint">% of height above bar (0 = auto)</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="value_to_bar_gap" class="form-control sensor-field" value="' + eValueGap + '" min="0" max="100" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="value_to_bar_gap" data-help="Set the gap above the bar. Use 0 for automatic spacing." class="form-control sensor-field" value="' + eValueGap + '" min="0" max="100" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Label Gap</label>' +
                                     '<span class="form-hint">% of height below bar (0 = auto)</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="label_to_bar_gap" class="form-control sensor-field" value="' + eLabelGap + '" min="0" max="100" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="label_to_bar_gap" data-help="Set the gap below the bar. Use 0 for automatic spacing." class="form-control sensor-field" value="' + eLabelGap + '" min="0" max="100" step="0.1">' +
                                 '</div>' +
                             '</div>' +
 
@@ -2621,22 +2632,22 @@
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 1</label>' +
                                     '<span class="form-hint">Default: ' + defs.threshold_1 + '</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_1" class="form-control sensor-field" value="' + eThresh1 + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_1" data-help="Set the reading where color 2 starts." class="form-control sensor-field" value="' + eThresh1 + '" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 2</label>' +
                                     '<span class="form-hint">Default: ' + defs.threshold_2 + '</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_2" class="form-control sensor-field" value="' + eThresh2 + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_2" data-help="Set the reading where color 3 starts." class="form-control sensor-field" value="' + eThresh2 + '" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 3</label>' +
                                     '<span class="form-hint">Default: ' + defs.threshold_3 + '</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_3" class="form-control sensor-field" value="' + eThresh3 + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="threshold_3" data-help="Set the reading where color 4 starts." class="form-control sensor-field" value="' + eThresh3 + '" step="0.1">' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Max Scale</label>' +
                                     '<span class="form-hint">Default: ' + defs.max_scale + '</span>' +
-                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="max_scale" class="form-control sensor-field" value="' + eMaxScale + '" step="0.1">' +
+                                    '<input type="number" data-sensor="' + eSensorId + '" data-field="max_scale" data-help="Set the reading that fills the bar or value ring." class="form-control sensor-field" value="' + eMaxScale + '" step="0.1">' +
                                 '</div>' +
                             '</div>' +
 
@@ -2646,28 +2657,28 @@
                                 '<div class="form-group">' +
                                     '<label class="form-label">&lt; Threshold 1</label>' +
                                     '<div class="color-group">' +
-                                        '<input type="color" id="color_' + safeName + '_1" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_1\', \'rgb_' + safeName + '_1\')">' +
+                                        '<input type="color" id="color_' + safeName + '_1" class="color-swatch" data-help="Set the color used below threshold 1." onchange="updateColorRGB(\'color_' + safeName + '_1\', \'rgb_' + safeName + '_1\')">' +
                                         '<span class="color-rgb" id="rgb_' + safeName + '_1"></span>' +
                                     '</div>' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 1-2</label>' +
                                     '<div class="color-group">' +
-                                        '<input type="color" id="color_' + safeName + '_2" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_2\', \'rgb_' + safeName + '_2\')">' +
+                                        '<input type="color" id="color_' + safeName + '_2" class="color-swatch" data-help="Set the color from threshold 1 up to threshold 2." onchange="updateColorRGB(\'color_' + safeName + '_2\', \'rgb_' + safeName + '_2\')">' +
                                         '<span class="color-rgb" id="rgb_' + safeName + '_2"></span>' +
                                     '</div>' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">Threshold 2-3</label>' +
                                     '<div class="color-group">' +
-                                        '<input type="color" id="color_' + safeName + '_3" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_3\', \'rgb_' + safeName + '_3\')">' +
+                                        '<input type="color" id="color_' + safeName + '_3" class="color-swatch" data-help="Set the color from threshold 2 up to threshold 3." onchange="updateColorRGB(\'color_' + safeName + '_3\', \'rgb_' + safeName + '_3\')">' +
                                         '<span class="color-rgb" id="rgb_' + safeName + '_3"></span>' +
                                     '</div>' +
                                 '</div>' +
                                 '<div class="form-group">' +
                                     '<label class="form-label">&gt; Threshold 3</label>' +
                                     '<div class="color-group">' +
-                                        '<input type="color" id="color_' + safeName + '_4" class="color-swatch" onchange="updateColorRGB(\'color_' + safeName + '_4\', \'rgb_' + safeName + '_4\')">' +
+                                        '<input type="color" id="color_' + safeName + '_4" class="color-swatch" data-help="Set the color at and above threshold 3." onchange="updateColorRGB(\'color_' + safeName + '_4\', \'rgb_' + safeName + '_4\')">' +
                                         '<span class="color-rgb" id="rgb_' + safeName + '_4"></span>' +
                                     '</div>' +
                                 '</div>' +
@@ -3035,6 +3046,133 @@
         }
 
         // ===== UI FUNCTIONS =====
+        function setupSettingHelp() {
+            const tooltip = document.getElementById('setting_help');
+            const controls = 'input:not([type="hidden"]):not([hidden]), select:not([hidden]), textarea, button, summary, a[data-help]';
+            let hovered = null;
+            let focused = null;
+            let shown = null;
+            let dismissed = null;
+            let showTimer;
+            let leaveTimer;
+
+            function helpText(control) {
+                const hint = control.closest('.form-group')?.querySelector('.form-hint:not([role]):not([hidden])');
+                return (control.dataset.help || hint?.textContent || '').trim();
+            }
+
+            function helpControl(node) {
+                if (!(node instanceof Element) || node.closest('.form-hint, [role="status"]')) return null;
+                const control = node.closest(controls) || node.closest('label')?.control ||
+                    node.closest('.form-group')?.querySelector(controls);
+                return control && helpText(control) ? control : null;
+            }
+
+            function describe(control, add) {
+                const ids = (control.getAttribute('aria-describedby') || '').split(/\s+/)
+                    .filter(id => id && id !== tooltip.id);
+                if (add) ids.push(tooltip.id);
+                if (ids.length) control.setAttribute('aria-describedby', ids.join(' '));
+                else control.removeAttribute('aria-describedby');
+            }
+
+            function hide() {
+                tooltip.hidden = true;
+                if (shown) describe(shown, false);
+                shown = null;
+            }
+
+            function position() {
+                if (!shown) return;
+                const rect = shown.getBoundingClientRect();
+                if (!shown.getClientRects().length || rect.bottom < 0 || rect.top > window.innerHeight ||
+                    rect.right < 0 || rect.left > window.innerWidth) {
+                    tooltip.hidden = true;
+                    return;
+                }
+                tooltip.hidden = false;
+                const margin = 8;
+                const gap = 5;
+                const left = Math.max(margin, Math.min(rect.left, window.innerWidth - tooltip.offsetWidth - margin));
+                const above = rect.top - tooltip.offsetHeight - gap;
+                const top = above >= margin ? above : rect.bottom + gap;
+                tooltip.style.left = left + 'px';
+                tooltip.style.top = Math.max(margin, Math.min(top, window.innerHeight - tooltip.offsetHeight - margin)) + 'px';
+            }
+
+            function refresh(delay = 0) {
+                clearTimeout(showTimer);
+                const target = hovered || focused;
+                if (dismissed !== target) dismissed = null;
+                if (target && target === shown && !dismissed) return;
+                hide();
+                if (!target || dismissed) return;
+                function show() {
+                    if (!target.isConnected) return;
+                    shown = target;
+                    tooltip.textContent = helpText(target);
+                    describe(target, true);
+                    position();
+                }
+                if (delay) showTimer = setTimeout(show, delay);
+                else show();
+            }
+
+            function movePointer(node) {
+                clearTimeout(leaveTimer);
+                if (tooltip.contains(node)) return;
+                const target = helpControl(node);
+                if (target === hovered) return;
+                if (!target && shown === hovered) {
+                    // Give the pointer time to cross the gap to the tooltip.
+                    leaveTimer = setTimeout(() => {
+                        hovered = null;
+                        refresh();
+                    }, 180);
+                    return;
+                }
+                hovered = target;
+                refresh(target ? 450 : 0);
+            }
+
+            document.addEventListener('pointerover', event => {
+                if (event.pointerType !== 'touch') movePointer(event.target);
+            });
+            document.addEventListener('pointerout', event => {
+                if (event.pointerType !== 'touch' && !event.relatedTarget) movePointer(null);
+            });
+            document.addEventListener('focusin', event => {
+                clearTimeout(leaveTimer);
+                hovered = null;
+                focused = helpControl(event.target);
+                refresh();
+            });
+            document.addEventListener('focusout', () => {
+                focused = null;
+                refresh();
+            });
+            function dismiss() {
+                dismissed = hovered || focused;
+                clearTimeout(showTimer);
+                hide();
+            }
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') dismiss();
+            }, true);
+            document.addEventListener('pointerdown', event => {
+                if (!tooltip.contains(event.target)) dismiss();
+            }, true);
+            window.addEventListener('resize', position);
+            document.addEventListener('scroll', position, true);
+            new MutationObserver(() => {
+                if (shown && !shown.isConnected) {
+                    if (hovered === shown) hovered = null;
+                    if (focused === shown) focused = null;
+                    refresh();
+                }
+            }).observe(document.getElementById('configForm'), { childList: true, subtree: true });
+        }
+
         function setModePreviewShape(shape) {
             var circular = shape === 'circular';
             document.getElementById('mode_preview_frame').setAttribute('rx', circular ? '116' : '10');
@@ -3450,8 +3588,8 @@
             if (slot3Group) slot3Group.style.display = isSplit ? 'none' : 'block';
             if (midBarHeightGroup) midBarHeightGroup.style.display = isCircle ? 'block' : 'none';
             if (sensorRingHint) sensorRingHint.textContent = isCircle
-                ? 'Follow the sensor that is currently shown in Circle mode.'
-                : 'Show a threshold-colored value ring around any layout.';
+                ? 'The ring follows the sensor currently shown.'
+                : 'Draw a ring that changes color with the sensor reading.';
             if (sensorRingSelect) sensorRingSelect.style.display = isCircle ? 'none' : '';
             var barControls = document.querySelectorAll('.bar-mode-only');
             for (var b = 0; b < barControls.length; b++) {
@@ -4278,6 +4416,23 @@
                 { key: 'ring_sweep', title: 'Arc length (°)', min: 1, max: 360, initial: 360 },
                 { key: 'segments', title: 'Segments', min: 1, max: 24, initial: 1 }
             ];
+            const widgetHelp = {
+                source: 'Choose the sensor or reading to show in this widget.',
+                text: 'Set the widget text. For a sensor value, it appears beside the reading.',
+                font: 'Choose the font style for this widget.',
+                size: 'Set the text size in pixels on a 240-pixel display.',
+                min: 'Set the reading at which the gauge is empty.',
+                max: 'Set the reading at which the gauge is full.',
+                segments: 'Divide the gauge into sections. Use 1 for a solid gauge.',
+                ring_thickness: 'Set the stroke width in pixels on a 240-pixel display. Use 0 for automatic sizing.',
+                ring_start: 'Set where the ring begins. Use 0° for the top and 90° for the right.',
+                ring_sweep: 'Set the arc length. Use 360° for a full circle.',
+                color: 'Set the color of this widget.',
+                x: 'Set the distance from the left edge. The screen width is 1000 units.',
+                y: 'Set the distance from the top edge. The screen height is 1000 units.',
+                w: 'Set the widget width. The screen width is 1000 units.',
+                h: 'Set the widget height. The screen height is 1000 units.'
+            };
             const encoder = new TextEncoder();
             let bank = { active_id: '', items: [] };
             let savedBank = cloneConfig(bank);
@@ -4570,6 +4725,7 @@
                     target.type = 'button';
                     target.className = 'custom-target';
                     target.dataset.widget = index;
+                    target.dataset.help = 'Drag to move this widget. Drag its corner to resize it when selected.';
                     target.setAttribute('aria-label', elementLabel(element));
                     positionTarget(target, element);
                     if (index === selected) {
@@ -4597,6 +4753,7 @@
                     control.className = control.type === 'color' ? 'color-swatch' : 'form-control';
                     control.value = element[key];
                     control.dataset.property = key;
+                    control.dataset.help = widgetHelp[key];
                     control.addEventListener('change', () => {
                         let value = control.type === 'number' ? control.valueAsNumber : control.value;
                         if (key === 'x') value = clamp(value, 0, grid - element.w);
@@ -4687,6 +4844,7 @@
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'custom-screen-choice';
+                button.dataset.help = 'Select this screen to edit its widgets and duration.';
                 button.setAttribute('aria-label', 'Edit screen ' + (index + 1));
                 button.addEventListener('click', () => selectScreen(index));
                 const tile = document.createElement('span');
@@ -4960,6 +5118,7 @@
                 button.type = 'button';
                 button.className = 'btn btn-secondary';
                 button.textContent = label;
+                button.dataset.help = 'Add this widget to the selected screen. You can also drag it onto the preview.';
                 button.draggable = true;
                 button.addEventListener('click', () => addWidget(key));
                 button.addEventListener('dragstart', event => {
@@ -5152,6 +5311,7 @@
         })();
 
         // ===== INITIALIZATION =====
+        setupSettingHelp();
         ccRunPluginScript(async function() {
             try {
                 var ctx = await ccGetContext();
