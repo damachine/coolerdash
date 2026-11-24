@@ -21,6 +21,7 @@
 #include <fontconfig/fontconfig.h>
 #include <jansson.h>
 #include <limits.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -31,9 +32,9 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <curl/curl.h>
@@ -626,28 +627,38 @@ cleanup:
 static size_t parse_content_length(const char *request, const char *header_end,
                                    size_t limit)
 {
-    const char *line = request;
-    while (line && line < header_end)
+    size_t length = 0;
+    int has_length = 0;
+    for (const char *line = request; line < header_end;)
     {
         const char *next = strstr(line, "\r\n");
         if (!next || next > header_end)
-            break;
+            return SIZE_MAX;
+        if (strncasecmp(line, "Transfer-Encoding:", 18) == 0)
+            return SIZE_MAX;
+
         if (strncasecmp(line, "Content-Length:", 15) == 0)
         {
+            if (has_length)
+                return SIZE_MAX;
             const char *value = line + 15;
             while (value < next && (*value == ' ' || *value == '\t'))
                 value++;
+            if (value == next || *value < '0' || *value > '9')
+                return SIZE_MAX;
             errno = 0;
             char *end = NULL;
-            unsigned long length = strtoul(value, &end, 10);
-            if (errno == 0 && end > value && end <= next &&
-                length <= limit)
-                return (size_t)length;
-            return SIZE_MAX;
+            unsigned long parsed = strtoul(value, &end, 10);
+            while (end < next && (*end == ' ' || *end == '\t'))
+                end++;
+            if (errno != 0 || end != next || parsed > limit)
+                return SIZE_MAX;
+            length = (size_t)parsed;
+            has_length = 1;
         }
         line = next + 2;
     }
-    return 0;
+    return length;
 }
 
 static char *render_preview_json(const char *json, size_t json_length)
@@ -673,23 +684,11 @@ static char *render_preview_json(const char *json, size_t json_length)
         return NULL;
     }
 
-    size_t written = 0;
-    while (written < json_length)
-    {
-        ssize_t count = write(config_fd, json + written, json_length - written);
-        if (count <= 0)
-        {
-            close(config_fd);
-            unlink(config_path);
-            rmdir(temp_dir);
-            return NULL;
-        }
-        written += (size_t)count;
-    }
-    close(config_fd);
-
     Config preview = {0};
-    const int loaded = load_plugin_config_read_only(&preview, config_path);
+    int written = write_all(config_fd, json, json_length);
+    if (close(config_fd) != 0)
+        written = 0;
+    const int loaded = written && load_plugin_config_read_only(&preview, config_path);
     unlink(config_path);
     rmdir(temp_dir);
     if (!loaded || preview.invalid_custom_layout)
@@ -830,31 +829,31 @@ static void serve_plugin_data(int client_fd)
     const size_t request_capacity = IMPORT_REQUEST_LIMIT + 4096;
     size_t request_length = 0;
     size_t expected_length = 0;
+    size_t content_length = 0;
+    const char *request_body = NULL;
     while (request_length < request_capacity - 1)
     {
         ssize_t received = recv(client_fd, request + request_length,
                                 request_capacity - 1 - request_length, 0);
+        if (received < 0 && errno == EINTR)
+            continue;
         if (received <= 0)
-        {
-            free(request);
-            return;
-        }
+            break;
         request_length += (size_t)received;
         request[request_length] = '\0';
-        char *header_end = strstr(request, "\r\n\r\n");
-        if (!header_end)
-            continue;
-        size_t content_length = parse_content_length(request, header_end, IMPORT_REQUEST_LIMIT);
-        if (content_length == SIZE_MAX)
+        if (!request_body)
         {
-            free(request);
-            return;
-        }
-        expected_length = (size_t)(header_end + 4 - request) + content_length;
-        if (expected_length >= request_capacity)
-        {
-            free(request);
-            return;
+            const char *header_end = strstr(request, "\r\n\r\n");
+            if (!header_end)
+                continue;
+            content_length = parse_content_length(request, header_end,
+                                                  IMPORT_REQUEST_LIMIT);
+            if (content_length == SIZE_MAX)
+                break;
+            request_body = header_end + 4;
+            expected_length = (size_t)(request_body - request) + content_length;
+            if (expected_length >= request_capacity)
+                break;
         }
         if (request_length >= expected_length)
             break;
@@ -890,20 +889,17 @@ static void serve_plugin_data(int client_fd)
             status = "403 Forbidden";
         else
         {
-            char *header_end = strstr(request, "\r\n\r\n");
-            size_t content_length = parse_content_length(request, header_end,
-                                                           IMPORT_REQUEST_LIMIT);
             int code = 422;
-            if (header_end && content_length != SIZE_MAX && content_length > 0)
+            if (content_length > 0)
             {
                 if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0)
-                    dynamic_body = shutdown_image_import_json(header_end + 4,
+                    dynamic_body = shutdown_image_import_json(request_body,
                                                               content_length, &code);
                 else if (strncmp(request, "POST /background-import HTTP/", 29) == 0)
-                    dynamic_body = background_image_import_json(header_end + 4,
+                    dynamic_body = background_image_import_json(request_body,
                                                                 content_length, &code);
                 else if (content_length <= PREVIEW_REQUEST_LIMIT)
-                    dynamic_body = queue_shutdown_test_json(header_end + 4,
+                    dynamic_body = queue_shutdown_test_json(request_body,
                                                             content_length, &code);
             }
             if (code == 200)
@@ -971,10 +967,8 @@ static void serve_plugin_data(int client_fd)
     }
     else if (strncmp(request, "POST /render-preview HTTP/", 26) == 0)
     {
-        char *header_end = strstr(request, "\r\n\r\n");
-        size_t content_length = parse_content_length(request, header_end, PREVIEW_REQUEST_LIMIT);
-        if (header_end && content_length != SIZE_MAX && content_length > 0)
-            dynamic_body = render_preview_json(header_end + 4, content_length);
+        if (content_length > 0 && content_length <= PREVIEW_REQUEST_LIMIT)
+            dynamic_body = render_preview_json(request_body, content_length);
         if (dynamic_body)
             body_length = strlen(dynamic_body);
         else
@@ -1004,8 +998,8 @@ static void serve_plugin_data(int client_fd)
         free(request);
         return;
     }
-    (void)send_all(client_fd, header, (size_t)header_length);
-    (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length);
+    if (send_all(client_fd, header, (size_t)header_length))
+        (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length);
     free(dynamic_body);
     free(request);
 }
@@ -1040,13 +1034,10 @@ static void *run_plugin_data_server(void *unused)
 
     log_message(LOG_INFO, "Plugin data available on 127.0.0.1:%d",
                 UPDATE_PROXY_PORT);
+    struct pollfd listener = {.fd = server_fd, .events = POLLIN};
     while (running)
     {
-        fd_set read_fds;
-        FD_ZERO(&read_fds);
-        FD_SET(server_fd, &read_fds);
-        struct timeval timeout = {.tv_sec = 1, .tv_usec = 0};
-        int ready = select(server_fd + 1, &read_fds, NULL, NULL, &timeout);
+        int ready = poll(&listener, 1, 1000);
         if (ready < 0)
         {
             if (errno == EINTR)
@@ -1055,6 +1046,8 @@ static void *run_plugin_data_server(void *unused)
         }
         if (ready == 0)
             continue;
+        if (!(listener.revents & POLLIN))
+            break;
 
         int client_fd = accept(server_fd, NULL, NULL);
         if (client_fd < 0)
