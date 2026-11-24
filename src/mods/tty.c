@@ -183,18 +183,19 @@ static void draw_memory(cairo_t *cr, const Config *config, const TerminalRow *ro
     draw_row(cr, config, row, "RAM", value, available ? "GiB" : "", 1, progress);
 }
 
-static void draw_prompt(cairo_t *cr, const Config *config, double center_x, double top, double height,
-                        double scale)
+static void draw_prompt(cairo_t *cr, const Config *config, const ScalingParams *params,
+                        double left, double top, double height, double scale)
 {
     if (config->tty_icon == TTY_ICON_OFF)
         return;
 
     const int large = config->tty_icon == TTY_ICON_LARGE;
-    const double prompt_y = top + height * (large ? 0.15 : 0.12);
+    const double center_x = params->circle_center_x;
+    const double tile_y = top + height * 0.175;
     if (large)
     {
         set_cairo_color_alpha(cr, &terminal_accent, 0.2);
-        cairo_rectangle(cr, center_x - 24 * scale, prompt_y - 16 * scale,
+        cairo_rectangle(cr, center_x - 24 * scale, tile_y - 16 * scale,
                         48 * scale, 32 * scale);
         cairo_fill(cr);
     }
@@ -202,7 +203,25 @@ static void draw_prompt(cairo_t *cr, const Config *config, double center_x, doub
     set_cairo_color(cr, &config->font_color_label);
     cairo_select_font_face(cr, config->tty_font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
     cairo_set_font_size(cr, (large ? 23 : 16) * scale);
-    draw_centered(cr, center_x, prompt_y + (large ? 6 : 4) * scale, ">_");
+    if (large)
+    {
+        draw_centered(cr, center_x, tile_y + 6 * scale, ">_");
+        return;
+    }
+
+    cairo_text_extents_t ink;
+    cairo_text_extents(cr, ">_", &ink);
+    double prompt_top = top + height * 0.13;
+    if (params->is_circular)
+    {
+        /* Lower the prompt until its left-aligned ink fits inside the circle. */
+        const double radius = params->circle_radius;
+        const double dx = fmax(fabs(left - center_x), fabs(left + ink.width - center_x));
+        const double edge_y = params->circle_center_y - sqrt(fmax(0, radius * radius - dx * dx));
+        prompt_top = fmax(prompt_top, edge_y + 2 * scale);
+    }
+    cairo_move_to(cr, left - ink.x_bearing, prompt_top - ink.y_bearing);
+    cairo_show_text(cr, ">_");
 }
 
 int paint_terminal_overlay(cairo_t *cr, const Config *config,
@@ -213,9 +232,9 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
                                               : config->display_height;
     const double scale = params->is_circular ? height / 240.0 : params->scale_uniform;
     const double top = params->circle_center_y - height / 2.0;
-    double first_row = 0.34;
+    double first_row = 0.36;
     if (config->tty_icon == TTY_ICON_SMALL)
-        first_row = params->is_circular ? 0.29 : 0.27;
+        first_row = params->is_circular ? 0.31 : 0.285;
     else if (config->tty_icon == TTY_ICON_OFF)
         first_row = params->is_circular ? 0.26 : 0.22;
     const double earliest = top + height * first_row;
@@ -255,20 +274,23 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
     }
 
     cairo_save(cr);
-    draw_prompt(cr, config, params->circle_center_x, top, height, scale);
+    draw_prompt(cr, config, params, column_left, top, height, scale);
 
     cairo_select_font_face(cr, config->tty_font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, fmax(13 * scale, font_size * 0.40));
-    set_cairo_color(cr, &config->font_color_label);
-    const double heading_y = first - font_size * 0.82;
-    cairo_text_extents_t heading;
-    cairo_text_extents(cr, "LOAD", &heading);
-    double heading_left, heading_width;
-    calculate_safe_region_bounds(params, heading_y + heading.y_bearing, heading.height,
-                                 0.94, margin, fallback_width, &heading_left, &heading_width);
-    const double heading_x = fmin(bar_left + bar_width / 2.0,
-                                  heading_left + heading_width - heading.width / 2.0);
-    draw_centered(cr, heading_x, heading_y, "LOAD");
+    if (config->tty_icon != TTY_ICON_OFF)
+    {
+        cairo_set_font_size(cr, fmax(13 * scale, font_size * 0.40));
+        set_cairo_color(cr, &config->font_color_label);
+        const double heading_y = first - font_size * 0.82;
+        cairo_text_extents_t heading;
+        cairo_text_extents(cr, "LOAD", &heading);
+        double heading_left, heading_width;
+        calculate_safe_region_bounds(params, heading_y + heading.y_bearing, heading.height,
+                                     0.94, margin, fallback_width, &heading_left, &heading_width);
+        const double heading_x = fmin(bar_left + bar_width / 2.0,
+                                      heading_left + heading_width - heading.width / 2.0);
+        draw_centered(cr, heading_x, heading_y, "LOAD");
+    }
     draw_temperature(cr, config, data, &rows[0], "CPU", "cpu", 1);
     draw_temperature(cr, config, data, &rows[1], "GPU", "gpu", 1);
     draw_temperature(cr, config, data, &rows[2], "LIQ", "liquid", 0);

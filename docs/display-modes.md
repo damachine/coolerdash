@@ -33,7 +33,8 @@ The power row sums the available CPU and GPU readings. When only one is
 available, the row identifies that processor. Missing readings show a dash,
 and unavailable load bars show an empty track. The mode uses the standard
 CoolerControl sensors and uses the configured LCD background color, image or GIF.
-**TTY Icon** offers a large prompt tile, a small prompt, or no icon.
+**TTY Icon** offers a large prompt tile or a small, left-aligned prompt.
+**Off** hides both the prompt and the LOAD heading.
 ## Activity Rings
 
 Choose **Display → Activity Rings** to see three concentric temperature rings

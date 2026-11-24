@@ -883,12 +883,12 @@
                             <g id="mode_preview_circle" style="display: none;" transform="translate(36 36) scale(.70)" fill="#fff"></g>
                             <g id="mode_preview_terminal" style="display: none;" font-family="monospace" transform="translate(17 17) scale(.86)">
                                 <g id="mode_preview_tty_large">
-                                    <rect x="96" y="20" width="48" height="32" fill="#95b9fb" opacity=".2"/>
-                                    <text x="120" y="42" text-anchor="middle" data-tty-label="" fill="#c8c8c8" font-size="23" font-weight="bold">&gt;_</text>
+                                    <rect x="96" y="26" width="48" height="32" fill="#95b9fb" opacity=".2"/>
+                                    <text x="120" y="48" text-anchor="middle" data-tty-label="" fill="#c8c8c8" font-size="23" font-weight="bold">&gt;_</text>
                                 </g>
-                                <text id="mode_preview_tty_small" x="120" y="33" text-anchor="middle" data-tty-label="" fill="#c8c8c8" font-size="16" font-weight="bold" style="display: none;">&gt;_</text>
+                                <text id="mode_preview_tty_small" x="12" y="52" data-tty-label="" fill="#c8c8c8" font-size="16" font-weight="bold" style="display: none;">&gt;_</text>
                                 <g id="mode_preview_tty_rows">
-                                    <text x="204" y="54" text-anchor="middle" data-tty-label="" font-size="15" fill="#c8c8c8">LOAD</text>
+                                    <text id="mode_preview_tty_load" x="204" y="54" text-anchor="middle" data-tty-label="" font-size="15" fill="#c8c8c8">LOAD</text>
                                     <g data-tty-label="" font-size="22" fill="#c8c8c8">
                                         <text x="12" y="82">CPU</text><text x="12" y="112">GPU</text>
                                         <text x="12" y="142">LIQ</text><text x="12" y="172">PWR</text><text x="12" y="202">RAM</text>
@@ -2999,6 +2999,7 @@
             document.getElementById('preview_screen_clip_rect').setAttribute('rx', circular ? '113' : '7');
             document.getElementById('mode_preview_terminal').setAttribute(
                 'transform', circular ? 'translate(17 17) scale(.86)' : '');
+            document.getElementById('mode_preview_tty_small').setAttribute('y', circular ? '52' : '41');
             var ringPath = circular
                 ? 'M40 200 A104 104 0 1 1 200 200'
                 : 'M218 16 Q224 16 224 22 V218 Q224 224 218 224 H22 Q16 224 16 218 V22 Q16 16 22 16 H218 Z';
@@ -3233,8 +3234,9 @@
                 document.getElementById('mode_preview_tty_values').setAttribute('fill', ttyValueColor);
                 document.getElementById('mode_preview_tty_large').style.display = ttyIcon === 'large' ? '' : 'none';
                 document.getElementById('mode_preview_tty_small').style.display = ttyIcon === 'small' ? '' : 'none';
+                document.getElementById('mode_preview_tty_load').style.display = ttyIcon === 'off' ? 'none' : '';
                 document.getElementById('mode_preview_tty_rows').setAttribute(
-                    'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 -8)' : '');
+                    'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 -4)' : 'translate(0 4)');
             }
             if (mode === 'activity-rings') customLayouts.renderActivityPreview(showClock);
             var descriptions = {
@@ -4364,16 +4366,21 @@
                     elements.push(caption('CPU', 429, 645, 142, 84, { size: 22 }));
                 } else if (id === 'terminal') {
                     const icon = document.getElementById('tty_icon').value;
-                    if (icon !== 'off')
-                        elements.push(caption('>_', 450, 104, 100, 91, { font: 'mono', size: icon === 'small' ? 16 : 23 }));
-                    elements.push(caption('LOAD', 737, 181, 142, 54, { font: 'mono', size: 13 }));
+                    const labelX = 154;
+                    if (icon !== 'off') {
+                        const small = icon === 'small';
+                        elements.push(caption('>_', small ? labelX : 450, small ? 140 : 125, 100, 91, {
+                            font: 'mono', size: small ? 16 : 23
+                        }));
+                        elements.push(caption('LOAD', 737, 181, 142, 54, { font: 'mono', size: 13 }));
+                    }
                     const rows = [
                         ['CPU', 'cpu', 'cpu-load'], ['GPU', 'gpu', 'gpu-load'],
                         ['LIQ', 'liquid'], ['PWR', 'power'], ['RAM', 'ram-used', 'ram-load']
                     ];
                     rows.forEach(([label, source, load], index) => {
                         const y = 235 + index * 131;
-                        elements.push(caption(label, 154, y, 185, 102, { font: 'mono', size: 19 }));
+                        elements.push(caption(label, labelX, y, 185, 102, { font: 'mono', size: 19 }));
                         elements.push(value(source, '', 342, y, 376, 102, { font: 'mono', size: 29 }));
                         if (load)
                             elements.push(make('bar', 724, y + 27, 155, 48, {
