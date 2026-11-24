@@ -60,7 +60,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
     "circle_switch_interval": 8,
     "content_scale_factor": 0.98,
     "dual_show_bars": true,
-    "split_ring_by_sensor": true,
+    "split_ring_by_sensor": false,
     "sensor_ring_enabled": false,
     "sensor_ring_sensor": "liquid",
     "sensor_slot_1": "cpu",
@@ -81,7 +81,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
 | `dual_show_bars` | `true` | Show the temperature bars in Dual mode |
-| `split_ring_by_sensor` | `true` | In Split and Dual modes, color both ring halves from the two visible layout sensors |
+| `split_ring_by_sensor` | `true` in Split, `false` in Dual | Color both ring halves from the two visible layout sensors |
 | `sensor_ring_enabled` | `false` | Add the sensor-value ring in Split, Dual, or Circle mode |
 | `sensor_ring_sensor` | `liquid` | Sensor that controls the ring outside Circle mode; Circle follows its active sensor |
 | `sensor_slot_1/2/3` | `cpu`/`none`/`gpu` in Dual | Sensor assignment per slot. Set all visible slots to `none` for a background-only display. |

@@ -807,7 +807,7 @@
                         <div class="form-group">
                             <label class="form-label">Display Mode</label>
                             <span class="form-hint">Select how sensors are arranged on the display.</span>
-                            <select name="display.mode" id="display_mode" class="form-control" onchange="toggleDisplayModeFields()">
+                            <select name="display.mode" id="display_mode" class="form-control" onchange="selectDisplayMode()">
                                 <option value="dual">Dual (CPU + GPU simultaneously)</option>
                                 <option value="split">Split (CPU + GPU columns)</option>
                                 <option value="circle">Circle (Alternating display)</option>
@@ -1672,7 +1672,7 @@
                 split_show_load: true,
                 split_show_watts: true,
                 split_show_rpm: false,
-                split_ring_by_sensor: true,
+                split_ring_by_sensor: false,
                 sensor_ring_enabled: false,
                 sensor_ring_sensor: "liquid",
                 refresh_interval: 3.5,
@@ -1779,6 +1779,12 @@
                 margin_bottom: 0
             }
         };
+
+        const DISPLAY_MODE_SLOTS = new Map([
+            ['dual', ['cpu', 'none', 'gpu']],
+            ['split', ['cpu', 'gpu', 'none']],
+            ['circle', ['cpu', 'gpu', 'liquid']]
+        ]);
 
         let DEFAULT_CONFIG = null;
         let RESET_CONFIG = null;
@@ -3322,6 +3328,31 @@
             }
         }
 
+        function selectDisplayMode() {
+            var mode = document.getElementById('display_mode').value;
+            var defaults = FACTORY_DEFAULTS.display;
+            var slots = DISPLAY_MODE_SLOTS.get(mode);
+            document.getElementById('show_clock').checked = defaults.show_clock;
+            document.getElementById('sensor_ring_enabled').checked = defaults.sensor_ring_enabled;
+            document.getElementById('sensor_ring_sensor').value = defaults.sensor_ring_sensor;
+            document.querySelectorAll('[data-element-mode~="' + mode + '"] input').forEach(function (input) {
+                input.checked = defaults[input.id];
+            });
+            document.getElementById('split_ring_by_sensor').checked = mode === 'split';
+            if (slots) {
+                slots.forEach(function (sensor, index) {
+                    document.getElementById('sensor_slot_' + (index + 1)).value = sensor;
+                });
+            }
+            if (mode === 'circle') {
+                document.getElementById('circle_layout').value = defaults.circle_layout;
+                document.querySelector('[name="display.circle_switch_interval"]').value = defaults.circle_switch_interval;
+            } else if (mode === 'terminal') {
+                document.getElementById('tty_icon').value = defaults.tty_icon;
+            }
+            toggleDisplayModeFields();
+        }
+
         function toggleDisplayModeFields() {
             var mode = document.getElementById('display_mode').value;
             var isCircle = mode === 'circle';
@@ -3402,24 +3433,6 @@
             if (slot2Label) slot2Label.textContent = isSplit ? 'Right' : 'Slot 2';
             if (slot1Hint) slot1Hint.textContent = isSplit ? 'Default: CPU' : 'Default: CPU';
             if (slot2Hint) slot2Hint.textContent = isSplit ? 'Default: GPU' : 'Default: GPU (Circle only)';
-            if (mode === 'dual') {
-                var midSlot = document.getElementById('sensor_slot_2');
-                if (midSlot) midSlot.value = 'none';
-                var slot3 = document.getElementById('sensor_slot_3');
-                if (slot3 && (slot3.value === 'liquid' || slot3.value === 'none')) slot3.value = 'gpu';
-            } else if (mode === 'split') {
-                var leftSlot = document.getElementById('sensor_slot_1');
-                if (leftSlot && leftSlot.value === 'none') leftSlot.value = 'cpu';
-                var rightSlot = document.getElementById('sensor_slot_2');
-                if (rightSlot && (rightSlot.value === 'liquid' || rightSlot.value === 'none')) rightSlot.value = 'gpu';
-                var slot3 = document.getElementById('sensor_slot_3');
-                if (slot3) slot3.value = 'none';
-            } else if (mode === 'circle') {
-                var midSlot = document.getElementById('sensor_slot_2');
-                if (midSlot && midSlot.value === 'none') midSlot.value = 'gpu';
-                var slot3 = document.getElementById('sensor_slot_3');
-                if (slot3 && (slot3.value === 'gpu' || slot3.value === 'none')) slot3.value = 'liquid';
-            }
             updateModePreview();
             validateSensorSlots();
         }
@@ -3829,9 +3842,11 @@
             currentSensorConfig = config.sensors || {};
             renderSensorConfigs(config);
 
-            customLayouts.load(config.custom_layouts);
-            toggleDisplayModeFields();
-            validateSensorSlots();
+            if (customLayouts.load(config.custom_layouts)) {
+                selectDisplayMode();
+            } else {
+                toggleDisplayModeFields();
+            }
             updateSelectedImagePreview('background');
             updateSelectedImagePreview('shutdown');
         }
@@ -4146,8 +4161,9 @@
                 : typeof ringEnabled === 'number' ? ringEnabled !== 0 : false;
             ['dual_show_bars', 'split_show_load', 'split_show_watts', 'split_show_rpm', 'split_ring_by_sensor'].forEach(function (key) {
                 var value = displayInput[key];
-                var defaultEnabled = key !== 'split_show_rpm' &&
-                    !(key === 'split_ring_by_sensor' && sensorRingRequested);
+                var defaultEnabled = key === 'split_ring_by_sensor'
+                    ? merged.display.mode === 'split' && !sensorRingRequested
+                    : key !== 'split_show_rpm';
                 merged.display[key] = typeof value === 'boolean' ? value : typeof value === 'number' ? value !== 0 : defaultEnabled;
             });
             merged.display.sensor_ring_enabled = sensorRingRequested;
@@ -4158,17 +4174,19 @@
                 merged.display.sensor_ring_sensor = 'liquid';
             }
 
-            // Sanitize corrupt numeric slot values (from old parseFloat bug)
-            var slotDefaults = { sensor_slot_1: 'cpu', sensor_slot_2: 'gpu', sensor_slot_3: 'none', sensor_ring_sensor: 'liquid' };
-            for (var slotKey in slotDefaults) {
-                if (merged.display && merged.display[slotKey] !== undefined) {
-                    var sv = String(merged.display[slotKey]);
-                    if (/^\d+$/.test(sv)) {
-                        merged.display[slotKey] = slotDefaults[slotKey];
-                    } else {
-                        merged.display[slotKey] = sv;
-                    }
+            var modeSlots = DISPLAY_MODE_SLOTS.get(merged.display.mode);
+            (modeSlots || DISPLAY_MODE_SLOTS.get('dual')).forEach(function (fallback, index) {
+                var key = 'sensor_slot_' + (index + 1);
+                var value = modeSlots ? displayInput[key] : merged.display[key];
+                // Keep inactive slots empty and restore missing or corrupt assignments.
+                if ((modeSlots && fallback === 'none') || !value || /^\d+$/.test(value)) {
+                    merged.display[key] = fallback;
+                } else {
+                    merged.display[key] = String(value);
                 }
+            });
+            if (/^\d+$/.test(merged.display.sensor_ring_sensor)) {
+                merged.display.sensor_ring_sensor = FACTORY_DEFAULTS.display.sensor_ring_sensor;
             }
 
             // Clean up legacy positioning keys
@@ -4387,11 +4405,13 @@
                 if (bank.items.some(item => item.id === input?.active_id)) bank.active_id = input.active_id;
                 savedBank = cloneConfig(bank);
                 selected = -1;
-                if (mode.value === 'custom' && !current()) {
+                const missingActiveLayout = mode.value === 'custom' && !current();
+                if (missingActiveLayout) {
                     mode.value = 'split';
                     say('The active Custom Layout was unavailable. Split is selected.');
                 }
                 update();
+                return missingActiveLayout;
             }
 
             function addLayout(layout) {
@@ -4734,7 +4754,7 @@
                 bank.items = bank.items.filter(item => item.id !== bank.active_id);
                 selectLayout('');
                 mode.value = 'split';
-                toggleDisplayModeFields();
+                selectDisplayMode();
             });
             byId('name').addEventListener('change', event => {
                 const name = event.target.value.trim();

@@ -17,6 +17,11 @@ supports `--split`, `--dual`, `--circle`, `--terminal`, and `--activity-rings`.
 Enable **Show Clock** to display the local time at the bottom of any mode.
 The option is off by default.
 
+When you switch modes in the menu, the selected mode starts with its default
+display elements and sensor assignments. Opening the plugin loads your saved
+settings. You can change the options after selecting a mode and save them
+for the LCD.
+
 ## TTY (Terminal)
 
 Choose **Display → TTY (Terminal)** for a monospace dashboard that fits
@@ -90,7 +95,7 @@ Split and Dual modes can divide that ring into two equal halves. Each half uses
 one visible layout sensor and the same temperature-threshold colors as its bar.
 Split temperature numbers stay white so the ring alone carries the threshold
 state. Split load, power and RPM values use the configured label color. This
-option overrides the single-sensor ring and is enabled by default. Enabling
+option overrides the single-sensor ring and is enabled by default in Split. Enabling
 either ring disables the other, so only one ring type is saved. Ring thickness,
 opacity and label color are configurable in the Layout tab.
 
@@ -114,6 +119,9 @@ configured mode.
 ## Dual Mode
 
 CPU and GPU temperatures side-by-side.
+
+Selecting **Dual** in the mode menu starts with **Temperature Bars** enabled.
+**Show Clock**, **Split Sensor Ring**, and **Sensor Ring** start off.
 
 ```
 ┌────────────────────────────┐
