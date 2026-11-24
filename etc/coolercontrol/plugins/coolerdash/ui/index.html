@@ -890,15 +890,15 @@
                                 <g id="mode_preview_tty_rows">
                                     <text id="mode_preview_tty_load" x="204" y="54" text-anchor="middle" data-tty-label="" font-size="15" fill="#c8c8c8">LOAD</text>
                                     <g data-tty-label="" font-size="22" fill="#c8c8c8">
-                                        <text x="12" y="82">CPU</text><text x="12" y="112">GPU</text>
-                                        <text x="12" y="142">LIQ</text><text x="12" y="172">PWR</text><text x="12" y="202">RAM</text>
+                                        <text x="12" y="73">CPU</text><text x="12" y="103">GPU</text>
+                                        <text x="12" y="133">LIQ</text><text x="12" y="163">PWR</text><text x="12" y="193">RAM</text>
                                     </g>
                                     <g id="mode_preview_tty_values" font-size="34" fill="#ffffff" text-anchor="end">
-                                        <text x="170" y="82">54<tspan dx="4" dy="-9" font-size="21">°C</tspan></text>
-                                        <text x="170" y="112">62<tspan dx="4" dy="-9" font-size="21">°C</tspan></text>
-                                        <text x="170" y="142">32.5<tspan dx="4" dy="-9" font-size="21">°C</tspan></text>
+                                        <text x="170" y="82">54<tspan dx="4" dy="1" font-size="37">°</tspan></text>
+                                        <text x="170" y="112">62<tspan dx="4" dy="1" font-size="37">°</tspan></text>
+                                        <text x="170" y="142">32<tspan font-size="21">.5</tspan><tspan dx="4" dy="1" font-size="37">°</tspan></text>
                                         <text x="170" y="172">182<tspan dx="4" font-size="21">W</tspan></text>
-                                        <text x="170" y="202">18.6<tspan dx="4" font-size="21">GiB</tspan></text>
+                                        <text x="170" y="198" font-size="28">18.6<tspan dx="4" font-size="21">GiB</tspan></text>
                                     </g>
                                     <g fill="none" stroke="#95b9fb" stroke-width="12" stroke-dasharray="4.6 1.4">
                                         <path d="M180 74h48 M180 104h48 M180 194h48" opacity=".22"/>
@@ -3236,7 +3236,7 @@
                 document.getElementById('mode_preview_tty_small').style.display = ttyIcon === 'small' ? '' : 'none';
                 document.getElementById('mode_preview_tty_load').style.display = ttyIcon === 'off' ? 'none' : '';
                 document.getElementById('mode_preview_tty_rows').setAttribute(
-                    'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 -4)' : 'translate(0 4)');
+                    'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 2)' : 'translate(0 4)');
             }
             if (mode === 'activity-rings') customLayouts.renderActivityPreview(showClock);
             var descriptions = {

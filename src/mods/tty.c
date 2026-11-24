@@ -7,6 +7,8 @@
 
 static const Color terminal_accent = {149, 185, 251, 1};
 static const double label_scale = 0.68;
+static const double fraction_scale = 0.62;
+static const double unit_scale = 0.64;
 
 typedef struct
 {
@@ -22,7 +24,9 @@ typedef struct
 {
     cairo_text_extents_t label;
     cairo_text_extents_t value;
+    cairo_text_extents_t fraction;
     cairo_text_extents_t unit;
+    double value_width;
     double unit_width;
 } TerminalText;
 
@@ -35,51 +39,72 @@ static void draw_centered(cairo_t *cr, double x, double baseline, const char *te
 }
 
 static double measure_row_text(cairo_t *cr, TerminalText *text, double size, double unit_size,
-                              const char *label, const char *value, const char *unit)
+                               const char *value, const char *fraction, const char *unit)
 {
-    cairo_set_font_size(cr, size * label_scale);
-    cairo_text_extents(cr, label, &text->label);
     cairo_set_font_size(cr, size);
     cairo_text_extents(cr, value, &text->value);
+    text->value_width = text->value.width;
+    if (*fraction)
+    {
+        cairo_set_font_size(cr, size * fraction_scale);
+        cairo_text_extents(cr, fraction, &text->fraction);
+        text->value_width += text->fraction.width + size * 0.03;
+    }
     cairo_set_font_size(cr, unit_size);
     cairo_text_extents(cr, unit, &text->unit);
     text->unit_width = *unit ? text->unit.width + size * 0.12 : 0;
-    return text->label.width + text->value.width + text->unit_width + size * 0.34;
+    return text->label.width + text->value_width + text->unit_width + size * 0.34;
 }
 
 static void draw_row(cairo_t *cr, const Config *config, const TerminalRow *row, const char *label,
-                     const char *value, const char *unit, int has_bar, double progress)
+                     const char *value, const char *fraction, const char *unit,
+                     int has_bar, double progress)
 {
     TerminalText text;
-    const int temperature = strcmp(unit, "°C") == 0;
+    const int temperature = strcmp(unit, "°") == 0;
+    const double label_size = row->font_size * label_scale;
     double font_size = row->font_size;
-    double unit_size = font_size * 0.64;
+    double unit_size = font_size * unit_scale * (temperature ? 1.75 : 1);
     const double available = row->value_right - row->left;
-    const double span = measure_row_text(cr, &text, font_size, unit_size, label, value, unit);
+    cairo_set_font_size(cr, label_size);
+    cairo_text_extents(cr, label, &text.label);
+    const double span = measure_row_text(cr, &text, font_size, unit_size, value, fraction, unit);
     if (span > available)
     {
-        const double fixed_width = temperature ? text.unit.width : 0;
+        const double fixed_width = text.label.width + (temperature ? text.unit.width : 0);
         font_size = fmax(1, floor(font_size * (available - fixed_width) / (span - fixed_width)));
         if (!temperature)
-            unit_size = font_size * 0.64;
-        measure_row_text(cr, &text, font_size, unit_size, label, value, unit);
+            unit_size = font_size * unit_scale;
+        measure_row_text(cr, &text, font_size, unit_size, value, fraction, unit);
     }
 
+    double value_top = row->baseline + text.value.y_bearing;
+    if (!*unit)
+    {
+        cairo_text_extents_t digit;
+        cairo_set_font_size(cr, font_size);
+        cairo_text_extents(cr, "0", &digit);
+        value_top = row->baseline + digit.y_bearing;
+    }
     set_cairo_color(cr, &config->font_color_label);
-    cairo_set_font_size(cr, font_size * label_scale);
-    cairo_move_to(cr, row->left - text.label.x_bearing, row->baseline);
+    cairo_set_font_size(cr, label_size);
+    cairo_move_to(cr, row->left - text.label.x_bearing, value_top - text.label.y_bearing);
     cairo_show_text(cr, label);
 
     set_cairo_color(cr, &config->font_color_temp);
+    const double value_end = row->value_right - text.unit_width;
     cairo_set_font_size(cr, font_size);
-    cairo_move_to(cr, row->value_right - text.unit_width - text.value.x_bearing - text.value.width,
-                  row->baseline);
+    cairo_move_to(cr, value_end - text.value_width - text.value.x_bearing, row->baseline);
     cairo_show_text(cr, value);
+    if (*fraction)
+    {
+        cairo_set_font_size(cr, font_size * fraction_scale);
+        cairo_move_to(cr, value_end - text.fraction.width - text.fraction.x_bearing, row->baseline);
+        cairo_show_text(cr, fraction);
+    }
     if (*unit)
     {
-        double unit_baseline = row->baseline;
-        if (temperature)
-            unit_baseline += text.value.y_bearing - text.unit.y_bearing;
+        const double unit_baseline = temperature ? value_top - text.unit.y_bearing : row->baseline;
         cairo_set_font_size(cr, unit_size);
         cairo_move_to(cr, row->value_right - text.unit.x_bearing - text.unit.width, unit_baseline);
         cairo_show_text(cr, unit);
@@ -106,10 +131,22 @@ static void draw_temperature(cairo_t *cr, const Config *config, const monitor_se
     const sensor_entry_t *sensor = find_sensor_for_slot(data, slot);
     const sensor_entry_t *load = has_bar ? find_processor_load(data, slot) : NULL;
     char value[24] = "—";
+    char fraction[sizeof(value)] = "";
     const int available = valid_reading(sensor);
     if (available)
+    {
         snprintf(value, sizeof(value), "%.*f", sensor->use_decimal ? 1 : 0, sensor->value);
-    draw_row(cr, config, row, label, value, available ? "°C" : "", has_bar,
+        if (strcmp(slot, "liquid") == 0)
+        {
+            char *decimal = strpbrk(value, ".,");
+            if (decimal)
+            {
+                snprintf(fraction, sizeof(fraction), "%s", decimal);
+                *decimal = '\0';
+            }
+        }
+    }
+    draw_row(cr, config, row, label, value, fraction, available ? "°" : "", has_bar,
              valid_reading(load) ? load->value / 100.0 : 0);
 }
 
@@ -134,7 +171,7 @@ static void draw_power(cairo_t *cr, const Config *config, const monitor_sensor_d
     const int available = read_processor_power(data, &watts, &label);
     if (available)
         snprintf(value, sizeof(value), "%.0f", watts);
-    draw_row(cr, config, row, label, value, available ? "W" : "", 0, 0);
+    draw_row(cr, config, row, label, value, "", available ? "W" : "", 0, 0);
 }
 
 int read_used_memory(const Config *config, double *gib, double *progress)
@@ -180,7 +217,7 @@ static void draw_memory(cairo_t *cr, const Config *config, const TerminalRow *ro
         snprintf(value, sizeof(value), "%.1f", gib);
     else
         progress = 0;
-    draw_row(cr, config, row, "RAM", value, available ? "GiB" : "", 1, progress);
+    draw_row(cr, config, row, "RAM", value, "", available ? "GiB" : "", 1, progress);
 }
 
 static void draw_prompt(cairo_t *cr, const Config *config, const ScalingParams *params,
@@ -234,7 +271,7 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
     const double top = params->circle_center_y - height / 2.0;
     double first_row = 0.36;
     if (config->tty_icon == TTY_ICON_SMALL)
-        first_row = params->is_circular ? 0.31 : 0.285;
+        first_row = 0.31;
     else if (config->tty_icon == TTY_ICON_OFF)
         first_row = params->is_circular ? 0.26 : 0.22;
     const double earliest = top + height * first_row;
