@@ -940,11 +940,7 @@
                     </div>
                     <div class="custom-options">
                         <label for="custom_template">Start from</label>
-                        <select id="custom_template" class="form-control" style="width: auto;">
-                            <option>Terminal</option>
-                            <option>Monitor</option>
-                            <option>Activity Rings</option>
-                        </select>
+                        <select id="custom_template" class="form-control" style="width: auto;"></select>
                         <button type="button" class="btn btn-secondary" id="custom_use_template">Use Template</button>
                         <button type="button" class="btn btn-secondary" id="custom_import">Import JSON</button>
                         <button type="button" class="btn btn-secondary" id="custom_export">Export JSON</button>
@@ -3349,6 +3345,7 @@
                 ++renderPreviewGeneration;
                 clearTimeout(renderPreviewTimer);
             } else {
+                document.getElementById('custom_template').value = mode;
                 customLayouts.schedulePreview();
             }
             document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
@@ -4195,6 +4192,10 @@
                 'cpu-power': 'CPU Power', 'gpu-power': 'GPU Power', power: 'CPU + GPU Power',
                 'ram-used': 'RAM Used', 'ram-load': 'RAM Load'
             };
+            const templateNames = {
+                dual: 'Dual', split: 'Split', circle: 'Circle', terminal: 'TTY (Terminal)',
+                'activity-rings': 'Activity Rings'
+            };
             const labels = { value: 'Sensor Value', text: 'Text', clock: 'Clock', bar: 'Bar', ring: 'Ring', frame: 'Frame' };
             const encoder = new TextEncoder();
             let bank = { active_id: '', items: [] };
@@ -4275,42 +4276,68 @@
                 return Object.assign(element, settings);
             }
 
-            function template(name) {
+            function activityRings() {
+                const rings = ['cpu', 'gpu', 'liquid'].map((source, index) => {
+                    const inset = 55 + index * 65;
+                    return make('ring', inset, inset, grid - 2 * inset, grid - 2 * inset, {
+                        source, color: ['#ff6685', '#b4eb79', '#5cdef5'][index]
+                    });
+                });
+                return [...rings,
+                    make('value', 260, 375, 480, 190, { source: 'cpu', size: 34 }),
+                    make('text', 427, 566, 146, 94, { text: 'CPU', size: 15, color: '#ff8da2' })];
+            }
+
+            function template(id) {
+                const background = document.getElementById('color_display_background').value || '#000000';
+                const labelColor = document.getElementById('color_font_label').value || '#c8c8c8';
+                const valueColor = document.getElementById('color_font_temp').value || '#ffffff';
                 const value = (source, text, x, y, w, h, settings) =>
-                    make('value', x, y, w, h, Object.assign({ source, text }, settings));
+                    make('value', x, y, w, h, { source, text, color: valueColor, ...settings });
+                const caption = (text, x, y, w, h, settings) =>
+                    make('text', x, y, w, h, { text, color: labelColor, ...settings });
                 const elements = [];
-                let background = '#131d29';
-                if (name === 'Terminal') {
-                    background = '#141927';
-                    elements.push(make('text', 220, 215, 570, 100, {
-                        text: '>_', font: 'mono', size: 17, color: '#91b6ff'
-                    }));
-                    ['cpu', 'gpu', 'liquid'].forEach((source, index) => {
-                        elements.push(value(source, ['CPU', 'GPU', 'Liquid'][index], 220, 320 + index * 118,
-                            600, 95, { font: 'mono', size: 18, color: '#e6edff' }));
-                    });
-                    elements.push(make('bar', 220, 684, 560, 42, { segments: 12, color: '#91b6ff' }));
-                } else if (name === 'Monitor') {
-                    elements.push(make('clock', 300, 160, 400, 120, { font: 'mono', size: 23 }));
+                if (id === 'dual') {
                     ['cpu', 'gpu'].forEach((source, index) => {
-                        const y = 304 + index * 206;
-                        const accent = index ? '#9babff' : '#64dacc';
-                        elements.push(make('frame', 172, y, 656, 177, { color: accent }));
-                        elements.push(value(source, source.toUpperCase(), 217, y + 19, 565, 90, { font: 'mono', size: 18 }));
-                        elements.push(make('bar', 220, y + 119, 560, 35, { source, segments: 10, color: accent }));
+                        const y = 198 + index * 310;
+                        elements.push(value(source, source.toUpperCase(), 195, y, 610, 170, { size: 38 }));
+                        elements.push(make('bar', 195, y + 178, 610, 44, { source }));
                     });
-                } else if (name === 'Activity Rings') {
-                    background = '#101626';
-                    ['cpu', 'gpu', 'liquid'].forEach((source, index) => {
-                        const inset = 55 + index * 65;
-                        elements.push(make('ring', inset, inset, grid - 2 * inset, grid - 2 * inset, {
-                            source, color: ['#ff6685', '#b4eb79', '#5cdef5'][index]
-                        }));
+                } else if (id === 'split') {
+                    elements.push(make('frame', 490, 250, 20, 514, { color: '#657181' }));
+                    ['cpu', 'gpu'].forEach((source, index) => {
+                        const x = 128 + index * 392;
+                        elements.push(caption(source.toUpperCase(), x + 100, 257, 154, 90, { size: 17 }));
+                        elements.push(value(source, '', x + 22, 358, 308, 176, { size: 39 }));
+                        elements.push(value(source + '-load', '', x, 556, 352, 92, { size: 20 }));
+                        elements.push(value(source + '-power', '', x, 650, 352, 92, { size: 23 }));
                     });
-                    elements.push(value('cpu', '', 260, 375, 480, 190, { size: 34 }));
-                    elements.push(make('text', 427, 566, 146, 94, { text: 'CPU', size: 15, color: '#ff8da2' }));
+                } else if (id === 'circle') {
+                    elements.push(value('cpu', '', 165, 242, 670, 260, { size: 60 }));
+                    elements.push(make('bar', 202, 537, 596, 62));
+                    elements.push(caption('CPU', 429, 645, 142, 84, { size: 22 }));
+                } else if (id === 'terminal') {
+                    const icon = document.getElementById('tty_icon').value;
+                    if (icon !== 'off')
+                        elements.push(caption('>_', 450, 104, 100, 91, { font: 'mono', size: icon === 'small' ? 16 : 23 }));
+                    elements.push(caption('LOAD', 737, 181, 142, 54, { font: 'mono', size: 13 }));
+                    const rows = [
+                        ['CPU', 'cpu', 'cpu-load'], ['GPU', 'gpu', 'gpu-load'],
+                        ['LIQ', 'liquid'], ['PWR', 'power'], ['RAM', 'ram-used', 'ram-load']
+                    ];
+                    rows.forEach(([label, source, load], index) => {
+                        const y = 235 + index * 131;
+                        elements.push(caption(label, 154, y, 185, 102, { font: 'mono', size: 19 }));
+                        elements.push(value(source, '', 342, y, 376, 102, { font: 'mono', size: 29 }));
+                        if (load)
+                            elements.push(make('bar', 724, y + 27, 155, 48, {
+                                source: load, segments: 8, color: '#95b9fb'
+                            }));
+                    });
+                } else if (id === 'activity-rings') {
+                    elements.push(...activityRings());
                 }
-                return { version: 1, name, background, elements };
+                return { version: 1, name: templateNames[id] || 'Untitled Layout', background, elements };
             }
 
             function load(input) {
@@ -4661,7 +4688,9 @@
                 byId('palette').append(button);
             }
             byId('saved_layout').addEventListener('change', event => selectLayout(event.target.value));
-            byId('new').addEventListener('click', () => addLayout(template('Untitled Layout')));
+            byId('new').addEventListener('click', () => addLayout(template('')));
+            for (const [id, title] of Object.entries(templateNames))
+                byId('template').add(new Option(title, id));
             byId('use_template').addEventListener('click', () => addLayout(template(byId('template').value)));
             byId('duplicate').addEventListener('click', () => {
                 const chars = Array.from(current().name);

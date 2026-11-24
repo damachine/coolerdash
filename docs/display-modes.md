@@ -27,12 +27,13 @@ available, the row identifies that processor. Missing readings show a dash,
 and unavailable load bars show an empty track. The mode uses the standard
 CoolerControl sensors and uses the configured LCD background color, image or GIF.
 **TTY Icon** offers a large prompt tile, a small prompt, or no icon.
-Select the Terminal template under Custom Layout to start an editable design.
 
 ## Custom Layout
 
-Open **Display → Custom Layout** in the CoolerControl plugin. Create a blank
-layout or copy the **Terminal**, **Monitor**, or **Activity Rings** template.
+Open **Display → Custom Layout** in the CoolerControl plugin. Start with an
+editable copy of **Dual**, **Split**, **Circle**, **TTY (Terminal)**, or
+**Activity Rings**, or create a blank layout with **New**. The Circle template
+starts with a CPU widget you can bind to another sensor.
 Click a widget to add it in the center, or drag it from the palette onto the
 display. Drag a widget to move it and use its corner handle to resize it.
 You can also edit its coordinates and size in the inspector or use the arrow
