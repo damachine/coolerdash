@@ -2026,6 +2026,7 @@ static const DisplayMode *get_display_mode(const Config *config)
         {"split", 1, draw_split_image, render_split_preview, paint_split_overlay},
         {"custom", 0, draw_overlay_image, render_overlay_frame, paint_custom_overlay},
         {"terminal", 0, draw_overlay_image, render_overlay_frame, paint_terminal_overlay},
+        {"activity-rings", 0, draw_overlay_image, render_overlay_frame, paint_activity_rings_overlay},
     };
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
     {
@@ -2194,6 +2195,12 @@ int render_display_preview(const struct Config *config,
         add_preview_entry(&data, "gpu", SENSOR_CATEGORY_TEMP, 62, "°C");
         add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
         add_processor_preview_channels(&data);
+    }
+    else if (strcmp(config->display_mode, "activity-rings") == 0)
+    {
+        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_TEMP, 45, "°C");
+        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_TEMP, 62, "°C");
+        add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
     }
     else if (strcmp(config->display_mode, "custom") == 0)
         add_custom_preview_sensors(&data, &config->custom_layout);

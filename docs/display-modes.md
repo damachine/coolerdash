@@ -1,6 +1,7 @@
 # Display Modes
 
-CoolerDash offers **Dual** (default), **Split**, **Circle**, **TTY (Terminal)**, and **Custom Layout**.
+CoolerDash offers **Dual** (default), **Split**, **Circle**, **TTY (Terminal)**,
+**Activity Rings**, and **Custom Layout**.
 
 Split, Dual, and Circle can add the optional **Sensor Ring** overlay. Split and Dual
 can instead divide the ring between their two visible sensors. In Circle mode,
@@ -10,7 +11,8 @@ The ring maps the current value to that sensor's configured maximum and uses
 the same threshold colors as its bars and values. The overlay is off by default
 for backwards-compatible output.
 
-Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, `--circle`, or `--terminal`.
+Choose a mode in the plugin or set `display.mode` in `config.json`. The CLI
+supports `--split`, `--dual`, `--circle`, `--terminal`, and `--activity-rings`.
 
 Enable **Show Clock** to display the local time at the bottom of any mode.
 The option is off by default.
@@ -27,6 +29,12 @@ available, the row identifies that processor. Missing readings show a dash,
 and unavailable load bars show an empty track. The mode uses the standard
 CoolerControl sensors and uses the configured LCD background color, image or GIF.
 **TTY Icon** offers a large prompt tile, a small prompt, or no icon.
+## Activity Rings
+
+Choose **Display → Activity Rings** to see three concentric temperature rings
+for CPU, GPU, and liquid. The CPU temperature is shown in the center. The mode
+uses the configured LCD background. Choose **Activity Rings** in the layout
+editor to change the widget positions, sources, or colors.
 
 ## Custom Layout
 
@@ -93,7 +101,7 @@ src/mods/
 ├── display.c/h    # Mode dispatcher
 ├── dual.c/h       # Dual mode
 ├── circle.c/h     # Circle mode
-├── custom.c/h     # Custom layout widgets
+├── custom.c/h     # Custom layout widgets and Activity Rings
 ├── tty.c/h        # TTY mode dashboard
 └── split.c/h      # Split mode
 ```

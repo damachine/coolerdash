@@ -812,6 +812,7 @@
                                 <option value="split">Split (CPU + GPU columns)</option>
                                 <option value="circle">Circle (Alternating display)</option>
                                 <option value="terminal">TTY (Terminal)</option>
+                                <option value="activity-rings">Activity Rings</option>
                                 <option value="custom">Custom Layout</option>
                             </select>
                         </div>
@@ -905,6 +906,7 @@
                                     </g>
                                 </g>
                             </g>
+                            <g id="mode_preview_activity-rings" style="display: none;"></g>
                             <g id="mode_preview_ring" style="display: none;" fill="none" stroke-linecap="round">
                                 <path class="mode-preview-ring-path" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#343434" stroke-width="8"/>
                                 <path class="mode-preview-ring-path" id="mode_preview_ring_value" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#00ff00" stroke-width="8" stroke-dasharray="0 100"/>
@@ -1324,7 +1326,7 @@
                     </div>
                 </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
+                <details class="collapsible-details" id="layout_sensor_ring_settings" style="margin-top: 12px;">
                     <summary>Sensor Ring</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-2">
@@ -1346,7 +1348,7 @@
                     </div>
                 </details>
 
-                <details class="collapsible-details" style="margin-top: 12px;">
+                <details class="collapsible-details" id="layout_font_size_settings" style="margin-top: 12px;">
                     <summary>Font Sizes</summary>
                     <div class="collapsible-details-content">
                         <div class="grid grid-3">
@@ -3111,7 +3113,7 @@
                     delete previewConfig.custom_layouts;
                     var result = await requestCairoPreview(previewConfig);
                     if (generation !== renderPreviewGeneration) return;
-                    if (previewConfig.display.mode === 'terminal' && result.shape)
+                    if (['terminal', 'activity-rings'].includes(previewConfig.display.mode) && result.shape)
                         setModePreviewShape(result.shape);
                     image.setAttribute('href', result.image);
                     image.style.display = '';
@@ -3205,6 +3207,7 @@
                 element.setAttribute('fill', rgbToHex(color));
             });
             var mode = document.getElementById('display_mode').value;
+            var showClock = document.getElementById('show_clock').checked;
             if (mode === 'split') {
                 document.getElementById('split_temperature_text').textContent =
                     document.getElementById('split_ring_by_sensor').checked
@@ -3227,24 +3230,26 @@
                 document.getElementById('mode_preview_tty_rows').setAttribute(
                     'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 -8)' : '');
             }
+            if (mode === 'activity-rings') customLayouts.renderActivityPreview(showClock);
             var descriptions = {
                 dual: 'Two sensors stacked vertically.',
                 split: 'Two sensor columns; visible values share the available space.',
                 circle: 'One sensor at a time; sensors alternate on the device.',
-                terminal: 'Temperatures, processor load, power and RAM.'
+                terminal: 'Temperatures, processor load, power and RAM.',
+                'activity-rings': 'Three temperature rings for CPU, GPU and liquid.'
             };
             Object.keys(descriptions).forEach(function (layout) {
                 document.getElementById('mode_preview_' + layout).style.display = layout === mode ? '' : 'none';
             });
             document.getElementById('mode_preview_title').textContent =
-                (mode === 'terminal' ? 'TTY (Terminal)' : mode) + ' layout preview: ' + descriptions[mode];
+                (mode === 'terminal' ? 'TTY (Terminal)' : mode === 'activity-rings' ? 'Activity Rings' : mode) +
+                ' layout preview: ' + descriptions[mode];
             document.getElementById('mode_preview_description').textContent = descriptions[mode];
-            document.getElementById('mode_preview_clock').style.display =
-                document.getElementById('show_clock').checked ? '' : 'none';
+            document.getElementById('mode_preview_clock').style.display = showClock ? '' : 'none';
             var ring = document.getElementById('mode_preview_ring');
             var splitRingEnabled = (mode === 'split' || mode === 'dual') &&
                 document.getElementById('split_ring_by_sensor').checked;
-            var ringEnabled = mode !== 'terminal' && (splitRingEnabled ||
+            var ringEnabled = mode !== 'terminal' && mode !== 'activity-rings' && (splitRingEnabled ||
                 document.getElementById('sensor_ring_enabled').checked);
             var ringValuePath = document.getElementById('mode_preview_ring_value');
             var secondaryRingPath = document.getElementById('mode_preview_ring_value_secondary');
@@ -3323,7 +3328,8 @@
             var isSplit = mode === 'split';
             var isCustom = mode === 'custom';
             var isTerminal = mode === 'terminal';
-            var usesSlots = !isCustom && !isTerminal;
+            var isActivity = mode === 'activity-rings';
+            var usesSlots = !isCustom && !isTerminal && !isActivity;
             var sensorGrid = document.getElementById('sensor_grid');
             document.querySelector('.mode-layout').classList.toggle('custom-mode', isCustom);
             document.getElementById('custom_layout_editor').hidden = !isCustom;
@@ -3333,7 +3339,9 @@
             document.getElementById('legacy_sensor_help').hidden = !usesSlots;
             document.getElementById('legacy_display_background').hidden = isCustom;
             document.getElementById('tty_icon_group').style.display = isTerminal ? '' : 'none';
-            document.getElementById('text_settings').hidden = isCustom;
+            document.getElementById('text_settings').hidden = isCustom || isActivity;
+            document.getElementById('layout_sensor_ring_settings').hidden = isActivity;
+            document.getElementById('layout_font_size_settings').hidden = isActivity;
             document.getElementById('custom_text_settings').hidden = !isCustom;
             document.getElementById('value_text_group').hidden = isSplit;
             document.getElementById('value_text_label').textContent = isTerminal ? 'Value Text' : 'Temperature Text';
@@ -3380,6 +3388,8 @@
                     ? 'Set widget position, size, colors and fonts in the Custom Layout editor on the Display tab.'
                     : isTerminal
                     ? 'TTY (Terminal) arranges measurements automatically for the detected LCD.'
+                    : isActivity
+                    ? 'Activity Rings scales to the detected LCD. Create a copy in Custom Layout to edit the rings and text.'
                     : isSplit
                     ? '<strong>Resolution-aware split layout</strong> The divider and both text columns adapt automatically to the detected LCD shape and size. Temperature values use each sensor\'s threshold colors.'
                     : '<strong>Resolution-aware layout</strong> Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.';
@@ -3416,7 +3426,7 @@
 
         function validateSensorSlots() {
             var mode = document.getElementById('display_mode').value;
-            if (mode === 'custom' || mode === 'terminal') {
+            if (mode === 'custom' || mode === 'terminal' || mode === 'activity-rings') {
                 document.getElementById('sensor_slot_warning').style.display = 'none';
                 return true;
             }
@@ -4288,6 +4298,24 @@
                     make('text', 427, 566, 146, 94, { text: 'CPU', size: 15, color: '#ff8da2' })];
             }
 
+            function renderActivityPreview(showClock) {
+                const preview = document.getElementById('mode_preview_activity-rings');
+                const widgets = activityRings();
+                const readings = { cpu: 45, gpu: 62, liquid: 32.5 };
+                preview.setAttribute('transform', showClock ? 'translate(18 6) scale(.85)' : '');
+                preview.innerHTML = widgets.slice(0, 3).map(ring => {
+                    const radius = (ring.w * 0.24 - 9) / 2;
+                    const track = '<circle cx="120" cy="120" r="' + radius + '" fill="none" stroke="' +
+                        ring.color + '" stroke-width="9"';
+                    return track + ' opacity=".22"/>' + track +
+                        ' transform="rotate(-90 120 120)" pathLength="100" stroke-linecap="round" stroke-dasharray="' +
+                        readings[ring.source] + ' 100"/>';
+                }).join('') + '<text x="120" y="113" text-anchor="middle" dominant-baseline="middle" font-size="' +
+                    widgets[3].size + '" fill="' + widgets[3].color + '">45 °C</text>' +
+                    '<text x="120" y="147" text-anchor="middle" dominant-baseline="middle" font-size="' +
+                    widgets[4].size + '" fill="' + widgets[4].color + '">CPU</text>';
+            }
+
             function template(id) {
                 const background = document.getElementById('color_display_background').value || '#000000';
                 const labelColor = document.getElementById('color_font_label').value || '#c8c8c8';
@@ -4794,7 +4822,7 @@
                 editor.addEventListener(event, event => event.stopPropagation());
 
             return {
-                load, schedulePreview, renderProperties, showStatus: say, bank: () => cloneConfig(bank),
+                load, schedulePreview, renderProperties, renderActivityPreview, showStatus: say, bank: () => cloneConfig(bank),
                 savedItems: () => cloneConfig(savedBank.items),
                 canSave: () => {
                     if (current()) return true;

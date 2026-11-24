@@ -1323,6 +1323,7 @@ static void show_help(const char *program_name)
     printf("  --split           Force split mode (CPU/GPU columns without bars)\n");
     printf("  --circle          Force circle mode (alternating sensor display)\n");
     printf("  --terminal        Force TTY (Terminal) display mode\n");
+    printf("  --activity-rings  Force Activity Rings display mode\n");
     printf("  --hardware-report Collect a sanitized hardware report and exit\n");
     printf("  --test-lcd        With --hardware-report: confirm and run an LCD test\n\n");
     printf("ADVANCED REPORT OPTIONS:\n");
@@ -1334,9 +1335,10 @@ static void show_help(const char *program_name)
     printf("  split             Shows CPU and GPU in two bar-free columns\n");
     printf("  circle            Alternating mode using the configured interval\n");
     printf("  terminal          TTY (Terminal) dashboard with temperature and load\n");
+    printf("  activity-rings    Three temperature rings for CPU, GPU and liquid\n");
     printf("  custom            Use the selected layout from the layout bank\n");
     printf("                    Configure via config.json [display] "
-           "mode=dual|split|circle|terminal|custom or CLI flags\n\n");
+           "mode=dual|split|circle|terminal|activity-rings|custom or CLI flags\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl restart coolercontrold     # Restart CoolerControl "
            "(reloads plugin)\n");
@@ -1811,6 +1813,11 @@ static void parse_arguments(int argc, char **argv, CliOptions *options)
         {
             cc_safe_strcpy(options->display_mode_override,
                            sizeof(options->display_mode_override), "terminal");
+        }
+        else if (strcmp(argv[i], "--activity-rings") == 0)
+        {
+            cc_safe_strcpy(options->display_mode_override,
+                           sizeof(options->display_mode_override), "activity-rings");
         }
         else if (strcmp(argv[i], "--hardware-report") == 0)
         {

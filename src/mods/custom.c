@@ -122,9 +122,10 @@ static const sensor_entry_t *widget_sensor(const Config *config, const monitor_s
     return &readings->sensor;
 }
 
-int paint_custom_overlay(cairo_t *cr, const Config *config,
-                         const monitor_sensor_data_t *data,
-                         const ScalingParams *params)
+static int paint_widget_layout(cairo_t *cr, const Config *config,
+                               const monitor_sensor_data_t *data,
+                               const ScalingParams *params,
+                               const CustomLayout *layout)
 {
     const double sx = (double)config->display_width / CUSTOM_LAYOUT_GRID;
     const double sy = (double)config->display_height / CUSTOM_LAYOUT_GRID;
@@ -137,9 +138,9 @@ int paint_custom_overlay(cairo_t *cr, const Config *config,
     }
 
     WidgetReadings readings = {0};
-    for (int i = 0; i < config->custom_layout.count; i++)
+    for (int i = 0; i < layout->count; i++)
     {
-        const CustomElement *element = &config->custom_layout.elements[i];
+        const CustomElement *element = &layout->elements[i];
         const sensor_entry_t *sensor = element->source[0]
                                            ? widget_sensor(config, data, element->source, &readings)
                                            : NULL;
@@ -176,4 +177,42 @@ int paint_custom_overlay(cairo_t *cr, const Config *config,
     }
     cairo_restore(cr);
     return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+}
+
+int paint_custom_overlay(cairo_t *cr, const Config *config,
+                         const monitor_sensor_data_t *data,
+                         const ScalingParams *params)
+{
+    return paint_widget_layout(cr, config, data, params, &config->custom_layout);
+}
+
+int paint_activity_rings_overlay(cairo_t *cr, const Config *config,
+                                 const monitor_sensor_data_t *data,
+                                 const ScalingParams *params)
+{
+    static const CustomLayout layout = {
+        .count = 5,
+        .elements = {
+            {.type = CUSTOM_RING, .x = 55, .y = 55, .width = 890, .height = 890,
+             .maximum = 100, .color = {255, 102, 133, 1}, .source = "cpu"},
+            {.type = CUSTOM_RING, .x = 120, .y = 120, .width = 760, .height = 760,
+             .maximum = 100, .color = {180, 235, 121, 1}, .source = "gpu"},
+            {.type = CUSTOM_RING, .x = 185, .y = 185, .width = 630, .height = 630,
+             .maximum = 100, .color = {92, 222, 245, 1}, .source = "liquid"},
+            {.type = CUSTOM_VALUE, .x = 260, .y = 375, .width = 480, .height = 190,
+             .font_size = 34, .color = {233, 241, 255, 1}, .source = "cpu"},
+            {.type = CUSTOM_TEXT, .x = 427, .y = 566, .width = 146, .height = 94,
+             .font_size = 15, .color = {255, 141, 162, 1}, .text = "CPU"},
+        },
+    };
+
+    cairo_save(cr);
+    if (config->display_show_clock)
+    {
+        cairo_translate(cr, config->display_width * 0.075, config->display_height * 0.025);
+        cairo_scale(cr, 0.85, 0.85);
+    }
+    const int painted = paint_widget_layout(cr, config, data, params, &layout);
+    cairo_restore(cr);
+    return painted;
 }

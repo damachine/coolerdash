@@ -71,7 +71,7 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `dual` | `dual`, `split`, `circle`, `terminal`, or `custom` |
+| `mode` | `dual` | `dual`, `split`, `circle`, `terminal`, `activity-rings`, or `custom` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
