@@ -111,6 +111,7 @@ typedef struct
     CustomElementType type;
     int x, y, width, height;
     int font_size, monospace, segments;
+    int ring_thickness, ring_start, ring_sweep;
     double minimum, maximum;
     Color color;
     char text[CUSTOM_LAYOUT_TEXT_SIZE];

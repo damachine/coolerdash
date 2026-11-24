@@ -54,7 +54,9 @@ You can also edit its coordinates and size in the inspector or use the arrow
 keys once the widget has focus. Hold Alt to resize with the arrow keys.
 
 Choose a local sensor in the inspector for each value, bar, or ring. A missing
-reading displays a dash or an empty gauge. The Cairo preview uses sample
+reading displays a dash or an empty gauge. A ring turns the sensor's range
+into a full circle or an arc. Set the thickness, start angle, arc length,
+number of segments, and color in the inspector. The Cairo preview uses sample
 readings. Use **1:1 pixels** to check readability and **LCD orientation** to
 preview the configured rotation.
 

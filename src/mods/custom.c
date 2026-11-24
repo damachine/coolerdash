@@ -58,23 +58,47 @@ static void paint_element_text(cairo_t *cr, const Config *config,
     cairo_show_text(cr, text);
 }
 
+static void add_ring_arcs(cairo_t *cr, double x, double y, double radius,
+                          double start, double sweep, int segments, double progress)
+{
+    const double step = sweep / segments;
+    const double gap = segments > 1 ? step * 0.22 : 0;
+    const double limit = sweep * progress;
+    for (int i = 0; i < segments && i * step < limit; i++)
+    {
+        const double offset = i * step;
+        cairo_new_sub_path(cr);
+        cairo_arc(cr, x, y, radius, start + offset, start + fmin(offset + step - gap, limit));
+    }
+}
+
 static void paint_ring(cairo_t *cr, const CustomElement *element, double progress,
                        double width, double height, double scale)
 {
     const double diameter = fmin(width, height);
-    const double stroke = fmin(diameter * 0.09, 9.0 * scale);
+    const double stroke = element->ring_thickness > 0
+                              ? fmin(diameter / 2, element->ring_thickness * scale)
+                              : fmin(diameter * 0.09, 9.0 * scale);
     const double radius = (diameter - stroke) / 2.0;
-    const double start = -DISPLAY_M_PI_2;
+    const int degrees = element->ring_sweep > 0 ? element->ring_sweep : 360;
+    const int segments = element->segments > 0 ? element->segments : 1;
+    const double start = (element->ring_start - 90) * DISPLAY_M_PI / 180.0;
+    const double sweep = degrees * DISPLAY_M_PI / 180.0;
+    const double x = width / 2.0;
+    const double y = height / 2.0;
     cairo_set_line_width(cr, stroke);
+    if (segments == 1 && degrees < 360)
+        cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
     set_cairo_color_alpha(cr, &element->color, 0.22);
-    cairo_arc(cr, width / 2.0, height / 2.0, radius, 0, 2.0 * DISPLAY_M_PI);
+    add_ring_arcs(cr, x, y, radius, segments == 1 && degrees == 360 ? 0 : start,
+                  sweep, segments, 1);
     cairo_stroke(cr);
     if (progress > 0)
     {
         set_cairo_color(cr, &element->color);
-        cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-        cairo_arc(cr, width / 2.0, height / 2.0, radius, start,
-                  start + progress * 2.0 * DISPLAY_M_PI);
+        if (segments == 1)
+            cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+        add_ring_arcs(cr, x, y, radius, start, sweep, segments, progress);
         cairo_stroke(cr);
     }
 }

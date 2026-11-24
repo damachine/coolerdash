@@ -4227,6 +4227,12 @@
                 'activity-rings': 'Activity Rings'
             };
             const labels = { value: 'Sensor Value', text: 'Text', clock: 'Clock', bar: 'Bar', ring: 'Ring', frame: 'Frame' };
+            const ringFields = [
+                { key: 'ring_thickness', title: 'Thickness at 240 px (0 = auto)', min: 0, max: 120, initial: 0 },
+                { key: 'ring_start', title: 'Start angle from top (° clockwise)', min: 0, max: 359, initial: 0 },
+                { key: 'ring_sweep', title: 'Arc length (°)', min: 1, max: 360, initial: 360 },
+                { key: 'segments', title: 'Segments', min: 1, max: 24, initial: 1 }
+            ];
             const encoder = new TextEncoder();
             let bank = { active_id: '', items: [] };
             let savedBank = cloneConfig(bank);
@@ -4283,6 +4289,14 @@
                     if (!integer(input.segments, 1, 24)) throw new Error('Invalid number of bar segments.');
                     result.segments = input.segments;
                 }
+                if (type === 'ring') {
+                    for (const { key, title, min, max, initial } of ringFields) {
+                        const value = input[key] === undefined ? initial : input[key];
+                        if (!integer(value, min, max))
+                            throw new Error(title + ' requires a whole number from ' + min + ' to ' + max + '.');
+                        result[key] = value;
+                    }
+                }
                 return result;
             }
 
@@ -4303,6 +4317,8 @@
                 if (bound(type)) element.source = 'cpu';
                 if (gauge(type)) Object.assign(element, { min: 0, max: 100, color: '#64dacc' });
                 if (type === 'bar') element.segments = 1;
+                if (type === 'ring')
+                    for (const { key, initial } of ringFields) element[key] = initial;
                 return Object.assign(element, settings);
             }
 
@@ -4551,6 +4567,9 @@
                 }
                 if (element.type === 'bar')
                     input(properties, 'Segments', 'segments', 'number', { min: 1, max: 24 });
+                if (element.type === 'ring')
+                    for (const { key, title, min, max } of ringFields)
+                        input(properties, title, key, 'number', { min, max });
                 input(properties, 'Color', 'color', 'color');
                 const geometry = document.createElement('div');
                 geometry.className = 'custom-geometry';

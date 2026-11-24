@@ -116,6 +116,15 @@ The coordinates use a 0–1000 scale relative to the LCD's width and height.
 Later elements draw over earlier ones. The font size is in pixels at 240 px.
 An exported file contains a single item with its `id` omitted.
 
+Ring widgets accept these optional fields:
+
+| Key | Default | Range and meaning |
+|-----|---------|-------------------|
+| `ring_thickness` | `0` | Thickness at 240 px, from 0 to 120. Use 0 for automatic sizing. |
+| `ring_start` | `0` | Start angle clockwise from the top, from 0° to 359°. |
+| `ring_sweep` | `360` | Total arc length, from 1° to 360°. |
+| `segments` | `1` | Segment count, from 1 to 24. Use 1 for a continuous ring. |
+
 ---
 
 ## Layout

@@ -1300,6 +1300,11 @@ static int custom_integer(json_t *object, const char *key, int min, int max,
     return 1;
 }
 
+static int custom_optional_integer(json_t *object, const char *key, int min, int max, int *result)
+{
+    return !json_object_get(object, key) || custom_integer(object, key, min, max, result);
+}
+
 static const char *custom_string(json_t *object, const char *key, size_t limit)
 {
     json_t *field = json_object_get(object, key);
@@ -1399,8 +1404,14 @@ static int load_custom_element(json_t *object, CustomElement *element)
             element->minimum >= element->maximum)
             return 0;
     }
-    return element->type != CUSTOM_BAR ||
-           custom_integer(object, "segments", 1, 24, &element->segments);
+    if (element->type == CUSTOM_BAR)
+        return custom_integer(object, "segments", 1, 24, &element->segments);
+    if (element->type == CUSTOM_RING)
+        return custom_optional_integer(object, "segments", 1, 24, &element->segments) &&
+               custom_optional_integer(object, "ring_thickness", 0, 120, &element->ring_thickness) &&
+               custom_optional_integer(object, "ring_start", 0, 359, &element->ring_start) &&
+               custom_optional_integer(object, "ring_sweep", 1, 360, &element->ring_sweep);
+    return 1;
 }
 
 static int load_active_custom_layout(json_t *root, Config *config)
