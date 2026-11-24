@@ -110,6 +110,13 @@ typedef struct
     CustomElement elements[CUSTOM_LAYOUT_MAX_ELEMENTS];
 } CustomLayout;
 
+typedef enum
+{
+    TTY_ICON_LARGE = 0,
+    TTY_ICON_SMALL,
+    TTY_ICON_OFF
+} TtyIcon;
+
 /** @brief All CoolerDash settings: daemon, paths, display, theme, sensors. */
 typedef struct Config
 {
@@ -138,6 +145,7 @@ typedef struct Config
     uint8_t lcd_brightness;
     uint16_t display_rotation; // Clockwise software rotation, 0..359 degrees
     int display_show_clock;
+    TtyIcon tty_icon;
     char display_mode[16];
     CustomLayout custom_layout;
     char display_background_image_fit[16];
@@ -186,6 +194,7 @@ typedef struct Config
 
     // Font configuration
     char font_face[CONFIG_MAX_FONT_NAME_LEN];
+    char tty_font_face[CONFIG_MAX_FONT_NAME_LEN];
     float font_size_temp;   /**< Primary value size; 0 = automatic */
     float font_size_labels; /**< Sensor label size; 0 = automatic */
     float font_size_duty;   /**< Utilization value size; 0 = automatic */

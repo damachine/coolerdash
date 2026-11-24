@@ -1,6 +1,6 @@
 # Display Modes
 
-CoolerDash offers **Split** (default), **Dual**, **Circle**, and **Custom Layout**.
+CoolerDash offers **Split** (default), **Dual**, **Circle**, **TTY (Terminal)**, and **Custom Layout**.
 
 Split, Dual, and Circle can add the optional **Sensor Ring** overlay. Split and Dual
 can instead divide the ring between their two visible sensors. In Circle mode,
@@ -10,10 +10,24 @@ The ring maps the current value to that sensor's configured maximum and uses
 the same threshold colors as its bars and values. The overlay is off by default
 for backwards-compatible output.
 
-Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, or `--circle`.
+Mode selection: `config.json` → `"display": { "mode": "split" }` or CLI `--split`, `--dual`, `--circle`, or `--terminal`.
 
 Enable **Show Clock** to display the local time at the bottom of any mode.
 The option is off by default.
+
+## TTY (Terminal)
+
+Choose **Display → TTY (Terminal)** for a monospace dashboard that fits
+the detected LCD. CPU and GPU rows show temperature and segmented load bars.
+The remaining rows show liquid temperature, processor power, and RAM used on
+the host running CoolerDash.
+
+The power row sums the available CPU and GPU readings. When only one is
+available, the row identifies that processor. Missing readings show a dash,
+and unavailable load bars show an empty track. The mode uses the standard
+CoolerControl sensors and uses the configured LCD background color, image or GIF.
+**TTY Icon** offers a large prompt tile, a small prompt, or no icon.
+Select the Terminal template under Custom Layout to start an editable design.
 
 ## Custom Layout
 
@@ -79,6 +93,7 @@ src/mods/
 ├── dual.c/h       # Dual mode
 ├── circle.c/h     # Circle mode
 ├── custom.c/h     # Custom layout widgets
+├── tty.c/h        # TTY mode dashboard
 └── split.c/h      # Split mode
 ```
 

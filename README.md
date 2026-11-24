@@ -24,7 +24,7 @@ The Kraken 2023 Elite is [partially supported](docs/devices.md) due to [liquidct
 ## Features
 
 - Show CPU, GPU, liquid temperature, and other CoolerControl sensor values.
-- Choose Split, Dual, Circle, or your own [custom layouts](docs/display-modes.md#custom-layout).
+- Choose Split, Dual, Circle, [TTY (Terminal)](docs/display-modes.md#tty-terminal), or your own [custom layouts](docs/display-modes.md#custom-layout).
 - Build LCD layouts with drag-and-drop widgets, save them in the Layout Bank, and share them as JSON files.
 - Adjust the layout and sensor values in the CoolerDash interface inside CoolerControl.
 - Play GIFs through CoolerControl on compatible LCDs with all sensor slots

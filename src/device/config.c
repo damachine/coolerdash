@@ -274,6 +274,8 @@ static void set_font_defaults(Config *config)
 {
     if (config->font_face[0] == '\0')
         SAFE_STRCPY(config->font_face, "Roboto Black");
+    if (config->tty_font_face[0] == '\0')
+        SAFE_STRCPY(config->tty_font_face, "Monospace");
 
     if (config->font_size_temp == 0.0f)
         log_message(LOG_INFO,
@@ -1124,6 +1126,12 @@ static void load_display_from_json(json_t *root, Config *config)
         }
     }
 
+    const char *tty_icon = json_string_value(json_object_get(display, "tty_icon"));
+    if (tty_icon && strcmp(tty_icon, "small") == 0)
+        config->tty_icon = TTY_ICON_SMALL;
+    else if (tty_icon && strcmp(tty_icon, "off") == 0)
+        config->tty_icon = TTY_ICON_OFF;
+
     json_t *circle_layout = json_object_get(display, "circle_layout");
     if (json_is_string(circle_layout))
         SAFE_STRCPY(config->circle_layout, json_string_value(circle_layout));
@@ -1592,6 +1600,9 @@ static void load_font_from_json(json_t *root, Config *config)
     {
         SAFE_STRCPY(config->font_face, json_string_value(face));
     }
+    const char *tty_face = json_string_value(json_object_get(font, "tty_face"));
+    if (tty_face)
+        SAFE_STRCPY(config->tty_font_face, tty_face);
 
     json_t *size_temp = json_object_get(font, "size_temp");
     if (size_temp && json_is_number(size_temp))

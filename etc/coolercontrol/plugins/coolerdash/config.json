@@ -38,6 +38,7 @@
     "brightness": 80,
     "orientation": 0,
     "show_clock": false,
+    "tty_icon": "large",
     "background_image_fit": "cover",
     "background_image_scale_factor": 0,
     "background_overlay_opacity": 0,
@@ -76,6 +77,7 @@
 
   "font": {
     "face": "Roboto Black",
+    "tty_face": "Monospace",
     "size_temp": 0,
     "size_labels": 0,
     "size_duty": 0,

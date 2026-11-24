@@ -70,12 +70,13 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `split` | `split`, `dual`, `circle`, or `custom` |
+| `mode` | `split` | `split`, `dual`, `circle`, `terminal`, or `custom` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Clockwise software rotation, whole degrees `0`–`359`. CoolerControl receives `0`. The complete frame, including background images, rotates and fits the LCD; uncovered corners use the background color. Existing quarter-turn values remain valid. |
 | `show_clock` | `false` | Show local time (HH:MM) below the layout in any display mode. |
+| `tty_icon` | `large` | Prompt icon in TTY mode. Choose `large`, `small`, or `off`. |
 | `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
 | `split_ring_by_sensor` | `true` | In Split and Dual modes, color both ring halves from the two visible layout sensors |
@@ -171,6 +172,7 @@ RGB values (0–255):
 ```json
 "font": {
     "face": "Roboto Black",
+    "tty_face": "Monospace",
     "size_temp": 0,
     "size_labels": 0,
     "font_growth_factor": 1.33
@@ -179,7 +181,8 @@ RGB values (0–255):
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `face` | `Roboto Black` | Installed font family; the UI offers system families and also accepts manual entries |
+| `face` | `Roboto Black` | Font family for Dual, Split, and Circle |
+| `tty_face` | `Monospace` | Font family for TTY. The font picker also accepts manual entries. |
 | `size_temp` / `size_labels` | `0` | Font size (pt). `0` = auto-scale from resolution |
 | `font_growth_factor` | `1.33` | Scaling multiplier for auto-sized fonts |
 

@@ -124,6 +124,10 @@ const sensor_entry_t *find_channel_sensor_for_slot(
     const monitor_sensor_data_t *data, const char *slot_value,
     sensor_category_t category);
 
+/** Resolve CPU or GPU utilisation without falling back to fan or pump duty. */
+const sensor_entry_t *find_processor_load(const monitor_sensor_data_t *data,
+                                          const char *slot_value);
+
 // ============================================================================
 // Data Retrieval
 // ============================================================================

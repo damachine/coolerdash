@@ -52,6 +52,8 @@
         #custom_layout_editor { margin: 16px 0 24px; }
         #custom_layout_editor[hidden], #custom_layout_editor [hidden],
         .mode-preview[hidden], [id^="legacy_"][hidden] { display: none; }
+        #custom_text_settings[hidden], #text_settings[hidden],
+        #text_settings [hidden] { display: none; }
         .mode-layout.custom-mode { grid-template-columns: minmax(0, 1fr); }
         .custom-actions, .custom-palette, .custom-options {
             display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
@@ -809,12 +811,21 @@
                                 <option value="dual">Dual (CPU + GPU simultaneously)</option>
                                 <option value="split">Split (CPU + GPU columns)</option>
                                 <option value="circle">Circle (Alternating display)</option>
+                                <option value="terminal">TTY (Terminal)</option>
                                 <option value="custom">Custom Layout</option>
                             </select>
                         </div>
                         <label class="display-option">
                             <input type="checkbox" name="display.show_clock" id="show_clock" value="1">Show Clock
                         </label>
+                        <div class="form-group" id="tty_icon_group" style="display: none;">
+                            <label class="form-label" for="tty_icon">TTY Icon</label>
+                            <select name="display.tty_icon" id="tty_icon" class="form-control">
+                                <option value="large">Large</option>
+                                <option value="small">Small &gt;_</option>
+                                <option value="off">Off</option>
+                            </select>
+                        </div>
 
                         <div class="form-group" id="circle_layout_group" style="display: none;">
                             <label class="form-label" for="circle_layout">Circle Layout</label>
@@ -869,6 +880,31 @@
                             <g id="mode_preview_dual" transform="translate(36 36) scale(.70)" fill="#fff"></g>
                             <g id="mode_preview_split" style="display: none;" fill="#fff"></g>
                             <g id="mode_preview_circle" style="display: none;" transform="translate(36 36) scale(.70)" fill="#fff"></g>
+                            <g id="mode_preview_terminal" style="display: none;" font-family="monospace" transform="translate(17 17) scale(.86)">
+                                <g id="mode_preview_tty_large">
+                                    <rect x="96" y="20" width="48" height="32" fill="#95b9fb" opacity=".2"/>
+                                    <text x="120" y="42" text-anchor="middle" data-tty-label="" fill="#c8c8c8" font-size="23" font-weight="bold">&gt;_</text>
+                                </g>
+                                <text id="mode_preview_tty_small" x="120" y="33" text-anchor="middle" data-tty-label="" fill="#c8c8c8" font-size="16" font-weight="bold" style="display: none;">&gt;_</text>
+                                <g id="mode_preview_tty_rows">
+                                    <text x="204" y="54" text-anchor="middle" data-tty-label="" font-size="15" fill="#c8c8c8">LOAD</text>
+                                    <g data-tty-label="" font-size="24" fill="#c8c8c8">
+                                        <text x="12" y="82">CPU</text><text x="12" y="112">GPU</text>
+                                        <text x="12" y="142">LIQ</text><text x="12" y="172">PWR</text><text x="12" y="202">RAM</text>
+                                    </g>
+                                    <g id="mode_preview_tty_values" font-size="34" fill="#ffffff" text-anchor="end">
+                                        <text x="170" y="82">54<tspan dx="4" dy="-9" font-size="21">°C</tspan></text>
+                                        <text x="170" y="112">62<tspan dx="4" dy="-9" font-size="21">°C</tspan></text>
+                                        <text x="170" y="142">32.5<tspan dx="4" dy="-9" font-size="21">°C</tspan></text>
+                                        <text x="170" y="172">182<tspan dx="4" font-size="21">W</tspan></text>
+                                        <text x="170" y="202">18.6<tspan dx="4" font-size="21">GiB</tspan></text>
+                                    </g>
+                                    <g fill="none" stroke="#95b9fb" stroke-width="16" stroke-dasharray="4.6 1.4">
+                                        <path d="M180 72h48 M180 102h48 M180 192h48" opacity=".22"/>
+                                        <path d="M180 72h20 M180 102h32 M180 192h28"/>
+                                    </g>
+                                </g>
+                            </g>
                             <g id="mode_preview_ring" style="display: none;" fill="none" stroke-linecap="round">
                                 <path class="mode-preview-ring-path" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#343434" stroke-width="8"/>
                                 <path class="mode-preview-ring-path" id="mode_preview_ring_value" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#00ff00" stroke-width="8" stroke-dasharray="0 100"/>
@@ -1071,18 +1107,23 @@
                 </div>
 
                 <h3 class="section-title">Text</h3>
-                <div class="grid grid-3">
-                    <div class="form-group">
-                        <label class="form-label">Temperature Text</label>
+                <p class="form-hint" id="custom_text_settings" hidden>Set fonts and colors for each widget in the Custom Layout editor.</p>
+                <div class="grid grid-3" id="text_settings">
+                    <div class="form-group" id="value_text_group">
+                        <label class="form-label" for="color_font_temp" id="value_text_label">Temperature Text</label>
                         <div class="color-group">
                             <input type="color" id="color_font_temp" class="color-swatch" onchange="updateColorRGB('color_font_temp', 'rgb_font_temp')">
                             <span class="color-rgb" id="rgb_font_temp"></span>
                         </div>
                     </div>
+                    <div class="form-group" id="split_temperature_text_group" hidden>
+                        <span class="form-label">Temperature Text</span>
+                        <span class="form-hint" id="split_temperature_text"></span>
+                    </div>
 
                     <div class="form-group">
-                        <label class="form-label">Label Text</label>
-                        <span class="form-hint">Also used for Split load, power and RPM values.</span>
+                        <label class="form-label" for="color_font_label">Label Text</label>
+                        <span class="form-hint" id="split_label_text_hint" hidden>Also used for load, power and RPM values.</span>
                         <div class="color-group">
                             <input type="color" id="color_font_label" class="color-swatch" onchange="updateColorRGB('color_font_label', 'rgb_font_label')">
                             <span class="color-rgb" id="rgb_font_label"></span>
@@ -1091,9 +1132,11 @@
 
                     <div class="form-group">
                         <label class="form-label" for="font_face">Font Face</label>
-                        <span class="form-hint">Default: Roboto Black. Type to search installed fonts, or clear the field to browse. Manual entry also works.</span>
+                        <span class="form-hint" id="font_face_hint">Default: Roboto Black. Type to search installed fonts, or clear the field to browse.</span>
+                        <input type="hidden" name="font.face" id="standard_font_face">
+                        <input type="hidden" name="font.tty_face" id="tty_font_face">
                         <div class="font-picker" id="font_picker">
-                            <input type="text" name="font.face" id="font_face" class="form-control" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="font_face_options" aria-expanded="false">
+                            <input type="text" id="font_face" class="form-control" placeholder="Roboto Black" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="font_face_options" aria-expanded="false">
                             <select id="font_face_options" class="form-control font-picker-options" size="6" aria-label="Matching installed fonts" hidden></select>
                         </div>
                         <span class="form-hint" id="font_face_status" role="status"></span>
@@ -1638,6 +1681,7 @@
                 brightness: 80,
                 orientation: 0,
                 show_clock: false,
+                tty_icon: 'large',
                 background_image_fit: "cover",
                 background_image_scale_factor: 0.0,
                 background_overlay_opacity: 0.0,
@@ -1673,6 +1717,7 @@
             },
             font: {
                 face: "Roboto Black",
+                tty_face: "Monospace",
                 size_temp: 0.0,
                 size_labels: 0.0,
                 size_duty: 0.0,
@@ -2948,6 +2993,8 @@
             var circular = shape === 'circular';
             document.getElementById('mode_preview_frame').setAttribute('rx', circular ? '116' : '10');
             document.getElementById('preview_screen_clip_rect').setAttribute('rx', circular ? '113' : '7');
+            document.getElementById('mode_preview_terminal').setAttribute(
+                'transform', circular ? 'translate(17 17) scale(.86)' : '');
             var ringPath = circular
                 ? 'M40 200 A104 104 0 1 1 200 200'
                 : 'M218 16 Q224 16 224 22 V218 Q224 224 218 224 H22 Q16 224 16 218 V22 Q16 16 22 16 H218 Z';
@@ -3068,6 +3115,8 @@
                     delete previewConfig.custom_layouts;
                     var result = await requestCairoPreview(previewConfig);
                     if (generation !== renderPreviewGeneration) return;
+                    if (previewConfig.display.mode === 'terminal' && result.shape)
+                        setModePreviewShape(result.shape);
                     image.setAttribute('href', result.image);
                     image.style.display = '';
                     status.textContent = 'Cairo renderer preview';
@@ -3160,23 +3209,47 @@
                 element.setAttribute('fill', rgbToHex(color));
             });
             var mode = document.getElementById('display_mode').value;
+            if (mode === 'split') {
+                document.getElementById('split_temperature_text').textContent =
+                    document.getElementById('split_ring_by_sensor').checked
+                        ? 'White (Split Sensor Ring)' : 'Sensor threshold colors';
+            }
+            if (mode === 'terminal') {
+                var ttyIcon = document.getElementById('tty_icon').value;
+                var ttyFace = selectedFontSetting().value.trim();
+                document.getElementById('mode_preview_terminal').style.fontFamily =
+                    ttyFace && ttyFace.toLowerCase() !== 'monospace'
+                        ? CSS.escape(ttyFace) + ', monospace' : 'monospace';
+                var ttyLabelColor = document.getElementById('color_font_label').value || '#c8c8c8';
+                var ttyValueColor = document.getElementById('color_font_temp').value || '#ffffff';
+                document.querySelectorAll('[data-tty-label]').forEach(function (element) {
+                    element.setAttribute('fill', ttyLabelColor);
+                });
+                document.getElementById('mode_preview_tty_values').setAttribute('fill', ttyValueColor);
+                document.getElementById('mode_preview_tty_large').style.display = ttyIcon === 'large' ? '' : 'none';
+                document.getElementById('mode_preview_tty_small').style.display = ttyIcon === 'small' ? '' : 'none';
+                document.getElementById('mode_preview_tty_rows').setAttribute(
+                    'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 -8)' : '');
+            }
             var descriptions = {
                 dual: 'Two sensors stacked vertically.',
                 split: 'Two sensor columns; visible values share the available space.',
-                circle: 'One sensor at a time; sensors alternate on the device.'
+                circle: 'One sensor at a time; sensors alternate on the device.',
+                terminal: 'Temperatures, processor load, power and RAM.'
             };
             Object.keys(descriptions).forEach(function (layout) {
                 document.getElementById('mode_preview_' + layout).style.display = layout === mode ? '' : 'none';
             });
-            document.getElementById('mode_preview_title').textContent = mode + ' layout preview: ' + descriptions[mode];
+            document.getElementById('mode_preview_title').textContent =
+                (mode === 'terminal' ? 'TTY (Terminal)' : mode) + ' layout preview: ' + descriptions[mode];
             document.getElementById('mode_preview_description').textContent = descriptions[mode];
             document.getElementById('mode_preview_clock').style.display =
                 document.getElementById('show_clock').checked ? '' : 'none';
             var ring = document.getElementById('mode_preview_ring');
             var splitRingEnabled = (mode === 'split' || mode === 'dual') &&
                 document.getElementById('split_ring_by_sensor').checked;
-            var ringEnabled = splitRingEnabled ||
-                document.getElementById('sensor_ring_enabled').checked;
+            var ringEnabled = mode !== 'terminal' && (splitRingEnabled ||
+                document.getElementById('sensor_ring_enabled').checked);
             var ringValuePath = document.getElementById('mode_preview_ring_value');
             var secondaryRingPath = document.getElementById('mode_preview_ring_value_secondary');
             var ringWidthInput = document.querySelector('[name="layout.ring_width"]');
@@ -3253,15 +3326,25 @@
             var isCircle = mode === 'circle';
             var isSplit = mode === 'split';
             var isCustom = mode === 'custom';
+            var isTerminal = mode === 'terminal';
+            var usesSlots = !isCustom && !isTerminal;
             var sensorGrid = document.getElementById('sensor_grid');
             document.querySelector('.mode-layout').classList.toggle('custom-mode', isCustom);
             document.getElementById('custom_layout_editor').hidden = !isCustom;
             document.querySelector('.mode-preview').hidden = isCustom;
-            document.getElementById('display_elements_group').hidden = isCustom;
-            document.getElementById('legacy_sensor_ring_group').hidden = isCustom;
-            document.getElementById('legacy_sensor_help').hidden = isCustom;
+            document.getElementById('display_elements_group').hidden = !usesSlots;
+            document.getElementById('legacy_sensor_ring_group').hidden = !usesSlots;
+            document.getElementById('legacy_sensor_help').hidden = !usesSlots;
             document.getElementById('legacy_display_background').hidden = isCustom;
-            sensorGrid.style.display = isCustom ? 'none' : '';
+            document.getElementById('tty_icon_group').style.display = isTerminal ? '' : 'none';
+            document.getElementById('text_settings').hidden = isCustom;
+            document.getElementById('custom_text_settings').hidden = !isCustom;
+            document.getElementById('value_text_group').hidden = isSplit;
+            document.getElementById('value_text_label').textContent = isTerminal ? 'Value Text' : 'Temperature Text';
+            document.getElementById('split_temperature_text_group').hidden = !isSplit;
+            document.getElementById('split_label_text_hint').hidden = !isSplit;
+            syncFontPicker(isTerminal);
+            sensorGrid.style.display = usesSlots ? '' : 'none';
             if (isCustom) {
                 ++renderPreviewGeneration;
                 clearTimeout(renderPreviewTimer);
@@ -3292,12 +3375,14 @@
             if (sensorRingSelect) sensorRingSelect.style.display = isCircle ? 'none' : '';
             var barControls = document.querySelectorAll('.bar-mode-only');
             for (var b = 0; b < barControls.length; b++) {
-                barControls[b].style.display = (isSplit || isCustom) ? 'none' : '';
+                barControls[b].style.display = (isSplit || !usesSlots) ? 'none' : '';
             }
             var layoutHint = document.getElementById('layout_mode_hint');
             if (layoutHint) {
                 layoutHint.innerHTML = isCustom
                     ? 'Set widget position, size, colors and fonts in the Custom Layout editor on the Display tab.'
+                    : isTerminal
+                    ? 'TTY (Terminal) arranges measurements automatically for the detected LCD.'
                     : isSplit
                     ? '<strong>Resolution-aware split layout</strong> The divider and both text columns adapt automatically to the detected LCD shape and size. Temperature values use each sensor\'s threshold colors.'
                     : '<strong>Resolution-aware layout</strong> Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.';
@@ -3334,7 +3419,7 @@
 
         function validateSensorSlots() {
             var mode = document.getElementById('display_mode').value;
-            if (mode === 'custom') {
+            if (mode === 'custom' || mode === 'terminal') {
                 document.getElementById('sensor_slot_warning').style.display = 'none';
                 return true;
             }
@@ -3437,17 +3522,40 @@
 
         var installedFontFamilies = [];
 
+        function selectedFontSetting() {
+            var terminal = document.getElementById('display_mode').value === 'terminal';
+            return document.getElementById(terminal ? 'tty_font_face' : 'standard_font_face');
+        }
+
+        function syncFontPicker(isTerminal) {
+            var input = document.getElementById('font_face');
+            var fallback = isTerminal ? FACTORY_DEFAULTS.font.tty_face : FACTORY_DEFAULTS.font.face;
+            input.value = selectedFontSetting().value;
+            input.placeholder = fallback;
+            document.getElementById('font_face_hint').textContent =
+                'Default: ' + fallback + '. Type to search installed fonts, or clear the field to browse.';
+            hideFontOptions();
+            if (installedFontFamilies.length) {
+                document.getElementById('font_face_status').textContent =
+                    installedFontFamilies.length + ' installed font families available.';
+            }
+        }
+
         function hideFontOptions() {
             document.getElementById('font_face_options').hidden = true;
             document.getElementById('font_face').setAttribute('aria-expanded', 'false');
         }
 
         function showFontOptions() {
-            if (!installedFontFamilies.length) return;
+            var families = installedFontFamilies;
+            if (document.getElementById('display_mode').value === 'terminal' &&
+                !families.some(function(family) { return family.toLowerCase() === 'monospace'; }))
+                families = ['Monospace'].concat(families);
+            if (!families.length) return;
             var input = document.getElementById('font_face');
             var options = document.getElementById('font_face_options');
             var query = input.value.trim().toLocaleLowerCase();
-            var matches = installedFontFamilies.filter(function(family) {
+            var matches = families.filter(function(family) {
                 return family.toLocaleLowerCase().includes(query);
             });
             options.textContent = '';
@@ -3460,6 +3568,7 @@
             options.size = Math.min(6, matches.length);
             options.hidden = matches.length === 0;
             input.setAttribute('aria-expanded', String(!options.hidden));
+            if (!installedFontFamilies.length) return;
             var status = document.getElementById('font_face_status');
             status.textContent = matches.length
                 ? installedFontFamilies.length + ' installed font families available.' +
@@ -3474,7 +3583,10 @@
             if (!input || !options || !status) return;
 
             input.addEventListener('focus', showFontOptions);
-            input.addEventListener('input', showFontOptions);
+            input.addEventListener('input', function() {
+                selectedFontSetting().value = input.value;
+                showFontOptions();
+            });
             input.addEventListener('keydown', function(event) {
                 if (event.key === 'Escape') hideFontOptions();
                 if (event.key === 'ArrowDown' && !options.hidden) {
@@ -3485,6 +3597,7 @@
             function chooseFontOption() {
                 if (options.selectedIndex < 0) return;
                 input.value = options.value;
+                selectedFontSetting().value = input.value;
                 input.focus();
                 hideFontOptions();
                 updateModePreview();
@@ -3552,9 +3665,10 @@
                 var value = entry.value[1];
                 var parts = key.split('.');
                 if (parts.length === 2 && config[parts[0]] !== undefined) {
-                    // Sensor slot values must always be strings
+                    // Sensor IDs and font family names must stay strings.
                     var isSlotField = (parts[1] === 'sensor_slot_1' || parts[1] === 'sensor_slot_2' || parts[1] === 'sensor_slot_3' || parts[1] === 'sensor_ring_sensor');
-                    if (isSlotField) {
+                    var isFontFace = parts[0] === 'font' && (parts[1] === 'face' || parts[1] === 'tty_face');
+                    if (isSlotField || isFontFace) {
                         config[parts[0]][parts[1]] = value;
                     } else {
                         // Strict number check: only convert pure numeric strings
@@ -4003,6 +4117,9 @@
 
             if (merged.display.circle_layout !== 'centered') {
                 merged.display.circle_layout = 'classic';
+            }
+            if (!['large', 'small', 'off'].includes(merged.display.tty_icon)) {
+                merged.display.tty_icon = 'large';
             }
 
             // Migrate the old extra-info switch while honoring individual overrides.

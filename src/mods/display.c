@@ -38,6 +38,7 @@
 #include "custom.h"
 #include "dual.h"
 #include "split.h"
+#include "tty.h"
 
 /* Preview requests load their own image. This cache belongs to the render thread. */
 static struct
@@ -1091,11 +1092,12 @@ static void paint_background_overlay(cairo_t *cr, const struct Config *config)
     if (config->display_background_overlay_opacity <= 0.0f)
         return;
 
+    const Color *background = &config->display_background_color;
     cairo_save(cr);
     cairo_set_source_rgba(cr,
-                          cairo_color_convert(config->display_background_color.r),
-                          cairo_color_convert(config->display_background_color.g),
-                          cairo_color_convert(config->display_background_color.b),
+                          cairo_color_convert(background->r),
+                          cairo_color_convert(background->g),
+                          cairo_color_convert(background->b),
                           config->display_background_overlay_opacity);
     cairo_paint(cr);
     cairo_restore(cr);
@@ -2023,6 +2025,7 @@ static const DisplayMode *get_display_mode(const Config *config)
         {"circle", 1, draw_circle_image, render_circle_preview, paint_circle_overlay},
         {"split", 1, draw_split_image, render_split_preview, paint_split_overlay},
         {"custom", 0, draw_overlay_image, render_overlay_frame, paint_custom_overlay},
+        {"terminal", 0, draw_overlay_image, render_overlay_frame, paint_terminal_overlay},
     };
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
     {
@@ -2167,7 +2170,17 @@ int render_display_preview(const struct Config *config,
         return 0;
 
     monitor_sensor_data_t data = {0};
-    if (strcmp(config->display_mode, "custom") == 0)
+    if (strcmp(config->display_mode, "terminal") == 0)
+    {
+        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_TEMP, 54, "°C");
+        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_TEMP, 62, "°C");
+        add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
+        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_DUTY, 42, "%");
+        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_DUTY, 66, "%");
+        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_WATTS, 48, "W");
+        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_WATTS, 134, "W");
+    }
+    else if (strcmp(config->display_mode, "custom") == 0)
         add_custom_preview_sensors(&data, &config->custom_layout);
     else
     {

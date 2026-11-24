@@ -466,8 +466,8 @@ static const char *get_legacy_slot_device_type(const char *slot_value)
 }
 
 static const sensor_entry_t *find_preferred_legacy_duty_sensor(
-    const monitor_sensor_data_t *data, const char *slot_value,
-    const char *target_type)
+    const monitor_sensor_data_t *data, const char *target_type,
+    int allow_cooling_fallback)
 {
     const sensor_entry_t *first_matching = NULL;
     const sensor_entry_t *first_non_cooling = NULL;
@@ -491,13 +491,17 @@ static const sensor_entry_t *find_preferred_legacy_duty_sensor(
         }
     }
 
-    if (strcmp(slot_value, "gpu") == 0)
-    {
-        /* Avoid rendering GPU fan duty as GPU processor utilisation. */
-        return first_non_cooling;
-    }
+    return first_non_cooling || !allow_cooling_fallback
+               ? first_non_cooling : first_matching;
+}
 
-    return first_non_cooling ? first_non_cooling : first_matching;
+const sensor_entry_t *find_processor_load(const monitor_sensor_data_t *data,
+                                          const char *slot_value)
+{
+    if (!data || !slot_value ||
+        (strcmp(slot_value, "cpu") != 0 && strcmp(slot_value, "gpu") != 0))
+        return NULL;
+    return find_preferred_legacy_duty_sensor(data, get_legacy_slot_device_type(slot_value), 0);
 }
 
 /**
@@ -517,7 +521,7 @@ static const sensor_entry_t *resolve_legacy_slot(
         return NULL;
 
     if (category == SENSOR_CATEGORY_DUTY)
-        return find_preferred_legacy_duty_sensor(data, slot_value, target_type);
+        return find_preferred_legacy_duty_sensor(data, target_type, strcmp(slot_value, "gpu") != 0);
 
     for (int i = 0; i < data->sensor_count; i++)
     {
