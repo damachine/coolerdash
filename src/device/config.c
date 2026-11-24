@@ -1322,6 +1322,23 @@ static int custom_color(json_t *object, const char *key, Color *result)
     return 1;
 }
 
+CustomSource get_custom_source(const char *source)
+{
+    static const char *names[] = {
+        [CUSTOM_SOURCE_CPU_LOAD] = "cpu-load",
+        [CUSTOM_SOURCE_GPU_LOAD] = "gpu-load",
+        [CUSTOM_SOURCE_CPU_POWER] = "cpu-power",
+        [CUSTOM_SOURCE_GPU_POWER] = "gpu-power",
+        [CUSTOM_SOURCE_POWER] = "power",
+        [CUSTOM_SOURCE_RAM_USED] = "ram-used",
+        [CUSTOM_SOURCE_RAM_LOAD] = "ram-load",
+    };
+    for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++)
+        if (strcmp(source, names[i]) == 0)
+            return (CustomSource)i;
+    return CUSTOM_SOURCE_SENSOR;
+}
+
 static int load_custom_element(json_t *object, CustomElement *element)
 {
     static const char *types[] = {"value", "text", "clock", "bar", "ring", "frame"};
@@ -1363,6 +1380,7 @@ static int load_custom_element(json_t *object, CustomElement *element)
         const char *source = custom_string(object, "source", sizeof(element->source));
         const char *separator = source ? strchr(source, ':') : NULL;
         if (!source || (*source && !is_legacy_sensor_slot(source) &&
+                        get_custom_source(source) == CUSTOM_SOURCE_SENSOR &&
                         (!separator || separator == source || !separator[1])) ||
             strcmp(source, "none") == 0)
             return 0;
@@ -1423,7 +1441,8 @@ static int load_active_custom_layout(json_t *root, Config *config)
         CustomElement *element = &layout->elements[index];
         if (!load_custom_element(candidate, element))
             return 0;
-        if (element->source[0])
+        const CustomSource source = get_custom_source(element->source);
+        if (element->source[0] && source != CUSTOM_SOURCE_RAM_USED && source != CUSTOM_SOURCE_RAM_LOAD)
             needs_sensors = 1;
     }
     layout->count = (int)json_array_size(elements);

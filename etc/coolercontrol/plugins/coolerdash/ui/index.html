@@ -4190,6 +4190,11 @@
             const elementLimit = 24;
             const fileLimit = 32 * 1024;
             const standard = { cpu: 'CPU Temperature', gpu: 'GPU Temperature', liquid: 'Liquid Temperature' };
+            const sources = {
+                ...standard, 'cpu-load': 'CPU Load', 'gpu-load': 'GPU Load',
+                'cpu-power': 'CPU Power', 'gpu-power': 'GPU Power', power: 'CPU + GPU Power',
+                'ram-used': 'RAM Used', 'ram-load': 'RAM Load'
+            };
             const labels = { value: 'Sensor Value', text: 'Text', clock: 'Clock', bar: 'Bar', ring: 'Ring', frame: 'Frame' };
             const encoder = new TextEncoder();
             let bank = { active_id: '', items: [] };
@@ -4211,7 +4216,7 @@
             const bound = type => type === 'value' || type === 'bar' || type === 'ring';
             const gauge = type => type === 'bar' || type === 'ring';
             const typing = type => type === 'value' || type === 'text' || type === 'clock';
-            const portable = source => Object.hasOwn(standard, source);
+            const portable = source => Object.hasOwn(sources, source);
             const dynamic = source => /^[^:]+:.+$/.test(source);
 
             function cleanElement(input) {
@@ -4355,7 +4360,7 @@
 
             function elementLabel(element) {
                 if (element.text) return element.text;
-                if (portable(element.source)) return labels[element.type] + ' · ' + standard[element.source];
+                if (portable(element.source)) return labels[element.type] + ' · ' + sources[element.source];
                 return labels[element.type];
             }
 
@@ -4441,12 +4446,12 @@
                 }
 
                 if (bound(element.type)) {
-                    const sources = new Map([['', 'Assign a sensor'], ...Object.entries(standard)]);
-                    for (const sensor of discoveredSensors) sources.set(sensor.id, sensor.label);
-                    if (!sources.has(element.source))
-                        sources.set(element.source, 'Unavailable · ' + element.source.split(':').slice(1).join(':'));
+                    const options = new Map([['', 'Assign a sensor'], ...Object.entries(sources)]);
+                    for (const sensor of discoveredSensors) options.set(sensor.id, sensor.label);
+                    if (!options.has(element.source))
+                        options.set(element.source, 'Unavailable · ' + element.source.split(':').slice(1).join(':'));
                     const select = document.createElement('select');
-                    for (const [id, title] of sources) select.add(new Option(title, id));
+                    for (const [id, title] of options) select.add(new Option(title, id));
                     field(properties, 'Sensor', 'source', select);
                 }
                 if (typing(element.type)) {

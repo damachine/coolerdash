@@ -92,6 +92,20 @@ typedef enum
     CUSTOM_FRAME
 } CustomElementType;
 
+typedef enum
+{
+    CUSTOM_SOURCE_SENSOR,
+    CUSTOM_SOURCE_CPU_LOAD,
+    CUSTOM_SOURCE_GPU_LOAD,
+    CUSTOM_SOURCE_CPU_POWER,
+    CUSTOM_SOURCE_GPU_POWER,
+    CUSTOM_SOURCE_POWER,
+    CUSTOM_SOURCE_RAM_USED,
+    CUSTOM_SOURCE_RAM_LOAD
+} CustomSource;
+
+CustomSource get_custom_source(const char *source);
+
 typedef struct
 {
     CustomElementType type;

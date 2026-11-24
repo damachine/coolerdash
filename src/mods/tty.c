@@ -113,23 +113,38 @@ static void draw_temperature(cairo_t *cr, const Config *config, const monitor_se
              valid_reading(load) ? load->value / 100.0 : 0);
 }
 
-static void draw_power(cairo_t *cr, const Config *config, const monitor_sensor_data_t *data,
-                       const TerminalRow *row)
+int read_processor_power(const monitor_sensor_data_t *data, double *watts, const char **label)
 {
     const sensor_entry_t *cpu = find_channel_sensor_for_slot(data, "cpu", SENSOR_CATEGORY_WATTS);
     const sensor_entry_t *gpu = find_channel_sensor_for_slot(data, "gpu", SENSOR_CATEGORY_WATTS);
     const int has_cpu = valid_reading(cpu);
     const int has_gpu = valid_reading(gpu);
-    const char *label = has_cpu == has_gpu ? "PWR" : has_cpu ? "CPU W" : "GPU W";
-    char value[24] = "—";
-    if (has_cpu || has_gpu)
-        snprintf(value, sizeof(value), "%.0f",
-                 (has_cpu ? (double)cpu->value : 0) + (has_gpu ? (double)gpu->value : 0));
-    draw_row(cr, config, row, label, value, has_cpu || has_gpu ? "W" : "", 0, 0);
+    if (label)
+        *label = has_cpu == has_gpu ? "PWR" : has_cpu ? "CPU W" : "GPU W";
+    *watts = (has_cpu ? (double)cpu->value : 0) + (has_gpu ? (double)gpu->value : 0);
+    return has_cpu || has_gpu;
 }
 
-static int read_used_memory(double *gib, double *progress)
+static void draw_power(cairo_t *cr, const Config *config, const monitor_sensor_data_t *data,
+                       const TerminalRow *row)
 {
+    const char *label;
+    double watts;
+    char value[24] = "—";
+    const int available = read_processor_power(data, &watts, &label);
+    if (available)
+        snprintf(value, sizeof(value), "%.0f", watts);
+    draw_row(cr, config, row, label, value, available ? "W" : "", 0, 0);
+}
+
+int read_used_memory(const Config *config, double *gib, double *progress)
+{
+    if (config->preview_render)
+    {
+        *gib = 18.6;
+        *progress = 0.58;
+        return 1;
+    }
     FILE *file = fopen("/proc/meminfo", "r");
     if (!file)
         return 0;
@@ -157,10 +172,10 @@ static int read_used_memory(double *gib, double *progress)
 
 static void draw_memory(cairo_t *cr, const Config *config, const TerminalRow *row)
 {
-    double gib = 18.6;
-    double progress = 0.58;
+    double gib;
+    double progress;
     char value[24] = "—";
-    const int available = config->preview_render || read_used_memory(&gib, &progress);
+    const int available = read_used_memory(config, &gib, &progress);
     if (available)
         snprintf(value, sizeof(value), "%.1f", gib);
     else

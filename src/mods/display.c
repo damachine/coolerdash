@@ -2125,6 +2125,14 @@ static void add_preview_sensor(monitor_sensor_data_t *data,
     add_preview_entry(data, slot_value, SENSOR_CATEGORY_FREQ, 4200.0f, "MHz");
 }
 
+static void add_processor_preview_channels(monitor_sensor_data_t *data)
+{
+    add_preview_entry(data, "cpu", SENSOR_CATEGORY_DUTY, 42, "%");
+    add_preview_entry(data, "gpu", SENSOR_CATEGORY_DUTY, 66, "%");
+    add_preview_entry(data, "cpu", SENSOR_CATEGORY_WATTS, 48, "W");
+    add_preview_entry(data, "gpu", SENSOR_CATEGORY_WATTS, 134, "W");
+}
+
 static void add_custom_preview_sensors(monitor_sensor_data_t *data, const CustomLayout *layout)
 {
     static const struct
@@ -2139,9 +2147,17 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
         {" Watts", SENSOR_CATEGORY_WATTS, 125, "W"},
         {" Freq", SENSOR_CATEGORY_FREQ, 4200, "MHz"},
     };
+    int needs_processor_channels = 0;
     for (int i = 0; i < layout->count; i++)
     {
         const char *source = layout->elements[i].source;
+        const CustomSource kind = get_custom_source(source);
+        if (kind != CUSTOM_SOURCE_SENSOR)
+        {
+            if (kind != CUSTOM_SOURCE_RAM_USED && kind != CUSTOM_SOURCE_RAM_LOAD)
+                needs_processor_channels = 1;
+            continue;
+        }
         if (!source[0] || find_sensor_for_slot(data, source))
             continue;
         size_t length = strlen(source);
@@ -2161,6 +2177,8 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
                               strcmp(source, "liquid") == 0 ? 32.5f :
                               strcmp(source, "gpu") == 0 ? 62.0f : 45.0f, "°C");
     }
+    if (needs_processor_channels)
+        add_processor_preview_channels(data);
 }
 
 int render_display_preview(const struct Config *config,
@@ -2175,10 +2193,7 @@ int render_display_preview(const struct Config *config,
         add_preview_entry(&data, "cpu", SENSOR_CATEGORY_TEMP, 54, "°C");
         add_preview_entry(&data, "gpu", SENSOR_CATEGORY_TEMP, 62, "°C");
         add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
-        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_DUTY, 42, "%");
-        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_DUTY, 66, "%");
-        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_WATTS, 48, "W");
-        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_WATTS, 134, "W");
+        add_processor_preview_channels(&data);
     }
     else if (strcmp(config->display_mode, "custom") == 0)
         add_custom_preview_sensors(&data, &config->custom_layout);

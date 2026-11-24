@@ -46,8 +46,8 @@ preview the configured rotation.
 Give the layout a name, select it in the Layout Bank, and click **Save** to
 apply it to the LCD. **Export JSON** shows the selected layout with its colors
 and widgets. In CoolerControl, copy the JSON into a `.json` file to share it.
-Imported layouts appear as new entries. CPU, GPU, and liquid
-temperature keep their standard bindings. Assign any device-specific sources
+Imported layouts appear as new entries. Built-in temperature, processor load,
+power, and RAM sources keep their bindings. Assign any device-specific sources
 again after import. Background images and GIFs come from the local background
 setting. Resetting plugin settings keeps saved layouts and selects Dual.
 

@@ -6,6 +6,7 @@
 #include <time.h>
 
 #include "custom.h"
+#include "tty.h"
 
 static void paint_element_text(cairo_t *cr, const Config *config,
                                const CustomElement *element,
@@ -78,6 +79,49 @@ static void paint_ring(cairo_t *cr, const CustomElement *element, double progres
     }
 }
 
+typedef struct
+{
+    sensor_entry_t sensor;
+    double gib, memory_load;
+    int memory_status;
+} WidgetReadings;
+
+static const sensor_entry_t *widget_sensor(const Config *config, const monitor_sensor_data_t *data,
+                                           const char *id, WidgetReadings *readings)
+{
+    const CustomSource source = get_custom_source(id);
+    if (source == CUSTOM_SOURCE_SENSOR)
+        return find_sensor_for_slot(data, id);
+    if (source == CUSTOM_SOURCE_CPU_LOAD || source == CUSTOM_SOURCE_GPU_LOAD)
+        return find_processor_load(data, source == CUSTOM_SOURCE_CPU_LOAD ? "cpu" : "gpu");
+    if (source == CUSTOM_SOURCE_CPU_POWER || source == CUSTOM_SOURCE_GPU_POWER)
+        return find_channel_sensor_for_slot(data, source == CUSTOM_SOURCE_CPU_POWER ? "cpu" : "gpu",
+                                            SENSOR_CATEGORY_WATTS);
+
+    double value;
+    const char *unit;
+    if (source == CUSTOM_SOURCE_POWER)
+    {
+        if (!read_processor_power(data, &value, NULL))
+            return NULL;
+        unit = "W";
+    }
+    else
+    {
+        if (!readings->memory_status)
+            readings->memory_status =
+                read_used_memory(config, &readings->gib, &readings->memory_load) ? 1 : -1;
+        if (readings->memory_status < 0)
+            return NULL;
+        value = source == CUSTOM_SOURCE_RAM_USED ? readings->gib : readings->memory_load * 100;
+        unit = source == CUSTOM_SOURCE_RAM_USED ? "GiB" : "%";
+    }
+    readings->sensor.value = (float)value;
+    readings->sensor.use_decimal = source == CUSTOM_SOURCE_RAM_USED;
+    snprintf(readings->sensor.unit, sizeof(readings->sensor.unit), "%s", unit);
+    return &readings->sensor;
+}
+
 int paint_custom_overlay(cairo_t *cr, const Config *config,
                          const monitor_sensor_data_t *data,
                          const ScalingParams *params)
@@ -92,11 +136,12 @@ int paint_custom_overlay(cairo_t *cr, const Config *config,
         cairo_clip(cr);
     }
 
+    WidgetReadings readings = {0};
     for (int i = 0; i < config->custom_layout.count; i++)
     {
         const CustomElement *element = &config->custom_layout.elements[i];
         const sensor_entry_t *sensor = element->source[0]
-                                           ? find_sensor_for_slot(data, element->source)
+                                           ? widget_sensor(config, data, element->source, &readings)
                                            : NULL;
         if (sensor && !isfinite(sensor->value))
             sensor = NULL;
