@@ -6,14 +6,14 @@
 #include "tty.h"
 
 static const Color terminal_accent = {149, 185, 251, 1};
-static const double label_scale = 0.74;
+static const double label_scale = 0.68;
 
 typedef struct
 {
     double left;
     double value_right;
     double bar_left;
-    double right;
+    double bar_width;
     double baseline;
     double font_size;
 } TerminalRow;
@@ -86,9 +86,12 @@ static void draw_row(cairo_t *cr, const Config *config, const TerminalRow *row, 
     }
 
     if (has_bar)
-        draw_segment_bar(cr, row->bar_left, row->baseline - font_size * 0.58,
-                         row->right - row->bar_left, font_size * 0.49, 8,
+    {
+        const double bar_height = fmin(row->font_size * 0.35, row->bar_width / 3.0);
+        draw_segment_bar(cr, row->bar_left, row->baseline - bar_height * 1.18,
+                         row->bar_width, bar_height, 8,
                          fmax(0, fmin(1, progress)), &terminal_accent);
+    }
 }
 
 static int valid_reading(const sensor_entry_t *sensor)
@@ -221,19 +224,19 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
         calculate_safe_region_bounds(params, row->baseline - font_size * 0.85,
                                      font_size * 1.10, 0.94, margin, fallback_width,
                                      &left, &width);
-        row->right = left + width;
         column_left = fmax(column_left, left);
         column_width = fmin(column_width, width);
     }
 
-    /* Keep labels and values aligned while the bars can follow the contour. */
     const double value_right = column_left + column_width * 0.73;
     const double bar_left = column_left + column_width * 0.78;
+    const double bar_width = column_width * 0.22;
     for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); i++)
     {
         rows[i].left = column_left;
         rows[i].value_right = value_right;
         rows[i].bar_left = bar_left;
+        rows[i].bar_width = bar_width;
     }
 
     cairo_save(cr);
@@ -248,7 +251,7 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
     double heading_left, heading_width;
     calculate_safe_region_bounds(params, heading_y + heading.y_bearing, heading.height,
                                  0.94, margin, fallback_width, &heading_left, &heading_width);
-    const double heading_x = fmin((bar_left + rows[0].right) / 2.0,
+    const double heading_x = fmin(bar_left + bar_width / 2.0,
                                   heading_left + heading_width - heading.width / 2.0);
     draw_centered(cr, heading_x, heading_y, "LOAD");
     draw_temperature(cr, config, data, &rows[0], "CPU", "cpu", 1);
