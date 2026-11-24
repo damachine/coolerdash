@@ -1,4 +1,4 @@
-.PHONY: all banner clean install uninstall debug help detect-distro install-deps check-deps
+.PHONY: all clean install uninstall debug help detect-distro install-deps check-deps
 .DELETE_ON_ERROR:
 VERSION := $(shell cat VERSION)
 
@@ -118,21 +118,8 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
 # Dependencies for header changes
 $(OBJECTS): $(HEADERS)
 
-# Banner
-banner:
-	@echo " "
-	@echo " Developed and maintained by: "
-	@echo "  ____    _    __  __    _    ____ _   _ ___ _   _ _____  "
-	@echo " |  _ \  / \  |  \/  |  / \  / ___| | | |_ _| \ | | ____| "
-	@echo " | | | |/ _ \ | |\/| | / _ \| |   | |_| || ||  \| |  _|   "
-	@echo " | |_| / ___ \| |  | |/ ___ \ |___|  _  || || |\  | |___  "
-	@echo " |____/_/   \_\_|  |_/_/   \_\____|_| |_|___|_| \_|_____| "
-	@echo " Version: $(VERSION) "
-	@echo " "
-
 # Clean Target
 clean:
-	$(MAKE) banner
 	@printf "$(YELLOW)Cleaning up...$(RESET)\n"
 	rm -f $(PROGRAM) $(OBJECTS) *.o
 	rm -rf $(OBJDIR) $(BINDIR)
@@ -254,9 +241,7 @@ check-deps:
 
 # Install binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/coolerdash/
 install:
-	@printf "\n"
-	@printf "$(WHITE)=== COOLERDASH INSTALLATION ===$(RESET)\n"
-	@printf "\n"
+	@printf "Installing CoolerDash %s...\n" "$(VERSION)"
 	@if [ -z "$(DESTDIR)" ] && [ "$(REALOS)" = "yes" ] && [ "$$(id -u)" -ne 0 ]; then \
 		printf "$(RED)Error: Installation requires root privileges$(RESET)\n"; \
 		printf "$(YELLOW)Run: sudo make install$(RESET)\n"; \
