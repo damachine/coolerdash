@@ -1611,16 +1611,21 @@ static void reload_daemon_config(Config *config)
 {
     log_message(LOG_STATUS, "SIGHUP received — reloading configuration...");
 
+    Config next;
+    int config_result = load_plugin_config(&next, s_config_path);
+    if (config_result != 1 || next.invalid_custom_layout || !next.access_token[0])
+    {
+        log_message(LOG_WARNING, "Config reload: could not load usable settings; keeping the running configuration");
+        return;
+    }
+
     stream_stop();
     cleanup_sensor_curl_handle();
     reset_coolercontrol_session();
     reset_device_cache();
     reset_display_state();
 
-    int config_result = load_plugin_config(config, s_config_path);
-    if (config_result == CONFIG_LOAD_WRITE_FAILED)
-        log_message(LOG_WARNING, "Config reload: could not persist configuration changes");
-
+    *config = next;
     apply_display_mode_override(config);
 
     // 4. Re-initialize CoolerControl session with potentially new token/address
@@ -1649,8 +1654,7 @@ static void reload_daemon_config(Config *config)
     update_config_from_device(config);
     update_device_info_snapshot(config);
 
-    if (config_result != CONFIG_LOAD_WRITE_FAILED)
-        log_message(LOG_STATUS, "Configuration reloaded successfully");
+    log_message(LOG_STATUS, "Configuration reloaded successfully");
 }
 
 /** @brief Convert the configured display refresh interval to a timespec. */
@@ -2032,7 +2036,6 @@ int main(int argc, char **argv)
     CliOptions cli;
     parse_arguments(argc, argv, &cli);
 
-    s_config_path = cli.config_path;
     cc_safe_strcpy(s_display_mode_override, sizeof(s_display_mode_override),
                    cli.display_mode_override);
 
@@ -2056,7 +2059,8 @@ int main(int argc, char **argv)
     }
 
     setup_enhanced_signal_handlers();
-    if (!initialize_config_and_instance(cli.config_path, &config))
+    s_config_path = find_plugin_config_path(cli.config_path);
+    if (!initialize_config_and_instance(s_config_path, &config))
         return EXIT_FAILURE;
 
     if (!acquire_single_instance(config.paths_images))

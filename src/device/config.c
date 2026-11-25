@@ -126,35 +126,10 @@ static void set_device_detection_defaults(Config *config)
 }
 
 /**
- * @brief Try to set display dimensions from LCD device.
+ * @brief Set display default values.
  */
-static void try_set_lcd_dimensions(Config *config)
+static void set_display_defaults(Config *config)
 {
-    if (config->display_width != 0 && config->display_height != 0)
-        return;
-
-    int lcd_width = 0, lcd_height = 0;
-    if (!get_cached_lcd_device_data(config, NULL, 0, NULL, 0, &lcd_width,
-                                    &lcd_height))
-        return;
-
-    if (lcd_width <= 0 || lcd_height <= 0)
-        return;
-
-    if (config->display_width == 0)
-        config->display_width = lcd_width;
-    if (config->display_height == 0)
-        config->display_height = lcd_height;
-}
-
-/**
- * @brief Set display default values with LCD device fallback.
- */
-static void set_display_defaults(Config *config, int use_device_cache)
-{
-    if (use_device_cache)
-        try_set_lcd_dimensions(config);
-
     if (config->display_refresh_interval == 0.0f)
         config->display_refresh_interval = 3.50f;
     if (config->display_rotation >= 360)
@@ -617,7 +592,7 @@ static void validate_sensor_slots(Config *config)
 /**
  * @brief Apply all system default values for missing fields.
  */
-static void apply_system_defaults(Config *config, int use_device_cache)
+static void apply_system_defaults(Config *config)
 {
     if (!config)
         return;
@@ -625,7 +600,7 @@ static void apply_system_defaults(Config *config, int use_device_cache)
     set_daemon_defaults(config);
     set_paths_defaults(config);
     set_device_detection_defaults(config);
-    set_display_defaults(config, use_device_cache);
+    set_display_defaults(config);
     set_layout_defaults(config);
     set_font_defaults(config);
     set_default_sensor_configs(config);
@@ -670,7 +645,7 @@ static int read_color_from_json(json_t *color_obj, Color *color)
 /**
  * @brief Try to locate config.json.
  */
-static const char *find_config_json(const char *custom_path)
+const char *find_plugin_config_path(const char *custom_path)
 {
     if (custom_path)
     {
@@ -1773,7 +1748,7 @@ static void load_positioning_from_json(json_t *root, Config *config)
 /**
  * @brief Load complete configuration from config.json with hardcoded defaults.
  */
-static int load_plugin_config_internal(Config *config, const char *config_path,
+static int load_plugin_config_internal(Config *config, const char *json_path,
                                        int allow_writes)
 {
     if (!config)
@@ -1814,8 +1789,6 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
     config->display_degree_spacing = -1;
     // Note: All colors have is_set=0 after memset, so defaults will be applied
 
-    // Try to find and load JSON config
-    const char *json_path = find_config_json(config_path);
     int loaded_from_json = 0;
 
     if (json_path)
@@ -1833,7 +1806,7 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
         json_error_t error;
         json_t *root = json_load_file(json_path, 0, &error);
 
-        if (root)
+        if (json_is_object(root))
         {
             load_daemon_from_json(root, config);
             load_paths_from_json(root, config);
@@ -1849,17 +1822,20 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
             {
                 config->invalid_custom_layout = 1;
                 SAFE_STRCPY(config->display_mode, "split");
-                log_message(LOG_WARNING, "Invalid active custom layout; using Split mode");
+                log_message(LOG_WARNING, "Invalid active custom layout in %s", json_path);
             }
 
             loaded_from_json = allow_writes && !have_original ? CONFIG_LOAD_WRITE_FAILED : 1;
             log_message(LOG_STATUS, "Plugin configuration loaded from JSON");
         }
+        else if (root)
+        {
+            log_message(LOG_WARNING, "Expected a JSON object in %s", json_path);
+        }
         else
         {
             log_message(LOG_WARNING, "Failed to parse %s: %s (line %d)",
                         json_path, error.text, error.line);
-            log_message(LOG_STATUS, "Using hardcoded defaults");
         }
 
         if (allow_writes && loaded_from_json == 1 && config->access_token[0])
@@ -1895,8 +1871,8 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
         log_message(LOG_INFO, "No config.json found, using hardcoded defaults");
     }
 
-    /* Read-only callers supply LCD dimensions from their snapshot or report. */
-    apply_system_defaults(config, allow_writes);
+    /* LCD dimensions are available after device discovery. */
+    apply_system_defaults(config);
 
     return loaded_from_json;
 }
@@ -1908,5 +1884,5 @@ int load_plugin_config(Config *config, const char *config_path)
 
 int load_plugin_config_read_only(Config *config, const char *config_path)
 {
-    return load_plugin_config_internal(config, config_path, 0);
+    return load_plugin_config_internal(config, find_plugin_config_path(config_path), 0);
 }

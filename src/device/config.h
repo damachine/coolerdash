@@ -261,15 +261,18 @@ extern int verbose_logging;
 
 enum { CONFIG_LOAD_WRITE_FAILED = -1 };
 
+/** @brief Find the startup configuration, including the legacy fallback path. */
+const char *find_plugin_config_path(const char *custom_path);
+
 /**
  * @brief Load complete configuration from config.json with hardcoded defaults.
  * @param config Pointer to Config struct to populate
- * @param config_path Optional path to config.json (NULL = use default location)
+ * @param config_path Path selected at startup (NULL = use hardcoded defaults)
  * @return 1 if loaded, 0 if using defaults, CONFIG_LOAD_WRITE_FAILED if an update could not be saved
  *
  * This function:
  * 1. Initializes config with hardcoded defaults
- * 2. Tries to load config.json from plugin directory
+ * 2. Loads the selected config.json
  * 3. Applies all settings with validation
  * 4. Populates the runtime configuration even when a file update fails
  *
