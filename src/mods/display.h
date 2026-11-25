@@ -404,11 +404,13 @@ float get_slot_temperature(const monitor_sensor_data_t *data, const char *slot_v
  * @param config Configuration with sensor configs (for custom label override)
  * @param data Sensor data collection (used for dynamic sensor names)
  * @param slot_value Slot configuration value
+ * @param short_name Caller-owned buffer for the shortened device name
  * @return Label string (custom, "CPU","GPU","LIQ" or sensor name) or NULL
  */
 const char *get_slot_label(const struct Config *config,
                            const monitor_sensor_data_t *data,
-                           const char *slot_value);
+                           const char *slot_value,
+                           char short_name[static SENSOR_DEVICE_NAME_LEN]);
 
 /**
  * @brief Get bar color for a sensor slot based on value.

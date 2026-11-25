@@ -1568,7 +1568,8 @@ float get_slot_temperature(const monitor_sensor_data_t *data, const char *slot_v
  */
 const char *get_slot_label(const struct Config *config,
                            const monitor_sensor_data_t *data,
-                           const char *slot_value)
+                           const char *slot_value,
+                           char short_name[static SENSOR_DEVICE_NAME_LEN])
 {
     if (!slot_value || slot_value[0] == '\0' || strcmp(slot_value, "none") == 0)
         return NULL;
@@ -1587,8 +1588,7 @@ const char *get_slot_label(const struct Config *config,
         const sensor_entry_t *entry = find_sensor_for_slot(data, slot_value);
         if (entry && entry->device_name[0] != '\0')
         {
-            static char short_name[SENSOR_DEVICE_NAME_LEN];
-            cc_safe_strcpy(short_name, sizeof(short_name),
+            cc_safe_strcpy(short_name, SENSOR_DEVICE_NAME_LEN,
                            entry->device_name);
             /* Find end of second word */
             int words = 0;
@@ -2033,8 +2033,9 @@ static void add_preview_entry(monitor_sensor_data_t *data,
                                       : "Liquidctl";
         cc_safe_strcpy(entry->name, sizeof(entry->name), slot_value);
         cc_safe_strcpy(entry->device_uid, sizeof(entry->device_uid), slot_value);
+        char short_name[SENSOR_DEVICE_NAME_LEN];
         cc_safe_strcpy(entry->device_name, sizeof(entry->device_name),
-                       get_slot_label(NULL, NULL, slot_value));
+                       get_slot_label(NULL, NULL, slot_value, short_name));
         cc_safe_strcpy(entry->device_type, sizeof(entry->device_type), device_type);
     }
     cc_safe_strcpy(entry->unit, sizeof(entry->unit), unit);

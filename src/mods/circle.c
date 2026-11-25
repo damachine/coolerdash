@@ -532,7 +532,8 @@ static void update_sensor_mode(const struct Config *config)
         if (verbose_logging)
         {
             const char *slot_value = get_slot_value_by_index(config, current_slot_index);
-            const char *label = get_slot_label(config, NULL, slot_value);
+            char short_name[SENSOR_DEVICE_NAME_LEN];
+            const char *label = get_slot_label(config, NULL, slot_value, short_name);
             log_message(LOG_INFO,
                         "Circle mode: switched to %s display (slot: %s, interval: %.0fs)",
                         label ? label : "unknown",
@@ -569,7 +570,8 @@ static void draw_single_sensor(cairo_t *cr, const struct Config *config,
 
     // Get temperature and label for current slot
     const float temp_value = get_slot_temperature(data, slot_value);
-    const char *label_text = get_slot_label(config, data, slot_value);
+    char short_name[SENSOR_DEVICE_NAME_LEN];
+    const char *label_text = get_slot_label(config, data, slot_value, short_name);
     const float max_temp = get_slot_max_scale(config, slot_value);
     const int centered = strcmp(config->circle_layout, "centered") == 0;
 
@@ -1045,7 +1047,8 @@ int render_circle_preview(const struct Config *config,
     {
         const char *slot_value =
             get_slot_value_by_index(config, displayed_circle_slot(config));
-        const char *label = get_slot_label(config, data, slot_value);
+        char short_name[SENSOR_DEVICE_NAME_LEN];
+        const char *label = get_slot_label(config, data, slot_value, short_name);
         float temp = get_slot_temperature(data, slot_value);
         log_message(LOG_INFO,
                     "Circle mode: slot=%s label=%s temp=%.1f extra_info=%s font=%s",

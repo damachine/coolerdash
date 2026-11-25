@@ -262,7 +262,8 @@ static void format_channel_value(char *buffer, size_t buffer_size,
 
 static const char *get_split_label(const struct Config *config,
                                    const monitor_sensor_data_t *data,
-                                   const char *slot_value)
+                                   const char *slot_value,
+                                   char short_name[static SENSOR_DEVICE_NAME_LEN])
 {
     const SensorConfig *sensor_config = get_sensor_config(config, slot_value);
     if (sensor_config && sensor_config->label[0] != '\0')
@@ -271,7 +272,7 @@ static const char *get_split_label(const struct Config *config,
         return "CPU";
     if (strcmp(slot_value, "gpu") == 0)
         return "GPU";
-    return get_slot_label(config, data, slot_value);
+    return get_slot_label(config, data, slot_value, short_name);
 }
 
 static void draw_split_pane(cairo_t *cr, const struct Config *config,
@@ -291,7 +292,8 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
     const double temp_size = configured_temp_size > 0.0f
                                  ? scale_value_avg(params, configured_temp_size)
                                  : min_dimension * 4.0;
-    const char *label = get_split_label(config, data, slot_value);
+    char short_name[SENSOR_DEVICE_NAME_LEN];
+    const char *label = get_split_label(config, data, slot_value, short_name);
     const float temperature = get_slot_temperature(data, slot_value);
     char temperature_text[16] = {0};
     char secondary_text[3][24] = {{0}};
