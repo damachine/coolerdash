@@ -259,17 +259,19 @@ extern int verbose_logging;
 // Plugin Configuration Functions
 // ============================================================================
 
+enum { CONFIG_LOAD_WRITE_FAILED = -1 };
+
 /**
  * @brief Load complete configuration from config.json with hardcoded defaults.
  * @param config Pointer to Config struct to populate
  * @param config_path Optional path to config.json (NULL = use default location)
- * @return 1 on success (config loaded), 0 if using defaults only
+ * @return 1 if loaded, 0 if using defaults, CONFIG_LOAD_WRITE_FAILED if an update could not be saved
  *
  * This function:
  * 1. Initializes config with hardcoded defaults
  * 2. Tries to load config.json from plugin directory
  * 3. Applies all settings with validation
- * 4. Returns ready-to-use config (always succeeds)
+ * 4. Populates the runtime configuration even when a file update fails
  *
  * Default config.json location:
  *   /var/lib/coolercontrol/plugins/coolerdash/config.json

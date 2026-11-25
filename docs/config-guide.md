@@ -13,15 +13,17 @@ sudo systemctl restart coolercontrold
 
 ```json
 "daemon": {
-    "address": "http://localhost:11987",
-    "access_token": ""
+    "address": "http://localhost:11987"
 }
 ```
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | `address` | `http://localhost:11987` | CoolerControl API endpoint |
-| `access_token` | `""` | Bearer token (`cc_<uuid>`) from CoolerControl UI > Access Protection |
+
+Set the access token in the **Connection** tab. CoolerDash saves it in the
+separate `credentials.json` file and removes it from `config.json`. Leave the
+token field empty to keep the saved token.
 
 ---
 

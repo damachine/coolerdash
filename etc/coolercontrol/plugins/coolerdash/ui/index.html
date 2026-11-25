@@ -828,8 +828,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Access Token</label>
-                    <span class="form-hint">Enter a CC4 Bearer token.</span>
-                    <input data-help="Paste an access token created in CoolerControl." type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="cc_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                    <span class="form-hint">Leave empty to keep the saved token.</span>
+                    <input data-help="Paste an access token created in CoolerControl." type="password" name="daemon.access_token" class="form-control" autocomplete="off" spellcheck="false" placeholder="***********************************">
                 </div>
             </div>
 
@@ -1698,8 +1698,7 @@
         // ===== FACTORY DEFAULT CONFIGURATION =====
         const FACTORY_DEFAULTS = {
             daemon: {
-                address: "http://localhost:11987",
-                access_token: ""
+                address: "http://localhost:11987"
             },
             device_detection: {
                 mode: "strict",
@@ -1902,14 +1901,15 @@
             });
         }
 
-        async function ccGetPluginConfig() {
+        async function ccGetPluginConfig(force = false) {
             if (typeof getPluginConfig === 'function') {
-                return normalizePluginConfigPayload(await getPluginConfig());
+                return normalizePluginConfigPayload(await getPluginConfig(force));
             }
 
             if (isInCoolerControl) {
                 return normalizePluginConfigPayload(
-                    await waitForParentMessage({ type: 'loadConfig' }, 'config', 3000, {}, {})
+                    await waitForParentMessage({ type: 'loadConfig' }, 'config', 3000,
+                        force ? new Error('Config load timeout') : {}, {})
                 );
             }
 
@@ -1917,7 +1917,16 @@
             return saved ? JSON.parse(saved) : {};
         }
 
-        async function ccSavePluginConfig(config) {
+        async function ccSavePluginConfig(config, token = '') {
+            if (!token) {
+                // Keep a pending token until the daemon moves it to credentials.json.
+                var current = await ccGetPluginConfig(true);
+                token = current.daemon?.access_token;
+            }
+            if (typeof token === 'string' && token && token !== '***') {
+                config.daemon.access_token = token;
+            }
+
             if (typeof savePluginConfig === 'function') {
                 return savePluginConfig(config);
             }
@@ -2013,7 +2022,7 @@
         // ===== AUTH HEADER HELPER =====
         function makeAuthHeaders(token) {
             var t = (token || '').trim();
-            if (t) return { 'Authorization': 'Bearer ' + t };
+            if (t && t !== '***') return { 'Authorization': 'Bearer ' + t };
             return {};
         }
 
@@ -2325,10 +2334,7 @@
             var addrInput = document.querySelector('[name="daemon.address"]');
             var tokenInput = document.querySelector('[name="daemon.access_token"]');
             if (addrInput && addrInput.value) apiAddr = addrInput.value;
-            if (tokenInput) {
-                var _tv = tokenInput.value;
-                apiToken = (_tv === '***' && tokenInput.dataset.realToken) ? tokenInput.dataset.realToken : _tv;
-            }
+            if (tokenInput && tokenInput.value.trim()) apiToken = tokenInput.value.trim();
             var statusEl = document.getElementById('sensor-discovery-status');
             if (statusEl) {
                 statusEl.style.display = 'block';
@@ -3271,7 +3277,6 @@
                 status.textContent = 'Rendering Cairo preview\u2026';
                 try {
                     var previewConfig = buildConfig({ includeLayouts: false });
-                    if (previewConfig.daemon) previewConfig.daemon.access_token = '';
                     var result = await requestCairoPreview(previewConfig);
                     if (generation !== renderPreviewGeneration) return;
                     if (['terminal', 'activity-rings'].includes(previewConfig.display.mode) && result.shape)
@@ -3684,6 +3689,7 @@
 
                 var parsedConfig = JSON.parse(await response.text());
                 DEFAULT_CONFIG = mergeConfigWithDefaults(parsedConfig, fallbackDefaults);
+                delete DEFAULT_CONFIG.daemon.access_token;
                 return DEFAULT_CONFIG;
             } catch (error) {
                 console.warn('Falling back to embedded factory defaults:', error);
@@ -3834,6 +3840,7 @@
             var entry;
             while (!(entry = entries.next()).done) {
                 var key = entry.value[0];
+                if (key === 'daemon.access_token') continue;
                 var value = entry.value[1];
                 var parts = key.split('.');
                 if (parts.length === 2 && config[parts[0]] !== undefined) {
@@ -3874,12 +3881,6 @@
                 config.display.sensor_ring_enabled = false;
             }
 
-            // Restore real token if user left the *** placeholder unchanged
-            var _tokenInput = document.querySelector('[name="daemon.access_token"]');
-            if (_tokenInput && /^\*+$/.test(_tokenInput.value.trim()) && _tokenInput.dataset.realToken) {
-                config.daemon.access_token = _tokenInput.dataset.realToken;
-            }
-
             var merged = mergeConfigWithDefaults(config, DEFAULT_CONFIG || FACTORY_DEFAULTS);
             if (includeLayouts) {
                 var bank = customLayouts.bank();
@@ -3896,6 +3897,7 @@
 
         // ===== POPULATE FORM FROM CONFIG =====
         function populateForm(config) {
+            document.querySelector('[name="daemon.access_token"]').value = '';
             if (config.display) {
                 delete config.display.split_scale_factor;
                 delete config.display.text_scale_factor;
@@ -3910,28 +3912,19 @@
                 if (typeof fields === 'object' && fields !== null) {
                     for (var field in fields) {
                         if (!fields.hasOwnProperty(field)) continue;
+                        if (section === 'daemon' && field === 'access_token') continue;
                         var value = fields[field];
                         var input = document.querySelector('[name="' + section + '.' + field + '"]');
                         if (input && typeof value !== 'object') {
-                            if (section === 'daemon' && field === 'access_token') {
-                                if (value && String(value).trim()) {
-                                    input.dataset.realToken = value;
-                                    input.value = '*'.repeat(String(value).length);
-                                } else {
-                                    input.value = '';
-                                    delete input.dataset.realToken;
-                                }
-                            } else {
-                                input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
-                                if (section === 'display' && field === 'orientation') updateRangeValue('display_orientation', input.value, '°');
-                                if (field === 'brightness') updateRangeValue('brightness', value);
-                                if (field === 'background_overlay_opacity') updateRangeValue('background_overlay', value, '', 2);
-                                if (field === 'background_image_scale_factor') updateAutoValue('background_image_scale', value, 100, '%');
-                                if (section === 'font' && field === 'size_temp') updateAutoValue('font_size_temp', value, 1, ' px');
-                                if (section === 'font' && field === 'size_labels') updateAutoValue('font_size_labels', value, 1, ' px');
-                                if (section === 'font' && field === 'size_duty') updateAutoValue('font_size_duty', value, 1, ' px');
-                                if (section === 'font' && field === 'size_watts') updateAutoValue('font_size_watts', value, 1, ' px');
-                            }
+                            input.value = (typeof value === 'boolean') ? (value ? "1" : "0") : value;
+                            if (section === 'display' && field === 'orientation') updateRangeValue('display_orientation', input.value, '°');
+                            if (field === 'brightness') updateRangeValue('brightness', value);
+                            if (field === 'background_overlay_opacity') updateRangeValue('background_overlay', value, '', 2);
+                            if (field === 'background_image_scale_factor') updateAutoValue('background_image_scale', value, 100, '%');
+                            if (section === 'font' && field === 'size_temp') updateAutoValue('font_size_temp', value, 1, ' px');
+                            if (section === 'font' && field === 'size_labels') updateAutoValue('font_size_labels', value, 1, ' px');
+                            if (section === 'font' && field === 'size_duty') updateAutoValue('font_size_duty', value, 1, ' px');
+                            if (section === 'font' && field === 'size_watts') updateAutoValue('font_size_watts', value, 1, ' px');
                         }
                     }
                 }
@@ -4187,8 +4180,10 @@
                 return;
 
             var config = buildConfig();
+            var tokenInput = document.querySelector('[name="daemon.access_token"]');
             try {
-                await ccSavePluginConfig(config);
+                await ccSavePluginConfig(config, tokenInput.value.trim());
+                tokenInput.value = '';
                 await ccRestartPlugin();
                 close();
             } catch (error) {
@@ -4212,15 +4207,6 @@
                 var savedLayouts = customLayouts.savedItems();
                 if (savedLayouts.length)
                     factoryConfig.custom_layouts = { active_id: '', items: savedLayouts };
-                // Preserve the existing access_token — never reset it to default
-                var tokenInput = document.querySelector('[name="daemon.access_token"]');
-                var existingToken = (tokenInput && tokenInput.dataset.realToken) || '';
-                if (existingToken) {
-                    if (!factoryConfig.daemon) factoryConfig.daemon = {};
-                    factoryConfig.daemon.access_token = existingToken;
-                } else if (factoryConfig.daemon) {
-                    delete factoryConfig.daemon.access_token;
-                }
                 await ccSavePluginConfig(factoryConfig);
                 populateForm(factoryConfig);
                 await ccRestartPlugin();

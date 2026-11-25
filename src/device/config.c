@@ -10,15 +10,17 @@
  * @brief JSON configuration loader.
  */
 
-#define _POSIX_C_SOURCE 200112L
-#define _XOPEN_SOURCE 600
+#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
 
 // cppcheck-suppress-begin missingIncludeSystem
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <jansson.h>
@@ -724,7 +726,7 @@ static void load_daemon_from_json(json_t *root, Config *config)
     if (token && json_is_string(token) && json_string_length(token) > 0)
     {
         const char *value = json_string_value(token);
-        if (value)
+        if (value && strcmp(value, "***") != 0)
         {
             SAFE_STRCPY(config->access_token, value);
         }
@@ -745,10 +747,7 @@ static int get_credentials_path(const char *config_json_path,
         return 0;
 
     const char *last_slash = strrchr(config_json_path, '/');
-    if (!last_slash)
-        return 0;
-
-    size_t dir_len = (size_t)(last_slash - config_json_path + 1);
+    size_t dir_len = last_slash ? (size_t)(last_slash - config_json_path + 1) : 0;
     if (dir_len + 17 > cred_path_size) /* 17 = strlen("credentials.json") + 1 */
         return 0;
 
@@ -770,13 +769,7 @@ static void load_credentials_file(const char *config_json_path, Config *config)
     if (!config_json_path || !config)
         return;
 
-    int had_sentinel = (strcmp(config->access_token, "***") == 0);
-
-    /* credentials.json is the single authoritative source for the access token.
-     * It always overrides whatever config.json contained — config.json is only
-     * the temporary delivery channel when the user saves a new token via the UI.
-     * The save_credentials_file() call before this one already persisted any new
-     * token from config.json into credentials.json, so reading here is safe. */
+    /* config.json can carry a pending token. Prefer the persisted token when present. */
 
     char cred_path[CONFIG_MAX_PATH_LEN];
     if (!get_credentials_path(config_json_path, cred_path, sizeof(cred_path)))
@@ -786,110 +779,126 @@ static void load_credentials_file(const char *config_json_path, Config *config)
     json_t *root = json_load_file(cred_path, 0, &error);
     if (!root)
     {
-        if (had_sentinel)
-        {
-            config->access_token[0] = '\0';
-            log_message(LOG_WARNING,
-                        "credentials.json missing; cleared stale token sentinel from runtime config");
-        }
         log_message(LOG_INFO, "No credentials.json at %s", cred_path);
         return;
     }
 
-    json_t *token = json_object_get(root, "access_token");
-    int loaded_token = 0;
-    if (token && json_is_string(token) && json_string_length(token) > 0)
+    const char *token = json_string_value(json_object_get(root, "access_token"));
+    if (token && token[0] && strcmp(token, "***") != 0)
     {
-        const char *value = json_string_value(token);
-        /* Skip sentinel — credentials.json should never contain "***" but
-         * guard against accidental writes of the UI placeholder. */
-        if (value && strcmp(value, "***") != 0)
-        {
-            SAFE_STRCPY(config->access_token, value);
-            log_message(LOG_INFO, "Loaded access_token from credentials.json");
-            loaded_token = 1;
-        }
-    }
-
-    if (!loaded_token && had_sentinel)
-    {
-        config->access_token[0] = '\0';
-        log_message(LOG_WARNING,
-                    "credentials.json has no usable token; cleared stale token sentinel from runtime config");
+        SAFE_STRCPY(config->access_token, token);
+        log_message(LOG_INFO, "Loaded access_token from credentials.json");
     }
 
     json_decref(root);
 }
 
-/**
- * @brief Persist access_token to credentials.json for update safety.
- * @details Called after config loading. Creates credentials.json if it
- *          does not exist. If a non-empty token was loaded, ensures it
- *          is always persisted so package updates that overwrite
- *          config.json do not lose the token.
- * @param config_json_path Path to config.json (used to derive credentials path)
- * @param config Config with the loaded access_token
- */
-static int dump_credentials_atomically(const char *cred_path, const json_t *root)
+static int open_parent_directory(const char *path)
+{
+    char directory[CONFIG_MAX_PATH_LEN] = ".";
+    const char *slash = strrchr(path, '/');
+    if (slash)
+    {
+        size_t length = (size_t)(slash - path) + 1;
+        if (length >= sizeof(directory))
+        {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+        memcpy(directory, path, length);
+        directory[length] = '\0';
+    }
+    return open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+}
+
+static int dump_json_atomically(const char *path, const json_t *root,
+                               const struct stat *original)
 {
     char temp_path[CONFIG_MAX_PATH_LEN];
-    int written = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", cred_path);
+    int written = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", path);
     if (written < 0 || (size_t)written >= sizeof(temp_path))
     {
-        log_message(LOG_WARNING, "Credentials path is too long");
+        log_message(LOG_WARNING, "Temporary path for %s is too long", path);
+        return 0;
+    }
+
+    int dir_fd = open_parent_directory(path);
+    if (dir_fd < 0)
+    {
+        log_message(LOG_WARNING, "Failed to open directory for %s: %s", path, strerror(errno));
         return 0;
     }
 
     int fd = mkstemp(temp_path);
     if (fd == -1)
     {
-        log_message(LOG_WARNING, "Failed to create credentials file: %s",
-                    strerror(errno));
+        log_message(LOG_WARNING, "Failed to create temporary file for %s: %s", path, strerror(errno));
+        close(dir_fd);
         return 0;
     }
 
     int success = 0;
+    int replaced = 0;
     FILE *fp = NULL;
-    if (fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+    struct stat temp;
+    if ((original &&
+         (fstat(fd, &temp) != 0 ||
+          ((temp.st_uid != original->st_uid || temp.st_gid != original->st_gid) &&
+           fchown(fd, original->st_uid, original->st_gid) != 0))) ||
+        fchmod(fd, original ? original->st_mode & 0777 : S_IRUSR | S_IWUSR) != 0)
     {
-        log_message(LOG_WARNING, "Failed to restrict credentials file: %s",
-                    strerror(errno));
+        log_message(LOG_WARNING, "Failed to set permissions for %s: %s", path, strerror(errno));
         goto cleanup;
     }
 
     fp = fdopen(fd, "w");
     if (!fp)
     {
-        log_message(LOG_WARNING, "Failed to open credentials stream: %s",
-                    strerror(errno));
+        log_message(LOG_WARNING, "Failed to open temporary file for %s: %s", path, strerror(errno));
         goto cleanup;
     }
     fd = -1;
 
-    if (json_dumpf(root, fp, JSON_INDENT(2)) != 0 || fputc('\n', fp) == EOF ||
+    if (json_dumpf(root, fp, JSON_INDENT(2) | JSON_PRESERVE_ORDER) != 0 || fputc('\n', fp) == EOF ||
         fflush(fp) != 0 || fsync(fileno(fp)) != 0)
     {
-        log_message(LOG_WARNING, "Failed to write credentials.json: %s",
-                    strerror(errno));
+        log_message(LOG_WARNING, "Failed to write %s: %s", path, strerror(errno));
         goto cleanup;
     }
 
     if (fclose(fp) != 0)
     {
         fp = NULL;
-        log_message(LOG_WARNING, "Failed to close credentials.json: %s",
-                    strerror(errno));
+        log_message(LOG_WARNING, "Failed to close temporary file for %s: %s", path, strerror(errno));
         goto cleanup;
     }
     fp = NULL;
 
-    if (rename(temp_path, cred_path) != 0)
+    /* CoolerControl can save config.json while we persist the token. */
+    struct stat current;
+    if (original &&
+        (stat(path, &current) != 0 || current.st_dev != original->st_dev ||
+         current.st_ino != original->st_ino || current.st_size != original->st_size ||
+         current.st_mtim.tv_sec != original->st_mtim.tv_sec ||
+         current.st_mtim.tv_nsec != original->st_mtim.tv_nsec ||
+         current.st_ctim.tv_sec != original->st_ctim.tv_sec ||
+         current.st_ctim.tv_nsec != original->st_ctim.tv_nsec))
     {
-        log_message(LOG_WARNING, "Failed to replace credentials.json: %s",
-                    strerror(errno));
+        log_message(LOG_WARNING, "%s changed while being loaded; leaving it in place", path);
         goto cleanup;
     }
 
+    if (rename(temp_path, path) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to replace %s: %s", path, strerror(errno));
+        goto cleanup;
+    }
+    replaced = 1;
+    if (fsync(dir_fd) != 0)
+    {
+        log_message(LOG_WARNING, "Failed to sync directory for %s: %s", path, strerror(errno));
+        goto cleanup;
+    }
     success = 1;
 
 cleanup:
@@ -897,142 +906,55 @@ cleanup:
         fclose(fp);
     else if (fd != -1)
         close(fd);
-    if (!success)
+    if (!replaced)
         unlink(temp_path);
+    close(dir_fd);
     return success;
 }
 
-static void save_credentials_file(const char *config_json_path, const Config *config)
+static int save_credentials_file(const char *config_json_path, const char *token)
 {
-    if (!config_json_path || !config)
-        return;
-
-    /* Never overwrite credentials.json with an empty token or the sentinel.
-     * credentials.json is authoritative — only update it when we actually
-     * have a new token (delivered via config.json after a UI save). */
-    if (config->access_token[0] == '\0')
-        return;
-
-    /* "***" is the UI sentinel meaning "token already set, no change" — never
-     * persist the sentinel itself into credentials.json. */
-    if (strcmp(config->access_token, "***") == 0)
-        return;
-
-    const char *token = config->access_token;
-
     char cred_path[CONFIG_MAX_PATH_LEN];
     if (!get_credentials_path(config_json_path, cred_path, sizeof(cred_path)))
-        return;
-
-    /* Check if credentials.json already has the same token */
-    /* (skip unnecessary writes for unchanged tokens) */
-    json_t *existing = json_load_file(cred_path, 0, NULL);
-    if (existing)
     {
-        json_t *cur = json_object_get(existing, "access_token");
-        if (cur && json_is_string(cur))
-        {
-            const char *val = json_string_value(cur);
-            if (val && strcmp(val, token) == 0)
-            {
-                json_decref(existing);
-                return; /* Already up-to-date */
-            }
-        }
-        json_decref(existing);
+        log_message(LOG_WARNING, "Could not derive credentials.json path from %s", config_json_path);
+        return 0;
     }
 
-    /* Write credentials.json */
-    json_t *root = json_object();
+    json_t *root = json_pack("{s:s}", "access_token", token);
     if (!root)
-        return;
+        return 0;
 
-    if (json_object_set_new(root, "access_token",
-                            json_string(token)) != 0)
-    {
-        json_decref(root);
-        return;
-    }
-
-    if (!dump_credentials_atomically(cred_path, root))
-    {
-        json_decref(root);
-        return;
-    }
-
+    int saved = dump_json_atomically(cred_path, root, NULL);
     json_decref(root);
-
-    log_message(LOG_STATUS, "Access token persisted to credentials.json");
+    if (saved)
+        log_message(LOG_STATUS, "Access token persisted to credentials.json");
+    return saved;
 }
 
-/**
- * @brief Re-format config.json with proper indentation if needed.
- * @details CoolerControl writes config.json as compact single-line JSON
- *          without trailing newline. This normalizes it to pretty-printed
- *          format so the file stays human-readable and reduces noise in
- *          .pacnew diffs during package updates.
- * @param json_path Path to config.json
- * @param root Parsed JSON root (must still be valid, not yet freed)
- */
-
-static void normalize_config_json(const char *json_path, json_t *root)
+static int update_config_json(const char *path, json_t *root, const struct stat *original)
 {
-    if (!json_path || !root)
-        return;
-
-    /* Read existing file to check if it's already formatted */
-    FILE *fp = fopen(json_path, "r");
-    if (!fp)
-        return;
-
-    /* Check first 64 bytes — pretty JSON starts with "{\n  " */
-    char head[64];
-    size_t n = fread(head, 1, sizeof(head) - 1, fp);
-    fclose(fp);
-
-    if (n < 4)
-        return;
-
-    head[n] = '\0';
-
-    /* If it already starts with "{\n  " it's properly formatted */
-    if (head[0] == '{' && head[1] == '\n' && head[2] == ' ' && head[3] == ' ')
-        return;
-
-    /* Replace real access_token with sentinel "***" before writing.
-     * The actual token stays safe in credentials.json; the sentinel tells
-     * the UI that a token is already configured without exposing the value. */
     json_t *daemon = json_object_get(root, "daemon");
-    if (daemon && json_is_object(daemon))
+    if (json_object_del(daemon, "access_token") != 0)
     {
-        json_t *tok = json_object_get(daemon, "access_token");
-        if (tok && json_is_string(tok))
-        {
-            const char *tv = json_string_value(tok);
-            if (tv && tv[0] != '\0' && strcmp(tv, "***") != 0)
-                json_object_set_new(daemon, "access_token", json_string("***"));
-            else if (!tv || tv[0] == '\0')
-                json_object_del(daemon, "access_token");
-            /* "***" already present — leave as-is */
-        }
-    }
-
-    if (json_dump_file(root, json_path,
-                       JSON_INDENT(2) | JSON_PRESERVE_ORDER) != 0)
-    {
-        log_message(LOG_WARNING, "Failed to normalize config.json format");
-        return;
-    }
-
-    /* Append trailing newline (json_dump_file doesn't add one) */
-    fp = fopen(json_path, "a");
-    if (fp)
-    {
-        fputc('\n', fp);
+        FILE *fp = fopen(path, "r");
+        if (!fp)
+            return 0;
+        char head[4];
+        size_t length = fread(head, 1, sizeof(head), fp);
+        int read_error = ferror(fp);
         fclose(fp);
+        if (read_error)
+            return 0;
+        if (length < sizeof(head) || memcmp(head, "{\n  ", sizeof(head)) == 0)
+            return 1;
     }
 
-    log_message(LOG_INFO, "Normalized config.json formatting");
+    /* Replace the file behind a user-supplied symlink. */
+    char *target = realpath(path, NULL);
+    int saved = target && dump_json_atomically(target, root, original);
+    free(target);
+    return saved;
 }
 
 /**
@@ -1849,61 +1771,6 @@ static void load_positioning_from_json(json_t *root, Config *config)
 // ============================================================================
 
 /**
- * @brief Write "***" sentinel for access_token into config.json.
- * @details Called after loading credentials.json so the UI can display that
- *          a token is configured without exposing the real value. Safe to call
- *          repeatedly — skips the write if the sentinel is already present.
- * @param json_path Path to config.json
- * @param config    Config struct (used to check whether a token is actually set)
- */
-static void write_token_sentinel_to_config(const char *json_path, const Config *config)
-{
-    if (!json_path || !config || config->access_token[0] == '\0')
-        return;
-
-    json_error_t error;
-    json_t *root = json_load_file(json_path, 0, &error);
-    if (!root)
-        return;
-
-    json_t *daemon_obj = json_object_get(root, "daemon");
-    if (!daemon_obj || !json_is_object(daemon_obj))
-    {
-        json_decref(root);
-        return;
-    }
-
-    json_t *tok = json_object_get(daemon_obj, "access_token");
-    const char *tv = (tok && json_is_string(tok)) ? json_string_value(tok) : "";
-    if (tv && strcmp(tv, "***") == 0)
-    {
-        /* Already correct — nothing to write */
-        json_decref(root);
-        return;
-    }
-
-    json_object_set_new(daemon_obj, "access_token", json_string("***"));
-
-    if (json_dump_file(root, json_path, JSON_INDENT(2) | JSON_PRESERVE_ORDER) == 0)
-    {
-        /* Append trailing newline (json_dump_file omits it) */
-        FILE *fp = fopen(json_path, "a");
-        if (fp)
-        {
-            fputc('\n', fp);
-            fclose(fp);
-        }
-        log_message(LOG_INFO, "Token sentinel written to config.json");
-    }
-    else
-    {
-        log_message(LOG_WARNING, "Failed to write token sentinel to config.json");
-    }
-
-    json_decref(root);
-}
-
-/**
  * @brief Load complete configuration from config.json with hardcoded defaults.
  */
 static int load_plugin_config_internal(Config *config, const char *config_path,
@@ -1955,6 +1822,14 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
     {
         log_message(LOG_INFO, "Loading plugin config from: %s", json_path);
 
+        /* Serialize token updates by CoolerDash processes sharing this directory. */
+        int dir_fd = allow_writes ? open_parent_directory(json_path) : -1;
+        int can_write = dir_fd >= 0 && flock(dir_fd, LOCK_EX | LOCK_NB) == 0;
+        if (allow_writes && !can_write)
+            log_message(LOG_WARNING, "Could not lock configuration directory: %s", strerror(errno));
+
+        struct stat original;
+        int have_original = can_write && stat(json_path, &original) == 0;
         json_error_t error;
         json_t *root = json_load_file(json_path, 0, &error);
 
@@ -1977,12 +1852,7 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
                 log_message(LOG_WARNING, "Invalid active custom layout; using Split mode");
             }
 
-            /* Normal daemon startup keeps the config human-readable. */
-            if (allow_writes)
-                normalize_config_json(json_path, root);
-
-            json_decref(root);
-            loaded_from_json = 1;
+            loaded_from_json = allow_writes && !have_original ? CONFIG_LOAD_WRITE_FAILED : 1;
             log_message(LOG_STATUS, "Plugin configuration loaded from JSON");
         }
         else
@@ -1992,20 +1862,33 @@ static int load_plugin_config_internal(Config *config, const char *config_path,
             log_message(LOG_STATUS, "Using hardcoded defaults");
         }
 
-        /* If config.json delivered a new token (user saved via UI), persist it
-         * to credentials.json NOW — before reading credentials.json as authority. */
-        if (allow_writes)
-            save_credentials_file(json_path, config);
+        if (allow_writes && loaded_from_json == 1 && config->access_token[0])
+        {
+            const char *pending = json_string_value(
+                json_object_get(json_object_get(root, "daemon"), "access_token"));
+            if (strlen(pending) >= sizeof(config->access_token))
+            {
+                log_message(LOG_WARNING, "Access token in config.json is too long");
+                config->access_token[0] = '\0';
+                loaded_from_json = CONFIG_LOAD_WRITE_FAILED;
+            }
+            else if (!save_credentials_file(json_path, pending))
+            {
+                loaded_from_json = CONFIG_LOAD_WRITE_FAILED;
+            }
+        }
 
-        /* Load credentials.json as the single authoritative source for access_token.
-         * This always wins — it is the persisted, update-safe store. */
         load_credentials_file(json_path, config);
 
-        /* If a token is now active, write the "***" sentinel back to config.json
-         * so the UI (getPluginConfig) can show that a token is configured
-         * without exposing the real value. */
-        if (allow_writes && config->access_token[0] != '\0')
-            write_token_sentinel_to_config(json_path, config);
+        /* Keep the pending token in config.json if writing credentials failed. */
+        if (allow_writes && loaded_from_json == 1 &&
+            !update_config_json(json_path, root, &original))
+        {
+            loaded_from_json = CONFIG_LOAD_WRITE_FAILED;
+        }
+        json_decref(root);
+        if (dir_fd >= 0)
+            close(dir_fd);
     }
     else
     {

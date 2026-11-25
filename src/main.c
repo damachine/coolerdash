@@ -1617,7 +1617,9 @@ static void reload_daemon_config(Config *config)
     reset_device_cache();
     reset_display_state();
 
-    load_plugin_config(config, s_config_path);
+    int config_result = load_plugin_config(config, s_config_path);
+    if (config_result == CONFIG_LOAD_WRITE_FAILED)
+        log_message(LOG_WARNING, "Config reload: could not persist configuration changes");
 
     apply_display_mode_override(config);
 
@@ -1647,7 +1649,8 @@ static void reload_daemon_config(Config *config)
     update_config_from_device(config);
     update_device_info_snapshot(config);
 
-    log_message(LOG_STATUS, "Configuration reloaded successfully");
+    if (config_result != CONFIG_LOAD_WRITE_FAILED)
+        log_message(LOG_STATUS, "Configuration reloaded successfully");
 }
 
 /** @brief Convert the configured display refresh interval to a timespec. */
@@ -1897,7 +1900,11 @@ static int initialize_config_and_instance(const char *config_path,
 {
     int json_loaded = load_plugin_config(config, config_path);
 
-    if (!json_loaded)
+    if (json_loaded == CONFIG_LOAD_WRITE_FAILED)
+    {
+        log_message(LOG_WARNING, "Startup: could not persist configuration changes");
+    }
+    else if (!json_loaded)
     {
         log_message(LOG_INFO, "Using hardcoded defaults (no config.json found)");
     }
