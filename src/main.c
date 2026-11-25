@@ -34,7 +34,6 @@
 #include <netinet/in.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <curl/curl.h>
@@ -64,6 +63,7 @@
 #define UPDATE_RETRY_ATTEMPTS 4
 #define UPDATE_RETRY_DELAY_SECONDS 5
 #define UPDATE_PROXY_PORT 11989
+#define PLUGIN_REQUEST_TIMEOUT_SECONDS 5
 #define PREVIEW_REQUEST_LIMIT (64U * 1024U)
 #define IMPORT_REQUEST_LIMIT (512U * 1024U)
 #ifndef UPDATE_STATUS_PATH
@@ -77,6 +77,11 @@
 
 static volatile sig_atomic_t running = 1;
 static volatile sig_atomic_t reload_config = 0;
+
+static int daemon_running(void)
+{
+    return __atomic_load_n(&running, __ATOMIC_RELAXED);
+}
 
 static const char *s_config_path = NULL;
 static char s_display_mode_override[16] = {0};
@@ -151,6 +156,7 @@ typedef struct
     pthread_mutex_t mutex;
     pthread_cond_t changed;
     char path[CONFIG_MAX_PATH_LEN];
+    struct timespec deadline;
     int rotation;
     int state; /* 0 idle, 1 pending, 2 showing */
     int result; /* -1 pending, -2 unavailable during direct LCD streaming */
@@ -158,7 +164,6 @@ typedef struct
 
 static ShutdownTest s_shutdown_test = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
-    .changed = PTHREAD_COND_INITIALIZER,
     .result = -1,
 };
 
@@ -488,15 +493,48 @@ static void write_update_status(const char *latest)
         unlink(temporary);
 }
 
-static int send_all(int fd, const char *data, size_t length)
+static int request_time_left_ms(const struct timespec *deadline)
+{
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+        return 0;
+
+    const int64_t nanoseconds =
+        ((int64_t)deadline->tv_sec - now.tv_sec) * 1000000000 + deadline->tv_nsec - now.tv_nsec;
+    return nanoseconds > 0 ? (int)((nanoseconds + 999999) / 1000000) : 0;
+}
+
+static int wait_for_client(int fd, short events, const struct timespec *deadline)
+{
+    struct pollfd client = {.fd = fd, .events = events};
+    while (daemon_running())
+    {
+        int remaining = request_time_left_ms(deadline);
+        if (remaining == 0)
+            break;
+        /* Recheck shutdown even if the signal reached a different thread. */
+        int ready = poll(&client, 1, remaining < 1000 ? remaining : 1000);
+        if (ready == 0 || (ready < 0 && errno == EINTR))
+            continue;
+        return ready > 0 && (client.revents & events) &&
+               daemon_running() && request_time_left_ms(deadline) > 0;
+    }
+    return 0;
+}
+
+static int send_all(int fd, const char *data, size_t length,
+                    const struct timespec *deadline)
 {
     size_t offset = 0;
     while (offset < length)
     {
-        ssize_t sent = send(fd, data + offset, length - offset, MSG_NOSIGNAL);
+        if (!wait_for_client(fd, POLLOUT, deadline))
+            return 0;
+        ssize_t sent = send(fd, data + offset, length - offset,
+                            MSG_DONTWAIT | MSG_NOSIGNAL);
         if (sent < 0)
         {
-            if (errno == EINTR)
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
             return 0;
         }
@@ -822,7 +860,7 @@ static int request_has_action_token(const char *request)
 }
 
 static char *queue_shutdown_test_json(const char *body, size_t length,
-                                      int *http_status)
+                                      int *http_status, const struct timespec *deadline)
 {
     json_error_t error;
     json_t *root = json_loadb(body, length, JSON_REJECT_DUPLICATES, &error);
@@ -843,6 +881,12 @@ static char *queue_shutdown_test_json(const char *body, size_t length,
         return strdup("{\"error\":\"Image is missing, unreadable, or unsupported\"}");
     }
     (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    if (!daemon_running() || request_time_left_ms(deadline) == 0)
+    {
+        (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+        json_decref(root);
+        return NULL;
+    }
     if (s_shutdown_test.state != 0)
     {
         (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
@@ -851,15 +895,22 @@ static char *queue_shutdown_test_json(const char *body, size_t length,
         return strdup("{\"error\":\"LCD test already running\"}");
     }
     cc_safe_strcpy(s_shutdown_test.path, sizeof(s_shutdown_test.path), path);
+    s_shutdown_test.deadline = *deadline;
     s_shutdown_test.rotation = (int)json_integer_value(rotation_value);
     s_shutdown_test.result = -1;
     s_shutdown_test.state = 1;
     (void)pthread_cond_broadcast(&s_shutdown_test.changed);
-    while (running && s_shutdown_test.result == -1)
-        (void)pthread_cond_wait(&s_shutdown_test.changed, &s_shutdown_test.mutex);
+    int wait_result = 0;
+    while (daemon_running() && s_shutdown_test.result == -1 && wait_result == 0)
+        wait_result = pthread_cond_timedwait(&s_shutdown_test.changed,
+                                              &s_shutdown_test.mutex, deadline);
     int result = s_shutdown_test.result;
+    if (result == -1 && s_shutdown_test.state == 1)
+        s_shutdown_test.state = 0;
     (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
     json_decref(root);
+    if (!daemon_running() || wait_result != 0)
+        return NULL;
     if (result == -2)
     {
         *http_status = 409;
@@ -873,6 +924,11 @@ static char *queue_shutdown_test_json(const char *body, size_t length,
 
 static void serve_plugin_data(int client_fd)
 {
+    struct timespec deadline;
+    if (clock_gettime(CLOCK_MONOTONIC, &deadline) != 0)
+        return;
+    deadline.tv_sec += PLUGIN_REQUEST_TIMEOUT_SECONDS;
+
     char *request = calloc(1, IMPORT_REQUEST_LIMIT + 4096);
     if (!request)
         return;
@@ -881,11 +937,12 @@ static void serve_plugin_data(int client_fd)
     size_t expected_length = 0;
     size_t content_length = 0;
     const char *request_body = NULL;
-    while (request_length < request_capacity - 1)
+    while (request_length < request_capacity - 1 &&
+           wait_for_client(client_fd, POLLIN, &deadline))
     {
         ssize_t received = recv(client_fd, request + request_length,
-                                request_capacity - 1 - request_length, 0);
-        if (received < 0 && errno == EINTR)
+                                request_capacity - 1 - request_length, MSG_DONTWAIT);
+        if (received < 0 && (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK))
             continue;
         if (received <= 0)
             break;
@@ -908,7 +965,8 @@ static void serve_plugin_data(int client_fd)
         if (request_length >= expected_length)
             break;
     }
-    if (expected_length == 0 || request_length < expected_length)
+    if (expected_length == 0 || request_length < expected_length ||
+        !daemon_running() || request_time_left_ms(&deadline) == 0)
     {
         free(request);
         return;
@@ -939,7 +997,7 @@ static void serve_plugin_data(int client_fd)
                                                                 content_length, &code);
                 else if (content_length <= PREVIEW_REQUEST_LIMIT)
                     dynamic_body = queue_shutdown_test_json(request_body,
-                                                            content_length, &code);
+                                                            content_length, &code, &deadline);
             }
             if (code == 200)
                 status = "200 OK";
@@ -1036,8 +1094,8 @@ static void serve_plugin_data(int client_fd)
         free(request);
         return;
     }
-    if (send_all(client_fd, header, (size_t)header_length))
-        (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length);
+    if (send_all(client_fd, header, (size_t)header_length, &deadline))
+        (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length, &deadline);
     free(dynamic_body);
     free(request);
 }
@@ -1045,7 +1103,7 @@ static void serve_plugin_data(int client_fd)
 static void *run_plugin_data_server(void *unused)
 {
     (void)unused;
-    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    int server_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (server_fd < 0)
     {
         log_message(LOG_WARNING, "Could not create plugin data server: %s",
@@ -1073,7 +1131,7 @@ static void *run_plugin_data_server(void *unused)
     log_message(LOG_INFO, "Plugin data available on 127.0.0.1:%d",
                 UPDATE_PROXY_PORT);
     struct pollfd listener = {.fd = server_fd, .events = POLLIN};
-    while (running)
+    while (daemon_running())
     {
         int ready = poll(&listener, 1, 1000);
         if (ready < 0)
@@ -1090,21 +1148,32 @@ static void *run_plugin_data_server(void *unused)
         int client_fd = accept(server_fd, NULL, NULL);
         if (client_fd < 0)
         {
-            if (errno == EINTR)
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
                 continue;
             break;
         }
-        struct timeval client_timeout = {.tv_sec = 2, .tv_usec = 0};
-        (void)setsockopt(client_fd, SOL_SOCKET, SO_RCVTIMEO, &client_timeout,
-                         sizeof(client_timeout));
-        (void)setsockopt(client_fd, SOL_SOCKET, SO_SNDTIMEO, &client_timeout,
-                         sizeof(client_timeout));
         serve_plugin_data(client_fd);
         close(client_fd);
     }
 
     close(server_fd);
     return NULL;
+}
+
+static int init_shutdown_test_condition(void)
+{
+    pthread_condattr_t attributes;
+    int result = pthread_condattr_init(&attributes);
+    if (result == 0)
+    {
+        result = pthread_condattr_setclock(&attributes, CLOCK_MONOTONIC);
+        if (result == 0)
+            result = pthread_cond_init(&s_shutdown_test.changed, &attributes);
+        pthread_condattr_destroy(&attributes);
+    }
+    if (result != 0)
+        log_message(LOG_ERROR, "Could not initialize LCD test condition: %s", strerror(result));
+    return result == 0;
 }
 
 static void start_status_server(void)
@@ -1285,6 +1354,13 @@ static int process_shutdown_test(const Config *config)
         (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
         return 0;
     }
+    if (!daemon_running() || request_time_left_ms(&s_shutdown_test.deadline) == 0)
+    {
+        s_shutdown_test.state = 0;
+        (void)pthread_cond_broadcast(&s_shutdown_test.changed);
+        (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
+        return 0;
+    }
     cc_safe_strcpy(path, sizeof(path), s_shutdown_test.path);
     rotation = s_shutdown_test.rotation;
     s_shutdown_test.state = 2;
@@ -1306,7 +1382,7 @@ static int process_shutdown_test(const Config *config)
         if (clock_gettime(CLOCK_MONOTONIC, &end) == 0)
         {
             end.tv_sec += 5;
-            while (running && clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
+            while (daemon_running() && clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME,
                                                &end, NULL) == EINTR)
             {
             }
@@ -1546,7 +1622,7 @@ static void handle_shutdown_signal(int signum)
 
     ssize_t written = write(STDERR_FILENO, msg, msg_len);
     (void)written;
-    running = 0;
+    __atomic_store_n(&running, 0, __ATOMIC_RELAXED);
 }
 
 /** @brief SIGHUP handler — sets reload flag. */
@@ -1752,36 +1828,21 @@ static void set_render_interval(const Config *config, struct timespec *interval)
 static void wait_for_render_deadline(const struct timespec *deadline)
 {
     (void)pthread_mutex_lock(&s_shutdown_test.mutex);
-    while (running && !reload_config && s_shutdown_test.state != 1)
+    while (daemon_running() && !reload_config && s_shutdown_test.state != 1)
     {
-        struct timespec now, realtime;
-        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0 ||
-            clock_gettime(CLOCK_REALTIME, &realtime) != 0)
+        struct timespec now;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
             break;
-        time_t seconds = deadline->tv_sec - now.tv_sec;
-        long nanoseconds = deadline->tv_nsec - now.tv_nsec;
-        if (nanoseconds < 0)
-        {
-            seconds--;
-            nanoseconds += 1000000000L;
-        }
-        if (seconds < 0 || (seconds == 0 && nanoseconds == 0))
+        if (deadline->tv_sec < now.tv_sec ||
+            (deadline->tv_sec == now.tv_sec && deadline->tv_nsec <= now.tv_nsec))
             break;
         /* Poll signals at most once a second: condvar waits need not return on SIGHUP. */
-        if (seconds >= 1)
-        {
-            seconds = 1;
-            nanoseconds = 0;
-        }
-        realtime.tv_sec += seconds;
-        realtime.tv_nsec += nanoseconds;
-        if (realtime.tv_nsec >= 1000000000L)
-        {
-            realtime.tv_sec++;
-            realtime.tv_nsec -= 1000000000L;
-        }
+        struct timespec next = {now.tv_sec + 1, now.tv_nsec};
+        if (deadline->tv_sec < next.tv_sec ||
+            (deadline->tv_sec == next.tv_sec && deadline->tv_nsec < next.tv_nsec))
+            next = *deadline;
         int result = pthread_cond_timedwait(&s_shutdown_test.changed,
-                                             &s_shutdown_test.mutex, &realtime);
+                                             &s_shutdown_test.mutex, &next);
         if (result != 0 && result != ETIMEDOUT)
             break;
     }
@@ -1807,7 +1868,7 @@ static int run_daemon(Config *config)
         return -1;
     }
 
-    while (running)
+    while (daemon_running())
     {
         if (reload_config)
         {
@@ -1819,7 +1880,7 @@ static int run_daemon(Config *config)
 
         if (process_shutdown_test(config))
             restore_native_gif_after_test();
-        if (!running)
+        if (!daemon_running())
             break;
         if (stream_selected())
         {
@@ -2092,11 +2153,15 @@ static void cleanup_daemon_curl(void)
 static void perform_cleanup(void)
 {
     log_message(LOG_INFO, "Daemon shutdown initiated");
+    __atomic_store_n(&running, 0, __ATOMIC_RELAXED);
+    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
+    (void)pthread_cond_broadcast(&s_shutdown_test.changed);
+    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
     stop_status_server();
+    pthread_cond_destroy(&s_shutdown_test.changed);
     stream_stop();
     image_import_cleanup();
     cleanup_daemon_curl();
-    running = 0;
     log_message(LOG_INFO, "CoolerDash shutdown complete");
 }
 
@@ -2154,6 +2219,13 @@ int main(int argc, char **argv)
         return success ? EXIT_SUCCESS : EXIT_FAILURE;
     }
 
+    if (!init_shutdown_test_condition())
+    {
+        cleanup_daemon_curl();
+        release_single_instance();
+        return EXIT_FAILURE;
+    }
+
     apply_display_mode_override(&config);
 
     g_config_ptr = &config;
@@ -2161,6 +2233,7 @@ int main(int argc, char **argv)
     log_message(LOG_STATUS, "Initializing CoolerControl session...");
     if (!initialize_coolercontrol_services(&config, pending_token))
     {
+        pthread_cond_destroy(&s_shutdown_test.changed);
         cleanup_daemon_curl();
         release_single_instance();
         return EXIT_FAILURE;
@@ -2227,9 +2300,6 @@ int main(int argc, char **argv)
     log_message(LOG_STATUS, "Starting daemon");
     int result = run_daemon(&config);
 
-    (void)pthread_mutex_lock(&s_shutdown_test.mutex);
-    (void)pthread_cond_broadcast(&s_shutdown_test.changed);
-    (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
     perform_cleanup();
     release_single_instance();
     return result;
