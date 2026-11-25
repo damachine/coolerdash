@@ -374,5 +374,6 @@ int64_t stream_draw(void)
     }
     log_message(LOG_ERROR, "LCD stream: frame failed, stopping output");
     close_animation();
+    reset_custom_state();
     return 0;
 }
