@@ -60,6 +60,7 @@ prefix ?= /usr
 exec_prefix ?= $(prefix)
 bindir ?= $(exec_prefix)/bin
 libexecdir ?= $(exec_prefix)/libexec
+INSTALLED_PROGRAM = $(libexecdir)/coolerdash/coolerdash
 sysconfdir ?= /etc
 datarootdir ?= $(prefix)/share
 datadir ?= $(datarootdir)
@@ -239,7 +240,7 @@ check-deps:
 		printf "$(GREEN)All dependencies found$(RESET)\n"; \
 	fi
 
-# Install binary to /usr/libexec, plugin data to /var/lib/coolercontrol/plugins/coolerdash/
+# Install the binary to libexecdir and the plugin data to PLUGINDIR.
 install:
 	@printf "Installing CoolerDash %s...\n" "$(VERSION)"
 	@if [ -z "$(DESTDIR)" ] && [ "$(REALOS)" = "yes" ] && [ "$$(id -u)" -ne 0 ]; then \
@@ -253,9 +254,9 @@ install:
 	@$(MAKE) $(PROGRAM)
 	@printf "$(CYAN)Installing plugin files...$(RESET)\n"
 	@$(INSTALL) -d "$(DESTDIR)$(PLUGINDIR)"
-	@$(INSTALL_PROGRAM) -D $(BINDIR)/$(TARGET) "$(DESTDIR)$(libexecdir)/coolerdash/coolerdash"
+	@$(INSTALL_PROGRAM) -D $(BINDIR)/$(TARGET) "$(DESTDIR)$(INSTALLED_PROGRAM)"
 	@$(INSTALL) -d "$(DESTDIR)$(bindir)"
-	@ln -sfn "../libexec/coolerdash/coolerdash" "$(DESTDIR)$(bindir)/coolerdash"
+	@ln -sfnr "$(DESTDIR)$(INSTALLED_PROGRAM)" "$(DESTDIR)$(bindir)/coolerdash"
 	@$(INSTALL_DATA) $(README) "$(DESTDIR)$(PLUGINDIR)/README.md"
 	@$(INSTALL_DATA) CHANGELOG.md "$(DESTDIR)$(PLUGINDIR)/CHANGELOG.md"
 	@$(INSTALL_DATA) VERSION "$(DESTDIR)$(PLUGINDIR)/VERSION"
@@ -275,9 +276,13 @@ install:
 	@$(INSTALL_DATA) etc/coolercontrol/plugins/coolerdash/ui/index.html "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
 	@$(INSTALL_DATA) images/shutdown.png "$(DESTDIR)$(PLUGINDIR)/shutdown.png"
 	@$(INSTALL_DATA) $(MANIFEST) "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
-	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/manifest.toml"
+	@executable="$$(printf '%s' "$(INSTALLED_PROGRAM)" | \
+		sed -e 's/[\\"]/\\&/g' -e 's/[\\&|]/\\&/g')" && \
+		sed -i -e 's/{{VERSION}}/$(VERSION)/g' \
+			-e "s|^executable = .*|executable = \"$$executable\"|" \
+			"$(DESTDIR)$(PLUGINDIR)/manifest.toml"
 	@sed -i 's/{{VERSION}}/$(VERSION)/g' "$(DESTDIR)$(PLUGINDIR)/ui/index.html"
-	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)$(libexecdir)/coolerdash/coolerdash\n"
+	@printf "  $(GREEN)Binary:$(RESET)       $(DESTDIR)$(INSTALLED_PROGRAM)\n"
 	@printf "  $(GREEN)CLI:$(RESET)          $(DESTDIR)$(bindir)/coolerdash\n"
 	@printf "  $(GREEN)Config JSON:$(RESET)  $(DESTDIR)$(PLUGINDIR)/config.json (chmod 600)\n"
 	@printf "  $(GREEN)Credentials:$(RESET) Runtime file preserved with chmod 600 when present\n"
@@ -287,7 +292,7 @@ install:
 	@printf "  $(GREEN)Image:$(RESET)        shutdown.png (coolerdash.png)\n"
 	@printf "  $(GREEN)Documentation:$(RESET) README.md, LICENSE, CHANGELOG.md, VERSION\n"
 	@printf "\n"
-	@printf "$(CYAN)Note: Plugin binary is available at $(libexecdir)/coolerdash/coolerdash$(RESET)\\n"
+	@printf "$(CYAN)Note: Plugin binary is available at $(INSTALLED_PROGRAM)$(RESET)\\n"
 	@printf "\n"
 	@printf "$(CYAN)Installing license...$(RESET)\n"
 	@$(INSTALL_DATA) -D LICENSE "$(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE"
@@ -345,7 +350,7 @@ uninstall:
 		mv "$(DESTDIR)$(PLUGINDIR)/config.json" "$$backup"; \
 		printf "$(YELLOW)Configuration preserved as $$backup$(RESET)\n"; \
 	fi
-	@rm -f "$(DESTDIR)$(libexecdir)/coolerdash/coolerdash"
+	@rm -f "$(DESTDIR)$(INSTALLED_PROGRAM)"
 	@rmdir "$(DESTDIR)$(libexecdir)/coolerdash" 2>/dev/null || true
 	@rm -f "$(DESTDIR)$(bindir)/coolerdash"
 	@rm -f "$(DESTDIR)$(datarootdir)/licenses/coolerdash/LICENSE"
@@ -407,7 +412,7 @@ help:
 	@printf "  $(GREEN)README.md$(RESET)         - English (main documentation)\n"
 	@printf "\n"
 	@printf "$(YELLOW)Version Usage:$(RESET)\n"
-	@printf "  $(GREEN)Program:$(RESET) $(libexecdir)/coolerdash/coolerdash [mode]\n"
+	@printf "  $(GREEN)Program:$(RESET) $(INSTALLED_PROGRAM) [mode]\n"
 	@printf "  $(GREEN)Config:$(RESET)  $(PLUGINDIR)/config.json\n"
 	@printf "  $(GREEN)Web UI:$(RESET)  CoolerControl Plugin Settings\n"
 	@printf "\n"
