@@ -1,6 +1,6 @@
 pkgbase = coolerdash
 	pkgdesc = Plug-in for CoolerControl that extends the LCD functionality with additional features
-	pkgver = 3.3.3
+	pkgver = 3.3.6
 	pkgrel = 1
 	url = https://github.com/damachine/coolerdash
 	install = coolerdash.install
@@ -12,7 +12,9 @@ pkgbase = coolerdash
 	depends = fontconfig
 	depends = gdk-pixbuf2
 	depends = glibc
+	depends = hidapi
 	depends = jansson
+	depends = libusb
 	depends = ttf-roboto
 	provides = coolerdash-git
 	conflicts = coolerdash-git
