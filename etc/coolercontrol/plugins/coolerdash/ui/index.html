@@ -1899,6 +1899,7 @@
                 var settled = false;
                 var timer = null;
                 var handler = function(event) {
+                    if (event.source !== window.parent || event.origin !== document.location.origin) return;
                     if (!event.data || event.data.type !== responseType) return;
                     settled = true;
                     window.removeEventListener('message', handler);
@@ -1919,15 +1920,11 @@
         }
 
         async function ccGetPluginConfig(force = false) {
-            if (typeof getPluginConfig === 'function') {
-                return normalizePluginConfigPayload(await getPluginConfig(force));
-            }
-
             if (isInCoolerControl) {
-                return normalizePluginConfigPayload(
-                    await waitForParentMessage({ type: 'loadConfig' }, 'config', 3000,
-                        force ? new Error('Config load timeout') : {}, {})
-                );
+                var result = await waitForParentMessage({ type: 'loadConfig' }, 'config', 3000,
+                    force ? new Error('Config load timeout') : {}, force ? null : {});
+                if (force && result == null) throw new Error('Config load failed');
+                return normalizePluginConfigPayload(result);
             }
 
             var saved = localStorage.getItem('coolerdash_config');
@@ -1944,17 +1941,13 @@
                 config.daemon.access_token = token;
             }
 
-            if (typeof savePluginConfig === 'function') {
-                return savePluginConfig(config);
-            }
-
             if (isInCoolerControl) {
+                // The SDK resolves its save promise even when the host reports failure.
                 var result = await waitForParentMessage(
                     { type: 'saveConfig', body: config },
                     'configSaved',
                     5000,
-                    new Error('Save timeout'),
-                    true
+                    new Error('Save timeout')
                 );
                 if (!result) throw new Error('Config save failed');
                 return result;
@@ -1965,17 +1958,12 @@
         }
 
         async function ccRestartPlugin() {
-            if (typeof restartPlugin === 'function') {
-                return restartPlugin();
-            }
-
             if (isInCoolerControl) {
                 return waitForParentMessage(
                     { type: 'restartPlugin' },
                     'pluginRestarted',
-                    5000,
-                    false,
-                    true
+                    30000,
+                    false
                 );
             }
 
@@ -4196,6 +4184,8 @@
         }
 
         // ===== SAVE / RESET =====
+        let configSaveInProgress = false;
+
         async function finishConfigSave() {
             var restarted = false;
             try {
@@ -4203,7 +4193,7 @@
             } catch (error) {
                 console.error('Plugin restart failed:', error);
             }
-            if (restarted === false) {
+            if (restarted !== true) {
                 alert('Settings were saved. CoolerDash could not restart to apply them.');
                 return;
             }
@@ -4211,6 +4201,7 @@
         }
 
         async function saveConfig() {
+            if (configSaveInProgress) return;
             if (imageActionBusy) {
                 document.getElementById(activeImageActionKind + '_image_status').textContent = 'Wait for the image action to finish before saving.';
                 return;
@@ -4224,6 +4215,7 @@
 
             var config = buildConfig();
             var tokenInput = document.querySelector('[name="daemon.access_token"]');
+            configSaveInProgress = true;
             try {
                 await ccSavePluginConfig(config, tokenInput.value.trim());
                 tokenInput.value = '';
@@ -4234,16 +4226,20 @@
                     customLayouts.showStatus('Save failed. ' + error.message);
                 else
                     alert("Save failed: " + error.message);
+            } finally {
+                configSaveInProgress = false;
             }
         }
 
 
 
         async function resetConfig() {
+            if (configSaveInProgress) return;
             if (imageActionBusy) {
                 document.getElementById(activeImageActionKind + '_image_status').textContent = 'Wait for the image action to finish before resetting.';
                 return;
             }
+            configSaveInProgress = true;
             try {
                 var factoryConfig = cloneConfig(FACTORY_DEFAULTS);
                 var savedLayouts = customLayouts.savedItems();
@@ -4255,6 +4251,8 @@
             } catch (error) {
                 console.error("Reset failed:", error);
                 alert('Reset failed: ' + error.message);
+            } finally {
+                configSaveInProgress = false;
             }
         }
 
