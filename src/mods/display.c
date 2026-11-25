@@ -13,11 +13,12 @@
  */
 
 // Define POSIX constants
-#define _POSIX_C_SOURCE 200112L
+#define _POSIX_C_SOURCE 200809L
 
 // Include necessary headers
 // cppcheck-suppress-begin missingIncludeSystem
 #include <cairo/cairo.h>
+#include <fcntl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <math.h>
 #include <stdint.h>
@@ -26,6 +27,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 // Include project headers
@@ -95,21 +97,39 @@ const char *image_file_mime_type(const char *path)
     return mime_type_for_format(gdk_pixbuf_get_file_info(path, NULL, NULL));
 }
 
+static GdkPixbuf *load_checked_image(const char *path, int preview_size)
+{
+    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN)
+        return NULL;
+    int fd = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+    if (fd < 0)
+        return NULL;
+
+    GdkPixbuf *pixbuf = NULL;
+    struct stat info;
+    if (fstat(fd, &info) == 0 && S_ISREG(info.st_mode) &&
+        info.st_size > 0 && info.st_size <= DISPLAY_IMAGE_MAX_BYTES)
+    {
+        /* Inspect and decode the same opened file even if its name is replaced. */
+        char fd_path[32];
+        snprintf(fd_path, sizeof(fd_path), "/proc/self/fd/%d", fd);
+        int width = 0, height = 0;
+        GdkPixbufFormat *format = gdk_pixbuf_get_file_info(fd_path, &width, &height);
+        if (mime_type_for_format(format) && width > 0 && height > 0 &&
+            (uint64_t)width * (uint64_t)height <= 32U * 1024U * 1024U)
+        {
+            pixbuf = preview_size > 0 ?
+                gdk_pixbuf_new_from_file_at_scale(fd_path, preview_size, preview_size, TRUE, NULL) :
+                gdk_pixbuf_new_from_file(fd_path, NULL);
+        }
+    }
+    close(fd);
+    return pixbuf;
+}
+
 int image_file_is_supported(const char *path)
 {
-    struct stat info;
-    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN ||
-        stat(path, &info) != 0 || !S_ISREG(info.st_mode) ||
-        info.st_size <= 0 || info.st_size > 16 * 1024 * 1024)
-        return 0;
-
-    int width = 0, height = 0;
-    GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path, &width, &height);
-    if (!mime_type_for_format(format) || width <= 0 || height <= 0 ||
-        (uint64_t)width * (uint64_t)height > 32U * 1024U * 1024U)
-        return 0;
-
-    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file_at_scale(path, 1, 1, TRUE, NULL);
+    GdkPixbuf *pixbuf = load_checked_image(path, 1);
     if (!pixbuf)
         return 0;
     g_object_unref(pixbuf);
@@ -148,20 +168,7 @@ char *rendered_png_data_uri(const char *path)
 
 char *image_file_preview_data_uri(const char *path)
 {
-    struct stat info;
-    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN ||
-        stat(path, &info) != 0 || !S_ISREG(info.st_mode) ||
-        info.st_size <= 0 || info.st_size > 16 * 1024 * 1024)
-        return NULL;
-
-    int width = 0, height = 0;
-    GdkPixbufFormat *format = gdk_pixbuf_get_file_info(path, &width, &height);
-    if (!mime_type_for_format(format) || width <= 0 || height <= 0 ||
-        (uint64_t)width * (uint64_t)height > 32U * 1024U * 1024U)
-        return NULL;
-
-    /* Load the thumbnail independently of the daemon's background cache. */
-    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file_at_scale(path, 480, 480, TRUE, NULL);
+    GdkPixbuf *pixbuf = load_checked_image(path, 480);
     if (!pixbuf)
         return NULL;
 
@@ -246,7 +253,7 @@ static cairo_surface_t *image_file_load_surface(const char *path, int use_cache)
             return NULL;
     }
 
-    GdkPixbuf *pixbuf = gdk_pixbuf_new_from_file(path, NULL);
+    GdkPixbuf *pixbuf = use_cache ? gdk_pixbuf_new_from_file(path, NULL) : load_checked_image(path, 0);
     if (!pixbuf)
         return NULL;
 
@@ -1389,18 +1396,6 @@ int render_rotated_image_to_png(const char *source_path,
                                 int width, int height, const char *output_path)
 {
     if (!source_path || !config || !output_path || width <= 0 || height <= 0)
-        return 0;
-
-    struct stat info;
-    int source_width = 0;
-    int source_height = 0;
-    if (stat(source_path, &info) != 0 || !S_ISREG(info.st_mode) ||
-        info.st_size <= 0 || info.st_size > 16 * 1024 * 1024 ||
-        !image_file_mime_type(source_path) ||
-        !gdk_pixbuf_get_file_info(source_path, &source_width, &source_height) ||
-        source_width <= 0 || source_height <= 0 ||
-        (uint64_t)source_width * (uint64_t)source_height >
-            32U * 1024U * 1024U)
         return 0;
 
     /* Animated source formats use their first frame for the shutdown image. */

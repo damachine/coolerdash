@@ -146,6 +146,8 @@ void reset_display_state(void);
 /** Resume native playback after the shutdown image test. */
 void restore_native_gif_after_test(void);
 
+#define DISPLAY_IMAGE_MAX_BYTES (16U * 1024U * 1024U)
+
 /** Return CoolerControl's MIME type for a supported image, detected by content. */
 const char *image_file_mime_type(const char *path);
 int image_file_is_supported(const char *path);

@@ -114,6 +114,37 @@ typedef struct
 static pthread_mutex_t s_device_info_mutex = PTHREAD_MUTEX_INITIALIZER;
 static DeviceInfoSnapshot s_device_info = {0};
 
+static struct
+{
+    char token[CONFIG_MAX_TOKEN_LEN];
+    char background[CONFIG_MAX_PATH_LEN];
+    char shutdown[CONFIG_MAX_PATH_LEN];
+} s_plugin_config;
+static pthread_mutex_t s_plugin_config_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static void publish_plugin_config(const Config *config, int authorize_image_actions)
+{
+    (void)pthread_mutex_lock(&s_plugin_config_mutex);
+    SAFE_STRCPY(s_plugin_config.token, authorize_image_actions ? config->access_token : "");
+    SAFE_STRCPY(s_plugin_config.background, config->paths_image_background);
+    SAFE_STRCPY(s_plugin_config.shutdown, config->paths_image_shutdown);
+    (void)pthread_mutex_unlock(&s_plugin_config_mutex);
+}
+
+static int plugin_image_allowed(const char *path, int background)
+{
+    if (!path || path[0] != '/')
+        return 0;
+    const char *imported = background ? USER_BACKGROUND_IMAGE_PATH : USER_SHUTDOWN_IMAGE_PATH;
+    if (strcmp(path, imported) == 0 || (!background && strcmp(path, DEFAULT_SHUTDOWN_IMAGE_PATH) == 0))
+        return 1;
+
+    (void)pthread_mutex_lock(&s_plugin_config_mutex);
+    int allowed = strcmp(path, background ? s_plugin_config.background : s_plugin_config.shutdown) == 0;
+    (void)pthread_mutex_unlock(&s_plugin_config_mutex);
+    return allowed;
+}
+
 /* Only the render thread talks to the shared CoolerControl CURL session. */
 typedef struct
 {
@@ -693,6 +724,9 @@ static char *render_preview_json(const char *json, size_t json_length)
     rmdir(temp_dir);
     if (!loaded || preview.invalid_custom_layout)
         return NULL;
+    if (preview.paths_image_background[0] &&
+        !plugin_image_allowed(preview.paths_image_background, 1))
+        return NULL;
 
     char image_path[] = "/tmp/coolerdash-preview-image-XXXXXX";
     int image_fd = mkstemp(image_path);
@@ -746,22 +780,45 @@ static char *render_preview_json(const char *json, size_t json_length)
     return payload;
 }
 
-static int request_has_local_host(const char *request)
+static int request_has_action_token(const char *request)
 {
     const char *end = strstr(request, "\r\n\r\n");
     const char *line = strstr(request, "\r\n");
+    const char *token = NULL;
+    size_t length = 0;
     while (line && end && line < end)
     {
         line += 2;
         const char *next = strstr(line, "\r\n");
         if (!next || next > end)
             break;
-        if ((size_t)(next - line) == strlen("Host: 127.0.0.1:11989") &&
-            strncasecmp(line, "Host: 127.0.0.1:11989", next - line) == 0)
-            return 1;
+        if (next - line >= 14 && strncasecmp(line, "Authorization:", 14) == 0)
+        {
+            if (token)
+                return 0;
+            const char *value = line + 14;
+            value += strspn(value, " \t");
+            if (next - value <= 7 || strncasecmp(value, "Bearer ", 7) != 0)
+                return 0;
+            token = value + 7;
+            const char *last = next;
+            while (last > token && (last[-1] == ' ' || last[-1] == '\t'))
+                last--;
+            length = (size_t)(last - token);
+        }
         line = next;
     }
-    return 0;
+    if (!length)
+        return 0;
+
+    unsigned int diff = 0;
+    (void)pthread_mutex_lock(&s_plugin_config_mutex);
+    const int same_length = length == strlen(s_plugin_config.token);
+    if (same_length)
+        for (size_t i = 0; i < length; i++)
+            diff |= (unsigned char)token[i] ^ (unsigned char)s_plugin_config.token[i];
+    (void)pthread_mutex_unlock(&s_plugin_config_mutex);
+    return same_length && diff == 0;
 }
 
 static char *queue_shutdown_test_json(const char *body, size_t length,
@@ -774,16 +831,9 @@ static char *queue_shutdown_test_json(const char *body, size_t length,
         *http_status = 422;
         return strdup("{\"error\":\"Invalid test request\"}");
     }
-    const char *token = json_string_value(json_object_get(root, "token"));
     const char *path = json_string_value(json_object_get(root, "path"));
     json_t *rotation_value = json_object_get(root, "rotation");
-    if (!image_action_token_valid(token))
-    {
-        *http_status = 403;
-        json_decref(root);
-        return strdup("{\"error\":\"Action token is invalid\"}");
-    }
-    if (!path || path[0] != '/' || strlen(path) >= CONFIG_MAX_PATH_LEN ||
+    if (!plugin_image_allowed(path, 0) ||
         !image_file_is_supported(path) || !json_is_integer(rotation_value) ||
         json_integer_value(rotation_value) < 0 ||
         json_integer_value(rotation_value) > 359)
@@ -870,22 +920,11 @@ static void serve_plugin_data(int client_fd)
     size_t body_length = strlen(body);
     char *dynamic_body = NULL;
 
-    if (strncmp(request, "GET /shutdown-action-token HTTP/", 32) == 0)
-    {
-        if (!request_has_local_host(request))
-            status = "403 Forbidden";
-        else
-            dynamic_body = image_action_token_json();
-        if (dynamic_body)
-            body_length = strlen(dynamic_body);
-        else if (strcmp(status, "200 OK") == 0)
-            status = "500 Internal Server Error";
-    }
-    else if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0 ||
+    if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0 ||
              strncmp(request, "POST /background-import HTTP/", 29) == 0 ||
              strncmp(request, "POST /shutdown-test HTTP/", 25) == 0)
     {
-        if (!request_has_local_host(request))
+        if (!request_has_action_token(request))
             status = "403 Forbidden";
         else
         {
@@ -904,8 +943,6 @@ static void serve_plugin_data(int client_fd)
             }
             if (code == 200)
                 status = "200 OK";
-            else if (code == 403)
-                status = "403 Forbidden";
             else if (code == 409)
                 status = "409 Conflict";
             else if (code == 413)
@@ -947,7 +984,8 @@ static void serve_plugin_data(int client_fd)
                                              &decoded_length) : NULL;
         char *image = NULL;
         if (path && decoded_length > 0 && decoded_length < CONFIG_MAX_PATH_LEN &&
-            strlen(path) == (size_t)decoded_length)
+            strlen(path) == (size_t)decoded_length &&
+            (plugin_image_allowed(path, 1) || plugin_image_allowed(path, 0)))
             image = image_file_preview_data_uri(path);
         curl_free(path);
         if (image)
@@ -1619,6 +1657,7 @@ static void reload_daemon_config(Config *config)
         return;
     }
 
+    publish_plugin_config(config, 0);
     stream_stop();
     cleanup_sensor_curl_handle();
     reset_coolercontrol_session();
@@ -1639,6 +1678,7 @@ static void reload_daemon_config(Config *config)
     stream_start(config);
     if (stream_selected())
     {
+        publish_plugin_config(config, 1);
         update_device_info_snapshot(config);
         return;
     }
@@ -1651,6 +1691,7 @@ static void reload_daemon_config(Config *config)
         return;
     }
 
+    publish_plugin_config(config, 1);
     update_config_from_device(config);
     update_device_info_snapshot(config);
 
@@ -2080,6 +2121,7 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
+    publish_plugin_config(&config, 1);
     start_status_server();
 
     if (stream_selected())

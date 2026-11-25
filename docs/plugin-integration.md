@@ -101,15 +101,18 @@ Displayed on the CoolerControl plugin page.
 
 The Display tab loads a static background thumbnail through
 `pluginFetch('/background-preview?path=' + encodeURIComponent(path))` on the
-existing loopback plugin data server. The path may be an unsaved form value.
-The endpoint accepts absolute paths to readable regular PNG, GIF, JPEG, BMP or
-TIFF files, detects the format by content and returns JSON containing a PNG data
-URI. Input is limited to 16 MiB and 32 megapixels; output fits within 480 × 480
-pixels. GIFs produce a still frame, independently of the device animation state.
+existing loopback plugin data server. The path must name a configured image, a
+managed import or the bundled shutdown image. Both preview endpoints accept
+regular PNG, GIF, JPEG, BMP and TIFF files, with limits of 16 MiB and 32
+megapixels. Thumbnail output fits within 480 × 480 pixels. GIFs produce a still
+frame, independently of device animation.
 
 The UI debounces path edits, ignores stale responses and applies background fit,
 zoom, color and overlay settings locally. Clearing the path restores the solid
 background color. The plugin executable must be running for thumbnail requests.
+
+Image imports and the live LCD test require the configured CoolerDash access
+token as a bearer token. The UI prompts for it when the user starts an action.
 
 ## Display Preview
 

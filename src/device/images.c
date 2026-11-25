@@ -14,7 +14,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define IMPORT_MAX_BYTES (16U * 1024U * 1024U)
 #define IMPORT_CHUNK_BYTES (256U * 1024U)
 #define SHUTDOWN_IMPORT_TEMP_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/.user-shutdown-image.upload"
 #define BACKGROUND_IMPORT_TEMP_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/.user-background-image.upload"
@@ -39,7 +38,6 @@ typedef struct
 } ImportState;
 
 static ImportState s_import = {.fd = -1};
-static char s_token[33];
 
 static int random_hex(char output[33])
 {
@@ -69,28 +67,6 @@ static int random_hex(char output[33])
     }
     output[32] = '\0';
     return 1;
-}
-
-int image_action_token_valid(const char *token)
-{
-    if (!token || strlen(token) != 32 || !s_token[0])
-        return 0;
-    unsigned int diff = 0;
-    for (size_t i = 0; i < 32; ++i)
-        diff |= (unsigned char)token[i] ^ (unsigned char)s_token[i];
-    return diff == 0;
-}
-
-char *image_action_token_json(void)
-{
-    if (!s_token[0] && !random_hex(s_token))
-        return NULL;
-    json_t *root = json_pack("{s:s}", "token", s_token);
-    if (!root)
-        return NULL;
-    char *result = json_dumps(root, JSON_COMPACT);
-    json_decref(root);
-    return result;
 }
 
 void image_import_cleanup(void)
@@ -143,18 +119,12 @@ static char *image_import_json(const char *body, size_t length, int *status,
     if (!root)
         return response_error(status, 422, "Invalid upload request");
     const char *op = json_string_value(json_object_get(root, "op"));
-    const char *token = json_string_value(json_object_get(root, "token"));
     char *result = NULL;
-    if (!image_action_token_valid(token))
-    {
-        result = response_error(status, 403, "Action token is invalid");
-        goto done;
-    }
     if (op && strcmp(op, "begin") == 0)
     {
         json_t *size = json_object_get(root, "size");
         if (!json_is_integer(size) || json_integer_value(size) <= 0 ||
-            json_integer_value(size) > IMPORT_MAX_BYTES)
+            json_integer_value(size) > DISPLAY_IMAGE_MAX_BYTES)
         {
             result = response_error(status, 422, "Image must be at most 16 MiB");
             goto done;

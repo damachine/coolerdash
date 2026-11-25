@@ -615,6 +615,15 @@
         }
 
         /* Buttons */
+        #image_authorization {
+            width: min(420px, calc(100% - 32px));
+            padding: 20px;
+            background: rgb(var(--bg-one));
+            color: rgb(var(--text-color));
+            border: 1px solid rgb(var(--border-one));
+            border-radius: var(--radius-sm);
+        }
+
         .btn-group {
             display: flex;
             gap: 14px;
@@ -1693,6 +1702,14 @@
     </div>
 
     <div id="setting_help" role="tooltip" hidden></div>
+    <dialog id="image_authorization" aria-labelledby="image_authorization_label">
+        <label class="form-label" id="image_authorization_label" for="image_authorization_token">CoolerDash Access Token</label>
+        <input id="image_authorization_token" class="form-control" type="password" autocomplete="off" spellcheck="false" autofocus>
+        <div class="btn-group">
+            <button type="button" class="btn btn-secondary" onclick="this.closest('dialog').close()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="this.closest('dialog').close('authorize')">Continue</button>
+        </div>
+    </dialog>
 
     <script>
         // ===== FACTORY DEFAULT CONFIGURATION =====
@@ -4065,18 +4082,28 @@
 
         async function imageActionToken() {
             if (typeof pluginFetch !== 'function') throw new Error('CoolerControl plugin proxy is unavailable');
-            var result = await pluginFetch('/shutdown-action-token');
-            if (!result || typeof result.token !== 'string') throw new Error('CoolerDash is not running');
-            return result.token;
+            var dialog = document.getElementById('image_authorization');
+            var input = document.getElementById('image_authorization_token');
+            dialog.returnValue = '';
+            dialog.showModal();
+            return new Promise(function (resolve, reject) {
+                dialog.addEventListener('close', function () {
+                    var token = input.value.trim();
+                    input.value = '';
+                    if (dialog.returnValue === 'authorize' && token && token !== '***') resolve(token);
+                    else if (dialog.returnValue === 'authorize') reject(new Error('Enter the saved CoolerDash token'));
+                    else reject(new Error('Cancelled'));
+                }, { once: true });
+            });
         }
 
-        async function imagePost(path, data) {
+        async function imagePost(path, token, data) {
             var result = await pluginFetch(path, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                 body: JSON.stringify(data)
             });
-            if (!result || result.error) throw new Error(result && result.error || 'CoolerDash did not accept the request');
+            if (!result || result.error) throw new Error(result && result.error || 'CoolerDash rejected the request. Check the token and that the plugin is running.');
             return result;
         }
 
@@ -4109,17 +4136,17 @@
             var endpoint = kind === 'background' ? '/background-import' : '/shutdown-import';
             try {
                 token = await imageActionToken();
-                var begin = await imagePost(endpoint, { op: 'begin', token: token, size: file.size });
+                var begin = await imagePost(endpoint, token, { op: 'begin', size: file.size });
                 if (typeof begin.id !== 'string') throw new Error('Could not start image import');
                 id = begin.id;
                 var chunkSize = 256 * 1024;
                 for (var offset = 0; offset < file.size; offset += chunkSize) {
                     var bytes = new Uint8Array(await file.slice(offset, offset + chunkSize).arrayBuffer());
-                    await imagePost(endpoint, {
-                        op: 'chunk', token: token, id: id, data: imageChunkBase64(bytes)
+                    await imagePost(endpoint, token, {
+                        op: 'chunk', id: id, data: imageChunkBase64(bytes)
                     });
                 }
-                var result = await imagePost(endpoint, { op: 'finish', token: token, id: id });
+                var result = await imagePost(endpoint, token, { op: 'finish', id: id });
                 if (typeof result.path !== 'string') throw new Error('Image import did not finish');
                 document.getElementById(kind + '_image_path').value = result.path;
                 updateSelectedImagePreview(kind);
@@ -4129,7 +4156,7 @@
                     (kind === 'background' ? 'as the background.' : 'at shutdown.'));
             } catch (error) {
                 if (token && id) {
-                    try { await imagePost(endpoint, { op: 'cancel', token: token, id: id }); }
+                    try { await imagePost(endpoint, token, { op: 'cancel', id: id }); }
                     catch (_) { /* The old image remains installed. */ }
                 }
                 setImageActionBusy(kind, false, 'Import failed: ' + error.message);
@@ -4156,7 +4183,7 @@
             try {
                 var token = await imageActionToken();
                 var rotation = Number(document.getElementById('display_orientation').value);
-                var result = await imagePost('/shutdown-test', { token: token, path: path, rotation: rotation });
+                var result = await imagePost('/shutdown-test', token, { path: path, rotation: rotation });
                 if (!result.shown) throw new Error('LCD did not accept the image');
                 document.getElementById('shutdown_image_status').textContent = 'Showing on LCD for 5 seconds…';
                 await new Promise(function (resolve) { setTimeout(resolve, 5200); });
