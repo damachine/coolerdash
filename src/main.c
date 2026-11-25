@@ -2057,16 +2057,21 @@ static void initialize_device_info(Config *config)
     update_device_info_snapshot(config);
 }
 
-/** @brief Cleanup CURL handles and log shutdown. */
-static void perform_cleanup(const Config *config)
+static void cleanup_daemon_curl(void)
 {
-    (void)config;
+    cleanup_sensor_curl_handle();
+    reset_coolercontrol_session();
+    curl_global_cleanup();
+}
+
+/** @brief Release daemon resources and log shutdown. */
+static void perform_cleanup(void)
+{
     log_message(LOG_INFO, "Daemon shutdown initiated");
     stop_status_server();
     stream_stop();
     image_import_cleanup();
-    cleanup_coolercontrol_session();
-    cleanup_sensor_curl_handle();
+    cleanup_daemon_curl();
     running = 0;
     log_message(LOG_INFO, "CoolerDash shutdown complete");
 }
@@ -2086,6 +2091,30 @@ int main(int argc, char **argv)
     Config config = {0};
     log_message(LOG_STATUS, "Loading configuration...");
 
+    if (!cli.hardware_report)
+    {
+        setup_enhanced_signal_handlers();
+        s_config_path = find_plugin_config_path(cli.config_path);
+        if (!initialize_config_and_instance(s_config_path, &config))
+            return EXIT_FAILURE;
+
+        if (!acquire_single_instance(config.paths_images))
+            return EXIT_FAILURE;
+
+        write_update_status("");
+        /* Start the separate worker before initializing libcurl in this process. */
+        refresh_update_status_async();
+    }
+
+    CURLcode curl_status = curl_global_init(CURL_GLOBAL_DEFAULT);
+    if (curl_status != CURLE_OK)
+    {
+        log_message(LOG_ERROR, "Failed to initialize libcurl: %s",
+                    curl_easy_strerror(curl_status));
+        release_single_instance();
+        return EXIT_FAILURE;
+    }
+
     if (cli.hardware_report)
     {
         int loaded =
@@ -2096,19 +2125,9 @@ int main(int argc, char **argv)
         int success = run_hardware_report(
             &config, &cli.report, COOLERDASH_VERSION);
         memset(config.access_token, 0, sizeof(config.access_token));
+        curl_global_cleanup();
         return success ? EXIT_SUCCESS : EXIT_FAILURE;
     }
-
-    setup_enhanced_signal_handlers();
-    s_config_path = find_plugin_config_path(cli.config_path);
-    if (!initialize_config_and_instance(s_config_path, &config))
-        return EXIT_FAILURE;
-
-    if (!acquire_single_instance(config.paths_images))
-        return EXIT_FAILURE;
-
-    write_update_status("");
-    refresh_update_status_async();
 
     apply_display_mode_override(&config);
 
@@ -2117,6 +2136,7 @@ int main(int argc, char **argv)
     log_message(LOG_STATUS, "Initializing CoolerControl session...");
     if (initialize_coolercontrol_services(&config) != 0)
     {
+        cleanup_daemon_curl();
         release_single_instance();
         return EXIT_FAILURE;
     }
@@ -2185,7 +2205,7 @@ int main(int argc, char **argv)
     (void)pthread_mutex_lock(&s_shutdown_test.mutex);
     (void)pthread_cond_broadcast(&s_shutdown_test.changed);
     (void)pthread_mutex_unlock(&s_shutdown_test.mutex);
-    perform_cleanup(&config);
+    perform_cleanup();
     release_single_instance();
     return result;
 }

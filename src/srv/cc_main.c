@@ -168,9 +168,7 @@ static int validate_snprintf(int written, size_t buffer_size, char *buffer)
 }
 
 /**
- * @brief Initializes the CoolerControl session (CURL setup and login).
- * @details This function initializes the CURL library and stores the Bearer
- * authorization header used for all CoolerControl API requests.
+ * @brief Creates the CoolerControl Easy handle and stores its Bearer header.
  */
 int init_coolercontrol_session(const Config *config)
 {
@@ -181,7 +179,6 @@ int init_coolercontrol_session(const Config *config)
         return 0;
     }
 
-    curl_global_init(CURL_GLOBAL_DEFAULT);
     cc_session.curl_handle = curl_easy_init();
     if (!cc_session.curl_handle)
         return 0;
@@ -193,7 +190,6 @@ int init_coolercontrol_session(const Config *config)
     {
         curl_easy_cleanup(cc_session.curl_handle);
         cc_session.curl_handle = NULL;
-        curl_global_cleanup();
         log_message(LOG_ERROR, "Access token header exceeds maximum size");
         return 0;
     }
@@ -211,26 +207,7 @@ int init_coolercontrol_session(const Config *config)
 int is_session_initialized(void) { return cc_session.session_initialized; }
 
 /**
- * @brief Cleans up and terminates the CoolerControl session.
- * @details This function performs cleanup of the CURL handle and marks the
- * session as uninitialized.
- */
-void cleanup_coolercontrol_session(void)
-{
-    static int cleanup_done = 0;
-    if (cleanup_done)
-        return;
-
-    reset_coolercontrol_session();
-    curl_global_cleanup();
-    cleanup_done = 1;
-}
-
-/**
- * @brief Resets the CoolerControl session for config reload (SIGHUP).
- * @details Unlike cleanup_coolercontrol_session(), this does NOT call
- * curl_global_cleanup() and does NOT set the one-shot cleanup_done guard.
- * The session can be re-initialized via init_coolercontrol_session().
+ * @brief Clears the CoolerControl session for reload or shutdown.
  */
 void reset_coolercontrol_session(void)
 {
