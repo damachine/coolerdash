@@ -1210,8 +1210,11 @@ static int register_oriented_shutdown_image(const Config *config,
     }
     close(fd);
 
-    int success = render_rotated_image_to_png(source_path, config, width,
-                                               height, rotated_path);
+    /* Paths from the local config may point to a symlink. */
+    char *resolved = realpath(source_path, NULL);
+    int success = resolved && render_rotated_image_to_png(resolved, config, width,
+                                                           height, rotated_path);
+    free(resolved);
     if (success)
         success = register_lcd_shutdown_image_with_cc(config, rotated_path,
                                                        device_uid);
