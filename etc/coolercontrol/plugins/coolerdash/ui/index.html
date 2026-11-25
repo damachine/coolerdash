@@ -2901,7 +2901,7 @@
         }
 
         function refreshDeviceInfo() {
-            fetchDeviceInfo(lastApiAddress, lastApiToken);
+            fetchDeviceInfo(lastApiAddress, lastApiToken).then(customLayouts.invalidatePreviews);
         }
 
         function parseReleaseVersion(value) {
@@ -3264,14 +3264,14 @@
         var renderPreviewTimer = null;
         var renderPreviewGeneration = 0;
 
-        async function requestCairoPreview(config) {
+        async function requestCairoPreview(body) {
             let timeout;
             try {
                 const result = await Promise.race([
                     pluginFetch('/render-preview', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(config)
+                        body
                     }),
                     new Promise((_, reject) => {
                         timeout = setTimeout(() => reject(new Error('Preview timed out')), 6000);
@@ -3295,7 +3295,7 @@
                 status.textContent = 'Rendering Cairo preview\u2026';
                 try {
                     var previewConfig = buildConfig({ includeLayouts: false });
-                    var result = await requestCairoPreview(previewConfig);
+                    var result = await requestCairoPreview(JSON.stringify(previewConfig));
                     if (generation !== renderPreviewGeneration) return;
                     if (['terminal', 'activity-rings'].includes(previewConfig.display.mode) && result.shape)
                         setModePreviewShape(result.shape);
@@ -3315,6 +3315,7 @@
         function refreshBackgroundPreview() {
             backgroundPreviewPath = null;
             updateBackgroundPreview();
+            customLayouts.invalidatePreviews();
         }
 
         function updateBackgroundPreview() {
@@ -4437,6 +4438,7 @@
             let drag = null;
             let previewTimer;
             let previewGeneration = 0;
+            let previewRequests = new Map();
             let nativeSize = { width: 240, height: 240 };
 
             const current = () => bank.items.find(item => item.id === bank.active_id);
@@ -4666,6 +4668,7 @@
                 activeScreen = 0;
                 selected = -1;
                 byId('screen_source').value = '';
+                previewRequests.clear();
                 clearScreenPreviews();
                 const missingActiveLayout = mode.value === 'custom' && !current();
                 if (missingActiveLayout) {
@@ -4867,6 +4870,11 @@
                 byId('preview_image').hidden = true;
             }
 
+            function invalidatePreviews() {
+                previewRequests.clear();
+                schedulePreview();
+            }
+
             function selectScreen(index) {
                 if (drag || index === activeScreen || !current()?.screens[index]) return;
                 activeScreen = index;
@@ -4954,7 +4962,7 @@
                 image.hidden = !result;
                 if (!result) return;
                 setNativeSize(result.width, result.height, result.shape);
-                image.src = result.image;
+                if (image.src !== result.image) image.src = result.image;
             }
 
             function schedulePreview() {
@@ -4962,30 +4970,48 @@
                 clearTimeout(previewTimer);
                 if (!current() || mode.value !== 'custom') return;
                 const status = byId('preview_status');
-                status.textContent = 'Updating preview…';
                 previewTimer = setTimeout(async () => {
                     try {
                         const config = buildConfig({ includeLayouts: false });
                         const layout = current();
                         if (!byId('oriented').checked) config.display.orientation = 0;
-                        const previews = await Promise.allSettled(layout.screens.map(async part => {
-                            const item = { id: layout.id, version: 1, name: layout.name,
+                        // Retain only the requests for the current set of screens.
+                        const previous = previewRequests;
+                        previewRequests = new Map();
+                        const previews = await Promise.allSettled(layout.screens.map(part => {
+                            const item = { id: 'preview', version: 1, name: 'Preview',
                                 background: layout.background, elements: part.elements };
-                            const result = await requestCairoPreview({
+                            const body = JSON.stringify({
                                 display: config.display,
                                 paths: { image_background: config.paths.image_background },
                                 custom_layouts: { active_id: item.id, items: [item] }
                             });
-                            if (!integer(result.width, 1, 4096) || !integer(result.height, 1, 4096))
-                                throw new Error('Invalid LCD dimensions');
-                            return result;
+                            let request = previewRequests.get(body) || previous.get(body);
+                            if (!request) {
+                                status.textContent = 'Updating preview…';
+                                request = requestCairoPreview(body).then(result => {
+                                    if (!integer(result.width, 1, 4096) || !integer(result.height, 1, 4096))
+                                        throw new Error('Invalid LCD dimensions');
+                                    return result;
+                                }).catch(error => {
+                                    if (previewRequests.get(body) === request) previewRequests.delete(body);
+                                    throw error;
+                                });
+                            }
+                            previewRequests.set(body, request);
+                            return request;
                         }));
                         if (generation !== previewGeneration) return;
                         previews.forEach((preview, index) => {
                             const card = screenCards[index];
-                            card.result = preview.status === 'fulfilled' ? preview.value : null;
-                            card.image.hidden = !card.result;
-                            if (card.result) card.image.src = card.result.image;
+                            if (preview.status === 'rejected') {
+                                clearScreenPreview(card);
+                                return;
+                            }
+                            if (card.result === preview.value) return;
+                            card.result = preview.value;
+                            card.image.hidden = false;
+                            card.image.src = card.result.image;
                         });
                         showSelectedPreview();
                         if (previews[activeScreen].status === 'rejected')
@@ -5295,7 +5321,7 @@
                 editor.addEventListener(event, event => event.stopPropagation());
 
             return {
-                load, schedulePreview, renderProperties, renderActivityPreview, showStatus: say,
+                load, schedulePreview, invalidatePreviews, renderProperties, renderActivityPreview, showStatus: say,
                 bank: () => cloneConfig({ active_id: bank.active_id, items: bank.items.map(serializeLayout) }),
                 savedItems: () => cloneConfig(savedBank.items.map(serializeLayout)),
                 canSave: () => {
