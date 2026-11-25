@@ -176,8 +176,6 @@ jobs:
             fontconfig-devel \
             libcurl-devel \
             gdk-pixbuf-devel \
-            libhidapi-dev \
-            libusb-1.0-0-dev \
             'pkgconfig(hidapi-hidraw)' \
             'pkgconfig(libusb-1.0)' \
             libjansson-devel \
