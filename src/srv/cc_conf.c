@@ -778,9 +778,17 @@ const DisplayProfile *cc_released_lcd_profile(const Config *config,
             !type || strcmp(type, "Liquidctl") != 0)
             continue;
 
+        const char *id = json_string_value(json_object_get(device, "uid"));
+        /* A released LCD has no channel dimensions in CoolerControl. */
+        if (score_lcd_candidate(config, id, name, type,
+                                profile->native_width, profile->native_height) < 0)
+        {
+            log_message(LOG_INFO, "Skipping filtered USB LCD candidate: %s", name);
+            continue;
+        }
+
         const json_t *info = json_object_get(device, "info");
         const json_t *channels = json_object_get(info, "channels");
-        const char *id = json_string_value(json_object_get(device, "uid"));
         if (match || !json_is_object(channels) || !id || strlen(id) != 64 ||
             strspn(id, "0123456789abcdefABCDEF") != 64)
         {
@@ -808,13 +816,6 @@ const DisplayProfile *cc_released_lcd_profile(const Config *config,
                             profile->name, profile->stream_firmware_major);
                 break;
             }
-        }
-        /* A released LCD has no channel dimensions in CoolerControl. */
-        if (score_lcd_candidate(config, id, name, type,
-                                profile->native_width, profile->native_height) < 0)
-        {
-            log_message(LOG_INFO, "Skipping filtered USB LCD candidate: %s", name);
-            break;
         }
         cc_safe_strcpy(uid, sizeof(uid), id);
         match = profile;
