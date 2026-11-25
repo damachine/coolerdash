@@ -1974,6 +1974,7 @@
                     { type: 'restartPlugin' },
                     'pluginRestarted',
                     5000,
+                    false,
                     true
                 );
             }
@@ -4194,6 +4195,20 @@
         }
 
         // ===== SAVE / RESET =====
+        async function finishConfigSave() {
+            var restarted = false;
+            try {
+                restarted = await ccRestartPlugin();
+            } catch (error) {
+                console.error('Plugin restart failed:', error);
+            }
+            if (restarted === false) {
+                alert('Settings were saved. CoolerDash could not restart to apply them.');
+                return;
+            }
+            close();
+        }
+
         async function saveConfig() {
             if (imageActionBusy) {
                 document.getElementById(activeImageActionKind + '_image_status').textContent = 'Wait for the image action to finish before saving.';
@@ -4211,8 +4226,7 @@
             try {
                 await ccSavePluginConfig(config, tokenInput.value.trim());
                 tokenInput.value = '';
-                await ccRestartPlugin();
-                close();
+                await finishConfigSave();
             } catch (error) {
                 console.error("Save failed:", error);
                 if (document.getElementById('display_mode').value === 'custom')
@@ -4236,8 +4250,7 @@
                     factoryConfig.custom_layouts = { active_id: '', items: savedLayouts };
                 await ccSavePluginConfig(factoryConfig);
                 populateForm(factoryConfig);
-                await ccRestartPlugin();
-                close();
+                await finishConfigSave();
             } catch (error) {
                 console.error("Reset failed:", error);
                 alert('Reset failed: ' + error.message);
