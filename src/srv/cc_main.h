@@ -54,13 +54,13 @@ void cc_cleanup_response_buffer(http_response *response);
 size_t write_callback(const void *contents, size_t size, size_t nmemb,
                       http_response *response);
 
-/** @brief Init the session with libcurl already initialized by main. */
+/** @brief Create or update the session with libcurl already initialized by main. */
 int init_coolercontrol_session(const struct Config *config);
 
 /** @brief Returns 1 if session is ready for API calls. */
 int is_session_initialized(void);
 
-/** @brief Destroy the session's Easy handle for reload or shutdown. */
+/** @brief Destroy the session's Easy handle at shutdown. */
 void reset_coolercontrol_session(void);
 
 /** @brief Returns active Bearer token (empty if not set). */

@@ -73,14 +73,6 @@ static struct
 } device_name_cache[MAX_DEVICE_NAME_CACHE];
 static int device_name_cache_count = 0;
 
-/** @brief Reset device cache for SIGHUP config reload. */
-void reset_device_cache(void)
-{
-    memset(&device_cache, 0, sizeof(device_cache));
-    memset(device_name_cache, 0, sizeof(device_name_cache));
-    device_name_cache_count = 0;
-}
-
 /** @brief Look up device display name by UID. */
 const char *get_device_name_by_uid(const char *device_uid)
 {
@@ -273,53 +265,6 @@ static void extract_lcd_firmware(const json_t *dev, char *firmware,
         lc_info ? json_object_get(lc_info, "firmware_version") : NULL;
     if (version && json_is_string(version))
         cc_safe_strcpy(firmware, firmware_size, json_string_value(version));
-}
-
-/**
- * @brief Initialize cached LCD output parameters to default values.
- */
-static void initialize_cached_lcd_output_params(
-    char *lcd_uid, size_t uid_size, int *found_lcd_device, int *screen_width,
-    int *screen_height, char *device_name, size_t name_size,
-    char *lcd_channel, size_t channel_size, char *firmware,
-    size_t firmware_size)
-{
-    if (lcd_uid && uid_size > 0)
-        lcd_uid[0] = '\0';
-    if (found_lcd_device)
-        *found_lcd_device = 0;
-    if (screen_width)
-        *screen_width = 0;
-    if (screen_height)
-        *screen_height = 0;
-    if (device_name && name_size > 0)
-        device_name[0] = '\0';
-    if (lcd_channel && channel_size > 0)
-        lcd_channel[0] = '\0';
-    if (firmware && firmware_size > 0)
-        firmware[0] = '\0';
-}
-
-/**
- * @brief Extract all information from a CoolerControl LCD device.
- */
-static void extract_lcd_device_info(const json_t *dev, char *lcd_uid,
-                                    size_t uid_size, int *found_lcd_device,
-                                    int *screen_width, int *screen_height,
-                                    char *device_name, size_t name_size,
-                                    char *lcd_channel, size_t channel_size,
-                                    char *firmware, size_t firmware_size)
-{
-    if (found_lcd_device)
-        *found_lcd_device = 1;
-
-    extract_device_uid(dev, lcd_uid, uid_size);
-    extract_device_name(dev, device_name, name_size);
-    extract_lcd_dimensions(dev, screen_width, screen_height);
-    const char *channel_name = get_lcd_channel_from_device(dev);
-    if (channel_name && lcd_channel && channel_size > 0)
-        cc_safe_strcpy(lcd_channel, channel_size, channel_name);
-    extract_lcd_firmware(dev, firmware, firmware_size);
 }
 
 /**
@@ -533,8 +478,7 @@ static int score_lcd_candidate(const Config *config, const char *device_uid,
  * @brief Search for the best CoolerControl LCD device candidate.
  * @details Uses UID, LCD metadata, and configurable allow/block heuristics.
  */
-static const json_t *search_lcd_device(const Config *config,
-                                       const json_t *devices)
+const json_t *cc_find_lcd_device(const Config *config, const json_t *devices)
 {
     const json_t *best_dev = NULL;
     int best_score = -1001;
@@ -610,63 +554,13 @@ static const json_t *search_lcd_device(const Config *config,
 }
 
 /**
- * @brief Parse devices JSON and extract LCD UID, display info and device name.
- */
-static int parse_lcd_device_data(const Config *config, const char *json,
-                                 char *lcd_uid, size_t uid_size,
-                                 int *found_lcd_device, int *screen_width,
-                                 int *screen_height, char *device_name,
-                                 size_t name_size, char *lcd_channel,
-                                 size_t channel_size, char *firmware,
-                                 size_t firmware_size, int *gif_unsupported)
-{
-    if (!json)
-        return 0;
-
-    initialize_cached_lcd_output_params(lcd_uid, uid_size, found_lcd_device,
-                                        screen_width, screen_height,
-                                        device_name, name_size, lcd_channel,
-                                        channel_size, firmware, firmware_size);
-
-    json_error_t error;
-    json_t *root = json_loads(json, 0, &error);
-    if (!root)
-    {
-        log_message(LOG_ERROR, "JSON parse error: %s", error.text);
-        return 0;
-    }
-
-    const json_t *devices = json_object_get(root, "devices");
-    if (!devices || !json_is_array(devices))
-    {
-        json_decref(root);
-        return 0;
-    }
-
-    const json_t *device = search_lcd_device(config, devices);
-    const int found = device != NULL;
-    if (found)
-    {
-        extract_lcd_device_info(device, lcd_uid, uid_size, found_lcd_device,
-                                screen_width, screen_height, device_name,
-                                name_size, lcd_channel, channel_size, firmware,
-                                firmware_size);
-        const json_t *lcd_info = get_lcd_info_from_device(device);
-        *gif_unsupported = json_is_false(json_object_get(lcd_info, "gif_supported"));
-    }
-    json_decref(root);
-    return found;
-}
-
-/**
  * @brief Configure CURL options for device cache request.
  */
-static void configure_device_cache_curl(CURL *curl, const Config *config,
+static int configure_device_cache_curl(CURL *curl, const Config *config,
                                         const char *url,
                                         http_response *chunk,
                                         struct curl_slist **headers)
 {
-    (void)config;
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(
         curl, CURLOPT_WRITEFUNCTION,
@@ -676,36 +570,32 @@ static void configure_device_cache_curl(CURL *curl, const Config *config,
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, CC_REQUEST_TIMEOUT_SECONDS);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
-    *headers = curl_slist_append(NULL, "accept: application/json");
+    if (!config->access_token[0])
+        return 0;
 
-    const char *bearer = get_session_access_token();
-    if (bearer && bearer[0] != '\0')
-        *headers = curl_slist_append(*headers, bearer);
+    char bearer[CC_BEARER_HEADER_SIZE];
+    const int length = snprintf(bearer, sizeof(bearer), "Authorization: Bearer %s",
+                                config->access_token);
+    if (length < 0 || (size_t)length >= sizeof(bearer))
+        return 0;
 
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
+    *headers = curl_slist_append(NULL, bearer);
+    if (!*headers)
+        return 0;
+
+    struct curl_slist *accept = curl_slist_append(*headers, "accept: application/json");
+    if (!accept)
+        return 0;
+    *headers = accept;
+    return curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers) == CURLE_OK;
 }
 
 /**
  * @brief Populate device name cache from parsed JSON devices array.
  * @details Caches UID, name, and type for all devices (not just Liquidctl).
  */
-static void populate_device_name_cache(const char *json_data)
+static void populate_device_name_cache(const json_t *devices)
 {
-    if (!json_data)
-        return;
-
-    json_error_t error;
-    json_t *root = json_loads(json_data, 0, &error);
-    if (!root)
-        return;
-
-    const json_t *devices = json_object_get(root, "devices");
-    if (!devices || !json_is_array(devices))
-    {
-        json_decref(root);
-        return;
-    }
-
     device_name_cache_count = 0;
     const size_t count = json_array_size(devices);
     for (size_t i = 0; i < count && device_name_cache_count < MAX_DEVICE_NAME_CACHE; i++)
@@ -745,64 +635,41 @@ static void populate_device_name_cache(const char *json_data)
 
     log_message(LOG_INFO, "Device name cache: %d devices cached",
                 device_name_cache_count);
-    json_decref(root);
 }
 
-/**
- * @brief Process device cache API response and populate cache.
- */
-static int process_device_cache_response(const Config *config,
-                                         const http_response *chunk)
+/** @brief Publish device data after the sensor worker has stopped. */
+void cc_set_device_cache(const json_t *devices, const json_t *lcd)
 {
-    /* Populate device name cache for ALL devices (used by sensor system) */
-    populate_device_name_cache(chunk->data);
+    populate_device_name_cache(devices);
+    memset(&device_cache, 0, sizeof(device_cache));
+    if (!lcd)
+        return;
 
-    int found_lcd_device = 0;
-    int result = parse_lcd_device_data(
-        config, chunk->data, device_cache.device_uid,
-        sizeof(device_cache.device_uid),
-        &found_lcd_device, &device_cache.screen_width,
-        &device_cache.screen_height, device_cache.device_name,
-        sizeof(device_cache.device_name), device_cache.lcd_channel,
-        sizeof(device_cache.lcd_channel), device_cache.firmware_version,
-        sizeof(device_cache.firmware_version), &device_cache.gif_unsupported);
+    extract_device_uid(lcd, device_cache.device_uid, sizeof(device_cache.device_uid));
+    extract_device_name(lcd, device_cache.device_name, sizeof(device_cache.device_name));
+    extract_lcd_dimensions(lcd, &device_cache.screen_width, &device_cache.screen_height);
+    cc_safe_strcpy(device_cache.lcd_channel, sizeof(device_cache.lcd_channel),
+                   get_lcd_channel_from_device(lcd));
+    extract_lcd_firmware(lcd, device_cache.firmware_version, sizeof(device_cache.firmware_version));
+    device_cache.gif_unsupported =
+        json_is_false(json_object_get(get_lcd_info_from_device(lcd), "gif_supported"));
+    device_cache.initialized = 1;
 
-    if (result && found_lcd_device)
-    {
-        device_cache.initialized = 1;
-        const DisplayProfile *profile = resolve_display_profile(
-            0, 0, device_cache.device_name, device_cache.screen_width,
-            device_cache.screen_height);
-        device_cache.is_circular = profile
-                                       ? profile->shape == DISPLAY_SHAPE_CIRCULAR
-                                       : is_circular_display_device(
-                                             device_cache.device_name,
-                                             device_cache.screen_width,
-                                             device_cache.screen_height);
-
-        const char *shape_mode = device_cache.is_circular
-                                     ? "scaled (circular)"
-                                     : "unscaled (rectangular)";
-        log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel, %s)",
-                    device_cache.device_name, device_cache.screen_width,
-                    device_cache.screen_height, shape_mode);
-        if (profile)
-        {
-            log_message(LOG_INFO,
-                        "Display profile: %s [%04x:%04x, %s, preferred=%s]",
-                        profile->name, profile->vendor_id, profile->product_id,
-                        display_shape_name(profile->shape),
-                        display_transport_name(profile->preferred_transport));
-        }
-        else
-        {
-            log_message(LOG_INFO,
-                        "Display profile: unknown device, using legacy size fallback");
-        }
-        return 1;
-    }
-
-    return 0;
+    const DisplayProfile *profile = resolve_display_profile(
+        0, 0, device_cache.device_name, device_cache.screen_width, device_cache.screen_height);
+    device_cache.is_circular = profile ? profile->shape == DISPLAY_SHAPE_CIRCULAR :
+        is_circular_display_device(device_cache.device_name, device_cache.screen_width,
+                                   device_cache.screen_height);
+    log_message(LOG_STATUS, "Device cache initialized: %s (%dx%d pixel, %s)",
+                device_cache.device_name, device_cache.screen_width, device_cache.screen_height,
+                device_cache.is_circular ? "scaled (circular)" : "unscaled (rectangular)");
+    if (profile)
+        log_message(LOG_INFO, "Display profile: %s [%04x:%04x, %s, preferred=%s]",
+                    profile->name, profile->vendor_id, profile->product_id,
+                    display_shape_name(profile->shape),
+                    display_transport_name(profile->preferred_transport));
+    else
+        log_message(LOG_INFO, "Display profile: unknown device, using legacy size fallback");
 }
 
 /**
@@ -832,7 +699,13 @@ static int fetch_device_data(const Config *config, const char *path,
         return 0;
     }
     struct curl_slist *headers = NULL;
-    configure_device_cache_curl(curl, config, url, chunk, &headers);
+    if (!configure_device_cache_curl(curl, config, url, chunk, &headers))
+    {
+        curl_slist_free_all(headers);
+        cc_cleanup_response_buffer(chunk);
+        curl_easy_cleanup(curl);
+        return 0;
+    }
     if (local_only)
         curl_easy_setopt(curl, CURLOPT_NOPROXY, "*");
 
@@ -854,31 +727,44 @@ static int fetch_device_data(const Config *config, const char *path,
     return 1;
 }
 
+json_t *cc_fetch_devices(const Config *config, int local_only)
+{
+    http_response chunk = {0};
+    if (!fetch_device_data(config, "/devices", &chunk, local_only))
+        return NULL;
+
+    json_t *root = json_loadb(chunk.data, chunk.size, JSON_REJECT_DUPLICATES, NULL);
+    cc_cleanup_response_buffer(&chunk);
+    json_t *devices = json_object_get(root, "devices");
+    if (json_is_array(devices))
+        json_incref(devices);
+    else
+        devices = NULL;
+    json_decref(root);
+    return devices;
+}
+
 static int initialize_device_cache(const Config *config)
 {
     if (device_cache.initialized)
         return 1;
 
-    http_response chunk = {0};
-    if (!fetch_device_data(config, "/devices", &chunk, 0))
+    json_t *devices = cc_fetch_devices(config, 0);
+    if (!devices)
         return 0;
-    int success = process_device_cache_response(config, &chunk);
-    cc_cleanup_response_buffer(&chunk);
-    return success;
+    const json_t *lcd = cc_find_lcd_device(config, devices);
+    const int found = lcd != NULL;
+    cc_set_device_cache(devices, lcd);
+    json_decref(devices);
+    return found;
 }
 
 /* The USB transport verifies the local VID:PID. Only the local CoolerControl
  * daemon can confirm that this LCD is released. */
-const DisplayProfile *cc_released_lcd_profile(const Config *config)
+/* devices must come from a fetch that verified the loopback peer. */
+const DisplayProfile *cc_released_lcd_profile(const Config *config,
+                                             const json_t *devices)
 {
-    http_response response = {0};
-    if (!fetch_device_data(config, "/devices", &response, 1))
-        return NULL;
-
-    populate_device_name_cache(response.data);
-    json_t *root = json_loads(response.data, 0, NULL);
-    cc_cleanup_response_buffer(&response);
-    const json_t *devices = json_object_get(root, "devices");
     const json_t *device;
     size_t index;
     char uid[CC_UID_SIZE] = {0};
@@ -933,15 +819,15 @@ const DisplayProfile *cc_released_lcd_profile(const Config *config)
         cc_safe_strcpy(uid, sizeof(uid), id);
         match = profile;
     }
-    json_decref(root);
     if (!match)
         return NULL;
 
+    http_response response = {0};
     char path[CC_URL_SIZE];
     snprintf(path, sizeof(path), "/devices/%s/settings", uid);
     if (!fetch_device_data(config, path, &response, 1))
         return NULL;
-    root = json_loads(response.data, 0, NULL);
+    json_t *root = json_loads(response.data, 0, NULL);
     cc_cleanup_response_buffer(&response);
     const json_t *settings = json_object_get(root, "settings");
     int released = json_is_array(settings);

@@ -274,25 +274,43 @@ void stream_stop(void)
     selected = 0;
 }
 
-void stream_start(const Config *config)
+StreamSource stream_prepare(const Config *config)
 {
-    if (!is_session_initialized() ||
-        (display_uses_sensor_slots(config) && !display_needs_sensor_data(config) &&
+    StreamSource source = {0};
+    if ((display_uses_sensor_slots(config) && !display_needs_sensor_data(config) &&
          !config->display_show_clock) ||
         !config->paths_image_background[0])
-        return;
+        return source;
 
-    animation.gif = open_gif(config->paths_image_background);
-    if (!animation.gif)
-        return;
-    const DisplayProfile *profile = cc_released_lcd_profile(config);
-    if (!profile)
+    source.gif = open_gif(config->paths_image_background);
+    if (source.gif)
     {
-        close_animation();
-        return;
+        json_t *devices = cc_fetch_devices(config, 1);
+        if (devices)
+            source.profile = cc_released_lcd_profile(config, devices);
+        json_decref(devices);
+        if (!source.profile)
+            stream_source_cleanup(&source);
     }
+    return source;
+}
 
+void stream_source_cleanup(StreamSource *source)
+{
+    if (source->gif)
+        g_object_unref(source->gif);
+    *source = (StreamSource){0};
+}
+
+void stream_start(const Config *config, StreamSource *source)
+{
+    const DisplayProfile *profile = source->profile;
+    if (!profile)
+        return;
+
+    animation.gif = source->gif;
     animation.profile = profile;
+    *source = (StreamSource){0};
     animation.config = *config;
     animation.config.display_width = profile->native_width;
     animation.config.display_height = profile->native_height;

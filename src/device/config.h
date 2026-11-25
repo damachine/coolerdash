@@ -259,27 +259,21 @@ extern int verbose_logging;
 // Plugin Configuration Functions
 // ============================================================================
 
-enum { CONFIG_LOAD_WRITE_FAILED = -1 };
-
 /** @brief Find the startup configuration, including the legacy fallback path. */
 const char *find_plugin_config_path(const char *custom_path);
 
 /**
- * @brief Load complete configuration from config.json with hardcoded defaults.
- * @param config Pointer to Config struct to populate
- * @param config_path Path selected at startup (NULL = use hardcoded defaults)
- * @return 1 if loaded, 0 if using defaults, CONFIG_LOAD_WRITE_FAILED if an update could not be saved
- *
- * This function:
- * 1. Initializes config with hardcoded defaults
- * 2. Loads the selected config.json
- * 3. Applies all settings with validation
- * 4. Populates the runtime configuration even when a file update fails
- *
- * Default config.json location:
- *   /var/lib/coolercontrol/plugins/coolerdash/config.json
+ * @brief Load settings without changing any files.
+ * @param pending_token Receives 1 for a new token, -1 for an invalid one, or 0 for saved credentials.
+ * @return 1 when JSON was loaded, 0 when defaults are used.
  */
-int load_plugin_config(Config *config, const char *config_path);
+int load_plugin_config(Config *config, const char *config_path, int *pending_token);
+
+/** @brief Replace the staged token with the last saved credential, if present. */
+void load_saved_plugin_token(Config *config, const char *config_path);
+
+/** @brief Persist a verified token and remove it from the shared config under a write lease. */
+int commit_plugin_token(const Config *config, const char *config_path);
 
 /**
  * @brief Load configuration without normalizing or writing config/credentials.

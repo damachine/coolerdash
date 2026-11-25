@@ -10,6 +10,7 @@
  * @brief JSON configuration loader.
  */
 
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #define _XOPEN_SOURCE 700
 
@@ -20,7 +21,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/file.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <jansson.h>
@@ -34,6 +34,7 @@
 #define CONFIG_LAYOUT_U8_UNSET UINT8_MAX
 #define LEGACY_LCD_IMAGE_PATH "/etc/coolercontrol/lcd_image.png"
 #define DEFAULT_LCD_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/coolerdash.png"
+#define DEFAULT_DAEMON_ADDRESS "http://localhost:11987"
 
 // ============================================================================
 // Global Logging Implementation
@@ -76,7 +77,7 @@ static void set_daemon_defaults(Config *config)
 {
     if (config->daemon_address[0] == '\0')
     {
-        SAFE_STRCPY(config->daemon_address, "http://localhost:11987");
+        SAFE_STRCPY(config->daemon_address, DEFAULT_DAEMON_ADDRESS);
     }
 }
 
@@ -675,37 +676,22 @@ const char *find_plugin_config_path(const char *custom_path)
     return NULL;
 }
 
-/* Forward declaration — defined below, used here before its definition */
-static void load_daemon_from_json(json_t *root, Config *config);
-
-/**
- * @brief Load daemon settings from JSON.
- */
-static void load_daemon_from_json(json_t *root, Config *config)
+/** @brief Load daemon address and stage a token supplied in config.json. */
+static int load_daemon_from_json(json_t *root, Config *config)
 {
-    json_t *daemon = json_object_get(root, "daemon");
-    if (!daemon || !json_is_object(daemon))
-        return;
+    const json_t *daemon = json_object_get(root, "daemon");
+    const char *address = json_string_value(json_object_get(daemon, "address"));
+    if (address && *address)
+        SAFE_STRCPY(config->daemon_address, address);
 
-    json_t *address = json_object_get(daemon, "address");
-    if (address && json_is_string(address) && json_string_length(address) > 0)
-    {
-        const char *value = json_string_value(address);
-        if (value)
-        {
-            SAFE_STRCPY(config->daemon_address, value);
-        }
-    }
+    const char *token = json_string_value(json_object_get(daemon, "access_token"));
+    if (!token || !*token || strcmp(token, "***") == 0)
+        return 0;
+    if (strlen(token) >= sizeof(config->access_token) || strpbrk(token, "\r\n"))
+        return -1;
 
-    json_t *token = json_object_get(daemon, "access_token");
-    if (token && json_is_string(token) && json_string_length(token) > 0)
-    {
-        const char *value = json_string_value(token);
-        if (value && strcmp(value, "***") != 0)
-        {
-            SAFE_STRCPY(config->access_token, value);
-        }
-    }
+    SAFE_STRCPY(config->access_token, token);
+    return 1;
 }
 
 /**
@@ -759,7 +745,8 @@ static void load_credentials_file(const char *config_json_path, Config *config)
     }
 
     const char *token = json_string_value(json_object_get(root, "access_token"));
-    if (token && token[0] && strcmp(token, "***") != 0)
+    if (token && token[0] && strcmp(token, "***") != 0 &&
+        strlen(token) < sizeof(config->access_token) && !strpbrk(token, "\r\n"))
     {
         SAFE_STRCPY(config->access_token, token);
         log_message(LOG_INFO, "Loaded access_token from credentials.json");
@@ -787,7 +774,7 @@ static int open_parent_directory(const char *path)
 }
 
 static int dump_json_atomically(const char *path, const json_t *root,
-                               const struct stat *original)
+                               const struct stat *original, int lease_fd)
 {
     char temp_path[CONFIG_MAX_PATH_LEN];
     int written = snprintf(temp_path, sizeof(temp_path), "%s.tmp.XXXXXX", path);
@@ -849,10 +836,11 @@ static int dump_json_atomically(const char *path, const json_t *root,
     }
     fp = NULL;
 
-    /* CoolerControl can save config.json while we persist the token. */
+    /* Detect a replaced file or an interrupted lease before publishing. */
     struct stat current;
     if (original &&
-        (stat(path, &current) != 0 || current.st_dev != original->st_dev ||
+        (fcntl(lease_fd, F_GETLEASE) != F_WRLCK ||
+         stat(path, &current) != 0 || current.st_dev != original->st_dev ||
          current.st_ino != original->st_ino || current.st_size != original->st_size ||
          current.st_mtim.tv_sec != original->st_mtim.tv_sec ||
          current.st_mtim.tv_nsec != original->st_mtim.tv_nsec ||
@@ -900,34 +888,59 @@ static int save_credentials_file(const char *config_json_path, const char *token
     if (!root)
         return 0;
 
-    int saved = dump_json_atomically(cred_path, root, NULL);
+    int saved = dump_json_atomically(cred_path, root, NULL, -1);
     json_decref(root);
     if (saved)
         log_message(LOG_STATUS, "Access token persisted to credentials.json");
     return saved;
 }
 
-static int update_config_json(const char *path, json_t *root, const struct stat *original)
+void load_saved_plugin_token(Config *config, const char *config_path)
 {
-    json_t *daemon = json_object_get(root, "daemon");
-    if (json_object_del(daemon, "access_token") != 0)
+    memset(config->access_token, 0, sizeof(config->access_token));
+    load_credentials_file(config_path, config);
+}
+
+int commit_plugin_token(const Config *config, const char *config_path)
+{
+    char *target = realpath(config_path, NULL);
+    if (!target)
+        return 0;
+
+    /* CoolerControl writes through an O_NONBLOCK descriptor. A write lease
+     * rejects new opens and cannot be acquired while another writer has it open. */
+    const int fd = open(target, O_RDWR | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+    struct stat original;
+    if (fd < 0 || fstat(fd, &original) != 0 || !S_ISREG(original.st_mode) ||
+        fcntl(fd, F_SETLEASE, F_WRLCK) != 0 || fstat(fd, &original) != 0)
     {
-        FILE *fp = fopen(path, "r");
-        if (!fp)
-            return 0;
-        char head[4];
-        size_t length = fread(head, 1, sizeof(head), fp);
-        int read_error = ferror(fp);
-        fclose(fp);
-        if (read_error)
-            return 0;
-        if (length < sizeof(head) || memcmp(head, "{\n  ", sizeof(head)) == 0)
-            return 1;
+        log_message(LOG_WARNING, "Could not exclusively open config.json for token update");
+        if (fd >= 0)
+            close(fd);
+        free(target);
+        return 0;
     }
 
-    /* Replace the file behind a user-supplied symlink. */
-    char *target = realpath(path, NULL);
-    int saved = target && dump_json_atomically(target, root, original);
+    int saved = 0;
+    json_t *root = json_loadfd(fd, JSON_REJECT_DUPLICATES, NULL);
+    json_t *daemon = json_object_get(root, "daemon");
+    const char *pending = json_string_value(json_object_get(daemon, "access_token"));
+    const char *address = json_string_value(json_object_get(daemon, "address"));
+    if (!address || !*address)
+        address = DEFAULT_DAEMON_ADDRESS;
+    if (pending && strcmp(pending, config->access_token) == 0 &&
+        strcmp(address, config->daemon_address) == 0 &&
+        fcntl(fd, F_GETLEASE) == F_WRLCK &&
+        save_credentials_file(config_path, config->access_token))
+    {
+        json_object_del(daemon, "access_token");
+        saved = dump_json_atomically(target, root, &original, fd);
+    }
+    if (!saved)
+        log_message(LOG_WARNING, "Could not complete token update for %s", config_path);
+
+    json_decref(root);
+    close(fd);
     free(target);
     return saved;
 }
@@ -1749,7 +1762,7 @@ static void load_positioning_from_json(json_t *root, Config *config)
  * @brief Load complete configuration from config.json with hardcoded defaults.
  */
 static int load_plugin_config_internal(Config *config, const char *json_path,
-                                       int allow_writes)
+                                       int *pending_token)
 {
     if (!config)
     {
@@ -1795,20 +1808,14 @@ static int load_plugin_config_internal(Config *config, const char *json_path,
     {
         log_message(LOG_INFO, "Loading plugin config from: %s", json_path);
 
-        /* Serialize token updates by CoolerDash processes sharing this directory. */
-        int dir_fd = allow_writes ? open_parent_directory(json_path) : -1;
-        int can_write = dir_fd >= 0 && flock(dir_fd, LOCK_EX | LOCK_NB) == 0;
-        if (allow_writes && !can_write)
-            log_message(LOG_WARNING, "Could not lock configuration directory: %s", strerror(errno));
-
-        struct stat original;
-        int have_original = can_write && stat(json_path, &original) == 0;
         json_error_t error;
-        json_t *root = json_load_file(json_path, 0, &error);
+        json_t *root = json_load_file(json_path, JSON_REJECT_DUPLICATES, &error);
 
         if (json_is_object(root))
         {
-            load_daemon_from_json(root, config);
+            const int token = load_daemon_from_json(root, config);
+            if (pending_token)
+                *pending_token = token;
             load_paths_from_json(root, config);
             load_device_detection_from_json(root, config);
             load_display_from_json(root, config);
@@ -1825,7 +1832,7 @@ static int load_plugin_config_internal(Config *config, const char *json_path,
                 log_message(LOG_WARNING, "Invalid active custom layout in %s", json_path);
             }
 
-            loaded_from_json = allow_writes && !have_original ? CONFIG_LOAD_WRITE_FAILED : 1;
+            loaded_from_json = 1;
             log_message(LOG_STATUS, "Plugin configuration loaded from JSON");
         }
         else if (root)
@@ -1838,33 +1845,9 @@ static int load_plugin_config_internal(Config *config, const char *json_path,
                         json_path, error.text, error.line);
         }
 
-        if (allow_writes && loaded_from_json == 1 && config->access_token[0])
-        {
-            const char *pending = json_string_value(
-                json_object_get(json_object_get(root, "daemon"), "access_token"));
-            if (strlen(pending) >= sizeof(config->access_token))
-            {
-                log_message(LOG_WARNING, "Access token in config.json is too long");
-                config->access_token[0] = '\0';
-                loaded_from_json = CONFIG_LOAD_WRITE_FAILED;
-            }
-            else if (!save_credentials_file(json_path, pending))
-            {
-                loaded_from_json = CONFIG_LOAD_WRITE_FAILED;
-            }
-        }
-
-        load_credentials_file(json_path, config);
-
-        /* Keep the pending token in config.json if writing credentials failed. */
-        if (allow_writes && loaded_from_json == 1 &&
-            !update_config_json(json_path, root, &original))
-        {
-            loaded_from_json = CONFIG_LOAD_WRITE_FAILED;
-        }
+        if (!pending_token || *pending_token <= 0)
+            load_credentials_file(json_path, config);
         json_decref(root);
-        if (dir_fd >= 0)
-            close(dir_fd);
     }
     else
     {
@@ -1877,12 +1860,12 @@ static int load_plugin_config_internal(Config *config, const char *json_path,
     return loaded_from_json;
 }
 
-int load_plugin_config(Config *config, const char *config_path)
+int load_plugin_config(Config *config, const char *config_path, int *pending_token)
 {
-    return load_plugin_config_internal(config, config_path, 1);
+    return load_plugin_config_internal(config, config_path, pending_token);
 }
 
 int load_plugin_config_read_only(Config *config, const char *config_path)
 {
-    return load_plugin_config_internal(config, find_plugin_config_path(config_path), 0);
+    return load_plugin_config_internal(config, find_plugin_config_path(config_path), NULL);
 }

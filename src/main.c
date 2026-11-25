@@ -1611,6 +1611,11 @@ static void setup_enhanced_signal_handlers(void)
         log_message(LOG_ERROR, "Failed to unblock daemon signals: %s",
                     strerror(rc));
 
+    /* A nonblocking CoolerControl open can request a token-redaction lease break. */
+    sa.sa_handler = SIG_IGN;
+    if (sigaction(SIGIO, &sa, NULL) != 0)
+        log_message(LOG_ERROR, "Failed to ignore file lease notifications: %s", strerror(errno));
+
     sigemptyset(&signal_mask);
     sigaddset(&signal_mask, SIGPIPE);
     rc = pthread_sigmask(SIG_BLOCK, &signal_mask, NULL);
@@ -1644,58 +1649,93 @@ static void apply_display_mode_override(Config *config)
     log_message(LOG_INFO, "Display mode overridden by CLI: %s", config->display_mode);
 }
 
-/** @brief Re-read config.json on SIGHUP; re-init session and device cache. */
+typedef struct
+{
+    json_t *devices;
+    const json_t *lcd;
+    StreamSource stream;
+} PreparedDisplay;
+
+static int prepare_display(const Config *config, PreparedDisplay *display)
+{
+    if (!config->access_token[0])
+        return 0;
+
+    display->devices = cc_fetch_devices(config, 0);
+    if (!display->devices)
+        return 0;
+
+    display->stream = stream_prepare(config);
+    display->lcd = cc_find_lcd_device(config, display->devices);
+
+    return display->stream.profile || display->lcd;
+}
+
+static void cleanup_prepared_display(PreparedDisplay *display)
+{
+    stream_source_cleanup(&display->stream);
+    json_decref(display->devices);
+    *display = (PreparedDisplay){0};
+}
+
+static int activate_display(Config *config, PreparedDisplay *display)
+{
+    cc_set_device_cache(display->devices, display->lcd);
+    stream_start(config, &display->stream);
+    if (!stream_selected())
+    {
+        if (!display->lcd)
+            return 0;
+        update_config_from_device(config);
+    }
+    return 1;
+}
+
+/** @brief Validate a reload before replacing live settings or credentials. */
 static void reload_daemon_config(Config *config)
 {
     log_message(LOG_STATUS, "SIGHUP received — reloading configuration...");
 
     Config next;
-    int config_result = load_plugin_config(&next, s_config_path);
-    if (config_result != 1 || next.invalid_custom_layout || !next.access_token[0])
+    int pending_token;
+    if (load_plugin_config(&next, s_config_path, &pending_token) != 1 ||
+        next.invalid_custom_layout || pending_token < 0)
     {
         log_message(LOG_WARNING, "Config reload: could not load usable settings; keeping the running configuration");
+        return;
+    }
+    apply_display_mode_override(&next);
+
+    PreparedDisplay display = {0};
+    if (!prepare_display(&next, &display) ||
+        (pending_token && !commit_plugin_token(&next, s_config_path)))
+    {
+        log_message(LOG_WARNING, "Config reload: could not verify or save the new settings; keeping the running configuration");
+        cleanup_prepared_display(&display);
         return;
     }
 
     publish_plugin_config(config, 0);
     stream_stop();
     cleanup_sensor_curl_handle();
-    reset_coolercontrol_session();
-    reset_device_cache();
-    reset_display_state();
-
-    *config = next;
-    apply_display_mode_override(config);
-
-    // 4. Re-initialize CoolerControl session with potentially new token/address
-    if (!init_coolercontrol_session(config))
-    {
-        log_message(LOG_ERROR,
-                    "Config reload: session re-init failed — continuing with degraded state");
-        return;
-    }
-
-    stream_start(config);
-    if (stream_selected())
+    if (!init_coolercontrol_session(&next))
     {
         publish_plugin_config(config, 1);
-        update_device_info_snapshot(config);
+        cleanup_prepared_display(&display);
         return;
     }
 
-    // 5. Re-populate device cache
-    if (!init_device_cache(config))
-    {
-        log_message(LOG_ERROR,
-                    "Config reload: device cache re-init failed — continuing with degraded state");
-        return;
-    }
-
-    publish_plugin_config(config, 1);
-    update_config_from_device(config);
+    reset_display_state();
+    *config = next;
+    int success = activate_display(config, &display);
+    cleanup_prepared_display(&display);
     update_device_info_snapshot(config);
+    publish_plugin_config(config, 1);
 
-    log_message(LOG_STATUS, "Configuration reloaded successfully");
+    if (success)
+        log_message(LOG_STATUS, "Configuration reloaded successfully");
+    else
+        log_message(LOG_ERROR, "Config reload: released LCD could not be opened");
 }
 
 /** @brief Convert the configured display refresh interval to a timespec. */
@@ -1940,23 +1980,14 @@ static int verify_plugin_dir_permissions(const char *plugin_dir)
 }
 
 /** @brief Load config.json and check dir permissions. */
-static int initialize_config_and_instance(const char *config_path,
-                                          Config *config)
+static int initialize_config_and_instance(const char *config_path, Config *config,
+                                          int *pending_token)
 {
-    int json_loaded = load_plugin_config(config, config_path);
+    if (!load_plugin_config(config, config_path, pending_token))
+        log_message(LOG_INFO, "Using hardcoded defaults (no usable config.json found)");
 
-    if (json_loaded == CONFIG_LOAD_WRITE_FAILED)
-    {
-        log_message(LOG_WARNING, "Startup: could not persist configuration changes");
-    }
-    else if (!json_loaded)
-    {
-        log_message(LOG_INFO, "Using hardcoded defaults (no config.json found)");
-    }
-
-    int is_plugin_mode = is_started_as_plugin();
     log_message(LOG_INFO, "Running mode: %s",
-                is_plugin_mode ? "CoolerControl plugin" : "standalone");
+                is_started_as_plugin() ? "CoolerControl plugin" : "standalone");
 
     if (!verify_plugin_dir_permissions(config->paths_images))
     {
@@ -1967,40 +1998,32 @@ static int initialize_config_and_instance(const char *config_path,
     return 1;
 }
 
-/** @brief Init CC session and device cache. */
-static int initialize_coolercontrol_services(const Config *config)
+/** @brief Verify the selected credential before activating it. */
+static int initialize_coolercontrol_services(Config *config, int pending_token)
 {
-    if (!init_coolercontrol_session(config))
+    PreparedDisplay display = {0};
+    int ready = pending_token >= 0 && prepare_display(config, &display);
+    if (ready && pending_token)
+        ready = commit_plugin_token(config, s_config_path);
+    if (!ready && pending_token)
     {
-        log_message(LOG_ERROR, "CoolerControl session initialization failed");
-        fprintf(stderr,
-                "Error: CoolerControl session could not be initialized\n"
-                "Please check:\n"
-                "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
-                "  - Is the daemon running on %s?\n"
-                "  - Is a valid access token configured?\n"
-                "  - Are network connections allowed?\n",
-                config->daemon_address);
-        fflush(stderr);
-        return -1;
+        log_message(LOG_WARNING, "Startup: pending token could not be activated; trying saved credentials");
+        cleanup_prepared_display(&display);
+        load_saved_plugin_token(config, s_config_path);
+        ready = prepare_display(config, &display);
     }
 
-    stream_start(config);
-    if (!stream_selected() && !init_device_cache(config))
+    int success = ready && init_coolercontrol_session(config) &&
+                  activate_display(config, &display);
+    cleanup_prepared_display(&display);
+    if (!success)
     {
-        log_message(LOG_ERROR, "Failed to initialize device cache");
+        log_message(LOG_ERROR, "CoolerControl session or LCD initialization failed");
         fprintf(stderr,
-                "Error: CoolerControl session could not be initialized\n"
-                "Please check:\n"
-                "  - Is coolercontrold running? (systemctl status coolercontrold)\n"
-                "  - Is the daemon running on %s?\n"
-                "  - Is a valid access token configured?\n"
-                "  - Are network connections allowed?\n",
+                "Check the CoolerControl connection to %s, the access token and LCD availability.\n",
                 config->daemon_address);
-        return -1;
     }
-
-    return 0;
+    return success;
 }
 
 /** @brief Fetch device info, validate sensors, log system state. */
@@ -2018,8 +2041,6 @@ static void initialize_device_info(Config *config)
         log_message(LOG_ERROR, "Could not retrieve device information");
         return;
     }
-
-    update_config_from_device(config);
 
     const char *uid_display =
         (device_uid[0] != '\0') ? device_uid : "Unknown device UID";
@@ -2089,13 +2110,14 @@ int main(int argc, char **argv)
                 COOLERDASH_VERSION);
 
     Config config = {0};
+    int pending_token = 0;
     log_message(LOG_STATUS, "Loading configuration...");
 
     if (!cli.hardware_report)
     {
         setup_enhanced_signal_handlers();
         s_config_path = find_plugin_config_path(cli.config_path);
-        if (!initialize_config_and_instance(s_config_path, &config))
+        if (!initialize_config_and_instance(s_config_path, &config, &pending_token))
             return EXIT_FAILURE;
 
         if (!acquire_single_instance(config.paths_images))
@@ -2134,7 +2156,7 @@ int main(int argc, char **argv)
     g_config_ptr = &config;
 
     log_message(LOG_STATUS, "Initializing CoolerControl session...");
-    if (initialize_coolercontrol_services(&config) != 0)
+    if (!initialize_coolercontrol_services(&config, pending_token))
     {
         cleanup_daemon_curl();
         release_single_instance();

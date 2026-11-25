@@ -6,9 +6,10 @@ service lifecycle automatically; no separate service setup is needed.
 ## Authentication
 
 Create a token with Write Access under CoolerControl's Access Protection, then
-save it under Plugins > CoolerDash > Connection. CoolerDash persists the token
-with restricted permissions in `credentials.json`; `config.json` only contains
-the `***` sentinel after the token has been saved.
+save it under Plugins > CoolerDash > Connection. CoolerDash checks the token
+with CoolerControl, saves it with restricted permissions in `credentials.json`
+and removes it from `config.json`. The stars in the token field are a visual
+placeholder.
 
 ## Animated GIF Backgrounds
 

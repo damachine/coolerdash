@@ -179,21 +179,21 @@ int init_coolercontrol_session(const Config *config)
         return 0;
     }
 
-    cc_session.curl_handle = curl_easy_init();
-    if (!cc_session.curl_handle)
-        return 0;
-
-    int written = snprintf(cc_session.access_token, sizeof(cc_session.access_token),
-                           "Authorization: Bearer %s", config->access_token);
-    if (!validate_snprintf(written, sizeof(cc_session.access_token),
-                           cc_session.access_token))
+    char bearer[CC_BEARER_HEADER_SIZE];
+    int written = snprintf(bearer, sizeof(bearer), "Authorization: Bearer %s",
+                           config->access_token);
+    if (!validate_snprintf(written, sizeof(bearer), bearer))
     {
-        curl_easy_cleanup(cc_session.curl_handle);
-        cc_session.curl_handle = NULL;
         log_message(LOG_ERROR, "Access token header exceeds maximum size");
         return 0;
     }
 
+    if (!cc_session.curl_handle)
+        cc_session.curl_handle = curl_easy_init();
+    if (!cc_session.curl_handle)
+        return 0;
+
+    SAFE_STRCPY(cc_session.access_token, bearer);
     cc_session.session_initialized = 1;
     log_message(LOG_STATUS, "Session initialized using Bearer token");
     return 1;

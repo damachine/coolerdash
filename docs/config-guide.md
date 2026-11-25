@@ -21,9 +21,14 @@ sudo systemctl restart coolercontrold
 |-----|---------|-------------|
 | `address` | `http://localhost:11987` | CoolerControl API endpoint |
 
-Set the access token in the **Connection** tab. CoolerDash saves it in the
-separate `credentials.json` file and removes it from `config.json`. Leave the
-token field empty to keep the saved token.
+Set the access token in the **Connection** tab. CoolerDash checks it against
+CoolerControl before saving it to `credentials.json` and removing it from
+`config.json`. A token that could not be verified or stored stays pending.
+Leave the token field empty to keep the saved token.
+
+The token update requires a Linux write lease on `config.json`. If a
+CoolerControl save is in progress, let it finish and try again. Ordinary
+configuration loads leave the file untouched.
 
 ---
 

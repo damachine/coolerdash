@@ -60,7 +60,17 @@ const char *get_cached_lcd_channel(const struct Config *config);
 /** Older CoolerControl versions omit gif_supported. Let the upload decide. */
 int lcd_allows_native_gif(const struct Config *config);
 
-const DisplayProfile *cc_released_lcd_profile(const struct Config *config);
+/** @brief Fetch a device list using the candidate config and optionally require a loopback peer. */
+json_t *cc_fetch_devices(const struct Config *config, int local_only);
+
+/** @brief Select an LCD from a fetched list without changing the live cache. */
+const json_t *cc_find_lcd_device(const struct Config *config, const json_t *devices);
+
+void cc_set_device_cache(const json_t *devices, const json_t *lcd);
+
+/** @brief Check whether a device from a verified loopback list is released. */
+const DisplayProfile *cc_released_lcd_profile(const struct Config *config,
+                                             const json_t *devices);
 
 /**
  * @brief Initialize device information cache.
@@ -68,12 +78,6 @@ const DisplayProfile *cc_released_lcd_profile(const struct Config *config);
  * performance.
  */
 int init_device_cache(const struct Config *config);
-
-/**
- * @brief Resets device cache for config reload (SIGHUP).
- * @details Clears all cached device data so it will be re-fetched from the API.
- */
-void reset_device_cache(void);
 
 /**
  * @brief Update config with device screen dimensions (only if not set in

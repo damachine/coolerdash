@@ -4,7 +4,17 @@
 #include "../device/config.h"
 #include "../device/profile.h"
 
-void stream_start(const Config *config);
+typedef struct
+{
+    struct _GdkPixbufAnimationIter *gif;
+    const DisplayProfile *profile;
+} StreamSource;
+
+/** @brief Prepare a released LCD and decode its GIF without touching the active stream. */
+StreamSource stream_prepare(const Config *config);
+void stream_source_cleanup(StreamSource *source);
+/** @brief Consume the prepared source and claim the LCD. */
+void stream_start(const Config *config, StreamSource *source);
 void stream_stop(void);
 const DisplayProfile *stream_active_profile(void);
 int stream_selected(void);
