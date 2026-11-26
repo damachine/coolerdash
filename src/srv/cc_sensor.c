@@ -524,6 +524,38 @@ const sensor_entry_t *find_liquid_pump_duty(const monitor_sensor_data_t *data)
 }
 
 /**
+ * @brief Find pump RPM sensor for a Liquidctl device.
+ * @details Searches for an RPM sensor whose name contains "pump"
+ * (case-insensitive). Falls back to first RPM sensor if no pump found.
+ * @param data Sensor data collection
+ * @return Pointer to pump RPM sensor, or NULL if not found
+ */
+const sensor_entry_t *find_liquid_pump_rpm(
+    const monitor_sensor_data_t *data)
+{
+    if (!data)
+        return NULL;
+
+    const sensor_entry_t *first_rpm = NULL;
+    for (int i = 0; i < data->sensor_count; i++)
+    {
+        if (data->sensors[i].category != SENSOR_CATEGORY_RPM)
+            continue;
+        if (strcmp(data->sensors[i].device_type, "Liquidctl") != 0)
+            continue;
+
+        /* Prefer sensor with "pump" in the name. */
+        if (contains_ci(data->sensors[i].name, "pump"))
+            return &data->sensors[i];
+
+        if (!first_rpm)
+            first_rpm = &data->sensors[i];
+    }
+
+    return first_rpm;
+}
+
+/**
  * @brief Resolve a legacy slot value to matching sensor entry.
  * @details Maps "cpu"→first CPU sensor, "gpu"→first GPU sensor,
  * "liquid"→first Liquidctl sensor matching the given category.

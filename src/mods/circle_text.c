@@ -4,73 +4,7 @@
 #include <string.h>
 
 #include "circle_text.h"
-
-static int ascii_tolower(int c)
-{
-    return (c >= 'A' && c <= 'Z') ? (c + ('a' - 'A')) : c;
-}
-
-static int contains_ignore_case(const char *haystack, const char *needle)
-{
-    if (!haystack || !needle || needle[0] == '\0')
-        return 0;
-
-    for (const char *h = haystack; *h; h++)
-    {
-        const char *hp = h;
-        const char *np = needle;
-        while (*hp && *np && ascii_tolower((unsigned char)*hp) ==
-                                 ascii_tolower((unsigned char)*np))
-        {
-            hp++;
-            np++;
-        }
-        if (*np == '\0')
-            return 1;
-    }
-
-    return 0;
-}
-
-/**
- * @brief Find pump RPM sensor for a Liquidctl device.
- * @details Searches for an RPM sensor whose name contains "pump"
- * (case-insensitive). Falls back to first RPM sensor if no pump found.
- * @param data Sensor data collection
- * @return Pointer to pump RPM sensor, or NULL if not found
- */
-static const sensor_entry_t *find_liquid_pump_rpm(
-    const monitor_sensor_data_t *data)
-{
-    if (!data)
-        return NULL;
-
-    const sensor_entry_t *first_rpm = NULL;
-    for (int i = 0; i < data->sensor_count; i++)
-    {
-        if (data->sensors[i].category != SENSOR_CATEGORY_RPM)
-            continue;
-        if (strcmp(data->sensors[i].device_type, "Liquidctl") != 0)
-            continue;
-
-        /* Prefer sensor with "pump" in the name. */
-        if (contains_ignore_case(data->sensors[i].name, "pump"))
-            return &data->sensors[i];
-
-        if (!first_rpm)
-            first_rpm = &data->sensors[i];
-    }
-
-    return first_rpm;
-}
-
-static void format_frequency(char *buf, size_t buf_size, float mhz)
-{
-    if (mhz >= 1000.0f)
-        snprintf(buf, buf_size, "%.1f GHz", mhz / 1000.0f);
-    else
-        snprintf(buf, buf_size, "%.0f MHz", mhz);
-}
+#include "readings.h"
 
 static int format_freq_watts(const sensor_entry_t *freq,
                              const sensor_entry_t *watts,
@@ -82,12 +16,12 @@ static int format_freq_watts(const sensor_entry_t *freq,
     if (freq && watts)
     {
         char freq_buf[24] = {0};
-        format_frequency(freq_buf, sizeof(freq_buf), freq->value);
+        format_frequency_mhz(freq_buf, sizeof(freq_buf), freq->value);
         snprintf(buf, buf_size, "%s  %.0fW", freq_buf, watts->value);
     }
     else if (freq)
     {
-        format_frequency(buf, buf_size, freq->value);
+        format_frequency_mhz(buf, buf_size, freq->value);
     }
     else
     {
@@ -156,7 +90,7 @@ int circle_extra_info_text(const Config *config,
         data, slot_value, SENSOR_CATEGORY_FREQ);
     if (s && config->circle_show_frequency)
     {
-        format_frequency(buf, buf_size, s->value);
+        format_frequency_mhz(buf, buf_size, s->value);
         return 1;
     }
 

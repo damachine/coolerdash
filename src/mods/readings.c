@@ -56,6 +56,14 @@ int read_used_memory(const Config *config, double *gib, double *progress)
     return 1;
 }
 
+void format_frequency_mhz(char *buf, size_t buf_size, float mhz)
+{
+    if (mhz >= 1000.0f)
+        snprintf(buf, buf_size, "%.1f GHz", mhz / 1000.0f);
+    else
+        snprintf(buf, buf_size, "%.0f MHz", mhz);
+}
+
 static const sensor_entry_t *widget_sensor(const Config *config, const monitor_sensor_data_t *data,
                                            const char *id, WidgetReadings *readings)
 {
@@ -69,6 +77,8 @@ static const sensor_entry_t *widget_sensor(const Config *config, const monitor_s
                                             SENSOR_CATEGORY_WATTS);
     if (source == CUSTOM_SOURCE_LIQUID_PUMP_DUTY)
         return find_liquid_pump_duty(data);
+    if (source == CUSTOM_SOURCE_LIQUID_PUMP_RPM)
+        return find_liquid_pump_rpm(data);
 
     double value;
     const char *unit;

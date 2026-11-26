@@ -4423,11 +4423,12 @@
             const defaultDuration = 6;
             const fileLimit = screenLimit * 32 * 1024;
             const standard = { cpu: 'CPU Temperature', gpu: 'GPU Temperature', liquid: 'Liquid Temperature' };
-            const channelLabels = { duty: 'Load / Duty', watts: 'Power', rpm: 'Fan / Pump Speed' };
+            const channelLabels = { duty: 'Load / Duty', freq: 'Frequency', watts: 'Power', rpm: 'Fan / Pump Speed' };
             const sources = {
                 ...standard, 'cpu-load': 'CPU Load', 'gpu-load': 'GPU Load',
                 'cpu-power': 'CPU Power', 'gpu-power': 'GPU Power', power: 'CPU + GPU Power',
-                'ram-used': 'RAM Used', 'ram-load': 'RAM Load', 'liquid-pump-duty': 'Liquid Pump Duty'
+                'ram-used': 'RAM Used', 'ram-load': 'RAM Load', 'liquid-pump-duty': 'Liquid Pump Duty',
+                'liquid-pump-rpm': 'Liquid Pump Speed'
             };
             const templateNames = {
                 dual: 'Dual', split: 'Split', circle: 'Circle', terminal: 'TTY (Terminal)',
@@ -4626,16 +4627,43 @@
                 }).filter(slot => slot && slot !== 'none');
             }
 
+            function circleDetails(widgets, channels, slot, font, color) {
+                return widgets.filter(({ channel }) => {
+                    if (!channels.includes(channel)) return false;
+                    if (slot === 'liquid') return channel === 'rpm';
+                    return channel !== 'duty' || slot === 'cpu' || slot === 'gpu';
+                }).map((element, index) => {
+                    const { x, y, w, h } = widgets[index];
+                    const widget = { ...element, x, y, w, h, font, color, source: slot };
+                    if (element.channel === 'rpm') {
+                        if (slot === 'cpu') widget.source = 'liquid';
+                        if (slot === 'liquid') {
+                            widget.source = 'liquid-pump-rpm';
+                            delete widget.channel;
+                        }
+                    }
+                    return widget;
+                });
+            }
+
             async function circleTemplate(background, font, labelColor, valueColor) {
                 const copyCurrent = mode.value === 'circle';
                 const slots = activeTemplateSlots(copyCurrent);
                 const interval = copyCurrent
                     ? document.querySelector('[name="display.circle_switch_interval"]').valueAsNumber
                     : undefined;
-                const bars = !copyCurrent || document.getElementById('circle_show_bar').checked;
+                const shows = option => {
+                    const key = 'circle_show_' + option;
+                    return copyCurrent ? document.getElementById(key).checked : FACTORY_DEFAULTS.display[key];
+                };
+                const bars = shows('bar');
+                const channels = Object.entries({ duty: 'load', freq: 'frequency', watts: 'watts', rpm: 'rpm' })
+                    .filter(([, option]) => shows(option)).map(([channel]) => channel);
                 const sensors = copyCurrent ? collectSensorConfigsFromDOM() : {};
                 const layout = await loadPreset('circle');
                 const screen = layout.screens[0];
+                const details = screen.elements.filter(element => element.channel);
+                const primary = screen.elements.filter(element => !element.channel);
                 const duration = integer(interval, 1, 60) ? interval : screen.duration;
                 const names = { cpu: 'CPU', gpu: 'GPU', liquid: 'LIQ' };
                 layout.screens = slots.map(slot => {
@@ -4643,7 +4671,7 @@
                     const discovered = discoveredSensors.find(item => item.id === slot);
                     const label = [sensor?.label, names[slot], discovered?.device, slot.slice(slot.indexOf(':') + 1)]
                         .find(name => name && string(name, 96)) || 'Sensor';
-                    const elements = screen.elements.filter(element => bars || element.type !== 'bar')
+                    const elements = primary.filter(element => bars || element.type !== 'bar')
                         .map(element => {
                             if (element.type === 'text')
                                 return { ...element, font, color: labelColor, text: label };
@@ -4656,6 +4684,7 @@
                             }
                             return { ...element, source: slot, font, color: valueColor };
                         });
+                    elements.push(...circleDetails(details, channels, slot, font, labelColor));
                     return { duration, elements };
                 });
                 if (!layout.screens.length) layout.screens.push({ duration, elements: [] });

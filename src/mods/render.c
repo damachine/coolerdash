@@ -55,7 +55,13 @@ static void paint_element_text(cairo_t *cr, const Config *config,
     if (element->type == CUSTOM_VALUE)
     {
         const char *separator = element->text[0] ? "  " : "";
-        if (sensor)
+        if (sensor && element->channel == SENSOR_CATEGORY_FREQ)
+        {
+            char frequency[24];
+            format_frequency_mhz(frequency, sizeof(frequency), sensor->value);
+            snprintf(text, sizeof(text), "%s%s%s", element->text, separator, frequency);
+        }
+        else if (sensor)
             snprintf(text, sizeof(text), "%s%s%.*f %s", element->text, separator,
                      sensor->use_decimal ? 1 : 0, sensor->value, sensor->unit);
         else

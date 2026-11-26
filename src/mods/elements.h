@@ -49,7 +49,8 @@ typedef enum
     CUSTOM_SOURCE_POWER,
     CUSTOM_SOURCE_RAM_USED,
     CUSTOM_SOURCE_RAM_LOAD,
-    CUSTOM_SOURCE_LIQUID_PUMP_DUTY
+    CUSTOM_SOURCE_LIQUID_PUMP_DUTY,
+    CUSTOM_SOURCE_LIQUID_PUMP_RPM
 } CustomSource;
 
 CustomSource get_custom_source(const char *source);

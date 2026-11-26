@@ -128,6 +128,7 @@ const sensor_entry_t *find_channel_sensor_for_slot(
 const sensor_entry_t *find_processor_load(const monitor_sensor_data_t *data,
                                           const char *slot_value);
 const sensor_entry_t *find_liquid_pump_duty(const monitor_sensor_data_t *data);
+const sensor_entry_t *find_liquid_pump_rpm(const monitor_sensor_data_t *data);
 
 // ============================================================================
 // Data Retrieval

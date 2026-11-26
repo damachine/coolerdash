@@ -124,9 +124,11 @@ Later elements draw over earlier ones. The font size is in pixels at 240 px.
 Set `font` on a value, text, or clock widget to a system font family. The
 aliases `sans` and `mono` select the system's default sans-serif and monospace
 families. If a named family is unavailable, the system selects a fallback.
-For a sensor widget, the optional `channel` field selects `duty`, `watts`,
-or `rpm` from the same device as its `source`. This works with
-`cpu`, `gpu`, `liquid`, and device-specific sensor IDs.
+For a sensor widget, the optional `channel` field selects `duty`, `freq`,
+`watts`, or `rpm` from the same device as its `source`. This works with
+`cpu`, `gpu`, `liquid`, and device-specific sensor IDs. Use the
+`liquid-pump-rpm` source for the liquid cooler's pump speed. It prefers
+a pump channel and falls back to the first available liquid-cooler speed.
 An exported file contains a single item with its `id` omitted.
 
 Set a screen's `arrangement` to `columns` to place its widgets automatically.

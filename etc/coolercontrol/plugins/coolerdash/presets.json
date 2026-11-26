@@ -37,6 +37,58 @@
         "w": 500,
         "x": 250,
         "y": 645
+      },
+      {
+        "channel": "duty",
+        "color": "#c8c8c8",
+        "font": "Roboto Black",
+        "h": 58,
+        "size": 14,
+        "source": "cpu",
+        "text": "",
+        "type": "value",
+        "w": 275,
+        "x": 225,
+        "y": 735
+      },
+      {
+        "channel": "freq",
+        "color": "#c8c8c8",
+        "font": "Roboto Black",
+        "h": 58,
+        "size": 14,
+        "source": "cpu",
+        "text": "",
+        "type": "value",
+        "w": 275,
+        "x": 500,
+        "y": 735
+      },
+      {
+        "channel": "watts",
+        "color": "#c8c8c8",
+        "font": "Roboto Black",
+        "h": 58,
+        "size": 14,
+        "source": "cpu",
+        "text": "",
+        "type": "value",
+        "w": 275,
+        "x": 225,
+        "y": 800
+      },
+      {
+        "channel": "rpm",
+        "color": "#c8c8c8",
+        "font": "Roboto Black",
+        "h": 58,
+        "size": 14,
+        "source": "cpu",
+        "text": "",
+        "type": "value",
+        "w": 275,
+        "x": 500,
+        "y": 800
       }
     ],
     "name": "Circle",

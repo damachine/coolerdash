@@ -76,6 +76,7 @@ CustomSource get_custom_source(const char *source)
         [CUSTOM_SOURCE_RAM_USED] = "ram-used",
         [CUSTOM_SOURCE_RAM_LOAD] = "ram-load",
         [CUSTOM_SOURCE_LIQUID_PUMP_DUTY] = "liquid-pump-duty",
+        [CUSTOM_SOURCE_LIQUID_PUMP_RPM] = "liquid-pump-rpm",
     };
     for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++)
         if (strcmp(source, names[i]) == 0)
@@ -157,6 +158,8 @@ static int load_custom_element(json_t *object, CustomElement *element)
                 element->channel = SENSOR_CATEGORY_WATTS;
             else if (strcmp(name, "rpm") == 0)
                 element->channel = SENSOR_CATEGORY_RPM;
+            else if (strcmp(name, "freq") == 0)
+                element->channel = SENSOR_CATEGORY_FREQ;
             else
                 return 0;
         }

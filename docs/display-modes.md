@@ -58,7 +58,8 @@ templates are defined in `presets.json`.
 
 In Circle mode, **Edit as Custom Layout** creates one screen per active
 sensor slot in slot order. It copies the switch interval, sensor labels, and
-temperature bar setting. An empty slot is skipped.
+temperature bar setting. Enabled load, frequency, power, and fan or pump
+speed readings become separate value widgets. An empty slot is skipped.
 With no active slots, the copy contains one blank screen.
 
 Use **Add Screen** to create up to five screens in a layout. Select a numbered

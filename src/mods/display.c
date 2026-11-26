@@ -228,6 +228,7 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
         {" Freq", SENSOR_CATEGORY_FREQ, 4200, "MHz"},
     };
     int needs_processor_channels = 0;
+    int needs_pump_rpm = 0;
     for (int i = 0; i < screen->count; i++)
     {
         const CustomElement *element = &screen->elements[i];
@@ -254,6 +255,11 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
         {
             if (!find_liquid_pump_duty(data))
                 add_preview_pump_duty(data);
+            continue;
+        }
+        if (kind == CUSTOM_SOURCE_LIQUID_PUMP_RPM)
+        {
+            needs_pump_rpm = 1;
             continue;
         }
         if (kind != CUSTOM_SOURCE_SENSOR)
@@ -283,6 +289,12 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
     }
     if (needs_processor_channels)
         add_processor_preview_channels(data);
+    if (needs_pump_rpm)
+    {
+        sensor_entry_t *entry = add_preview_entry(data, "liquid", SENSOR_CATEGORY_RPM, 2200, "RPM");
+        if (entry)
+            cc_safe_strcpy(entry->name, sizeof(entry->name), "pump Speed");
+    }
 }
 
 int render_display_preview(const struct Config *config,
