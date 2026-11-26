@@ -4444,6 +4444,7 @@
                 frame: { label: 'Frame' }
             };
             const labels = Object.fromEntries(Object.entries(widgetTypes).map(([key, type]) => [key, type.label]));
+            const textAlignments = { auto: 'Automatic', left: 'Left', center: 'Center', right: 'Right' };
             const ringFields = [
                 { key: 'ring_thickness', title: 'Thickness at 240 px (0 = auto)', min: 0, max: 120, initial: 0 },
                 { key: 'ring_start', title: 'Start angle from top (° clockwise)', min: 0, max: 359, initial: 0 },
@@ -4457,6 +4458,7 @@
                 grow: 'Use the space left in the column after fitting the other widgets.',
                 text: 'Set the widget text. For a sensor value, it appears beside the reading.',
                 font: 'Type to search system fonts, or clear the field to browse.',
+                align: 'Align the text within the widget.',
                 size: 'Set the text size in pixels on a 240-pixel display.',
                 min: 'Set the reading at which the gauge is empty.',
                 max: 'Set the reading at which the gauge is full.',
@@ -4521,6 +4523,11 @@
                     if (!integer(input.size, 8, 120) || !isFontFamily(input.font))
                         throw new Error('Invalid widget font or size.');
                     Object.assign(result, { size: input.size, font: input.font.trim() });
+                    if (input.align !== undefined) {
+                        if (typeof input.align !== 'string' || !Object.hasOwn(textAlignments, input.align))
+                            throw new Error('Invalid text alignment.');
+                        if (input.align !== 'auto') result.align = input.align;
+                    }
                     if (type !== 'clock') {
                         if (!string(input.text, 96)) throw new Error('Invalid widget text.');
                         result.text = input.text;
@@ -4627,14 +4634,14 @@
                 }).filter(slot => slot && slot !== 'none');
             }
 
-            function circleDetails(widgets, channels, slot, font, color) {
+            function circleDetails(widgets, channels, slot, textStyle) {
                 return widgets.filter(({ channel }) => {
                     if (!channels.includes(channel)) return false;
                     if (slot === 'liquid') return channel === 'rpm';
                     return channel !== 'duty' || slot === 'cpu' || slot === 'gpu';
                 }).map((element, index) => {
                     const { x, y, w, h } = widgets[index];
-                    const widget = { ...element, x, y, w, h, font, color, source: slot };
+                    const widget = { ...element, ...textStyle, x, y, w, h, source: slot };
                     if (element.channel === 'rpm') {
                         if (slot === 'cpu') widget.source = 'liquid';
                         if (slot === 'liquid') {
@@ -4659,6 +4666,11 @@
                 const bars = shows('bar');
                 const channels = Object.entries({ duty: 'load', freq: 'frequency', watts: 'watts', rpm: 'rpm' })
                     .filter(([, option]) => shows(option)).map(([channel]) => channel);
+                const centered = (copyCurrent ? document.getElementById('circle_layout').value :
+                    FACTORY_DEFAULTS.display.circle_layout) === 'centered';
+                const labelStyle = { font, color: labelColor, align: centered ? 'center' : 'left' };
+                const valueStyle = { font, color: valueColor,
+                    align: centered || !channels.includes('duty') ? 'center' : 'right' };
                 const sensors = copyCurrent ? collectSensorConfigsFromDOM() : {};
                 const layout = await loadPreset('circle');
                 const screen = layout.screens[0];
@@ -4674,7 +4686,7 @@
                     const elements = primary.filter(element => bars || element.type !== 'bar')
                         .map(element => {
                             if (element.type === 'text')
-                                return { ...element, font, color: labelColor, text: label };
+                                return { ...element, ...labelStyle, text: label };
                             if (element.type === 'bar') {
                                 const bar = { ...element, source: slot };
                                 if (sensor?.max_scale > 0 && sensor.max_scale <= 1000000)
@@ -4682,9 +4694,9 @@
                                 if (sensor?.threshold_1_color) bar.color = rgbToHex(sensor.threshold_1_color);
                                 return bar;
                             }
-                            return { ...element, source: slot, font, color: valueColor };
+                            return { ...element, ...valueStyle, source: slot };
                         });
-                    elements.push(...circleDetails(details, channels, slot, font, labelColor));
+                    elements.push(...circleDetails(details, channels, slot, labelStyle));
                     return { duration, elements };
                 });
                 if (!layout.screens.length) layout.screens.push({ duration, elements: [] });
@@ -4995,8 +5007,11 @@
                     label.className = 'form-group';
                     label.textContent = title + ' ';
                     control.className = control.type === 'color' ? 'color-swatch' : 'form-control';
-                    const fieldValue = () => key === 'grow' ? String(Boolean(element.grow)) :
-                        element[key] ?? (key === 'column' ? 0 : '');
+                    const fieldValue = () => {
+                        if (key === 'grow') return String(Boolean(element.grow));
+                        if (key === 'align') return element.align ?? 'auto';
+                        return element[key] ?? (key === 'column' ? 0 : '');
+                    };
                     control.value = fieldValue();
                     control.dataset.property = key;
                     control.dataset.help = widgetHelp[key];
@@ -5020,6 +5035,7 @@
                             const cleaned = cleanElement(next);
                             if (!cleaned.channel) delete element.channel;
                             if (!cleaned.grow) delete element.grow;
+                            if (!cleaned.align) delete element.align;
                             Object.assign(element, cleaned);
                             control.value = fieldValue();
                             if (key === 'source' && gauge(element.type)) {
@@ -5082,6 +5098,9 @@
                     properties.append(picker);
                     bindFontPicker(picker, font, options, [['sans', 'Sans-serif'], ['mono', 'Monospace']]);
                     input(properties, 'Font size at 240 px', 'size', 'number', { min: 8, max: 120 });
+                    const alignment = document.createElement('select');
+                    for (const [id, title] of Object.entries(textAlignments)) alignment.add(new Option(title, id));
+                    field(properties, 'Text Alignment', 'align', alignment);
                 }
                 if (gauge(element.type)) {
                     input(properties, 'Minimum', 'min', 'number', { step: 'any' });

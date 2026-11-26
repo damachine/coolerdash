@@ -93,9 +93,15 @@ static void paint_element_text(cairo_t *cr, const Config *config,
         cairo_set_font_size(cr, size * fit);
         cairo_text_extents(cr, text, &ink);
     }
+    CustomTextAlignment align = element->align;
+    if (align == CUSTOM_TEXT_ALIGN_AUTO)
+        align = element->type == CUSTOM_CLOCK || !element->text[0]
+                    ? CUSTOM_TEXT_ALIGN_CENTER : CUSTOM_TEXT_ALIGN_LEFT;
     double left = -ink.x_bearing;
-    if (element->type == CUSTOM_CLOCK || !element->text[0])
+    if (align == CUSTOM_TEXT_ALIGN_CENTER)
         left += (width - ink.width) / 2.0;
+    else if (align == CUSTOM_TEXT_ALIGN_RIGHT)
+        left += width - ink.width;
     cairo_move_to(cr, left, (height - ink.height) / 2.0 - ink.y_bearing);
     cairo_show_text(cr, text);
 }

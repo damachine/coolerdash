@@ -93,6 +93,31 @@ const char *layout_font_family(const char *font)
     return font;
 }
 
+static int load_text_alignment(json_t *object, CustomTextAlignment *align)
+{
+    static const char *const names[] = {
+        [CUSTOM_TEXT_ALIGN_AUTO] = "auto",
+        [CUSTOM_TEXT_ALIGN_LEFT] = "left",
+        [CUSTOM_TEXT_ALIGN_CENTER] = "center",
+        [CUSTOM_TEXT_ALIGN_RIGHT] = "right",
+    };
+    const json_t *field = json_object_get(object, "align");
+    if (!field)
+    {
+        *align = CUSTOM_TEXT_ALIGN_AUTO;
+        return 1;
+    }
+
+    const char *name = json_string_value(field);
+    for (size_t i = 0; name && i < sizeof(names) / sizeof(names[0]); i++)
+        if (strcmp(name, names[i]) == 0)
+        {
+            *align = (CustomTextAlignment)i;
+            return 1;
+        }
+    return 0;
+}
+
 static int load_custom_element(json_t *object, CustomElement *element)
 {
     const char *type = json_string_value(json_object_get(object, "type"));
@@ -123,7 +148,8 @@ static int load_custom_element(json_t *object, CustomElement *element)
     {
         const char *font = config_json_string(object, "font", sizeof(element->font_face));
         if (!font || font[strspn(font, " ")] == '\0' ||
-            !custom_integer(object, "size", 8, 120, &element->font_size))
+            !custom_integer(object, "size", 8, 120, &element->font_size) ||
+            !load_text_alignment(object, &element->align))
             return 0;
         SAFE_STRCPY(element->font_face, layout_font_family(font));
         if (element->type != CUSTOM_CLOCK)

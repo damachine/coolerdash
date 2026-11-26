@@ -55,12 +55,21 @@ typedef enum
 
 CustomSource get_custom_source(const char *source);
 
+typedef enum
+{
+    CUSTOM_TEXT_ALIGN_AUTO,
+    CUSTOM_TEXT_ALIGN_LEFT,
+    CUSTOM_TEXT_ALIGN_CENTER,
+    CUSTOM_TEXT_ALIGN_RIGHT
+} CustomTextAlignment;
+
 typedef struct
 {
     CustomElementType type;
     int x, y, width, height;
     int column, grow;
     int font_size, segments;
+    CustomTextAlignment align;
     sensor_category_t channel;
     int ring_thickness, ring_start, ring_sweep;
     double minimum, maximum;

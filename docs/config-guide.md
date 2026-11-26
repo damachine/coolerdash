@@ -124,6 +124,9 @@ Later elements draw over earlier ones. The font size is in pixels at 240 px.
 Set `font` on a value, text, or clock widget to a system font family. The
 aliases `sans` and `mono` select the system's default sans-serif and monospace
 families. If a named family is unavailable, the system selects a fallback.
+Set `align` to `left`, `center`, or `right` to position text within the widget.
+Omit it or use `auto` for the default alignment. Clocks and values without
+labels are centered. Labels and values with labels are left aligned.
 For a sensor widget, the optional `channel` field selects `duty`, `freq`,
 `watts`, or `rpm` from the same device as its `source`. This works with
 `cpu`, `gpu`, `liquid`, and device-specific sensor IDs. Use the

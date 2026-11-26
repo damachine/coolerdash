@@ -59,7 +59,8 @@ templates are defined in `presets.json`.
 In Circle mode, **Edit as Custom Layout** creates one screen per active
 sensor slot in slot order. It copies the switch interval, sensor labels, and
 temperature bar setting. Enabled load, frequency, power, and fan or pump
-speed readings become separate value widgets. An empty slot is skipped.
+speed readings become separate value widgets. The copy uses the text
+alignment from **Classic** or **Centered**. An empty slot is skipped.
 With no active slots, the copy contains one blank screen.
 
 Use **Add Screen** to create up to five screens in a layout. Select a numbered
@@ -90,6 +91,9 @@ into a full circle or an arc. Set the thickness, start angle, arc length,
 number of segments, and color in the inspector. The Cairo preview uses sample
 readings. Use **1:1 pixels** to check readability and **LCD orientation** to
 preview the configured rotation.
+
+Use **Text Alignment** to place a text, value, or clock widget's content at
+the left, center, or right of its box.
 
 Give the layout a name distinct from the built-in templates. Template copies
 get their own names when you create them. Select a layout in the bank and click **Save** to
