@@ -62,8 +62,12 @@ static void paint_element_text(cairo_t *cr, const Config *config,
             snprintf(text, sizeof(text), "%s%s%s", element->text, separator, frequency);
         }
         else if (sensor)
-            snprintf(text, sizeof(text), "%s%s%.*f %s", element->text, separator,
-                     sensor->use_decimal ? 1 : 0, sensor->value, sensor->unit);
+        {
+            const int temperature = strcmp(sensor->unit, "°C") == 0;
+            snprintf(text, sizeof(text), "%s%s%.*f%s%s", element->text, separator,
+                     sensor->use_decimal ? 1 : 0, sensor->value,
+                     temperature ? "" : " ", temperature ? "°" : sensor->unit);
+        }
         else
             snprintf(text, sizeof(text), "%s%s—", element->text, separator);
     }
@@ -149,6 +153,8 @@ int paint_widget_layout(cairo_t *cr, const Config *config,
         cairo_clip(cr);
     }
 
+    const cairo_font_weight_t font_weight = strcmp(config->display_mode, "circle-rings") == 0
+                                              ? CAIRO_FONT_WEIGHT_BOLD : CAIRO_FONT_WEIGHT_NORMAL;
     WidgetReadings readings = {0};
     for (int i = 0; i < screen->count; i++)
     {
@@ -171,7 +177,7 @@ int paint_widget_layout(cairo_t *cr, const Config *config,
         if (element_uses_font(element->type))
         {
             const char *face = font_override && *font_override ? font_override : element->font_face;
-            cairo_select_font_face(cr, face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+            cairo_select_font_face(cr, face, CAIRO_FONT_SLANT_NORMAL, font_weight);
             paint_element_text(cr, config, element, sensor, params->scale_uniform, width, height);
         }
         else if (element->type == CUSTOM_FRAME)

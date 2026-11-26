@@ -124,39 +124,41 @@
             "y": 120
           },
           {
+            "align": "center",
             "color": "#5cdef5",
             "font": "Roboto Black",
-            "h": 94,
-            "size": 15,
+            "h": 100,
+            "size": 19,
             "text": "LIQ",
             "type": "text",
-            "w": 180,
-            "x": 435,
-            "y": 271
+            "w": 220,
+            "x": 390,
+            "y": 240
           },
           {
             "color": "#e9f1ff",
             "font": "Roboto Black",
-            "h": 190,
-            "size": 34,
+            "h": 240,
+            "size": 62,
             "source": "liquid",
             "text": "",
             "type": "value",
-            "w": 480,
-            "x": 260,
-            "y": 375
+            "w": 650,
+            "x": 175,
+            "y": 350
           },
           {
+            "align": "center",
             "color": "#95b9fb",
             "font": "Roboto Black",
-            "h": 94,
-            "size": 16,
+            "h": 110,
+            "size": 20,
             "source": "liquid-pump-duty",
             "text": "Pump",
             "type": "value",
-            "w": 480,
-            "x": 320,
-            "y": 566
+            "w": 540,
+            "x": 230,
+            "y": 620
           }
         ]
       },
@@ -185,39 +187,41 @@
             "y": 120
           },
           {
+            "align": "center",
             "color": "#ff6685",
             "font": "Roboto Black",
-            "h": 94,
-            "size": 15,
+            "h": 100,
+            "size": 19,
             "text": "CPU",
             "type": "text",
-            "w": 180,
-            "x": 435,
-            "y": 271
+            "w": 220,
+            "x": 390,
+            "y": 240
           },
           {
             "color": "#e9f1ff",
             "font": "Roboto Black",
-            "h": 190,
-            "size": 34,
+            "h": 240,
+            "size": 62,
             "source": "cpu",
             "text": "",
             "type": "value",
-            "w": 480,
-            "x": 260,
-            "y": 375
+            "w": 650,
+            "x": 175,
+            "y": 350
           },
           {
+            "align": "center",
             "color": "#95b9fb",
             "font": "Roboto Black",
-            "h": 94,
-            "size": 16,
+            "h": 110,
+            "size": 20,
             "source": "cpu-load",
             "text": "Load",
             "type": "value",
-            "w": 480,
-            "x": 320,
-            "y": 566
+            "w": 540,
+            "x": 230,
+            "y": 620
           }
         ]
       },
@@ -246,39 +250,41 @@
             "y": 120
           },
           {
+            "align": "center",
             "color": "#b4eb79",
             "font": "Roboto Black",
-            "h": 94,
-            "size": 15,
+            "h": 100,
+            "size": 19,
             "text": "GPU",
             "type": "text",
-            "w": 180,
-            "x": 435,
-            "y": 271
+            "w": 220,
+            "x": 390,
+            "y": 240
           },
           {
             "color": "#e9f1ff",
             "font": "Roboto Black",
-            "h": 190,
-            "size": 34,
+            "h": 240,
+            "size": 62,
             "source": "gpu",
             "text": "",
             "type": "value",
-            "w": 480,
-            "x": 260,
-            "y": 375
+            "w": 650,
+            "x": 175,
+            "y": 350
           },
           {
+            "align": "center",
             "color": "#95b9fb",
             "font": "Roboto Black",
-            "h": 94,
-            "size": 16,
+            "h": 110,
+            "size": 20,
             "source": "gpu-load",
             "text": "Load",
             "type": "value",
-            "w": 480,
-            "x": 320,
-            "y": 566
+            "w": 540,
+            "x": 230,
+            "y": 620
           }
         ]
       }

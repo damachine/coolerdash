@@ -803,9 +803,11 @@ static char *render_preview_json(const char *json, size_t json_length)
     (void)pthread_mutex_lock(&s_device_info_mutex);
     snapshot = s_device_info;
     (void)pthread_mutex_unlock(&s_device_info_mutex);
-    if (preview.display_width == 0 && snapshot.screen_width > 0)
+    const int use_device_size = strcmp(preview.display_mode, "circle-rings") == 0 &&
+                                snapshot.screen_width > 0 && snapshot.screen_height > 0;
+    if (snapshot.screen_width > 0 && (use_device_size || preview.display_width == 0))
         preview.display_width = (uint16_t)snapshot.screen_width;
-    if (preview.display_height == 0 && snapshot.screen_height > 0)
+    if (snapshot.screen_height > 0 && (use_device_size || preview.display_height == 0))
         preview.display_height = (uint16_t)snapshot.screen_height;
     preview.preview_render = 1;
     const int native_preview = !display_uses_sensor_slots(&preview);

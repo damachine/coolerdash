@@ -76,12 +76,18 @@ int layout_arrange_screen(const Config *config, const ScalingParams *params,
 {
     if (screen->arrangement == CUSTOM_FREE)
     {
-        const double sx = (double)config->display_width / CUSTOM_LAYOUT_GRID;
-        const double sy = (double)config->display_height / CUSTOM_LAYOUT_GRID;
+        double width = config->display_width, height = config->display_height;
+        if (strcmp(config->display_mode, "circle-rings") == 0)
+            width = height = fmin(width, height);
+        const double left = (config->display_width - width) / 2.0;
+        const double top = (config->display_height - height) / 2.0;
+        const double sx = width / CUSTOM_LAYOUT_GRID;
+        const double sy = height / CUSTOM_LAYOUT_GRID;
         for (int i = 0; i < screen->count; i++)
         {
             const CustomElement *widget = &screen->elements[i];
-            boxes[i] = (LayoutBox){widget->x * sx, widget->y * sy, widget->width * sx, widget->height * sy};
+            boxes[i] = (LayoutBox){left + widget->x * sx, top + widget->y * sy,
+                                  widget->width * sx, widget->height * sy};
         }
         return 1;
     }
