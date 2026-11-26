@@ -27,13 +27,6 @@
 // Forward declarations
 struct Config;
 
-/**
- * @brief Collects sensor data and renders circle mode display.
- * @details High-level entry point function that retrieves temperature data and
- * triggers alternating single-sensor display rendering.
- */
-void draw_circle_image(const struct Config *config);
-
 int paint_circle_overlay(cairo_t *cr, const struct Config *config,
                          const monitor_sensor_data_t *data,
                          const ScalingParams *params);

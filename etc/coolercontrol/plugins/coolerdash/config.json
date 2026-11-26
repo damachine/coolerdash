@@ -77,7 +77,8 @@
 
   "font": {
     "face": "Roboto Black",
-    "tty_face": "Monospace",
+    "tty_face": "Roboto Black",
+    "rings_face": "",
     "size_temp": 0,
     "size_labels": 0,
     "size_duty": 0,

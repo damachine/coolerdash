@@ -1,9 +1,123 @@
 /* SPDX-License-Identifier: MIT */
+#define _POSIX_C_SOURCE 200809L
+
 #include <math.h>
 #include <string.h>
+#include <time.h>
 
 #include "../srv/cc_conf.h"
-#include "display.h"
+#include "layout.h"
+
+int layout_columns(const Config *config, const ScalingParams *params, unsigned occupied,
+                    LayoutBox columns[2], LayoutBox *divider)
+{
+    LayoutContext geometry;
+    if (!calculate_layout_context(config, params, &geometry))
+        return 0;
+
+    const double inset = geometry.height * (params->is_circular ? 0.15 : 0.07);
+    const double top = geometry.top + inset;
+    const double height = (geometry.bottom - inset) - top;
+    double x = params->safe_content_margin, width = params->safe_bar_width;
+    calculate_safe_region_bounds(params, top, height, params->is_circular ? 0.94 : 0.96,
+                                 x, width, &x, &width);
+    const double padding = fmax(scale_value_avg(params, 3.0), config->display_width * 0.018);
+    memset(columns, 0, 2 * sizeof(*columns));
+    *divider = (LayoutBox){0};
+    if (occupied == 3)
+    {
+        const double gap = fmax(scale_value_avg(params, 5.0), config->display_width * 0.025);
+        const double left = x + padding, right = geometry.center_x + gap;
+        columns[0] = (LayoutBox){left, top, geometry.center_x - gap - left, height};
+        columns[1] = (LayoutBox){right, top, x + width - padding - right, height};
+        const double line = fmax(1.0, scale_value_avg(params, 1.4));
+        *divider = (LayoutBox){geometry.center_x - line / 2.0, top, line, height};
+    }
+    else if (occupied)
+        columns[occupied == 1 ? 0 : 1] = (LayoutBox){x + padding, top, width - 2.0 * padding, height};
+
+    for (int i = 0; i < 2; i++)
+        if ((occupied & (1U << i)) && columns[i].width < 12.0)
+            return 0;
+    return 1;
+}
+
+void layout_stack(const LayoutBox *column, const CustomElement *const widgets[],
+                   int count, LayoutBox boxes[])
+{
+    if (count <= 0)
+        return;
+
+    const double gap = count > 1 ? fmin(fmax(1.0, column->height * 0.01),
+                                        column->height / (2 * (count - 1))) : 0.0;
+    const double available = column->height - (count - 1) * gap;
+    int fixed = 0, flexible = 0;
+    for (int i = 0; i < count; i++)
+        if (widgets[i]->grow)
+            flexible += widgets[i]->height;
+        else
+            fixed += widgets[i]->height;
+    const double unit = column->height / CUSTOM_LAYOUT_GRID;
+    const double remaining = available - fixed * unit;
+    double y = column->y;
+    for (int i = 0; i < count; i++)
+    {
+        const CustomElement *widget = widgets[i];
+        const double height = flexible && remaining > 0.0
+                                  ? widget->height * (widget->grow ? remaining / flexible : unit)
+                                  : available * widget->height / (fixed + flexible);
+        boxes[i] = (LayoutBox){column->x, y, column->width, height};
+        y += height + gap;
+    }
+}
+
+int layout_arrange_screen(const Config *config, const ScalingParams *params,
+                          const CustomScreen *screen, LayoutBox boxes[CUSTOM_LAYOUT_MAX_ELEMENTS])
+{
+    if (screen->arrangement == CUSTOM_FREE)
+    {
+        const double sx = (double)config->display_width / CUSTOM_LAYOUT_GRID;
+        const double sy = (double)config->display_height / CUSTOM_LAYOUT_GRID;
+        for (int i = 0; i < screen->count; i++)
+        {
+            const CustomElement *widget = &screen->elements[i];
+            boxes[i] = (LayoutBox){widget->x * sx, widget->y * sy, widget->width * sx, widget->height * sy};
+        }
+        return 1;
+    }
+
+    unsigned occupied = 0;
+    for (int i = 0; i < screen->count; i++)
+        if (screen->elements[i].column >= 0)
+            occupied |= 1U << screen->elements[i].column;
+    LayoutBox columns[2], divider;
+    if (!layout_columns(config, params, occupied, columns, &divider))
+        return 0;
+    for (int i = 0; i < screen->count; i++)
+        if (screen->elements[i].column < 0)
+            boxes[i] = divider;
+
+    for (int col = 0; col < 2; col++)
+    {
+        const CustomElement *widgets[CUSTOM_LAYOUT_MAX_ELEMENTS];
+        int indices[CUSTOM_LAYOUT_MAX_ELEMENTS], count = 0;
+        for (int i = 0; i < screen->count; i++)
+        {
+            if (screen->elements[i].column == col)
+            {
+                widgets[count] = &screen->elements[i];
+                indices[count++] = i;
+            }
+        }
+        if (count == 0)
+            continue;
+        LayoutBox stack[CUSTOM_LAYOUT_MAX_ELEMENTS];
+        layout_stack(&columns[col], widgets, count, stack);
+        for (int i = 0; i < count; i++)
+            boxes[indices[i]] = stack[i];
+    }
+    return 1;
+}
 
 /**
  * @brief Scale a design-space X value based on display width.
@@ -192,6 +306,7 @@ void calculate_bar_bounds(const struct Config *config,
                                  safe_x, safe_width, &safe_x, &safe_width);
     *bar_x = (int)lround(safe_x);
     *bar_width = (int)lround(safe_width);
+    log_layout_box(NULL, config, "bar", *bar_x, bar_y, *bar_width, bar_height);
 }
 
 /**
@@ -263,11 +378,11 @@ void calculate_scaling_params(const struct Config *config,
     // Log detailed scaling calculations
     log_message(
         LOG_INFO,
-        "Scaling: display=%ux%u scale=(%.3f, %.3f) uniform=%.3f "
+        "Scaling: mode=%s display=%ux%u scale=(%.3f, %.3f) uniform=%.3f "
         "profile=%s shape=%s content=%.3f radius=%.1fpx "
         "center=(%.1f,%.1f) center_bar=%dpx (%.0f%%) margin=%.1fpx "
         "margin_v=(%.1f, %.1f)",
-        config->display_width, config->display_height, params->scale_x,
+        config->display_mode, config->display_width, config->display_height, params->scale_x,
         params->scale_y, params->scale_uniform, params->profile_name,
         display_shape_name(params->shape), content_scale,
         params->circle_radius, params->circle_center_x,
@@ -311,4 +426,55 @@ int calculate_layout_context(const struct Config *config,
     layout->width = layout->right - layout->left;
     layout->height = layout->bottom - layout->top;
     return layout->width > 0.0 && layout->height > 0.0;
+}
+
+/* The daemon's render thread owns the screen timer. Previews always use screen 0. */
+static int active_screen = 0;
+static int64_t screen_started_us = -1;
+
+void reset_layout_screen_state(void)
+{
+    active_screen = 0;
+    screen_started_us = -1;
+}
+
+int64_t layout_screen_deadline_us(const Config *config)
+{
+    if (screen_started_us < 0 || config->preview_render)
+        return 0;
+
+    int duration = 0;
+    if (strcmp(config->display_mode, "circle-rings") == 0)
+        duration = config->circle_switch_interval;
+    else if (strcmp(config->display_mode, "custom") == 0 &&
+             config->custom_layout.screen_count > 1 && active_screen < config->custom_layout.screen_count)
+        duration = config->custom_layout.screens[active_screen].duration;
+    return duration > 0 ? screen_started_us + (int64_t)duration * 1000000 : 0;
+}
+
+int layout_screen_index(const Config *config, int count)
+{
+    if (config->preview_render || count <= 1)
+        return 0;
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0)
+        return active_screen < count ? active_screen : 0;
+
+    const int64_t now_us = (int64_t)now.tv_sec * 1000000 + now.tv_nsec / 1000;
+    if (screen_started_us < 0 || active_screen >= count)
+    {
+        active_screen = 0;
+        screen_started_us = now_us;
+    }
+    else
+    {
+        const int64_t deadline = layout_screen_deadline_us(config);
+        if (deadline > 0 && now_us >= deadline)
+        {
+            active_screen = (active_screen + 1) % count;
+            screen_started_us = now_us;
+        }
+    }
+    return active_screen;
 }

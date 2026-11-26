@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "display.h"
+#include "text.h"
 
 static double clamp_double(double value, double min_value, double max_value)
 {
@@ -55,7 +55,7 @@ double fit_text_font_size(cairo_t *cr, const char *text,
 /**
  * @brief Get effective degree symbol spacing for the current display.
  */
-int get_scaled_degree_spacing(const struct Config *config,
+static int get_scaled_degree_spacing(const struct Config *config,
                               const ScalingParams *params)
 {
     const double base_spacing =
@@ -238,6 +238,7 @@ void layout_and_render_slot_value(cairo_t *cr,
 
     if (draw_output)
     {
+        log_layout_box(cr, config, "value", block_left, block_top, metrics.width, metrics.height);
         cairo_move_to(cr, block_left - metrics.number.x_bearing, baseline_y);
         cairo_show_text(cr, value_text);
 
@@ -265,16 +266,152 @@ void layout_and_render_slot_value(cairo_t *cr,
     layout->font_size = font_size;
 }
 
-/**
- * @brief Draw degree symbol at calculated position with proper font scaling.
- */
-void draw_degree_symbol(cairo_t *cr, double x, double y,
-                        const struct Config *config)
+void render_centered_text(cairo_t *cr, const char *text,
+                               double center_x, double center_y,
+                               double preferred_size, double max_width,
+                               double max_height, const Color *color)
 {
-    if (!cr || !config)
+    if (!cr || !text || text[0] == '\0' || !color || max_width <= 0.0)
         return;
-    cairo_set_font_size(cr, config->font_size_temp / 1.66);
-    cairo_move_to(cr, x, y);
-    cairo_show_text(cr, "°");
-    cairo_set_font_size(cr, config->font_size_temp);
+
+    const double font_size = fit_text_font_size(
+        cr, text, preferred_size, max_width, max_height, 6.0);
+    cairo_text_extents_t ext = {0};
+    cairo_set_font_size(cr, font_size);
+    cairo_text_extents(cr, text, &ext);
+    set_cairo_color(cr, color);
+    cairo_move_to(cr, center_x - (ext.width / 2.0 + ext.x_bearing),
+                  center_y - (ext.height / 2.0 + ext.y_bearing));
+    cairo_show_text(cr, text);
+}
+
+void render_centered_value_with_small_unit(
+    cairo_t *cr, const char *text, double center_x, double center_y,
+    double preferred_size, double max_width, double max_height,
+    const Color *color, const ScalingParams *params)
+{
+    if (!cr || !text || text[0] == '\0' || !color || !params ||
+        max_width <= 0.0 || max_height <= 0.0)
+        return;
+
+    const size_t text_len = strlen(text);
+    const char unit = text[text_len - 1];
+    if (unit != '%' && unit != 'W')
+    {
+        render_centered_text(cr, text, center_x, center_y, preferred_size,
+                           max_width, max_height, color);
+        return;
+    }
+
+    char number[24] = {0};
+    size_t number_len = text_len - 1;
+    while (number_len > 0 && text[number_len - 1] == ' ')
+        number_len--;
+    if (number_len >= sizeof(number))
+        number_len = sizeof(number) - 1;
+    memcpy(number, text, number_len);
+    number[number_len] = '\0';
+
+    double number_size = fmax(1.0, preferred_size);
+    double unit_size;
+    const double unit_gap = fmax(1.0, scale_value_avg(params, 1.0));
+    cairo_text_extents_t number_ext = {0};
+    cairo_text_extents_t unit_ext = {0};
+    double number_width = 0.0;
+    double total_width = 0.0;
+    double content_height = 0.0;
+    char unit_text[2] = {unit, '\0'};
+
+    for (;;)
+    {
+        cairo_set_font_size(cr, number_size);
+        cairo_text_extents(cr, number, &number_ext);
+        unit_size = number_size * 0.5;
+        cairo_set_font_size(cr, unit_size);
+        cairo_text_extents(cr, unit_text, &unit_ext);
+
+        number_width = fmax(number_ext.x_advance, number_ext.width);
+        total_width = number_width + unit_gap +
+                      fmax(unit_ext.x_advance, unit_ext.width);
+        content_height =
+            fmax(number_ext.height,
+                 number_ext.height * 0.08 + unit_ext.height);
+        if ((total_width <= max_width && content_height <= max_height) ||
+            number_size <= 1.0)
+            break;
+        number_size = fmax(1.0, number_size * 0.92);
+    }
+
+    const double block_left = center_x - total_width * 0.5;
+    const double block_top = center_y - content_height * 0.5;
+    const double number_baseline = block_top - number_ext.y_bearing;
+    const double unit_top = block_top + number_ext.height * 0.08;
+
+    set_cairo_color(cr, color);
+    cairo_set_font_size(cr, number_size);
+    cairo_move_to(cr, block_left - number_ext.x_bearing, number_baseline);
+    cairo_show_text(cr, number);
+
+    cairo_set_font_size(cr, unit_size);
+    cairo_move_to(cr, block_left + number_width + unit_gap - unit_ext.x_bearing,
+                  unit_top - unit_ext.y_bearing);
+    cairo_show_text(cr, unit_text);
+}
+
+double render_centered_temperature(cairo_t *cr, const char *number,
+                                        double center_x, double center_y,
+                                        double preferred_size, double max_width,
+                                        double max_height, const Color *color,
+                                        const ScalingParams *params)
+{
+    if (!cr || !number || number[0] == '\0' || !color || !params ||
+        max_width <= 0.0 || max_height <= 0.0)
+        return 0.0;
+
+    double number_size = fmax(6.0, preferred_size);
+    double degree_size;
+    const double degree_gap = fmax(0.5, scale_value_avg(params, 0.5));
+    cairo_text_extents_t number_ext = {0};
+    cairo_text_extents_t degree_ext = {0};
+    cairo_font_extents_t number_font_ext = {0};
+    double total_width = 0.0;
+
+    for (;;)
+    {
+        cairo_set_font_size(cr, number_size);
+        cairo_text_extents(cr, number, &number_ext);
+        cairo_font_extents(cr, &number_font_ext);
+
+        degree_size = number_size * 0.50;
+        cairo_set_font_size(cr, degree_size);
+        cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
+
+        total_width = fmax(number_ext.x_advance, number_ext.width) +
+                      degree_gap +
+                      fmax(degree_ext.x_advance, degree_ext.width);
+        if ((total_width <= max_width &&
+             number_font_ext.ascent + number_font_ext.descent <= max_height) ||
+            number_size <= 1.0)
+            break;
+
+        number_size *= 0.92;
+    }
+
+    const double number_width = fmax(number_ext.x_advance, number_ext.width);
+    const double block_left = center_x - total_width / 2.0;
+    const double number_baseline =
+        center_y - (number_ext.height / 2.0 + number_ext.y_bearing);
+
+    set_cairo_color(cr, color);
+    cairo_set_font_size(cr, number_size);
+    cairo_move_to(cr, block_left - number_ext.x_bearing, number_baseline);
+    cairo_show_text(cr, number);
+
+    cairo_set_font_size(cr, degree_size);
+    cairo_move_to(cr, block_left + number_width + degree_gap -
+                          degree_ext.x_bearing,
+                  number_baseline + number_ext.y_bearing +
+                      number_ext.height * 0.08 - degree_ext.y_bearing);
+    cairo_show_text(cr, "\xC2\xB0");
+    return number_size;
 }

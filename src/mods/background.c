@@ -362,6 +362,7 @@ void paint_display_background(cairo_t *cr, const struct Config *config)
     if (!cr || !config)
         return;
 
+    log_layout_box(cr, config, "canvas", 0, 0, config->display_width, config->display_height);
     cairo_surface_t *image = NULL;
     if (config->paths_image_background[0])
         image = image_file_load_surface(config->paths_image_background,

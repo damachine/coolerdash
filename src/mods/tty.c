@@ -1,14 +1,61 @@
 /* SPDX-License-Identifier: MIT */
 #include <math.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "tty.h"
+#include "bar.h"
+#include "readings.h"
 
 static const Color terminal_accent = {149, 185, 251, 1};
 static const double label_scale = 0.68;
 static const double fraction_scale = 0.62;
 static const double unit_scale = 0.64;
+
+typedef struct
+{
+    const CustomElement *label, *value, *bar;
+} TerminalWidgets;
+
+static pthread_once_t tty_preset_once = PTHREAD_ONCE_INIT;
+static const CustomElement *tty_prompt, *tty_heading;
+static TerminalWidgets tty_widgets[CUSTOM_LAYOUT_MAX_ELEMENTS / 2];
+static int tty_row_count;
+
+static void load_terminal_preset(void)
+{
+    static CustomLayout preset;
+    if (!load_layout_preset("terminal", &preset))
+        return;
+    const CustomScreen *screen = &preset.screens[0];
+    if (preset.screen_count != 1 || screen->count < 4 ||
+        screen->elements[0].type != CUSTOM_TEXT || screen->elements[1].type != CUSTOM_TEXT)
+    {
+        log_message(LOG_ERROR, "Invalid header in the TTY layout preset");
+        return;
+    }
+
+    int count = 0;
+    for (int i = 2; i < screen->count;)
+    {
+        const CustomElement *label = &screen->elements[i++];
+        if (i == screen->count || label->type != CUSTOM_TEXT ||
+            screen->elements[i].type != CUSTOM_VALUE)
+        {
+            log_message(LOG_ERROR, "Invalid row in the TTY layout preset");
+            return;
+        }
+        const CustomElement *value = &screen->elements[i++];
+        const CustomElement *bar = NULL;
+        if (i < screen->count && screen->elements[i].type == CUSTOM_BAR)
+            bar = &screen->elements[i++];
+        tty_widgets[count++] = (TerminalWidgets){label, value, bar};
+    }
+    tty_prompt = &screen->elements[0];
+    tty_heading = &screen->elements[1];
+    tty_row_count = count;
+}
 
 typedef struct
 {
@@ -58,7 +105,7 @@ static double measure_row_text(cairo_t *cr, TerminalText *text, double size, dou
 
 static void draw_row(cairo_t *cr, const Config *config, const TerminalRow *row, const char *label,
                      const char *value, const char *fraction, const char *unit,
-                     int has_bar, double progress)
+                     const CustomElement *bar, double progress)
 {
     TerminalText text;
     const int temperature = strcmp(unit, "°") == 0;
@@ -110,31 +157,39 @@ static void draw_row(cairo_t *cr, const Config *config, const TerminalRow *row, 
         cairo_show_text(cr, unit);
     }
 
-    if (has_bar)
+    if (bar)
     {
         const double bar_height = fmin(row->font_size * 0.35, row->bar_width / 3.0);
-        draw_segment_bar(cr, row->bar_left, row->baseline - bar_height * 1.18,
-                         row->bar_width, bar_height, 8,
-                         fmax(0, fmin(1, progress)), &terminal_accent);
+        const double bar_y = row->baseline - bar_height * 1.18;
+        log_layout_box(cr, config, "bar", row->bar_left, bar_y, row->bar_width, bar_height);
+        draw_segment_bar(cr, row->bar_left, bar_y,
+                         row->bar_width, bar_height, bar->segments,
+                         fmax(0, fmin(1, progress)), &bar->color);
     }
 }
 
-static int valid_reading(const sensor_entry_t *sensor)
+static double terminal_progress(const Config *config, const monitor_sensor_data_t *data,
+                                 const CustomElement *bar, WidgetReadings *readings)
 {
-    return sensor && isfinite(sensor->value);
+    const sensor_entry_t *sensor = bar ? get_widget_reading(config, data, bar, readings) : NULL;
+    return sensor ? widget_progress(bar, sensor->value) : 0.0;
 }
 
-static void draw_temperature(cairo_t *cr, const Config *config, const monitor_sensor_data_t *data,
-                             const TerminalRow *row, const char *label, const char *slot,
-                             int has_bar)
+static void draw_sensor_value(cairo_t *cr, const Config *config, const monitor_sensor_data_t *data,
+                             const TerminalRow *row, const TerminalWidgets *widgets)
 {
-    const sensor_entry_t *sensor = find_sensor_for_slot(data, slot);
-    const sensor_entry_t *load = has_bar ? find_processor_load(data, slot) : NULL;
+    WidgetReadings readings = {0};
+    const char *slot = widgets->value->source;
+    const sensor_entry_t *sensor = get_widget_reading(config, data, widgets->value, &readings);
     char value[24] = "—";
     char fraction[sizeof(value)] = "";
-    const int available = valid_reading(sensor);
-    if (available)
+    char unit[SENSOR_UNIT_LEN] = "";
+    if (sensor)
     {
+        const char *display_unit = widgets->value->channel == SENSOR_CATEGORY_TEMP &&
+            get_custom_source(slot) == CUSTOM_SOURCE_SENSOR && get_slot_is_temp(data, slot)
+            ? "°" : sensor->unit;
+        snprintf(unit, sizeof(unit), "%s", display_unit);
         snprintf(value, sizeof(value), "%.*f", sensor->use_decimal ? 1 : 0, sensor->value);
         if (strcmp(slot, "liquid") == 0)
         {
@@ -146,24 +201,13 @@ static void draw_temperature(cairo_t *cr, const Config *config, const monitor_se
             }
         }
     }
-    draw_row(cr, config, row, label, value, fraction, available ? "°" : "", has_bar,
-             valid_reading(load) ? load->value / 100.0 : 0);
-}
-
-int read_processor_power(const monitor_sensor_data_t *data, double *watts, const char **label)
-{
-    const sensor_entry_t *cpu = find_channel_sensor_for_slot(data, "cpu", SENSOR_CATEGORY_WATTS);
-    const sensor_entry_t *gpu = find_channel_sensor_for_slot(data, "gpu", SENSOR_CATEGORY_WATTS);
-    const int has_cpu = valid_reading(cpu);
-    const int has_gpu = valid_reading(gpu);
-    if (label)
-        *label = has_cpu == has_gpu ? "PWR" : has_cpu ? "CPU W" : "GPU W";
-    *watts = (has_cpu ? (double)cpu->value : 0) + (has_gpu ? (double)gpu->value : 0);
-    return has_cpu || has_gpu;
+    const CustomElement *bar = widgets->bar;
+    draw_row(cr, config, row, widgets->label->text, value, fraction,
+             unit, bar, terminal_progress(config, data, bar, &readings));
 }
 
 static void draw_power(cairo_t *cr, const Config *config, const monitor_sensor_data_t *data,
-                       const TerminalRow *row)
+                       const TerminalRow *row, const TerminalWidgets *widgets)
 {
     const char *label;
     double watts;
@@ -171,53 +215,28 @@ static void draw_power(cairo_t *cr, const Config *config, const monitor_sensor_d
     const int available = read_processor_power(data, &watts, &label);
     if (available)
         snprintf(value, sizeof(value), "%.0f", watts);
-    draw_row(cr, config, row, label, value, "", available ? "W" : "", 0, 0);
+    if (strcmp(label, "PWR") == 0)
+        label = widgets->label->text;
+    WidgetReadings readings = {0};
+    draw_row(cr, config, row, label, value, "", available ? "W" : "", widgets->bar,
+             terminal_progress(config, data, widgets->bar, &readings));
 }
 
-int read_used_memory(const Config *config, double *gib, double *progress)
+static void draw_memory(cairo_t *cr, const Config *config, const monitor_sensor_data_t *data,
+                         const TerminalRow *row, const TerminalWidgets *widgets)
 {
-    if (config->preview_render)
-    {
-        *gib = 18.6;
-        *progress = 0.58;
-        return 1;
-    }
-    FILE *file = fopen("/proc/meminfo", "r");
-    if (!file)
-        return 0;
-
-    unsigned long long total = 0;
-    unsigned long long available = 0;
-    int has_available = 0;
-    char line[128];
-    while ((!total || !has_available) && fgets(line, sizeof(line), file))
-    {
-        if (sscanf(line, "MemAvailable: %llu kB", &available) == 1)
-            has_available = 1;
-        else
-            sscanf(line, "MemTotal: %llu kB", &total);
-    }
-    fclose(file);
-    if (!total || !has_available || available > total)
-        return 0;
-
-    const unsigned long long used = total - available;
-    *gib = used / 1048576.0;
-    *progress = (double)used / total;
-    return 1;
-}
-
-static void draw_memory(cairo_t *cr, const Config *config, const TerminalRow *row)
-{
-    double gib;
-    double progress;
+    WidgetReadings readings = {0};
     char value[24] = "—";
-    const int available = read_used_memory(config, &gib, &progress);
+    const int available = read_used_memory(config, &readings.gib, &readings.memory_load);
+    readings.memory_status = available ? 1 : -1;
     if (available)
-        snprintf(value, sizeof(value), "%.1f", gib);
-    else
-        progress = 0;
-    draw_row(cr, config, row, "RAM", value, "", available ? "GiB" : "", 1, progress);
+        snprintf(value, sizeof(value), "%.1f", readings.gib);
+    const CustomElement *bar = widgets->bar;
+    const double progress = available && bar && get_custom_source(bar->source) == CUSTOM_SOURCE_RAM_LOAD
+        ? widget_progress(bar, readings.memory_load * 100.0)
+        : terminal_progress(config, data, bar, &readings);
+    draw_row(cr, config, row, widgets->label->text, value, "",
+             available ? "GiB" : "", widgets->bar, progress);
 }
 
 static void draw_prompt(cairo_t *cr, const Config *config, const ScalingParams *params,
@@ -239,15 +258,15 @@ static void draw_prompt(cairo_t *cr, const Config *config, const ScalingParams *
 
     set_cairo_color(cr, &config->font_color_label);
     cairo_select_font_face(cr, config->tty_font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
-    cairo_set_font_size(cr, (large ? 23 : 16) * scale);
+    cairo_set_font_size(cr, (large ? tty_prompt->font_size : 16) * scale);
     if (large)
     {
-        draw_centered(cr, center_x, tile_y + 6 * scale, ">_");
+        draw_centered(cr, center_x, tile_y + 6 * scale, tty_prompt->text);
         return;
     }
 
     cairo_text_extents_t ink;
-    cairo_text_extents(cr, ">_", &ink);
+    cairo_text_extents(cr, tty_prompt->text, &ink);
     double prompt_top = top + height * 0.13;
     if (params->is_circular)
     {
@@ -258,13 +277,17 @@ static void draw_prompt(cairo_t *cr, const Config *config, const ScalingParams *
         prompt_top = fmax(prompt_top, edge_y + 2 * scale);
     }
     cairo_move_to(cr, left - ink.x_bearing, prompt_top - ink.y_bearing);
-    cairo_show_text(cr, ">_");
+    cairo_show_text(cr, tty_prompt->text);
 }
 
 int paint_terminal_overlay(cairo_t *cr, const Config *config,
                            const monitor_sensor_data_t *data,
                            const ScalingParams *params)
 {
+    pthread_once(&tty_preset_once, load_terminal_preset);
+    if (!tty_row_count)
+        return 0;
+
     const double height = params->is_circular ? params->circle_radius * 2.0
                                               : config->display_height;
     const double scale = params->is_circular ? height / 240.0 : params->scale_uniform;
@@ -278,15 +301,17 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
     double last = top + height * (params->is_circular ? 0.84 : 0.90);
     if (config->display_show_clock)
         last = fmin(last, config->display_height * 0.90 - 15 * params->scale_uniform);
-    const double step = fmin((last - earliest) / 4.0, config->display_width / 6.0);
-    const double first = (earliest + last - 4 * step) / 2.0;
+    const int intervals = tty_row_count - 1;
+    const double step = fmin((last - earliest) / (intervals > 0 ? intervals : 1),
+                             config->display_width / 6.0);
+    const double first = (earliest + last - intervals * step) / 2.0;
     const double font_size = step * 1.10;
     const double margin = config->display_width * 0.05;
     const double fallback_width = config->display_width - 2 * margin;
     double column_left = margin;
     double column_width = fallback_width;
-    TerminalRow rows[5];
-    for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); i++)
+    TerminalRow rows[CUSTOM_LAYOUT_MAX_ELEMENTS / 2];
+    for (int i = 0; i < tty_row_count; i++)
     {
         TerminalRow *row = &rows[i];
         row->baseline = first + i * step;
@@ -302,12 +327,14 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
     const double value_right = column_left + column_width * 0.73;
     const double bar_left = column_left + column_width * 0.78;
     const double bar_width = column_width * 0.22;
-    for (size_t i = 0; i < sizeof(rows) / sizeof(rows[0]); i++)
+    for (int i = 0; i < tty_row_count; i++)
     {
         rows[i].left = column_left;
         rows[i].value_right = value_right;
         rows[i].bar_left = bar_left;
         rows[i].bar_width = bar_width;
+        log_layout_box(cr, config, "row", column_left, rows[i].baseline - font_size * 0.85,
+                       column_width, font_size * 1.10);
     }
 
     cairo_save(cr);
@@ -316,23 +343,34 @@ int paint_terminal_overlay(cairo_t *cr, const Config *config,
     cairo_select_font_face(cr, config->tty_font_face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
     if (config->tty_icon != TTY_ICON_OFF)
     {
-        cairo_set_font_size(cr, fmax(13 * scale, font_size * 0.40));
+        cairo_set_font_size(cr, fmax(tty_heading->font_size * scale, font_size * 0.40));
         set_cairo_color(cr, &config->font_color_label);
         const double heading_y = first - font_size * 0.82;
         cairo_text_extents_t heading;
-        cairo_text_extents(cr, "LOAD", &heading);
+        cairo_text_extents(cr, tty_heading->text, &heading);
         double heading_left, heading_width;
         calculate_safe_region_bounds(params, heading_y + heading.y_bearing, heading.height,
                                      0.94, margin, fallback_width, &heading_left, &heading_width);
         const double heading_x = fmin(bar_left + bar_width / 2.0,
                                       heading_left + heading_width - heading.width / 2.0);
-        draw_centered(cr, heading_x, heading_y, "LOAD");
+        draw_centered(cr, heading_x, heading_y, tty_heading->text);
     }
-    draw_temperature(cr, config, data, &rows[0], "CPU", "cpu", 1);
-    draw_temperature(cr, config, data, &rows[1], "GPU", "gpu", 1);
-    draw_temperature(cr, config, data, &rows[2], "LIQ", "liquid", 0);
-    draw_power(cr, config, data, &rows[3]);
-    draw_memory(cr, config, &rows[4]);
+    for (int i = 0; i < tty_row_count; i++)
+    {
+        const TerminalWidgets *widgets = &tty_widgets[i];
+        switch (get_custom_source(widgets->value->source))
+        {
+        case CUSTOM_SOURCE_POWER:
+            draw_power(cr, config, data, &rows[i], widgets);
+            break;
+        case CUSTOM_SOURCE_RAM_USED:
+            draw_memory(cr, config, data, &rows[i], widgets);
+            break;
+        default:
+            draw_sensor_value(cr, config, data, &rows[i], widgets);
+            break;
+        }
+    }
 
     cairo_restore(cr);
     return cairo_status(cr) == CAIRO_STATUS_SUCCESS;

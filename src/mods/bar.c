@@ -2,7 +2,7 @@
 #include <math.h>
 #include <string.h>
 
-#include "display.h"
+#include "bar.h"
 
 void draw_segment_bar(cairo_t *cr, double x, double y, double width, double height,
                       int segments, double progress, const Color *color)
@@ -22,6 +22,55 @@ void draw_segment_bar(cairo_t *cr, double x, double y, double width, double heig
         cairo_fill(cr);
     }
     cairo_restore(cr);
+}
+
+static void paint_bar_border(cairo_t *cr, const Config *config, const ScalingParams *params,
+                             const LayoutBox *box)
+{
+    if (!config->layout_bar_border_enabled || config->layout_bar_border <= 0.0f)
+        return;
+
+    set_cairo_color_alpha(cr, &config->layout_bar_color_border, config->layout_bar_opacity);
+    draw_rounded_rectangle_path(cr, box->x, box->y, box->width, box->height, params->corner_radius);
+    cairo_set_line_width(cr, get_scaled_bar_border_width(config, params));
+    cairo_stroke(cr);
+}
+
+void draw_temperature_bar(cairo_t *cr, const Config *config, const ScalingParams *params,
+                          const LayoutBox *box, int fill_width, const Color *color, BarStyle style)
+{
+    const double opacity = config->layout_bar_opacity;
+    set_cairo_color_alpha(cr, &config->layout_bar_color_background, opacity);
+    draw_rounded_rectangle_path(cr, box->x, box->y, box->width, box->height, params->corner_radius);
+    cairo_fill(cr);
+
+    if (style == BAR_CLIPPED_FILL)
+        paint_bar_border(cr, config, params, box);
+
+    if (fill_width > 0)
+    {
+        set_cairo_color_alpha(cr, color, opacity);
+        if (style == BAR_CLIPPED_FILL)
+        {
+            cairo_save(cr);
+            draw_rounded_rectangle_path(cr, box->x, box->y, box->width, box->height, params->corner_radius);
+            cairo_clip(cr);
+            cairo_rectangle(cr, box->x, box->y, fill_width, box->height);
+            cairo_fill(cr);
+            cairo_restore(cr);
+        }
+        else
+        {
+            if (fill_width >= 16)
+                draw_rounded_rectangle_path(cr, box->x, box->y, fill_width, box->height, params->corner_radius);
+            else
+                cairo_rectangle(cr, box->x, box->y, fill_width, box->height);
+            cairo_fill(cr);
+        }
+    }
+
+    if (style == BAR_ROUNDED_FILL)
+        paint_bar_border(cr, config, params, box);
 }
 
 /**

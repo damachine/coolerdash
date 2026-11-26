@@ -1,8 +1,116 @@
 /* SPDX-License-Identifier: MIT */
+#include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "../srv/cc_conf.h"
-#include "display.h"
+#include "readings.h"
+
+int reading_is_valid(const sensor_entry_t *sensor)
+{
+    return sensor && isfinite(sensor->value);
+}
+
+int read_processor_power(const monitor_sensor_data_t *data, double *watts, const char **label)
+{
+    const sensor_entry_t *cpu = find_channel_sensor_for_slot(data, "cpu", SENSOR_CATEGORY_WATTS);
+    const sensor_entry_t *gpu = find_channel_sensor_for_slot(data, "gpu", SENSOR_CATEGORY_WATTS);
+    const int has_cpu = reading_is_valid(cpu);
+    const int has_gpu = reading_is_valid(gpu);
+    if (label)
+        *label = has_cpu == has_gpu ? "PWR" : has_cpu ? "CPU W" : "GPU W";
+    *watts = (has_cpu ? (double)cpu->value : 0) + (has_gpu ? (double)gpu->value : 0);
+    return has_cpu || has_gpu;
+}
+
+int read_used_memory(const Config *config, double *gib, double *progress)
+{
+    if (config->preview_render)
+    {
+        *gib = 18.6;
+        *progress = 0.58;
+        return 1;
+    }
+    FILE *file = fopen("/proc/meminfo", "r");
+    if (!file)
+        return 0;
+
+    unsigned long long total = 0;
+    unsigned long long available = 0;
+    int has_available = 0;
+    char line[128];
+    while ((!total || !has_available) && fgets(line, sizeof(line), file))
+    {
+        if (sscanf(line, "MemAvailable: %llu kB", &available) == 1)
+            has_available = 1;
+        else
+            sscanf(line, "MemTotal: %llu kB", &total);
+    }
+    fclose(file);
+    if (!total || !has_available || available > total)
+        return 0;
+
+    const unsigned long long used = total - available;
+    *gib = used / 1048576.0;
+    *progress = (double)used / total;
+    return 1;
+}
+
+static const sensor_entry_t *widget_sensor(const Config *config, const monitor_sensor_data_t *data,
+                                           const char *id, WidgetReadings *readings)
+{
+    const CustomSource source = get_custom_source(id);
+    if (source == CUSTOM_SOURCE_SENSOR)
+        return find_sensor_for_slot(data, id);
+    if (source == CUSTOM_SOURCE_CPU_LOAD || source == CUSTOM_SOURCE_GPU_LOAD)
+        return find_processor_load(data, source == CUSTOM_SOURCE_CPU_LOAD ? "cpu" : "gpu");
+    if (source == CUSTOM_SOURCE_CPU_POWER || source == CUSTOM_SOURCE_GPU_POWER)
+        return find_channel_sensor_for_slot(data, source == CUSTOM_SOURCE_CPU_POWER ? "cpu" : "gpu",
+                                            SENSOR_CATEGORY_WATTS);
+    if (source == CUSTOM_SOURCE_LIQUID_PUMP_DUTY)
+        return find_liquid_pump_duty(data);
+
+    double value;
+    const char *unit;
+    if (source == CUSTOM_SOURCE_POWER)
+    {
+        if (!read_processor_power(data, &value, NULL))
+            return NULL;
+        unit = "W";
+    }
+    else
+    {
+        if (!readings->memory_status)
+            readings->memory_status =
+                read_used_memory(config, &readings->gib, &readings->memory_load) ? 1 : -1;
+        if (readings->memory_status < 0)
+            return NULL;
+        value = source == CUSTOM_SOURCE_RAM_USED ? readings->gib : readings->memory_load * 100;
+        unit = source == CUSTOM_SOURCE_RAM_USED ? "GiB" : "%";
+    }
+    readings->sensor.value = (float)value;
+    readings->sensor.use_decimal = source == CUSTOM_SOURCE_RAM_USED;
+    snprintf(readings->sensor.unit, sizeof(readings->sensor.unit), "%s", unit);
+    return &readings->sensor;
+}
+
+const sensor_entry_t *get_widget_reading(const Config *config, const monitor_sensor_data_t *data,
+                                         const CustomElement *element, WidgetReadings *readings)
+{
+    if (!element->source[0])
+        return NULL;
+
+    const sensor_entry_t *sensor = element->channel == SENSOR_CATEGORY_TEMP
+        ? widget_sensor(config, data, element->source, readings)
+        : find_channel_sensor_for_slot(data, element->source, element->channel);
+    return reading_is_valid(sensor) ? sensor : NULL;
+}
+
+double widget_progress(const CustomElement *element, double value)
+{
+    return fmax(0.0, fmin(1.0, (value - element->minimum) /
+                               (element->maximum - element->minimum)));
+}
 
 /**
  * @brief Check if a sensor slot is active.

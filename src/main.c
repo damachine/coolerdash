@@ -46,8 +46,8 @@
 #include "device/hwreport.h"
 #include "device/profile.h"
 #include "device/images.h"
-#include "mods/custom.h"
 #include "mods/display.h"
+#include "mods/layout.h"
 #include "mods/stream.h"
 #include "srv/cc_conf.h"
 #include "srv/cc_main.h"
@@ -730,6 +730,31 @@ static size_t parse_content_length(const char *request, const char *header_end,
     return length;
 }
 
+static json_t *preview_layout_boxes(const Config *config, const ScalingParams *params,
+                                   const CustomScreen *screen)
+{
+    LayoutBox boxes[CUSTOM_LAYOUT_MAX_ELEMENTS];
+    if (!layout_arrange_screen(config, params, screen, boxes))
+        return NULL;
+
+    json_t *result = json_array();
+    if (!result)
+        return NULL;
+    const double sx = (double)CUSTOM_LAYOUT_GRID / config->display_width;
+    const double sy = (double)CUSTOM_LAYOUT_GRID / config->display_height;
+    for (int i = 0; i < screen->count; i++)
+    {
+        const LayoutBox *box = &boxes[i];
+        if (json_array_append_new(result, json_pack("[f,f,f,f]", box->x * sx, box->y * sy,
+                                                    box->width * sx, box->height * sy)) != 0)
+        {
+            json_decref(result);
+            return NULL;
+        }
+    }
+    return result;
+}
+
 static char *render_preview_json(const char *json, size_t json_length)
 {
     if (!json || json_length == 0 || json_length > PREVIEW_REQUEST_LIMIT)
@@ -807,6 +832,16 @@ static char *render_preview_json(const char *json, size_t json_length)
         root = json_pack("{s:s,s:i,s:i,s:s}", "image", image,
                          "width", (int)preview.display_width, "height", (int)preview.display_height,
                          "shape", display_shape_name(params.shape));
+        const CustomScreen *screen = &preview.custom_layout.screens[0];
+        if (root && strcmp(preview.display_mode, "custom") == 0 &&
+            screen->arrangement == CUSTOM_COLUMNS)
+        {
+            if (json_object_set_new(root, "boxes", preview_layout_boxes(&preview, &params, screen)) != 0)
+            {
+                json_decref(root);
+                root = NULL;
+            }
+        }
     }
     else
         root = json_pack("{s:s}", "image", image);
@@ -976,6 +1011,7 @@ static void serve_plugin_data(int client_fd)
     const char *content_type = "application/json";
     char body[2048] = "{}\n";
     size_t body_length = strlen(body);
+    const char *response_body = body;
     char *dynamic_body = NULL;
 
     if (strncmp(request, "POST /shutdown-import HTTP/", 27) == 0 ||
@@ -1070,6 +1106,11 @@ static void serve_plugin_data(int client_fd)
         else
             status = "422 Unprocessable Content";
     }
+    else if (strncmp(request, "GET /presets HTTP/", 18) == 0)
+    {
+        response_body = layout_presets_json;
+        body_length = strlen(response_body);
+    }
     else if (strncmp(request, "GET /fonts HTTP/", 16) == 0)
     {
         dynamic_body = get_font_families_json();
@@ -1095,7 +1136,7 @@ static void serve_plugin_data(int client_fd)
         return;
     }
     if (send_all(client_fd, header, (size_t)header_length, &deadline))
-        (void)send_all(client_fd, dynamic_body ? dynamic_body : body, body_length, &deadline);
+        (void)send_all(client_fd, dynamic_body ? dynamic_body : response_body, body_length, &deadline);
     free(dynamic_body);
     free(request);
 }
@@ -1434,7 +1475,7 @@ static void show_help(const char *program_name)
     printf("  --split           Force split mode (CPU/GPU columns without bars)\n");
     printf("  --circle          Force circle mode (alternating sensor display)\n");
     printf("  --terminal        Force TTY (Terminal) display mode\n");
-    printf("  --activity-rings  Force Activity Rings display mode\n");
+    printf("  --circle-rings    Force Circle Rings mode (also --activity-rings)\n");
     printf("  --hardware-report Collect a sanitized hardware report and exit\n");
     printf("  --test-lcd        With --hardware-report: confirm and run an LCD test\n\n");
     printf("ADVANCED REPORT OPTIONS:\n");
@@ -1446,10 +1487,10 @@ static void show_help(const char *program_name)
     printf("  split             Shows CPU and GPU in two bar-free columns\n");
     printf("  circle            Alternating mode using the configured interval\n");
     printf("  terminal          TTY (Terminal) dashboard with temperature and load\n");
-    printf("  activity-rings    Three temperature rings for CPU, GPU and liquid\n");
+    printf("  circle-rings      Alternating liquid, CPU and GPU screens with rings\n");
     printf("  custom            Use the selected layout from the layout bank\n");
     printf("                    Configure via config.json [display] "
-           "mode=dual|split|circle|terminal|activity-rings|custom or CLI flags\n\n");
+           "mode=dual|split|circle|terminal|circle-rings|custom or CLI flags\n\n");
     printf("EXAMPLES:\n");
     printf("  sudo systemctl restart coolercontrold     # Restart CoolerControl "
            "(reloads plugin)\n");
@@ -1916,7 +1957,7 @@ static int run_daemon(Config *config)
             next_time = now;
         }
 
-        const int64_t screen_deadline = custom_screen_deadline_us(config);
+        const int64_t screen_deadline = layout_screen_deadline_us(config);
         if (screen_deadline > 0)
         {
             const struct timespec switch_time = {screen_deadline / 1000000,
@@ -1970,10 +2011,11 @@ static void parse_arguments(int argc, char **argv, CliOptions *options)
             cc_safe_strcpy(options->display_mode_override,
                            sizeof(options->display_mode_override), "terminal");
         }
-        else if (strcmp(argv[i], "--activity-rings") == 0)
+        else if (strcmp(argv[i], "--circle-rings") == 0 ||
+                 strcmp(argv[i], "--activity-rings") == 0)
         {
             cc_safe_strcpy(options->display_mode_override,
-                           sizeof(options->display_mode_override), "activity-rings");
+                           sizeof(options->display_mode_override), "circle-rings");
         }
         else if (strcmp(argv[i], "--hardware-report") == 0)
         {

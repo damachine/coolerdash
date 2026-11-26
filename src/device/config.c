@@ -246,7 +246,7 @@ static void set_font_defaults(Config *config)
     if (config->font_face[0] == '\0')
         SAFE_STRCPY(config->font_face, "Roboto Black");
     if (config->tty_font_face[0] == '\0')
-        SAFE_STRCPY(config->tty_font_face, "Monospace");
+        SAFE_STRCPY(config->tty_font_face, "Roboto Black");
 
     if (config->font_size_temp == 0.0f)
         log_message(LOG_INFO,
@@ -1020,7 +1020,8 @@ static void load_display_from_json(json_t *root, Config *config)
         const char *value = json_string_value(mode);
         if (value)
         {
-            SAFE_STRCPY(config->display_mode, value);
+            SAFE_STRCPY(config->display_mode,
+                        strcmp(value, "activity-rings") == 0 ? "circle-rings" : value);
         }
     }
 
@@ -1172,23 +1173,7 @@ static void load_display_from_json(json_t *root, Config *config)
     }
 }
 
-static int custom_integer(json_t *object, const char *key, int min, int max,
-                          int *result)
-{
-    json_t *field = json_object_get(object, key);
-    json_int_t value = json_integer_value(field);
-    if (!json_is_integer(field) || value < min || value > max)
-        return 0;
-    *result = (int)value;
-    return 1;
-}
-
-static int custom_optional_integer(json_t *object, const char *key, int min, int max, int *result)
-{
-    return !json_object_get(object, key) || custom_integer(object, key, min, max, result);
-}
-
-static const char *custom_string(json_t *object, const char *key, size_t limit)
+const char *config_json_string(json_t *object, const char *key, size_t limit)
 {
     json_t *field = json_object_get(object, key);
     const char *value = json_string_value(field);
@@ -1198,185 +1183,6 @@ static const char *custom_string(json_t *object, const char *key, size_t limit)
         if (*p < 32 || *p == 127)
             return NULL;
     return value;
-}
-
-static int custom_color(json_t *object, const char *key, Color *result)
-{
-    const char *value = custom_string(object, key, 8);
-    if (!value || strlen(value) != 7 || value[0] != '#' ||
-        strspn(value + 1, "0123456789abcdefABCDEF") != 6)
-        return 0;
-    unsigned long rgb = strtoul(value + 1, NULL, 16);
-    *result = (Color){(uint8_t)(rgb >> 16), (uint8_t)(rgb >> 8), (uint8_t)rgb, 1};
-    return 1;
-}
-
-CustomSource get_custom_source(const char *source)
-{
-    static const char *names[] = {
-        [CUSTOM_SOURCE_CPU_LOAD] = "cpu-load",
-        [CUSTOM_SOURCE_GPU_LOAD] = "gpu-load",
-        [CUSTOM_SOURCE_CPU_POWER] = "cpu-power",
-        [CUSTOM_SOURCE_GPU_POWER] = "gpu-power",
-        [CUSTOM_SOURCE_POWER] = "power",
-        [CUSTOM_SOURCE_RAM_USED] = "ram-used",
-        [CUSTOM_SOURCE_RAM_LOAD] = "ram-load",
-    };
-    for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++)
-        if (strcmp(source, names[i]) == 0)
-            return (CustomSource)i;
-    return CUSTOM_SOURCE_SENSOR;
-}
-
-static int load_custom_element(json_t *object, CustomElement *element)
-{
-    static const char *types[] = {"value", "text", "clock", "bar", "ring", "frame"};
-    const char *type = json_string_value(json_object_get(object, "type"));
-    size_t index = 0;
-    while (index < sizeof(types) / sizeof(types[0]) &&
-           (!type || strcmp(type, types[index]) != 0))
-        index++;
-    if (index == sizeof(types) / sizeof(types[0]) ||
-        !custom_integer(object, "x", 0, CUSTOM_LAYOUT_GRID, &element->x) ||
-        !custom_integer(object, "y", 0, CUSTOM_LAYOUT_GRID, &element->y) ||
-        !custom_integer(object, "w", 20, CUSTOM_LAYOUT_GRID - element->x,
-                        &element->width) ||
-        !custom_integer(object, "h", 20, CUSTOM_LAYOUT_GRID - element->y,
-                        &element->height) ||
-        !custom_color(object, "color", &element->color))
-        return 0;
-    element->type = (CustomElementType)index;
-
-    if (element->type <= CUSTOM_CLOCK)
-    {
-        const char *font = json_string_value(json_object_get(object, "font"));
-        if (!font || (strcmp(font, "sans") != 0 && strcmp(font, "mono") != 0) ||
-            !custom_integer(object, "size", 8, 120, &element->font_size))
-            return 0;
-        element->monospace = strcmp(font, "mono") == 0;
-        if (element->type != CUSTOM_CLOCK)
-        {
-            const char *label = custom_string(object, "text", sizeof(element->text));
-            if (!label)
-                return 0;
-            SAFE_STRCPY(element->text, label);
-        }
-    }
-
-    if (element->type == CUSTOM_VALUE || element->type == CUSTOM_BAR ||
-        element->type == CUSTOM_RING)
-    {
-        const char *source = custom_string(object, "source", sizeof(element->source));
-        const char *separator = source ? strchr(source, ':') : NULL;
-        if (!source || (*source && !is_legacy_sensor_slot(source) &&
-                        get_custom_source(source) == CUSTOM_SOURCE_SENSOR &&
-                        (!separator || separator == source || !separator[1])) ||
-            strcmp(source, "none") == 0)
-            return 0;
-        SAFE_STRCPY(element->source, source);
-    }
-
-    if (element->type == CUSTOM_BAR || element->type == CUSTOM_RING)
-    {
-        json_t *min = json_object_get(object, "min");
-        json_t *max = json_object_get(object, "max");
-        element->minimum = json_number_value(min);
-        element->maximum = json_number_value(max);
-        if (!json_is_number(min) || !json_is_number(max) ||
-            element->minimum < -1000000 || element->maximum > 1000000 ||
-            element->minimum >= element->maximum)
-            return 0;
-    }
-    if (element->type == CUSTOM_BAR)
-        return custom_integer(object, "segments", 1, 24, &element->segments);
-    if (element->type == CUSTOM_RING)
-        return custom_optional_integer(object, "segments", 1, 24, &element->segments) &&
-               custom_optional_integer(object, "ring_thickness", 0, 120, &element->ring_thickness) &&
-               custom_optional_integer(object, "ring_start", 0, 359, &element->ring_start) &&
-               custom_optional_integer(object, "ring_sweep", 1, 360, &element->ring_sweep);
-    return 1;
-}
-
-static int load_custom_screen(json_t *object, CustomScreen *screen, int *needs_sensors,
-                              int default_duration)
-{
-    json_t *elements = json_object_get(object, "elements");
-    screen->duration = default_duration;
-    if (!json_is_array(elements) || json_array_size(elements) > CUSTOM_LAYOUT_MAX_ELEMENTS ||
-        !custom_optional_integer(object, "duration", 1, 60, &screen->duration))
-        return 0;
-
-    size_t index;
-    json_t *candidate;
-    json_array_foreach(elements, index, candidate)
-    {
-        CustomElement *element = &screen->elements[index];
-        if (!load_custom_element(candidate, element))
-            return 0;
-        const CustomSource source = get_custom_source(element->source);
-        if (element->source[0] && source != CUSTOM_SOURCE_RAM_USED && source != CUSTOM_SOURCE_RAM_LOAD)
-            *needs_sensors = 1;
-    }
-    screen->count = (int)json_array_size(elements);
-    return 1;
-}
-
-static int load_active_custom_layout(json_t *root, Config *config)
-{
-    json_t *bank = json_object_get(root, "custom_layouts");
-    const char *active = custom_string(bank, "active_id", 49);
-    json_t *items = json_object_get(bank, "items");
-    if (!active || !*active || !json_is_array(items))
-        return 0;
-
-    json_t *item = NULL;
-    json_t *candidate;
-    size_t index;
-    json_array_foreach(items, index, candidate)
-    {
-        const char *id = custom_string(candidate, "id", 49);
-        if (id && strcmp(id, active) == 0)
-        {
-            if (item)
-                return 0;
-            item = candidate;
-        }
-    }
-
-    int version;
-    Color background;
-    const char *name = custom_string(item, "name", CUSTOM_LAYOUT_NAME_SIZE);
-    if (!name || name[strspn(name, " ")] == '\0' ||
-        !custom_integer(item, "version", 1, 2, &version) ||
-        !custom_color(item, "background", &background))
-        return 0;
-
-    CustomLayout *layout = &config->custom_layout;
-    if (version == 1)
-    {
-        if (!load_custom_screen(item, &layout->screens[0], &layout->needs_sensors,
-                                CUSTOM_SCREEN_DEFAULT_DURATION))
-            return 0;
-        layout->screen_count = 1;
-    }
-    else
-    {
-        json_t *screens = json_object_get(item, "screens");
-        const size_t count = json_array_size(screens);
-        int default_duration = CUSTOM_SCREEN_DEFAULT_DURATION;
-        if (!count || count > CUSTOM_LAYOUT_MAX_SCREENS ||
-            !custom_optional_integer(item, "switch_interval", 1, 60, &default_duration))
-            return 0;
-        json_array_foreach(screens, index, candidate)
-        {
-            if (!load_custom_screen(candidate, &layout->screens[index], &layout->needs_sensors,
-                                    default_duration))
-                return 0;
-        }
-        layout->screen_count = (int)count;
-    }
-    config->display_background_color = background;
-    return 1;
 }
 
 /**
@@ -1527,14 +1333,15 @@ static void load_font_from_json(json_t *root, Config *config)
     if (!font || !json_is_object(font))
         return;
 
-    json_t *face = json_object_get(font, "face");
-    if (face && json_is_string(face))
-    {
-        SAFE_STRCPY(config->font_face, json_string_value(face));
-    }
-    const char *tty_face = json_string_value(json_object_get(font, "tty_face"));
+    const char *face = config_json_string(font, "face", sizeof(config->font_face));
+    if (face)
+        SAFE_STRCPY(config->font_face, face);
+    const char *tty_face = config_json_string(font, "tty_face", sizeof(config->tty_font_face));
     if (tty_face)
         SAFE_STRCPY(config->tty_font_face, tty_face);
+    const char *rings_face = config_json_string(font, "rings_face", sizeof(config->rings_font_face));
+    if (rings_face)
+        SAFE_STRCPY(config->rings_font_face, layout_font_family(rings_face));
 
     json_t *size_temp = json_object_get(font, "size_temp");
     if (size_temp && json_is_number(size_temp))
@@ -1825,7 +1632,8 @@ static int load_plugin_config_internal(Config *config, const char *json_path,
             load_sensors_from_json(root, config);
             load_positioning_from_json(root, config);
             if (strcmp(config->display_mode, "custom") == 0 &&
-                !load_active_custom_layout(root, config))
+                !load_active_custom_layout(root, &config->custom_layout,
+                                           &config->display_background_color))
             {
                 config->invalid_custom_layout = 1;
                 SAFE_STRCPY(config->display_mode, "split");

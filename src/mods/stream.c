@@ -5,7 +5,6 @@
 #include "../device/lcd.h"
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
-#include "custom.h"
 #include "display.h"
 #include <fcntl.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
@@ -215,6 +214,9 @@ static int update_overlay(gint64 now)
     cairo_paint(cr);
     cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
     int success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+    if (success)
+        log_layout_box(cr, &animation.config, "canvas", 0, 0,
+                       animation.config.display_width, animation.config.display_height);
     if (success && !display_uses_sensor_slots(&animation.config))
         success = paint_display_overlay(cr, &animation.config, &sensors, &animation.scaling);
     else if (success && sensors.sensor_count)
@@ -237,7 +239,7 @@ static int update_overlay(gint64 now)
         paint_display_clock(cr, &animation.config);
         success = cairo_status(cr) == CAIRO_STATUS_SUCCESS;
     }
-    const int64_t screen_deadline = custom_screen_deadline_us(&animation.config);
+    const int64_t screen_deadline = layout_screen_deadline_us(&animation.config);
     if (screen_deadline > 0 && screen_deadline < animation.next_overlay)
         animation.next_overlay = screen_deadline;
     cairo_destroy(cr);
@@ -392,6 +394,6 @@ int64_t stream_draw(void)
     }
     log_message(LOG_ERROR, "LCD stream: frame failed, stopping output");
     close_animation();
-    reset_custom_state();
+    reset_layout_screen_state();
     return 0;
 }

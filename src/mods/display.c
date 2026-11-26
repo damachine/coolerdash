@@ -8,30 +8,23 @@
 
 #include <string.h>
 
-#include "../device/config.h"
 #include "../srv/cc_conf.h"
 #include "../srv/cc_main.h"
-#include "../srv/cc_sensor.h"
+#include "background.h"
 #include "circle.h"
-#include "display.h"
 #include "custom.h"
+#include "display.h"
 #include "dual.h"
+#include "render.h"
+#include "rings.h"
 #include "split.h"
 #include "tty.h"
-#include "background.h"
 
-/**
- * @brief Main display dispatcher - routes to appropriate rendering mode.
- * @details Examines display_mode configuration and dispatches to dual, circle,
- * or split renderer. This provides a clean separation between mode selection
- * logic and mode-specific rendering.
- * @param config Configuration containing display mode and rendering parameters
- */
 void reset_display_state(void)
 {
     reset_background_state();
     reset_circle_state();
-    reset_custom_state();
+    reset_layout_screen_state();
 }
 
 static int render_overlay_frame(const Config *config, const monitor_sensor_data_t *data,
@@ -39,42 +32,14 @@ static int render_overlay_frame(const Config *config, const monitor_sensor_data_
 {
     ScalingParams params = {0};
     calculate_scaling_params(config, &params, device_name);
-    cairo_surface_t *surface = NULL;
-    cairo_t *cr = create_cairo_context(config, &surface);
-    if (!cr)
-        return 0;
-    paint_display_background(cr, config);
-    int success = paint_display_overlay(cr, config, data, &params) &&
-                  write_display_png(surface, config, config->paths_image_coolerdash) == CAIRO_STATUS_SUCCESS;
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
-    return success;
-}
-
-static void draw_overlay_image(const Config *config)
-{
-    monitor_sensor_data_t data = {0};
-    if (display_needs_sensor_data(config) && !get_sensor_monitor_data(config, &data))
-        data.sensor_count = 0;
-
-    char device_uid[CC_UID_SIZE] = {0};
-    char device_name[CONFIG_MAX_STRING_LEN] = {0};
-    int width = 0;
-    int height = 0;
-    int available = get_cached_lcd_device_data(config, device_uid, sizeof(device_uid),
-                                               device_name, sizeof(device_name), &width, &height);
-    if (!render_overlay_frame(config, &data, device_name))
-        log_message(LOG_ERROR, "Display rendering failed in %s mode", config->display_mode);
-    else if (available && is_session_initialized() && device_uid[0])
-        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
+    return render_frame(config, data, &params, paint_display_overlay, NULL);
 }
 
 typedef struct
 {
     const char *name;
     int uses_sensor_slots;
-    void (*draw)(const Config *);
-    int (*preview)(const Config *, const monitor_sensor_data_t *, const char *);
+    int (*render)(const Config *, const monitor_sensor_data_t *, const char *);
     int (*paint)(cairo_t *, const Config *, const monitor_sensor_data_t *,
                  const ScalingParams *);
 } DisplayMode;
@@ -82,12 +47,12 @@ typedef struct
 static const DisplayMode *get_display_mode(const Config *config)
 {
     static const DisplayMode modes[] = {
-        {"dual", 1, draw_dual_image, render_dual_preview, paint_dual_overlay},
-        {"circle", 1, draw_circle_image, render_circle_preview, paint_circle_overlay},
-        {"split", 1, draw_split_image, render_split_preview, paint_split_overlay},
-        {"custom", 0, draw_overlay_image, render_overlay_frame, paint_custom_overlay},
-        {"terminal", 0, draw_overlay_image, render_overlay_frame, paint_terminal_overlay},
-        {"activity-rings", 0, draw_overlay_image, render_overlay_frame, paint_activity_rings_overlay},
+        {"dual", 1, render_dual_preview, paint_dual_overlay},
+        {"circle", 1, render_circle_preview, paint_circle_overlay},
+        {"split", 1, render_split_preview, paint_split_overlay},
+        {"custom", 0, render_overlay_frame, paint_custom_overlay},
+        {"terminal", 0, render_overlay_frame, paint_terminal_overlay},
+        {"circle-rings", 0, render_overlay_frame, paint_circle_rings_overlay},
     };
     for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++)
     {
@@ -95,6 +60,22 @@ static const DisplayMode *get_display_mode(const Config *config)
             return &modes[i];
     }
     return &modes[0];
+}
+
+void log_layout_box(cairo_t *cr, const struct Config *config, const char *element,
+                    double x, double y, double width, double height)
+{
+    if (!verbose_logging || !config || width <= 0.0 || height <= 0.0)
+        return;
+
+    if (cr)
+    {
+        cairo_user_to_device(cr, &x, &y);
+        cairo_user_to_device_distance(cr, &width, &height);
+    }
+    log_message(LOG_INFO, "Layout: mode=%s output=%s element=%s x=%.1f y=%.1f width=%.1f height=%.1f",
+                get_display_mode(config)->name, config->preview_render ? "preview" : "lcd",
+                element, x, y, width, height);
 }
 
 int display_uses_sensor_slots(const Config *config)
@@ -124,23 +105,51 @@ void draw_display_image(const struct Config *config)
         return;
     }
 
-    if (display_uses_sensor_slots(config) && !display_has_active_sensor_slots(config))
+    const DisplayMode *mode = get_display_mode(config);
+    if (mode->uses_sensor_slots && !display_has_active_sensor_slots(config))
     {
         draw_background_only_image(config);
         return;
     }
 
-    get_display_mode(config)->draw(config);
+    monitor_sensor_data_t data = {0};
+    if (display_needs_sensor_data(config) && !get_sensor_monitor_data(config, &data))
+    {
+        if (mode->uses_sensor_slots)
+        {
+            log_message(LOG_WARNING, "Failed to retrieve sensor data for %s", mode->name);
+            return;
+        }
+        data.sensor_count = 0;
+    }
+
+    char uid[CC_UID_SIZE] = {0};
+    char name[CONFIG_MAX_STRING_LEN] = {0};
+    const int available = get_cached_lcd_device_data(config, uid, sizeof(uid), name,
+                                                     sizeof(name), NULL, NULL);
+    if (!mode->render(config, &data, name))
+    {
+        log_message(LOG_ERROR, "Display rendering failed in %s mode", mode->name);
+        return;
+    }
+
+    if (available && is_session_initialized() && uid[0])
+    {
+        log_message(LOG_INFO, "Sending %s image to LCD: %s [%s]", mode->name, name, uid);
+        send_image_to_lcd(config, config->paths_image_coolerdash, uid);
+    }
+    else if (mode->uses_sensor_slots)
+        log_message(LOG_WARNING, "Skipping %s LCD upload because the device is unavailable", mode->name);
 }
 
-static void add_preview_entry(monitor_sensor_data_t *data,
-                              const char *slot_value,
-                              sensor_category_t category, float value,
-                              const char *unit)
+static sensor_entry_t *add_preview_entry(monitor_sensor_data_t *data,
+                                         const char *slot_value,
+                                         sensor_category_t category, float value,
+                                         const char *unit)
 {
     if (!data || !slot_is_active(slot_value) ||
         data->sensor_count >= MAX_SENSORS)
-        return;
+        return NULL;
 
     sensor_entry_t *entry = &data->sensors[data->sensor_count++];
     const char *separator = strchr(slot_value, ':');
@@ -175,6 +184,7 @@ static void add_preview_entry(monitor_sensor_data_t *data,
     entry->value = value;
     entry->use_decimal = category == SENSOR_CATEGORY_TEMP &&
                          strcmp(slot_value, "liquid") == 0;
+    return entry;
 }
 
 static void add_preview_sensor(monitor_sensor_data_t *data,
@@ -196,6 +206,13 @@ static void add_processor_preview_channels(monitor_sensor_data_t *data)
     add_preview_entry(data, "gpu", SENSOR_CATEGORY_WATTS, 134, "W");
 }
 
+static void add_preview_pump_duty(monitor_sensor_data_t *data)
+{
+    sensor_entry_t *entry = add_preview_entry(data, "liquid", SENSOR_CATEGORY_DUTY, 54, "%");
+    if (entry)
+        cc_safe_strcpy(entry->name, sizeof(entry->name), "pump Duty");
+}
+
 static void add_custom_preview_sensors(monitor_sensor_data_t *data, const CustomScreen *screen)
 {
     static const struct
@@ -213,15 +230,39 @@ static void add_custom_preview_sensors(monitor_sensor_data_t *data, const Custom
     int needs_processor_channels = 0;
     for (int i = 0; i < screen->count; i++)
     {
-        const char *source = screen->elements[i].source;
+        const CustomElement *element = &screen->elements[i];
+        const char *source = element->source;
+        if (!source[0])
+            continue;
+        if (element->channel != SENSOR_CATEGORY_TEMP)
+        {
+            if (!find_channel_sensor_for_slot(data, source, element->channel))
+                for (size_t s = 0; s < sizeof(samples) / sizeof(samples[0]); s++)
+                    if (samples[s].category == element->channel)
+                    {
+                        sensor_entry_t *entry = add_preview_entry(
+                            data, source, samples[s].category, samples[s].value, samples[s].unit);
+                        /* Look up this sample by device and category, without masking a named sensor. */
+                        if (entry && strchr(source, ':'))
+                            entry->name[0] = '\0';
+                        break;
+                    }
+            continue;
+        }
         const CustomSource kind = get_custom_source(source);
+        if (kind == CUSTOM_SOURCE_LIQUID_PUMP_DUTY)
+        {
+            if (!find_liquid_pump_duty(data))
+                add_preview_pump_duty(data);
+            continue;
+        }
         if (kind != CUSTOM_SOURCE_SENSOR)
         {
             if (kind != CUSTOM_SOURCE_RAM_USED && kind != CUSTOM_SOURCE_RAM_LOAD)
                 needs_processor_channels = 1;
             continue;
         }
-        if (!source[0] || find_sensor_for_slot(data, source))
+        if (find_sensor_for_slot(data, source))
             continue;
         size_t length = strlen(source);
         size_t sample = 0;
@@ -258,11 +299,10 @@ int render_display_preview(const struct Config *config,
         add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
         add_processor_preview_channels(&data);
     }
-    else if (strcmp(config->display_mode, "activity-rings") == 0)
+    else if (strcmp(config->display_mode, "circle-rings") == 0)
     {
-        add_preview_entry(&data, "cpu", SENSOR_CATEGORY_TEMP, 45, "°C");
-        add_preview_entry(&data, "gpu", SENSOR_CATEGORY_TEMP, 62, "°C");
         add_preview_entry(&data, "liquid", SENSOR_CATEGORY_TEMP, 32.5f, "°C");
+        add_preview_pump_duty(&data);
     }
     else if (strcmp(config->display_mode, "custom") == 0)
         add_custom_preview_sensors(&data, &config->custom_layout.screens[0]);
@@ -274,5 +314,5 @@ int render_display_preview(const struct Config *config,
         add_preview_sensor(&data, config->sensor_ring_sensor, 32.5f);
     }
 
-    return get_display_mode(config)->preview(config, &data, device_name);
+    return get_display_mode(config)->render(config, &data, device_name);
 }

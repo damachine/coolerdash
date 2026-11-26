@@ -3,9 +3,186 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 
+#include "render.h"
 #include "background.h"
+#include "bar.h"
+#include "readings.h"
+#include "ring.h"
+
+int render_frame(const Config *config, const monitor_sensor_data_t *data,
+                 const ScalingParams *params, OverlayPainter paint, const FrameRing *ring)
+{
+    cairo_surface_t *surface = NULL;
+    cairo_t *cr = create_cairo_context(config, &surface);
+    if (!cr)
+        return 0;
+
+    paint_display_background(cr, config);
+    int success = paint(cr, config, data, params);
+    if (!success)
+        log_message(LOG_ERROR, "Cairo drawing error: %s",
+                    cairo_status_to_string(cairo_status(cr)));
+    else
+    {
+        const char *path = config->paths_image_coolerdash;
+        cairo_status_t status;
+        if (ring && config->display_rotation != 0 && !params->is_circular)
+        {
+            const char *first = ring->current_slot ? ring->current_slot(config) : ring->first_slot;
+            status = write_display_png_with_ring(surface, config, data, params, ring->split,
+                                                 first, ring->second_slot, path);
+        }
+        else
+            status = write_display_png(surface, config, path);
+        success = status == CAIRO_STATUS_SUCCESS;
+        if (!success)
+            log_message(LOG_ERROR, "Failed to write PNG image: %s", path);
+    }
+    cairo_destroy(cr);
+    cairo_surface_destroy(surface);
+    return success;
+}
+
+static void paint_element_text(cairo_t *cr, const Config *config,
+                               const CustomElement *element,
+                               const sensor_entry_t *sensor, double scale,
+                               double width, double height)
+{
+    char text[CUSTOM_LAYOUT_TEXT_SIZE + 32];
+    if (element->type == CUSTOM_VALUE)
+    {
+        const char *separator = element->text[0] ? "  " : "";
+        if (sensor)
+            snprintf(text, sizeof(text), "%s%s%.*f %s", element->text, separator,
+                     sensor->use_decimal ? 1 : 0, sensor->value, sensor->unit);
+        else
+            snprintf(text, sizeof(text), "%s%s—", element->text, separator);
+    }
+    else if (element->type == CUSTOM_CLOCK)
+    {
+        snprintf(text, sizeof(text), "12:34");
+        if (!config->preview_render)
+        {
+            time_t now = time(NULL);
+            struct tm local;
+            if (!localtime_r(&now, &local) || !strftime(text, sizeof(text), "%H:%M", &local))
+                snprintf(text, sizeof(text), "—");
+        }
+    }
+    else
+        snprintf(text, sizeof(text), "%s", element->text);
+
+    double size = element->font_size * scale;
+    cairo_set_font_size(cr, size);
+    cairo_text_extents_t ink;
+    cairo_text_extents(cr, text, &ink);
+    if (ink.width <= 0 || ink.height <= 0)
+        return;
+    const double fit = fmin(1.0, fmin(width * 0.96 / ink.width, height * 0.92 / ink.height));
+    if (fit < 1.0)
+    {
+        cairo_set_font_size(cr, size * fit);
+        cairo_text_extents(cr, text, &ink);
+    }
+    double left = -ink.x_bearing;
+    if (element->type == CUSTOM_CLOCK || !element->text[0])
+        left += (width - ink.width) / 2.0;
+    cairo_move_to(cr, left, (height - ink.height) / 2.0 - ink.y_bearing);
+    cairo_show_text(cr, text);
+}
+
+void render_divider(cairo_t *cr, const Config *config, const LayoutBox *box, const Color *color)
+{
+    if (box->width <= 0.0 || box->height <= 0.0)
+        return;
+
+    log_layout_box(cr, config, "divider", box->x, box->y, box->width, box->height);
+    const double x = box->x + box->width / 2.0;
+    cairo_save(cr);
+    cairo_set_line_width(cr, box->width);
+    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
+    set_cairo_color_alpha(cr, color, 0.62);
+    cairo_move_to(cr, x, box->y);
+    cairo_line_to(cr, x, box->y + box->height);
+    cairo_stroke(cr);
+    cairo_restore(cr);
+}
+
+int paint_widget_layout(cairo_t *cr, const Config *config,
+                        const monitor_sensor_data_t *data,
+                        const ScalingParams *params,
+                        const CustomLayout *layout, int index, const char *font_override)
+{
+    const CustomScreen *screen = &layout->screens[index];
+    LayoutBox boxes[CUSTOM_LAYOUT_MAX_ELEMENTS];
+    if (!layout_arrange_screen(config, params, screen, boxes))
+        return 0;
+    if (layout->screen_count > 1)
+        log_message(LOG_INFO, "Layout screen: mode=%s output=%s screen=%d/%d",
+                    config->display_mode, config->preview_render ? "preview" : "lcd",
+                    index + 1, layout->screen_count);
+    cairo_save(cr);
+    if (layout->fit_clock && config->display_show_clock)
+    {
+        cairo_translate(cr, config->display_width * 0.075, config->display_height * 0.025);
+        cairo_scale(cr, 0.85, 0.85);
+    }
+    if (params->is_circular)
+    {
+        cairo_arc(cr, params->circle_center_x, params->circle_center_y,
+                  params->circle_radius, 0, 2.0 * DISPLAY_M_PI);
+        cairo_clip(cr);
+    }
+
+    WidgetReadings readings = {0};
+    for (int i = 0; i < screen->count; i++)
+    {
+        const CustomElement *element = &screen->elements[i];
+        const LayoutBox *box = &boxes[i];
+        if (screen->arrangement == CUSTOM_COLUMNS && element->column < 0)
+        {
+            render_divider(cr, config, box, &element->color);
+            continue;
+        }
+        const sensor_entry_t *sensor = get_widget_reading(config, data, element, &readings);
+        const double width = box->width, height = box->height;
+        cairo_save(cr);
+        cairo_translate(cr, box->x, box->y);
+        log_layout_box(cr, config, element_log_name(element->type), 0, 0, width, height);
+        cairo_rectangle(cr, 0, 0, width, height);
+        cairo_clip(cr);
+        set_cairo_color(cr, &element->color);
+
+        if (element_uses_font(element->type))
+        {
+            const char *face = font_override && *font_override ? font_override : element->font_face;
+            cairo_select_font_face(cr, face, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+            paint_element_text(cr, config, element, sensor, params->scale_uniform, width, height);
+        }
+        else if (element->type == CUSTOM_FRAME)
+        {
+            const double line = fmin(1.5 * params->scale_uniform, fmin(width, height) / 4.0);
+            cairo_set_line_width(cr, line);
+            cairo_rectangle(cr, line / 2.0, line / 2.0, width - line, height - line);
+            cairo_stroke(cr);
+        }
+        else
+        {
+            const double progress = sensor ? widget_progress(element, sensor->value) : 0;
+            if (element->type == CUSTOM_BAR)
+                draw_segment_bar(cr, 0, 0, width, height, element->segments,
+                                 progress, &element->color);
+            else
+                paint_widget_ring(cr, element, progress, width, height, params->scale_uniform);
+        }
+        cairo_restore(cr);
+    }
+    cairo_restore(cr);
+    return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+}
 
 /**
  * @brief Convert color component into a 0.0-1.0 range.
@@ -171,6 +348,7 @@ void paint_display_clock(cairo_t *cr, const Config *config)
     cairo_save(cr);
     cairo_translate(cr, config->display_width / 2.0, config->display_height * 0.90);
     cairo_scale(cr, scale, scale);
+    log_layout_box(cr, config, "clock", -26, -10, 52, 20);
     cairo_new_path(cr);
     draw_rounded_rectangle_path(cr, -26, -10, 52, 20, 6);
     cairo_set_source_rgba(cr, 0.04, 0.05, 0.08, 0.82);

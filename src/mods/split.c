@@ -16,230 +16,69 @@
 // cppcheck-suppress-begin missingIncludeSystem
 #include <cairo/cairo.h>
 #include <math.h>
-#include <stdbool.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 // cppcheck-suppress-end missingIncludeSystem
 
 #include "../device/config.h"
-#include "../srv/cc_conf.h"
-#include "../srv/cc_main.h"
 #include "../srv/cc_sensor.h"
 #include "display.h"
 #include "split.h"
+#include "ring.h"
+#include "text.h"
+#include "render.h"
 
-typedef struct
+enum
 {
-    double x;
-    double width;
-    double center_x;
-} SplitPane;
+    SPLIT_LABEL,
+    SPLIT_TEMPERATURE,
+    SPLIT_LOAD,
+    SPLIT_POWER,
+    SPLIT_SPEED,
+    SPLIT_WIDGETS_PER_COLUMN
+};
 
-typedef struct
-{
-    double top;
-    double bottom;
-    double divider_x;
-    SplitPane left;
-    SplitPane right;
-} SplitLayout;
+static const CustomScreen *split_screen;
+static pthread_once_t split_preset_once = PTHREAD_ONCE_INIT;
 
-static void draw_centered_text(cairo_t *cr, const char *text,
-                               double center_x, double center_y,
-                               double preferred_size, double max_width,
-                               double max_height, const Color *color)
+static void load_split_preset(void)
 {
-    if (!cr || !text || text[0] == '\0' || !color || max_width <= 0.0)
+    static CustomLayout preset;
+    if (!load_layout_preset("split", &preset))
         return;
 
-    const double font_size = fit_text_font_size(
-        cr, text, preferred_size, max_width, max_height, 6.0);
-    cairo_text_extents_t ext = {0};
-    cairo_set_font_size(cr, font_size);
-    cairo_text_extents(cr, text, &ext);
-    set_cairo_color(cr, color);
-    cairo_move_to(cr, center_x - (ext.width / 2.0 + ext.x_bearing),
-                  center_y - (ext.height / 2.0 + ext.y_bearing));
-    cairo_show_text(cr, text);
-}
-
-static void draw_centered_value_with_small_unit(
-    cairo_t *cr, const char *text, double center_x, double center_y,
-    double preferred_size, double max_width, double max_height,
-    const Color *color, const ScalingParams *params)
-{
-    if (!cr || !text || text[0] == '\0' || !color || !params ||
-        max_width <= 0.0 || max_height <= 0.0)
-        return;
-
-    const size_t text_len = strlen(text);
-    const char unit = text[text_len - 1];
-    if (unit != '%' && unit != 'W')
+    const CustomScreen *screen = &preset.screens[0];
+    if (preset.screen_count != 1 || screen->arrangement != CUSTOM_COLUMNS ||
+        screen->count != 1 + 2 * SPLIT_WIDGETS_PER_COLUMN ||
+        screen->elements[0].type != CUSTOM_FRAME)
     {
-        draw_centered_text(cr, text, center_x, center_y, preferred_size,
-                           max_width, max_height, color);
+        log_message(LOG_ERROR, "Split layout preset requires a divider and two columns");
         return;
     }
 
-    char number[24] = {0};
-    size_t number_len = text_len - 1;
-    while (number_len > 0 && text[number_len - 1] == ' ')
-        number_len--;
-    if (number_len >= sizeof(number))
-        number_len = sizeof(number) - 1;
-    memcpy(number, text, number_len);
-    number[number_len] = '\0';
-
-    double number_size = fmax(1.0, preferred_size);
-    double unit_size;
-    const double unit_gap = fmax(1.0, scale_value_avg(params, 1.0));
-    cairo_text_extents_t number_ext = {0};
-    cairo_text_extents_t unit_ext = {0};
-    double number_width = 0.0;
-    double total_width = 0.0;
-    double content_height = 0.0;
-    char unit_text[2] = {unit, '\0'};
-
-    for (;;)
+    const char *const sources[] = {"cpu", "gpu"};
+    for (int i = 0; i < 2; i++)
     {
-        cairo_set_font_size(cr, number_size);
-        cairo_text_extents(cr, number, &number_ext);
-        unit_size = number_size * 0.5;
-        cairo_set_font_size(cr, unit_size);
-        cairo_text_extents(cr, unit_text, &unit_ext);
-
-        number_width = fmax(number_ext.x_advance, number_ext.width);
-        total_width = number_width + unit_gap +
-                      fmax(unit_ext.x_advance, unit_ext.width);
-        content_height =
-            fmax(number_ext.height,
-                 number_ext.height * 0.08 + unit_ext.height);
-        if ((total_width <= max_width && content_height <= max_height) ||
-            number_size <= 1.0)
-            break;
-        number_size = fmax(1.0, number_size * 0.92);
+        const CustomElement *widgets = &screen->elements[1 + i * SPLIT_WIDGETS_PER_COLUMN];
+        if (widgets[SPLIT_LABEL].type != CUSTOM_TEXT ||
+            widgets[SPLIT_TEMPERATURE].type != CUSTOM_VALUE ||
+            widgets[SPLIT_TEMPERATURE].channel != SENSOR_CATEGORY_TEMP ||
+            strcmp(widgets[SPLIT_TEMPERATURE].source, sources[i]) != 0 ||
+            widgets[SPLIT_LOAD].type != CUSTOM_VALUE || widgets[SPLIT_LOAD].channel != SENSOR_CATEGORY_DUTY ||
+            widgets[SPLIT_POWER].type != CUSTOM_VALUE || widgets[SPLIT_POWER].channel != SENSOR_CATEGORY_WATTS ||
+            widgets[SPLIT_SPEED].type != CUSTOM_VALUE || widgets[SPLIT_SPEED].channel != SENSOR_CATEGORY_RPM)
+        {
+            log_message(LOG_ERROR, "Invalid column in the Split layout preset");
+            return;
+        }
     }
-
-    const double block_left = center_x - total_width * 0.5;
-    const double block_top = center_y - content_height * 0.5;
-    const double number_baseline = block_top - number_ext.y_bearing;
-    const double unit_top = block_top + number_ext.height * 0.08;
-
-    set_cairo_color(cr, color);
-    cairo_set_font_size(cr, number_size);
-    cairo_move_to(cr, block_left - number_ext.x_bearing, number_baseline);
-    cairo_show_text(cr, number);
-
-    cairo_set_font_size(cr, unit_size);
-    cairo_move_to(cr, block_left + number_width + unit_gap - unit_ext.x_bearing,
-                  unit_top - unit_ext.y_bearing);
-    cairo_show_text(cr, unit_text);
+    split_screen = screen;
 }
 
-static double draw_centered_temperature(cairo_t *cr, const char *number,
-                                        double center_x, double center_y,
-                                        double preferred_size, double max_width,
-                                        double max_height, const Color *color,
-                                        const ScalingParams *params)
+static const CustomElement *split_column(int index)
 {
-    if (!cr || !number || number[0] == '\0' || !color || !params ||
-        max_width <= 0.0 || max_height <= 0.0)
-        return 0.0;
-
-    double number_size = fmax(6.0, preferred_size);
-    double degree_size;
-    const double degree_gap = fmax(0.5, scale_value_avg(params, 0.5));
-    cairo_text_extents_t number_ext = {0};
-    cairo_text_extents_t degree_ext = {0};
-    cairo_font_extents_t number_font_ext = {0};
-    double total_width = 0.0;
-
-    for (;;)
-    {
-        cairo_set_font_size(cr, number_size);
-        cairo_text_extents(cr, number, &number_ext);
-        cairo_font_extents(cr, &number_font_ext);
-
-        degree_size = number_size * 0.50;
-        cairo_set_font_size(cr, degree_size);
-        cairo_text_extents(cr, "\xC2\xB0", &degree_ext);
-
-        total_width = fmax(number_ext.x_advance, number_ext.width) +
-                      degree_gap +
-                      fmax(degree_ext.x_advance, degree_ext.width);
-        if ((total_width <= max_width &&
-             number_font_ext.ascent + number_font_ext.descent <= max_height) ||
-            number_size <= 1.0)
-            break;
-
-        number_size *= 0.92;
-    }
-
-    const double number_width = fmax(number_ext.x_advance, number_ext.width);
-    const double block_left = center_x - total_width / 2.0;
-    const double number_baseline =
-        center_y - (number_ext.height / 2.0 + number_ext.y_bearing);
-
-    set_cairo_color(cr, color);
-    cairo_set_font_size(cr, number_size);
-    cairo_move_to(cr, block_left - number_ext.x_bearing, number_baseline);
-    cairo_show_text(cr, number);
-
-    cairo_set_font_size(cr, degree_size);
-    cairo_move_to(cr, block_left + number_width + degree_gap -
-                          degree_ext.x_bearing,
-                  number_baseline + number_ext.y_bearing +
-                      number_ext.height * 0.08 - degree_ext.y_bearing);
-    cairo_show_text(cr, "\xC2\xB0");
-    return number_size;
-}
-
-static int calculate_split_layout(const struct Config *config,
-                                  const ScalingParams *params,
-                                  SplitLayout *layout)
-{
-    if (!config || !params || !layout || config->display_width == 0 ||
-        config->display_height == 0)
-        return 0;
-
-    memset(layout, 0, sizeof(*layout));
-
-    LayoutContext geometry = {0};
-    if (!calculate_layout_context(config, params, &geometry))
-        return 0;
-
-    const double display_width = config->display_width;
-    const double available_height = geometry.height;
-    const double vertical_inset = available_height *
-                                  (params->is_circular ? 0.15 : 0.07);
-    layout->top = geometry.top + vertical_inset;
-    layout->bottom = geometry.bottom - vertical_inset;
-    layout->divider_x = geometry.center_x;
-
-    double safe_x = params->safe_content_margin;
-    double safe_width = params->safe_bar_width;
-    calculate_safe_region_bounds(params, layout->top,
-                                 layout->bottom - layout->top,
-                                 params->is_circular ? 0.94 : 0.96,
-                                 safe_x, safe_width, &safe_x, &safe_width);
-
-    const double outer_padding = fmax(scale_value_avg(params, 3.0),
-                                      display_width * 0.018);
-    const double center_gap = fmax(scale_value_avg(params, 5.0),
-                                   display_width * 0.025);
-    const double safe_right = safe_x + safe_width;
-
-    layout->left.x = safe_x + outer_padding;
-    layout->left.width = layout->divider_x - center_gap - layout->left.x;
-    layout->right.x = layout->divider_x + center_gap;
-    layout->right.width = safe_right - outer_padding - layout->right.x;
-
-    if (layout->left.width < 12.0 || layout->right.width < 12.0)
-        return 0;
-
-    layout->left.center_x = layout->left.x + layout->left.width / 2.0;
-    layout->right.center_x = layout->right.x + layout->right.width / 2.0;
-    return 1;
+    return &split_screen->elements[1 + index * SPLIT_WIDGETS_PER_COLUMN];
 }
 
 static void format_channel_value(char *buffer, size_t buffer_size,
@@ -268,23 +107,26 @@ static const char *get_split_label(const struct Config *config,
     const SensorConfig *sensor_config = get_sensor_config(config, slot_value);
     if (sensor_config && sensor_config->label[0] != '\0')
         return sensor_config->label;
-    if (strcmp(slot_value, "cpu") == 0)
-        return "CPU";
-    if (strcmp(slot_value, "gpu") == 0)
-        return "GPU";
+    for (int i = 0; i < 2; i++)
+    {
+        const CustomElement *widgets = split_column(i);
+        if (strcmp(slot_value, widgets[SPLIT_TEMPERATURE].source) == 0)
+            return widgets[SPLIT_LABEL].text;
+    }
     return get_slot_label(config, data, slot_value, short_name);
 }
 
 static void draw_split_pane(cairo_t *cr, const struct Config *config,
                             const monitor_sensor_data_t *data,
                             const ScalingParams *params,
-                            const SplitLayout *layout, const SplitPane *pane,
+                            const LayoutBox *pane, int column,
                             const char *slot_value)
 {
     if (!slot_is_active(slot_value))
         return;
 
-    const double content_height = layout->bottom - layout->top;
+    const CustomElement *widgets = split_column(column);
+    log_layout_box(cr, config, "column", pane->x, pane->y, pane->width, pane->height);
     const double text_width = pane->width * 0.96;
     const double min_dimension = fmin((double)config->display_width,
                                       (double)config->display_height);
@@ -297,30 +139,39 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
     const float temperature = get_slot_temperature(data, slot_value);
     char temperature_text[16] = {0};
     char secondary_text[3][24] = {{0}};
-    int secondary_kind[3] = {0};
-    int secondary_count = 0;
+    const CustomElement *visible_widgets[SPLIT_WIDGETS_PER_COLUMN] = {
+        &widgets[SPLIT_LABEL], &widgets[SPLIT_TEMPERATURE],
+    };
+    int count = SPLIT_LOAD;
     format_slot_value_text(temperature_text, sizeof(temperature_text), data,
                            slot_value, temperature);
-    const int visible[] = {config->split_show_load, config->split_show_watts,
-                           config->split_show_rpm};
-    const sensor_category_t categories[] = {SENSOR_CATEGORY_DUTY,
-                                             SENSOR_CATEGORY_WATTS,
-                                             SENSOR_CATEGORY_RPM};
-    const char *units[] = {"%", "W", "RPM"};
-    for (int i = 0; i < 3; ++i)
+    const int visible[] = {
+        [SENSOR_CATEGORY_DUTY] = config->split_show_load,
+        [SENSOR_CATEGORY_WATTS] = config->split_show_watts,
+        [SENSOR_CATEGORY_RPM] = config->split_show_rpm,
+    };
+    static const char *const units[] = {
+        [SENSOR_CATEGORY_DUTY] = "%",
+        [SENSOR_CATEGORY_WATTS] = "W",
+        [SENSOR_CATEGORY_RPM] = "RPM",
+    };
+    for (int i = SPLIT_LOAD; i < SPLIT_WIDGETS_PER_COLUMN; i++)
     {
-        if (!visible[i])
+        const sensor_category_t channel = widgets[i].channel;
+        if (!visible[channel])
             continue;
-        const char *channel_slot = i == 2 && strcmp(slot_value, "cpu") == 0
-                                       ? "liquid" : slot_value;
-        format_channel_value(secondary_text[secondary_count],
-                             sizeof(secondary_text[secondary_count]),
+        const char *channel_slot =
+            channel == SENSOR_CATEGORY_RPM && strcmp(slot_value, "cpu") == 0
+                ? split_column(0)[SPLIT_SPEED].source : slot_value;
+        format_channel_value(secondary_text[count - SPLIT_LOAD],
+                             sizeof(secondary_text[0]),
                              find_channel_sensor_for_slot(data, channel_slot,
-                                                          categories[i]), units[i]);
-        secondary_kind[secondary_count] = i;
-        secondary_count++;
+                                                          channel), units[channel]);
+        visible_widgets[count++] = &widgets[i];
     }
 
+    LayoutBox boxes[SPLIT_WIDGETS_PER_COLUMN];
+    layout_stack(pane, visible_widgets, count, boxes);
     const Color temperature_color = config->split_ring_by_sensor
                                         ? (Color){255, 255, 255, 1}
                                         : get_slot_bar_color(config, slot_value,
@@ -329,47 +180,47 @@ static void draw_split_pane(cairo_t *cr, const struct Config *config,
         params, (double)get_slot_offset_x(config, slot_value));
     const double offset_y = scale_value_y(
         params, (double)get_slot_offset_y(config, slot_value));
-    const double center_x = pane->center_x + offset_x;
-    const double region_gap = fmax(1.0, content_height * 0.01);
-    const double label_top = layout->top;
-    const double label_height = content_height * 0.20;
-    const double secondary_height = content_height * 0.16;
-    const double temp_top = label_top + label_height + region_gap;
-    const double temp_height = fmax(1.0, layout->bottom - temp_top -
-        secondary_count * (secondary_height + region_gap));
-    cairo_select_font_face(cr, config->font_face, CAIRO_FONT_SLANT_NORMAL,
+    const double center_x = pane->x + pane->width / 2.0 + offset_x;
+    const LayoutBox *temp = &boxes[SPLIT_TEMPERATURE];
+    const LayoutBox *label_box = &boxes[SPLIT_LABEL];
+    const char *face = config->font_face[0] ? config->font_face : widgets[SPLIT_TEMPERATURE].font_face;
+    cairo_select_font_face(cr, face, CAIRO_FONT_SLANT_NORMAL,
                            CAIRO_FONT_WEIGHT_BOLD);
-    const double rendered_temp_size = draw_centered_temperature(
+    const double rendered_temp_size = render_centered_temperature(
         cr, temperature_text, center_x,
-        temp_top + temp_height * 0.5 + offset_y,
-        temp_size, pane->width * 0.99, temp_height,
+        temp->y + temp->height * 0.5 + offset_y,
+        temp_size, pane->width * 0.99, temp->height,
         &temperature_color, params);
-    const double label_size = fmax(1.0, rendered_temp_size * 0.50);
+    const double label_ratio = (double)widgets[SPLIT_LABEL].font_size / widgets[SPLIT_TEMPERATURE].font_size;
+    const double secondary_ratio = (double)widgets[SPLIT_POWER].font_size / widgets[SPLIT_TEMPERATURE].font_size;
+    const double label_size = fmax(1.0, rendered_temp_size * label_ratio);
     const double secondary_size = config->font_size_watts > 0.0f
                                       ? scale_value_avg(params,
                                                         config->font_size_watts)
-                                      : rendered_temp_size * 0.66;
-    draw_centered_text(cr, label ? label : "???", center_x,
-                       label_top + label_height * 0.5 + offset_y,
-                       label_size, text_width, label_height,
+                                      : rendered_temp_size * secondary_ratio;
+    render_centered_text(cr, label ? label : "???", center_x,
+                       label_box->y + label_box->height * 0.5 + offset_y,
+                       label_size, text_width, label_box->height,
                        &config->font_color_label);
-    for (int i = 0; i < secondary_count; ++i)
+    for (int i = SPLIT_LOAD; i < count; i++)
     {
-        const double row_top = temp_top + temp_height + region_gap +
-                               i * (secondary_height + region_gap);
-        const double row_size = secondary_kind[i] == 0
-                                    ? secondary_size * 0.66
+        const LayoutBox *row = &boxes[i];
+        const double row_size = visible_widgets[i]->channel == SENSOR_CATEGORY_DUTY
+                                    ? secondary_size * secondary_ratio
                                     : secondary_size;
-        draw_centered_value_with_small_unit(
-            cr, secondary_text[i], center_x,
-            row_top + secondary_height * 0.5 + offset_y,
-            fmax(1.0, row_size), text_width, secondary_height,
+        render_centered_value_with_small_unit(
+            cr, secondary_text[i - SPLIT_LOAD], center_x,
+            row->y + row->height * 0.5 + offset_y,
+            fmax(1.0, row_size), text_width, row->height,
             &config->font_color_label, params);
     }
 }
 
 static void get_split_slots(const struct Config *config, const char *slots[2])
 {
+    if (!config)
+        return;
+
     const char *configured_slots[] = {
         config->sensor_slot_1,
         config->sensor_slot_2,
@@ -385,44 +236,44 @@ static void get_split_slots(const struct Config *config, const char *slots[2])
     }
 }
 
-int paint_split_overlay(cairo_t *cr, const struct Config *config,
-                        const monitor_sensor_data_t *data,
-                        const ScalingParams *params)
+static int paint_split(cairo_t *cr, const Config *config,
+                       const monitor_sensor_data_t *data,
+                       const ScalingParams *params, const char *const slots[2])
 {
-    SplitLayout layout = {0};
-    if (!calculate_split_layout(config, params, &layout))
+    pthread_once(&split_preset_once, load_split_preset);
+    if (!split_screen)
+        return 0;
+
+    const unsigned occupied = (slots[0] ? 1U : 0U) | (slots[1] ? 2U : 0U);
+    LayoutBox columns[2], divider;
+    if (!layout_columns(config, params, occupied, columns, &divider))
     {
         log_message(LOG_ERROR, "Split mode: display is too small for two columns");
         return 0;
     }
 
-    const char *active_slots[2] = {NULL, NULL};
-    get_split_slots(config, active_slots);
     if (config->display_rotation == 0 || params->is_circular)
     {
         if (config->split_ring_by_sensor)
             draw_split_sensor_ring(cr, config, data, params,
-                                   active_slots[0], active_slots[1]);
+                                   slots[0], slots[1]);
         else
             draw_sensor_ring(cr, config, data, params);
     }
 
-    if (active_slots[0])
-        draw_split_pane(cr, config, data, params, &layout, &layout.left,
-                        active_slots[0]);
-    if (active_slots[1])
-        draw_split_pane(cr, config, data, params, &layout, &layout.right,
-                        active_slots[1]);
-
-    cairo_save(cr);
-    cairo_set_line_width(cr, fmax(1.0, scale_value_avg(params, 1.4)));
-    cairo_set_line_cap(cr, CAIRO_LINE_CAP_ROUND);
-    set_cairo_color_alpha(cr, &config->font_color_label, 0.62);
-    cairo_move_to(cr, layout.divider_x, layout.top);
-    cairo_line_to(cr, layout.divider_x, layout.bottom);
-    cairo_stroke(cr);
-    cairo_restore(cr);
+    for (int i = 0; i < 2; i++)
+        draw_split_pane(cr, config, data, params, &columns[i], i, slots[i]);
+    render_divider(cr, config, &divider, &config->font_color_label);
     return cairo_status(cr) == CAIRO_STATUS_SUCCESS;
+}
+
+int paint_split_overlay(cairo_t *cr, const Config *config,
+                        const monitor_sensor_data_t *data,
+                        const ScalingParams *params)
+{
+    const char *slots[2] = {NULL, NULL};
+    get_split_slots(config, slots);
+    return paint_split(cr, config, data, params, slots);
 }
 
 int render_split_preview(const struct Config *config,
@@ -432,74 +283,12 @@ int render_split_preview(const struct Config *config,
     ScalingParams params = {0};
     calculate_scaling_params(config, &params, device_name);
 
-    cairo_surface_t *surface = NULL;
-    cairo_t *cr = create_cairo_context(config, &surface);
-    if (!cr)
-        return 0;
-
-    paint_display_background(cr, config);
-    int success = paint_split_overlay(cr, config, data, &params);
-    if (success)
-    {
-        const char *active_slots[2] = {NULL, NULL};
-        get_split_slots(config, active_slots);
-        success =
-            (config->display_rotation != 0 && !params.is_circular
-                 ? write_display_png_with_ring(
-                       surface, config, data, &params,
-                       config->split_ring_by_sensor,
-                       config->split_ring_by_sensor ? active_slots[0]
-                                                    : config->sensor_ring_sensor,
-                       active_slots[1], config->paths_image_coolerdash)
-                 : write_display_png(surface, config,
-                                     config->paths_image_coolerdash)) ==
-            CAIRO_STATUS_SUCCESS;
-    }
-
-    if (!success)
-        log_message(LOG_ERROR, "Split display rendering failed");
-
-    cairo_destroy(cr);
-    cairo_surface_destroy(surface);
-    return success;
-}
-
-void draw_split_image(const struct Config *config)
-{
-    if (!config)
-    {
-        log_message(LOG_ERROR, "Invalid config for split mode");
-        return;
-    }
-
-    monitor_sensor_data_t data = {0};
-    if (!get_sensor_monitor_data(config, &data))
-    {
-        log_message(LOG_WARNING, "Split mode: failed to get sensor data");
-        return;
-    }
-
-    char device_uid[128] = {0};
-    char device_name[256] = {0};
-    int screen_width = 0;
-    int screen_height = 0;
-    const bool device_available = get_cached_lcd_device_data(
-        config, device_uid, sizeof(device_uid), device_name,
-        sizeof(device_name), &screen_width, &screen_height);
-
-    if (!render_split_preview(config, &data, device_name))
-        return;
-
-    if (is_session_initialized() && device_available && device_uid[0] != '\0')
-    {
-        const char *name = device_name[0] ? device_name : "Unknown Device";
-        log_message(LOG_INFO, "Sending split image to LCD: %s [%s]", name,
-                    device_uid);
-        send_image_to_lcd(config, config->paths_image_coolerdash, device_uid);
-    }
-    else
-    {
-        log_message(LOG_WARNING,
-                    "Skipping split LCD upload - device not available");
-    }
+    const char *slots[2] = {NULL, NULL};
+    get_split_slots(config, slots);
+    const FrameRing ring = {
+        .first_slot = config->split_ring_by_sensor ? slots[0] : config->sensor_ring_sensor,
+        .second_slot = slots[1],
+        .split = config->split_ring_by_sensor,
+    };
+    return render_frame(config, data, &params, paint_split_overlay, &ring);
 }

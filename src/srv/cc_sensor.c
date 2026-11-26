@@ -504,6 +504,25 @@ const sensor_entry_t *find_processor_load(const monitor_sensor_data_t *data,
     return find_preferred_legacy_duty_sensor(data, get_legacy_slot_device_type(slot_value), 0);
 }
 
+const sensor_entry_t *find_liquid_pump_duty(const monitor_sensor_data_t *data)
+{
+    if (!data)
+        return NULL;
+
+    const sensor_entry_t *liquid = find_sensor_for_slot(data, "liquid");
+    for (int i = 0; i < data->sensor_count; i++)
+    {
+        const sensor_entry_t *sensor = &data->sensors[i];
+        if (sensor->category == SENSOR_CATEGORY_DUTY &&
+            strcmp(sensor->device_type, "Liquidctl") == 0 &&
+            (!liquid || strcmp(sensor->device_uid, liquid->device_uid) == 0) &&
+            contains_ci(sensor->name, "pump"))
+            return sensor;
+    }
+
+    return NULL;
+}
+
 /**
  * @brief Resolve a legacy slot value to matching sensor entry.
  * @details Maps "cpu"→first CPU sensor, "gpu"→first GPU sensor,

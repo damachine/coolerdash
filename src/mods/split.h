@@ -15,9 +15,6 @@
 
 #include "display.h"
 
-/** @brief Collect sensor data, render split mode, and upload it to the LCD. */
-void draw_split_image(const struct Config *config);
-
 int paint_split_overlay(cairo_t *cr, const struct Config *config,
                         const monitor_sensor_data_t *data,
                         const ScalingParams *params);

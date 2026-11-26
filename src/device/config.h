@@ -18,12 +18,12 @@
 #include <stdint.h>
 // cppcheck-suppress-end missingIncludeSystem
 
+#include "../mods/elements.h"
+
 // Configuration constants
 #define CONFIG_MAX_STRING_LEN 256
 #define CONFIG_MAX_TOKEN_LEN 64
 #define CONFIG_MAX_PATH_LEN 512
-#define CONFIG_MAX_FONT_NAME_LEN 64
-#define CONFIG_MAX_SENSOR_SLOT_LEN 256
 #define CONFIG_MAX_PATTERN_LIST_LEN 512
 #ifndef DEFAULT_COOLERDASH_PLUGIN_DIR
 #define DEFAULT_COOLERDASH_PLUGIN_DIR "/var/lib/coolercontrol/plugins/coolerdash"
@@ -31,15 +31,6 @@
 #define DEFAULT_SHUTDOWN_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/shutdown.png"
 #define USER_SHUTDOWN_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/user-shutdown-image"
 #define USER_BACKGROUND_IMAGE_PATH DEFAULT_COOLERDASH_PLUGIN_DIR "/user-background-image"
-
-/** @brief RGB color; is_set=0 uses default, is_set=1 uses custom value. */
-typedef struct
-{
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t is_set; // 0 = use default, 1 = user-defined (allows all RGB values)
-} Color;
 
 /** @brief Log levels: INFO (verbose), STATUS/WARNING/ERROR (always shown). */
 typedef enum
@@ -76,63 +67,6 @@ typedef struct
     float value_to_bar_gap;               /**< Gap above bar as % of available_height (0 = auto) */
     float label_to_bar_gap;               /**< Gap below bar as % of available_height (0 = auto) */
 } SensorConfig;
-
-#define CUSTOM_LAYOUT_MAX_ELEMENTS 24
-#define CUSTOM_LAYOUT_MAX_SCREENS 5
-#define CUSTOM_SCREEN_DEFAULT_DURATION 6
-#define CUSTOM_LAYOUT_NAME_SIZE 65
-#define CUSTOM_LAYOUT_TEXT_SIZE 97
-#define CUSTOM_LAYOUT_GRID 1000
-
-typedef enum
-{
-    CUSTOM_VALUE,
-    CUSTOM_TEXT,
-    CUSTOM_CLOCK,
-    CUSTOM_BAR,
-    CUSTOM_RING,
-    CUSTOM_FRAME
-} CustomElementType;
-
-typedef enum
-{
-    CUSTOM_SOURCE_SENSOR,
-    CUSTOM_SOURCE_CPU_LOAD,
-    CUSTOM_SOURCE_GPU_LOAD,
-    CUSTOM_SOURCE_CPU_POWER,
-    CUSTOM_SOURCE_GPU_POWER,
-    CUSTOM_SOURCE_POWER,
-    CUSTOM_SOURCE_RAM_USED,
-    CUSTOM_SOURCE_RAM_LOAD
-} CustomSource;
-
-CustomSource get_custom_source(const char *source);
-
-typedef struct
-{
-    CustomElementType type;
-    int x, y, width, height;
-    int font_size, monospace, segments;
-    int ring_thickness, ring_start, ring_sweep;
-    double minimum, maximum;
-    Color color;
-    char text[CUSTOM_LAYOUT_TEXT_SIZE];
-    char source[CONFIG_MAX_SENSOR_SLOT_LEN];
-} CustomElement;
-
-typedef struct
-{
-    int count;
-    int duration;
-    CustomElement elements[CUSTOM_LAYOUT_MAX_ELEMENTS];
-} CustomScreen;
-
-typedef struct
-{
-    int screen_count;
-    int needs_sensors;
-    CustomScreen screens[CUSTOM_LAYOUT_MAX_SCREENS];
-} CustomLayout;
 
 typedef enum
 {
@@ -219,6 +153,7 @@ typedef struct Config
     // Font configuration
     char font_face[CONFIG_MAX_FONT_NAME_LEN];
     char tty_font_face[CONFIG_MAX_FONT_NAME_LEN];
+    char rings_font_face[CONFIG_MAX_FONT_NAME_LEN];
     float font_size_temp;   /**< Primary value size; 0 = automatic */
     float font_size_labels; /**< Sensor label size; 0 = automatic */
     float font_size_duty;   /**< Utilization value size; 0 = automatic */
@@ -258,6 +193,9 @@ extern int verbose_logging;
 // ============================================================================
 // Plugin Configuration Functions
 // ============================================================================
+
+/** Return a bounded string without ASCII control characters. */
+const char *config_json_string(struct json_t *object, const char *key, size_t limit);
 
 /** @brief Find the startup configuration, including the legacy fallback path. */
 const char *find_plugin_config_path(const char *custom_path);

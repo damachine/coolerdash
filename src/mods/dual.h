@@ -28,13 +28,6 @@
 // Forward declarations
 struct Config;
 
-/**
- * @brief Main dual mode entry point.
- * @details Collects sensor data, renders dual display using
- * render_dual_display(), and uploads to LCD. This is the high-level function
- * called by the dispatcher to show CPU+GPU simultaneously.
- */
-void draw_dual_image(const struct Config *config);
 int paint_dual_overlay(cairo_t *cr, const struct Config *config,
                         const monitor_sensor_data_t *data,
                         const ScalingParams *params);

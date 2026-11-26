@@ -47,15 +47,21 @@ PROGRAM = $(BINDIR)/$(TARGET)
 MAIN_SOURCE = $(SRCDIR)/main.c
 SRC_MODULES = $(SRCDIR)/device/config.c $(SRCDIR)/device/profile.c $(SRCDIR)/device/hwreport.c $(SRCDIR)/device/images.c $(SRCDIR)/srv/cc_main.c $(SRCDIR)/srv/cc_conf.c $(SRCDIR)/srv/cc_sensor.c $(SRCDIR)/mods/display.c $(SRCDIR)/mods/dual.c $(SRCDIR)/mods/circle.c $(SRCDIR)/mods/split.c
 HEADERS = $(SRCDIR)/device/config.h $(SRCDIR)/device/profile.h $(SRCDIR)/device/hwreport.h $(SRCDIR)/device/images.h $(SRCDIR)/srv/cc_main.h $(SRCDIR)/srv/cc_conf.h $(SRCDIR)/srv/cc_sensor.h $(SRCDIR)/mods/display.h $(SRCDIR)/mods/dual.h $(SRCDIR)/mods/circle.h $(SRCDIR)/mods/split.h
-SRC_MODULES += $(SRCDIR)/mods/custom.c $(SRCDIR)/mods/tty.c $(SRCDIR)/mods/stream.c $(SRCDIR)/device/lcd.c
-HEADERS += $(SRCDIR)/mods/custom.h $(SRCDIR)/mods/tty.h $(SRCDIR)/mods/stream.h $(SRCDIR)/device/lcd.h
+SRC_MODULES += $(SRCDIR)/mods/custom.c $(SRCDIR)/mods/tty.c $(SRCDIR)/mods/rings.c $(SRCDIR)/mods/stream.c $(SRCDIR)/device/lcd.c
+SRC_MODULES += $(SRCDIR)/mods/bar.c $(SRCDIR)/mods/elements.c $(SRCDIR)/mods/layout.c $(SRCDIR)/mods/render.c
+SRC_MODULES += $(SRCDIR)/mods/readings.c
+SRC_MODULES += $(SRCDIR)/mods/background.c $(SRCDIR)/mods/ring.c $(SRCDIR)/mods/text.c
+SRC_MODULES += $(SRCDIR)/mods/circle_render.c $(SRCDIR)/mods/circle_text.c
+HEADERS += $(SRCDIR)/mods/custom.h $(SRCDIR)/mods/tty.h $(SRCDIR)/mods/rings.h $(SRCDIR)/mods/stream.h $(SRCDIR)/device/lcd.h
+HEADERS += $(SRCDIR)/mods/bar.h $(SRCDIR)/mods/elements.h $(SRCDIR)/mods/layout.h $(SRCDIR)/mods/render.h
+HEADERS += $(SRCDIR)/mods/readings.h
+HEADERS += $(SRCDIR)/mods/background.h $(SRCDIR)/mods/ring.h $(SRCDIR)/mods/text.h
+HEADERS += $(SRCDIR)/mods/circle_render.h $(SRCDIR)/mods/circle_text.h
 
-SRC_MODULES += $(SRCDIR)/mods/background.c $(SRCDIR)/mods/bar.c $(SRCDIR)/mods/layout.c $(SRCDIR)/mods/readings.c $(SRCDIR)/mods/render.c $(SRCDIR)/mods/ring.c $(SRCDIR)/mods/text.c
-HEADERS += $(SRCDIR)/mods/background.h
-
-OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
+OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES)) $(OBJDIR)/presets.o
 
 MANIFEST = etc/coolercontrol/plugins/coolerdash/manifest.toml
+PRESETS = etc/coolercontrol/plugins/coolerdash/presets.json
 README = README.md
 
 # GNU standard install directories
@@ -110,6 +116,14 @@ $(OBJDIR):
 # Create bin directory
 $(BINDIR):
 	@mkdir -p $(BINDIR)
+
+$(OBJDIR)/presets.c: $(PRESETS) | $(OBJDIR)
+	@{ printf 'const char layout_presets_json[] =\n'; \
+		sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/^/"/' -e 's/$$/\\n"/' "$<" && \
+		printf ';\n'; } > "$@"
+
+$(OBJDIR)/presets.o: $(OBJDIR)/presets.c
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -c "$<" -o "$@"
 
 # Compile object files from src/ and subdirectories
 $(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)

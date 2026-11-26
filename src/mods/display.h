@@ -85,20 +85,6 @@ typedef struct
 } LayoutContext;
 
 /**
- * @brief Measured layout for a rendered sensor value block.
- */
-typedef struct
-{
-    int active;
-    double block_left;
-    double block_right;
-    double block_top;
-    double block_bottom;
-    double baseline_y;
-    double font_size;
-} SlotValueLayout;
-
-/**
  * @brief Main display dispatcher - routes to appropriate rendering mode.
  * @details High-level entry point that examines configuration and dispatches to
  * dual mode, circle mode, or split mode. This is the primary interface called
@@ -119,29 +105,13 @@ int paint_display_overlay(cairo_t *cr, const struct Config *config,
 /** The built-in sensor-slot modes can switch to background-only playback. */
 int display_uses_sensor_slots(const Config *config);
 int display_needs_sensor_data(const Config *config);
-void draw_segment_bar(cairo_t *cr, double x, double y, double width, double height,
-                      int segments, double progress, const Color *color);
 void paint_display_clock(cairo_t *cr, const Config *config);
-
-/** Draw the optional sensor-value ring shared by every display mode. */
-void draw_sensor_ring(cairo_t *cr, const struct Config *config,
-                      const monitor_sensor_data_t *data,
-                      const ScalingParams *params);
-
-/** Draw the optional sensor-value ring for a specific sensor slot. */
-void draw_sensor_ring_for_slot(cairo_t *cr, const struct Config *config,
-                               const monitor_sensor_data_t *data,
-                               const ScalingParams *params,
-                               const char *slot_value);
-
-/** Draw two threshold-colored ring halves for a layout sensor pair. */
-void draw_split_sensor_ring(cairo_t *cr, const struct Config *config,
-                            const monitor_sensor_data_t *data,
-                            const ScalingParams *params,
-                            const char *left_slot, const char *right_slot);
 
 /** @brief Reset display state on config reload (SIGHUP); delegates to active mode. */
 void reset_display_state(void);
+void reset_layout_screen_state(void);
+int64_t layout_screen_deadline_us(const Config *config);
+int layout_screen_index(const Config *config, int count);
 
 /** Resume native playback after the shutdown image test. */
 void restore_native_gif_after_test(void);
@@ -174,6 +144,10 @@ void calculate_scaling_params(const struct Config *config,
 int calculate_layout_context(const struct Config *config,
                              const ScalingParams *params,
                              LayoutContext *layout);
+
+/** Log a layout box in LCD pixels before the final image rotation. */
+void log_layout_box(cairo_t *cr, const struct Config *config, const char *element,
+                    double x, double y, double width, double height);
 
 /**
  * @brief Create cairo surface and context for display rendering.
@@ -220,11 +194,6 @@ void set_cairo_color(cairo_t *cr, const Color *color);
  */
 void set_cairo_color_alpha(cairo_t *cr, const Color *color, double alpha);
 
-/** @brief Proportionally fit text into a box by changing only its font size. */
-double fit_text_font_size(cairo_t *cr, const char *text,
-                          double preferred_size, double max_width,
-                          double max_height, double minimum_size);
-
 /**
  * @brief Scale a design-space X value based on detected display width.
  */
@@ -239,12 +208,6 @@ double scale_value_y(const ScalingParams *params, double value);
  * @brief Scale a design-space value using average display scaling.
  */
 double scale_value_avg(const ScalingParams *params, double value);
-
-/**
- * @brief Get effective degree symbol spacing for the current display.
- */
-int get_scaled_degree_spacing(const struct Config *config,
-                              const ScalingParams *params);
 
 /**
  * @brief Get the scaled pixel bar height for a slot.
@@ -290,30 +253,6 @@ int get_scaled_label_offset_x(const struct Config *config,
  */
 int get_scaled_label_offset_y(const struct Config *config,
                               const ScalingParams *params);
-
-/**
- * @brief Format a sensor value using the configured decimal mode.
- */
-void format_slot_value_text(char *buffer, size_t buffer_size,
-                            const monitor_sensor_data_t *data,
-                            const char *slot_value, float temp_value);
-
-/**
- * @brief Measure and optionally render a right-aligned sensor value block.
- * @details Fits the font size to the available box width and height and places
- * the value against the right edge of the provided box. Offsets remain as a
- * user-facing fine-tuning layer.
- */
-void layout_and_render_slot_value(cairo_t *cr,
-                                  const monitor_sensor_data_t *data,
-                                  const struct Config *config,
-                                  const ScalingParams *params,
-                                  const char *slot_value,
-                                  float temp_value, double box_x,
-                                  double box_y, double box_width,
-                                  double box_height, int align_bottom,
-                                  int draw_output,
-                                  SlotValueLayout *layout);
 
 /**
  * @brief Get horizontal safe bounds for a text lane.
@@ -370,12 +309,6 @@ int calculate_temp_fill_width(float temp_value, int max_width, float max_temp);
  */
 void draw_rounded_rectangle_path(cairo_t *cr, int x, int y, int width,
                                  int height, double radius);
-
-/**
- * @brief Draw degree symbol at calculated position with proper font scaling.
- */
-void draw_degree_symbol(cairo_t *cr, double x, double y,
-                        const struct Config *config);
 
 // ============================================================================
 // Sensor Slot Helper Functions
