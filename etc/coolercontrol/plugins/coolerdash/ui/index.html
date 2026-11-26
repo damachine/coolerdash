@@ -107,10 +107,13 @@
             pointer-events: none; user-select: none;
         }
         .custom-screen.dragging img { opacity: 0.6; }
+        #custom_targets { position: absolute; inset: 0; }
+        #custom_targets.fit-clock { inset: 2.5% 7.5% 12.5%; }
         .custom-target {
             position: absolute; display: block; background: none; cursor: move;
             border: 1px solid transparent; padding: 0; color: white;
         }
+        .custom-screen.columns .custom-target { cursor: pointer; }
         .custom-target:hover, .custom-target:focus-visible, .custom-target.selected {
             border-color: #70baff; box-shadow: 0 0 0 1px #122338;
         }
@@ -856,9 +859,13 @@
                                 <option value="split">Split (CPU + GPU columns)</option>
                                 <option value="circle">Circle (Alternating display)</option>
                                 <option value="terminal">TTY (Terminal)</option>
-                                <option value="activity-rings">Activity Rings</option>
+                                <option value="circle-rings">Circle Rings</option>
                                 <option value="custom">Custom Layout</option>
                             </select>
+                        </div>
+                        <div id="preset_actions" hidden>
+                            <button type="button" class="btn btn-secondary" id="edit_preset">Edit as Custom Layout</button>
+                            <p class="form-hint" id="edit_preset_status" role="status"></p>
                         </div>
                         <label class="display-option">
                             <input data-help="Show the local time at the bottom of the LCD." type="checkbox" name="display.show_clock" id="show_clock" value="1">Show Clock
@@ -950,7 +957,7 @@
                                     </g>
                                 </g>
                             </g>
-                            <g id="mode_preview_activity-rings" style="display: none;"></g>
+                            <g id="mode_preview_circle-rings" style="display: none;"></g>
                             <g id="mode_preview_ring" style="display: none;" fill="none" stroke-linecap="round">
                                 <path class="mode-preview-ring-path" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#343434" stroke-width="8"/>
                                 <path class="mode-preview-ring-path" id="mode_preview_ring_value" d="M40 200 A104 104 0 1 1 200 200" pathLength="100" stroke="#00ff00" stroke-width="8" stroke-dasharray="0 100"/>
@@ -1017,6 +1024,12 @@
                             </div>
                             <label class="form-group"><span class="form-label" id="custom_duration_label">Screen 1 Duration (Seconds)</span>
                                 <input data-help="Set how long this screen stays on the LCD before switching." type="number" class="form-control" id="custom_duration" min="1" max="60" step="1" value="6">
+                            </label>
+                            <label class="form-group"><span class="form-label">Arrangement</span>
+                                <select class="form-control" id="custom_arrangement" data-help="Choose automatic columns or place widgets freely.">
+                                    <option value="free">Free</option>
+                                    <option value="columns">Automatic Columns</option>
+                                </select>
                             </label>
                             <div class="custom-actions">
                                 <button data-help="Add a blank screen. A layout can hold up to five screens." type="button" class="btn btn-secondary" id="custom_add_screen">Add Screen</button>
@@ -1179,7 +1192,7 @@
                         <span class="form-hint" id="split_temperature_text"></span>
                     </div>
 
-                    <div class="form-group">
+                    <div class="form-group" id="label_text_group">
                         <label class="form-label" for="color_font_label">Label Text</label>
                         <span class="form-hint" id="split_label_text_hint" hidden>Also used for load, power and RPM values.</span>
                         <div class="color-group">
@@ -1193,6 +1206,7 @@
                         <span class="form-hint" id="font_face_hint">Default: Roboto Black. Type to search installed fonts, or clear the field to browse.</span>
                         <input type="hidden" name="font.face" id="standard_font_face">
                         <input type="hidden" name="font.tty_face" id="tty_font_face">
+                        <input type="hidden" name="font.rings_face" id="rings_font_face">
                         <div class="font-picker" id="font_picker">
                             <input type="text" id="font_face" class="form-control" placeholder="Roboto Black" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="font_face_options" aria-expanded="false">
                             <select data-help="Choose an installed font from the search results." id="font_face_options" class="form-control font-picker-options" size="6" aria-label="Matching installed fonts" hidden></select>
@@ -1784,7 +1798,8 @@
             },
             font: {
                 face: "Roboto Black",
-                tty_face: "Monospace",
+                tty_face: "Roboto Black",
+                rings_face: "",
                 size_temp: 0.0,
                 size_labels: 0.0,
                 size_duty: 0.0,
@@ -3252,26 +3267,30 @@
         var renderPreviewTimer = null;
         var renderPreviewGeneration = 0;
 
-        async function requestCairoPreview(body) {
+        async function pluginFetchWithTimeout(path, options, message, timeoutMs = 6000) {
             let timeout;
             try {
-                const result = await Promise.race([
-                    pluginFetch('/render-preview', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body
-                    }),
+                return await Promise.race([
+                    pluginFetch(path, options),
                     new Promise((_, reject) => {
-                        timeout = setTimeout(() => reject(new Error('Preview timed out')), 6000);
+                        timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
                     })
                 ]);
-                if (!result || typeof result.image !== 'string' || result.image.length > 4000000 ||
-                    !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image))
-                    throw new Error('Invalid preview image');
-                return result;
             } finally {
                 clearTimeout(timeout);
             }
+        }
+
+        async function requestCairoPreview(body) {
+            const result = await pluginFetchWithTimeout('/render-preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body
+            }, 'Preview timed out');
+            if (!result || typeof result.image !== 'string' || result.image.length > 4000000 ||
+                !/^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(result.image))
+                throw new Error('Invalid preview image');
+            return result;
         }
 
         function scheduleRenderedPreview() {
@@ -3285,7 +3304,7 @@
                     var previewConfig = buildConfig({ includeLayouts: false });
                     var result = await requestCairoPreview(JSON.stringify(previewConfig));
                     if (generation !== renderPreviewGeneration) return;
-                    if (['terminal', 'activity-rings'].includes(previewConfig.display.mode) && result.shape)
+                    if (['terminal', 'circle-rings'].includes(previewConfig.display.mode) && result.shape)
                         setModePreviewShape(result.shape);
                     image.setAttribute('href', result.image);
                     image.style.display = '';
@@ -3294,7 +3313,9 @@
                     if (generation === renderPreviewGeneration) {
                         image.removeAttribute('href');
                         image.style.display = 'none';
-                        status.textContent = 'Static preview fallback';
+                        status.textContent = previewConfig?.display.mode === 'circle-rings' &&
+                            !document.getElementById('mode_preview_circle-rings').hasChildNodes()
+                            ? 'Preview unavailable' : 'Static preview fallback';
                     }
                 }
             }, 400);
@@ -3381,6 +3402,11 @@
             });
             var mode = document.getElementById('display_mode').value;
             var showClock = document.getElementById('show_clock').checked;
+            var previewFace = selectedFontSetting(mode).value.trim() || defaultFontFace(mode);
+            var fontFallback = mode === 'terminal' ? 'monospace' : 'sans-serif';
+            var previewFamily = ['monospace', 'sans-serif'].includes(previewFace.toLowerCase())
+                ? previewFace : CSS.escape(previewFace) + ', ' + fontFallback;
+            document.getElementById('mode_preview_static').style.fontFamily = previewFamily;
             if (mode === 'split') {
                 document.getElementById('split_temperature_text').textContent =
                     document.getElementById('split_ring_by_sensor').checked
@@ -3388,10 +3414,7 @@
             }
             if (mode === 'terminal') {
                 var ttyIcon = document.getElementById('tty_icon').value;
-                var ttyFace = selectedFontSetting().value.trim();
-                document.getElementById('mode_preview_terminal').style.fontFamily =
-                    ttyFace && ttyFace.toLowerCase() !== 'monospace'
-                        ? CSS.escape(ttyFace) + ', monospace' : 'monospace';
+                document.getElementById('mode_preview_terminal').style.fontFamily = previewFamily;
                 var ttyLabelColor = document.getElementById('color_font_label').value || '#c8c8c8';
                 var ttyValueColor = document.getElementById('color_font_temp').value || '#ffffff';
                 document.querySelectorAll('[data-tty-label]').forEach(function (element) {
@@ -3404,26 +3427,26 @@
                 document.getElementById('mode_preview_tty_rows').setAttribute(
                     'transform', ttyIcon === 'off' ? 'translate(0 -14)' : ttyIcon === 'small' ? 'translate(0 2)' : 'translate(0 4)');
             }
-            if (mode === 'activity-rings') customLayouts.renderActivityPreview(showClock);
+            if (mode === 'circle-rings') customLayouts.renderCircleRingsPreview();
             var descriptions = {
                 dual: 'Two sensors stacked vertically.',
                 split: 'Two sensor columns; visible values share the available space.',
                 circle: 'One sensor at a time; sensors alternate on the device.',
                 terminal: 'Temperatures, processor load, power and RAM.',
-                'activity-rings': 'Three temperature rings for CPU, GPU and liquid.'
+                'circle-rings': 'Liquid, CPU and GPU alternate. The rings show temperature and pump duty or processor load.'
             };
             Object.keys(descriptions).forEach(function (layout) {
                 document.getElementById('mode_preview_' + layout).style.display = layout === mode ? '' : 'none';
             });
             document.getElementById('mode_preview_title').textContent =
-                (mode === 'terminal' ? 'TTY (Terminal)' : mode === 'activity-rings' ? 'Activity Rings' : mode) +
+                (mode === 'terminal' ? 'TTY (Terminal)' : mode === 'circle-rings' ? 'Circle Rings' : mode) +
                 ' layout preview: ' + descriptions[mode];
             document.getElementById('mode_preview_description').textContent = descriptions[mode];
             document.getElementById('mode_preview_clock').style.display = showClock ? '' : 'none';
             var ring = document.getElementById('mode_preview_ring');
             var splitRingEnabled = (mode === 'split' || mode === 'dual') &&
                 document.getElementById('split_ring_by_sensor').checked;
-            var ringEnabled = mode !== 'terminal' && mode !== 'activity-rings' && (splitRingEnabled ||
+            var ringEnabled = mode !== 'terminal' && mode !== 'circle-rings' && (splitRingEnabled ||
                 document.getElementById('sensor_ring_enabled').checked);
             var ringValuePath = document.getElementById('mode_preview_ring_value');
             var secondaryRingPath = document.getElementById('mode_preview_ring_value_secondary');
@@ -3527,26 +3550,28 @@
             var isSplit = mode === 'split';
             var isCustom = mode === 'custom';
             var isTerminal = mode === 'terminal';
-            var isActivity = mode === 'activity-rings';
-            var usesSlots = !isCustom && !isTerminal && !isActivity;
+            var isCircleRings = mode === 'circle-rings';
+            var usesSlots = !isCustom && !isTerminal && !isCircleRings;
             var sensorGrid = document.getElementById('sensor_grid');
             document.querySelector('.mode-layout').classList.toggle('custom-mode', isCustom);
             document.getElementById('custom_layout_editor').hidden = !isCustom;
+            document.getElementById('preset_actions').hidden = !['dual', 'split', 'circle-rings'].includes(mode);
             document.querySelector('.mode-preview').hidden = isCustom;
             document.getElementById('display_elements_group').hidden = !usesSlots;
             document.getElementById('legacy_sensor_ring_group').hidden = !usesSlots;
             document.getElementById('legacy_sensor_help').hidden = !usesSlots;
             document.getElementById('legacy_display_background').hidden = isCustom;
             document.getElementById('tty_icon_group').style.display = isTerminal ? '' : 'none';
-            document.getElementById('text_settings').hidden = isCustom || isActivity;
-            document.getElementById('layout_sensor_ring_settings').hidden = isActivity;
-            document.getElementById('layout_font_size_settings').hidden = isActivity;
+            document.getElementById('text_settings').hidden = isCustom;
+            document.getElementById('layout_sensor_ring_settings').hidden = isCircleRings;
+            document.getElementById('layout_font_size_settings').hidden = isCircleRings;
             document.getElementById('custom_text_settings').hidden = !isCustom;
-            document.getElementById('value_text_group').hidden = isSplit;
+            document.getElementById('value_text_group').hidden = isSplit || isCircleRings;
+            document.getElementById('label_text_group').hidden = isCircleRings;
             document.getElementById('value_text_label').textContent = isTerminal ? 'Value Text' : 'Temperature Text';
             document.getElementById('split_temperature_text_group').hidden = !isSplit;
             document.getElementById('split_label_text_hint').hidden = !isSplit;
-            syncFontPicker(isTerminal);
+            syncFontPicker(mode);
             sensorGrid.style.display = usesSlots ? '' : 'none';
             if (isCustom) {
                 ++renderPreviewGeneration;
@@ -3555,7 +3580,7 @@
                 document.getElementById('custom_template').value = mode;
                 customLayouts.schedulePreview();
             }
-            document.getElementById('circle_interval_group').style.display = isCircle ? 'block' : 'none';
+            document.getElementById('circle_interval_group').style.display = isCircle || isCircleRings ? 'block' : 'none';
             document.getElementById('circle_layout_group').style.display = isCircle ? 'block' : 'none';
             document.querySelectorAll('[data-element-mode]').forEach(function (element) {
                 var modes = element.getAttribute('data-element-mode').split(/\s+/);
@@ -3587,8 +3612,8 @@
                     ? 'Set widget position, size, colors and fonts in the Custom Layout editor on the Display tab.'
                     : isTerminal
                     ? 'TTY (Terminal) arranges measurements automatically for the detected LCD.'
-                    : isActivity
-                    ? 'Activity Rings scales to the detected LCD. Create a copy in Custom Layout to edit the rings and text.'
+                    : isCircleRings
+                    ? 'Circle Rings scales to the detected LCD. Create a copy in Custom Layout to edit the rings and text.'
                     : isSplit
                     ? '<strong>Resolution-aware split layout</strong> The divider and both text columns adapt automatically to the detected LCD shape and size. Temperature values use each sensor\'s threshold colors.'
                     : '<strong>Resolution-aware layout</strong> Bar height, gap, border thickness, degree spacing, and global offsets use logical base units and are scaled uniformly to the LCD resolution. Width and label margins are percentage-based relative to the safe drawable area.';
@@ -3605,7 +3630,7 @@
 
         function validateSensorSlots() {
             var mode = document.getElementById('display_mode').value;
-            if (mode === 'custom' || mode === 'terminal' || mode === 'activity-rings') {
+            if (mode === 'custom' || mode === 'terminal' || mode === 'circle-rings') {
                 document.getElementById('sensor_slot_warning').style.display = 'none';
                 return true;
             }
@@ -3706,128 +3731,131 @@
         }
 
         var installedFontFamilies = [];
+        var standardFontPicker;
+        const fontNameEncoder = new TextEncoder();
 
-        function selectedFontSetting() {
-            var terminal = document.getElementById('display_mode').value === 'terminal';
-            return document.getElementById(terminal ? 'tty_font_face' : 'standard_font_face');
+        function isFontFamily(name) {
+            return typeof name === 'string' && name.trim() !== '' &&
+                !/[\u0000-\u001f\u007f\uD800-\uDFFF]/u.test(name) &&
+                fontNameEncoder.encode(name).length <= 255;
         }
 
-        function syncFontPicker(isTerminal) {
-            var input = document.getElementById('font_face');
-            var fallback = isTerminal ? FACTORY_DEFAULTS.font.tty_face : FACTORY_DEFAULTS.font.face;
-            input.value = selectedFontSetting().value;
+        function selectedFontSetting(mode = document.getElementById('display_mode').value) {
+            const id = mode === 'terminal' ? 'tty_font_face' :
+                mode === 'circle-rings' ? 'rings_font_face' : 'standard_font_face';
+            return document.getElementById(id);
+        }
+
+        function defaultFontFace(mode) {
+            return mode === 'terminal' ? FACTORY_DEFAULTS.font.tty_face : FACTORY_DEFAULTS.font.face;
+        }
+
+        function syncFontPicker(mode) {
+            const input = document.getElementById('font_face');
+            const fallback = defaultFontFace(mode);
+            input.value = selectedFontSetting(mode).value;
             input.placeholder = fallback;
             document.getElementById('font_face_hint').textContent =
                 'Default: ' + fallback + '. Type to search installed fonts, or clear the field to browse.';
-            hideFontOptions();
-            if (installedFontFamilies.length) {
+            standardFontPicker?.hide();
+            if (installedFontFamilies.length)
                 document.getElementById('font_face_status').textContent =
                     installedFontFamilies.length + ' installed font families available.';
+        }
+
+        function bindFontPicker(picker, input, options, aliases, status) {
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-autocomplete', 'list');
+            input.setAttribute('aria-controls', options.id);
+            input.setAttribute('aria-expanded', 'false');
+            input.autocomplete = 'off';
+            input.maxLength = 255;
+
+            function hide() {
+                options.hidden = true;
+                input.setAttribute('aria-expanded', 'false');
             }
-        }
 
-        function hideFontOptions() {
-            document.getElementById('font_face_options').hidden = true;
-            document.getElementById('font_face').setAttribute('aria-expanded', 'false');
-        }
+            function show() {
+                const query = input.value.trim().toLocaleLowerCase();
+                const candidates = new Map([...aliases, ...installedFontFamilies.map(family => [family, family])]);
+                const matches = [...candidates].filter(([value, label]) =>
+                    value.toLocaleLowerCase().includes(query) || label.toLocaleLowerCase().includes(query));
+                options.replaceChildren(...matches.slice(0, 40).map(([value, label]) => new Option(label, value)));
+                options.size = Math.max(2, Math.min(6, matches.length));
+                options.hidden = matches.length === 0;
+                input.setAttribute('aria-expanded', String(!options.hidden));
+                if (status && installedFontFamilies.length)
+                    status.textContent = matches.length
+                        ? installedFontFamilies.length + ' installed font families available.' +
+                            (matches.length > 40 ? ' Type to narrow the list.' : '')
+                        : 'No matching installed font. Manual entry still works.';
+            }
 
-        function showFontOptions() {
-            var families = installedFontFamilies;
-            if (document.getElementById('display_mode').value === 'terminal' &&
-                !families.some(function(family) { return family.toLowerCase() === 'monospace'; }))
-                families = ['Monospace'].concat(families);
-            if (!families.length) return;
-            var input = document.getElementById('font_face');
-            var options = document.getElementById('font_face_options');
-            var query = input.value.trim().toLocaleLowerCase();
-            var matches = families.filter(function(family) {
-                return family.toLocaleLowerCase().includes(query);
-            });
-            options.textContent = '';
-            matches.slice(0, 40).forEach(function(family) {
-                var option = document.createElement('option');
-                option.value = family;
-                option.textContent = family;
-                options.appendChild(option);
-            });
-            options.size = Math.min(6, matches.length);
-            options.hidden = matches.length === 0;
-            input.setAttribute('aria-expanded', String(!options.hidden));
-            if (!installedFontFamilies.length) return;
-            var status = document.getElementById('font_face_status');
-            status.textContent = matches.length
-                ? installedFontFamilies.length + ' installed font families available.' +
-                  (matches.length > 40 ? ' Type to narrow the list.' : '')
-                : 'No matching installed font. Manual entry still works.';
-        }
+            function choose() {
+                if (options.selectedIndex < 0) return;
+                input.value = options.value;
+                input.focus();
+                hide();
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
 
-        async function loadSystemFonts() {
-            var input = document.getElementById('font_face');
-            var options = document.getElementById('font_face_options');
-            var status = document.getElementById('font_face_status');
-            if (!input || !options || !status) return;
-
-            input.addEventListener('focus', showFontOptions);
-            input.addEventListener('input', function() {
-                selectedFontSetting().value = input.value;
-                showFontOptions();
-            });
-            input.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape') hideFontOptions();
+            input.addEventListener('focus', show);
+            input.addEventListener('input', show);
+            input.addEventListener('keydown', event => {
+                if (event.key === 'Escape') hide();
                 if (event.key === 'ArrowDown' && !options.hidden) {
                     event.preventDefault();
                     options.focus();
                 }
             });
-            function chooseFontOption() {
-                if (options.selectedIndex < 0) return;
-                input.value = options.value;
-                selectedFontSetting().value = input.value;
-                input.focus();
-                hideFontOptions();
-                updateModePreview();
-            }
-            options.addEventListener('click', chooseFontOption);
-            options.addEventListener('keydown', function(event) {
+            options.addEventListener('click', choose);
+            options.addEventListener('keydown', event => {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    chooseFontOption();
+                    choose();
                 } else if (event.key === 'Escape') {
                     input.focus();
-                    hideFontOptions();
+                    hide();
                 }
             });
-            document.getElementById('font_picker').addEventListener('focusout', function() {
-                setTimeout(function() {
-                    if (!document.getElementById('font_picker').contains(document.activeElement))
-                        hideFontOptions();
+            picker.addEventListener('focusout', () => {
+                setTimeout(() => {
+                    if (!picker.contains(document.activeElement)) hide();
                 }, 0);
             });
+            return { show, hide };
+        }
+
+        async function loadSystemFonts() {
+            const input = document.getElementById('font_face');
+            const options = document.getElementById('font_face_options');
+            const status = document.getElementById('font_face_status');
+            standardFontPicker = bindFontPicker(document.getElementById('font_picker'), input, options,
+                [['Sans-serif', 'Sans-serif'], ['Monospace', 'Monospace']], status);
+
+            function setFontField(event) {
+                const family = input.value.trim();
+                const setting = selectedFontSetting();
+                if (!family || isFontFamily(family)) {
+                    setting.value = family;
+                } else if (event.type === 'change') {
+                    input.value = setting.value;
+                    status.textContent = 'Enter a valid font family name (up to 255 UTF-8 bytes).';
+                }
+            }
+            input.addEventListener('input', setFontField);
+            input.addEventListener('change', setFontField);
 
             try {
-                var result = await Promise.race([
-                    pluginFetch('/fonts'),
-                    new Promise(function(_, reject) {
-                        setTimeout(function() { reject(new Error('Font discovery timed out')); }, 3000);
-                    })
-                ]);
-                if (!result || !Array.isArray(result.fonts)) {
+                const result = await pluginFetchWithTimeout('/fonts', undefined, 'Font discovery timed out', 3000);
+                if (!result || !Array.isArray(result.fonts))
                     throw new Error('Invalid font list');
-                }
 
-                var seen = new Set();
-                installedFontFamilies = result.fonts.map(function(family) {
-                    return typeof family === 'string' ? family.trim() : '';
-                }).filter(function(family) {
-                    if (!family || seen.has(family)) return false;
-                    seen.add(family);
-                    return true;
-                }).sort(function(a, b) {
-                    return a.localeCompare(b);
-                });
-
+                installedFontFamilies = [...new Set(result.fonts.filter(isFontFamily).map(family => family.trim()))]
+                    .sort((a, b) => a.localeCompare(b));
                 status.textContent = installedFontFamilies.length + ' installed font families available.';
-                if (document.activeElement === input) showFontOptions();
+                if (document.activeElement === input) standardFontPicker.show();
             } catch (error) {
                 console.warn('Font discovery failed:', error);
                 status.textContent = 'Installed fonts unavailable; manual entry still works.';
@@ -3853,7 +3881,7 @@
                 if (parts.length === 2 && config[parts[0]] !== undefined) {
                     // Sensor IDs and font family names must stay strings.
                     var isSlotField = (parts[1] === 'sensor_slot_1' || parts[1] === 'sensor_slot_2' || parts[1] === 'sensor_slot_3' || parts[1] === 'sensor_ring_sensor');
-                    var isFontFace = parts[0] === 'font' && (parts[1] === 'face' || parts[1] === 'tty_face');
+                    var isFontFace = parts[0] === 'font' && ['face', 'tty_face', 'rings_face'].includes(parts[1]);
                     if (isSlotField || isFontFace) {
                         config[parts[0]][parts[1]] = value;
                     } else {
@@ -4297,6 +4325,7 @@
                 positioning: Object.assign({}, defaults.positioning || {}, config.positioning || {})
             };
             if (config.custom_layouts) merged.custom_layouts = config.custom_layouts;
+            if (merged.display.mode === 'activity-rings') merged.display.mode = 'circle-rings';
 
             // Deep merge sensor configs (skip corrupt numeric keys)
             for (var [id, settings] of Object.entries(sensors)) {
@@ -4394,17 +4423,26 @@
             const defaultDuration = 6;
             const fileLimit = screenLimit * 32 * 1024;
             const standard = { cpu: 'CPU Temperature', gpu: 'GPU Temperature', liquid: 'Liquid Temperature' };
+            const channelLabels = { duty: 'Load / Duty', watts: 'Power', rpm: 'Fan / Pump Speed' };
             const sources = {
                 ...standard, 'cpu-load': 'CPU Load', 'gpu-load': 'GPU Load',
                 'cpu-power': 'CPU Power', 'gpu-power': 'GPU Power', power: 'CPU + GPU Power',
-                'ram-used': 'RAM Used', 'ram-load': 'RAM Load'
+                'ram-used': 'RAM Used', 'ram-load': 'RAM Load', 'liquid-pump-duty': 'Liquid Pump Duty'
             };
             const templateNames = {
                 dual: 'Dual', split: 'Split', circle: 'Circle', terminal: 'TTY (Terminal)',
-                'activity-rings': 'Activity Rings'
+                'circle-rings': 'Circle Rings'
             };
             const reservedNames = new Set(Object.values(templateNames).map(name => name.toLowerCase()));
-            const labels = { value: 'Sensor Value', text: 'Text', clock: 'Clock', bar: 'Bar', ring: 'Ring', frame: 'Frame' };
+            const widgetTypes = {
+                value: { label: 'Sensor Value', font: true, source: true },
+                text: { label: 'Text', font: true },
+                clock: { label: 'Clock', font: true },
+                bar: { label: 'Bar', source: true, range: true },
+                ring: { label: 'Ring', source: true, range: true },
+                frame: { label: 'Frame' }
+            };
+            const labels = Object.fromEntries(Object.entries(widgetTypes).map(([key, type]) => [key, type.label]));
             const ringFields = [
                 { key: 'ring_thickness', title: 'Thickness at 240 px (0 = auto)', min: 0, max: 120, initial: 0 },
                 { key: 'ring_start', title: 'Start angle from top (° clockwise)', min: 0, max: 359, initial: 0 },
@@ -4413,8 +4451,11 @@
             ];
             const widgetHelp = {
                 source: 'Choose the sensor or reading to show in this widget.',
+                channel: 'Choose a reading from the same device as the selected sensor.',
+                column: 'Place this widget in the left or right column.',
+                grow: 'Use the space left in the column after fitting the other widgets.',
                 text: 'Set the widget text. For a sensor value, it appears beside the reading.',
-                font: 'Choose the font style for this widget.',
+                font: 'Type to search system fonts, or clear the field to browse.',
                 size: 'Set the text size in pixels on a 240-pixel display.',
                 min: 'Set the reading at which the gauge is empty.',
                 max: 'Set the reading at which the gauge is full.',
@@ -4438,9 +4479,12 @@
             let previewGeneration = 0;
             let previewRequests = new Map();
             let nativeSize = { width: 240, height: 240 };
+            let presetsRequest;
 
             const current = () => bank.items.find(item => item.id === bank.active_id);
-            const screenElements = () => current()?.screens[activeScreen]?.elements;
+            const currentScreen = () => current()?.screens[activeScreen];
+            const screenElements = () => currentScreen()?.elements;
+            const automatic = () => currentScreen()?.arrangement === 'columns';
             const widget = () => screenElements()?.[selected];
             const say = text => { byId('status').textContent = text; };
             const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
@@ -4448,11 +4492,12 @@
             const color = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
             const string = (value, max) => typeof value === 'string' &&
                 !/[\u0000-\u001f\u007f\uD800-\uDFFF]/u.test(value) && encoder.encode(value).length <= max;
-            const bound = type => type === 'value' || type === 'bar' || type === 'ring';
-            const gauge = type => type === 'bar' || type === 'ring';
-            const typing = type => type === 'value' || type === 'text' || type === 'clock';
+            const bound = type => widgetTypes[type]?.source;
+            const gauge = type => widgetTypes[type]?.range;
+            const typing = type => widgetTypes[type]?.font;
             const portable = source => Object.hasOwn(sources, source);
             const dynamic = source => /^[^:]+:.+$/.test(source);
+            const channelSource = source => !source || Object.hasOwn(standard, source) || dynamic(source);
 
             function cleanElement(input) {
                 if (!input || !Object.hasOwn(labels, input.type) ||
@@ -4462,10 +4507,19 @@
                     throw new Error('Invalid widget type, position, size, or color.');
                 const { type, x, y, w, h } = input;
                 const result = { type, x, y, w, h, color: input.color };
+                if (input.column !== undefined) {
+                    if (!integer(input.column, type === 'frame' ? -1 : 0, 1))
+                        throw new Error('Invalid widget column.');
+                    result.column = input.column;
+                }
+                if (input.grow !== undefined) {
+                    if (typeof input.grow !== 'boolean') throw new Error('Invalid widget height setting.');
+                    if (input.grow) result.grow = true;
+                }
                 if (typing(type)) {
-                    if (!integer(input.size, 8, 120) || !['sans', 'mono'].includes(input.font))
+                    if (!integer(input.size, 8, 120) || !isFontFamily(input.font))
                         throw new Error('Invalid widget font or size.');
-                    Object.assign(result, { size: input.size, font: input.font });
+                    Object.assign(result, { size: input.size, font: input.font.trim() });
                     if (type !== 'clock') {
                         if (!string(input.text, 96)) throw new Error('Invalid widget text.');
                         result.text = input.text;
@@ -4476,6 +4530,11 @@
                         (input.source && !portable(input.source) && !dynamic(input.source)))
                         throw new Error('Invalid sensor source.');
                     result.source = input.source;
+                    if (input.channel !== undefined && input.channel !== '') {
+                        if (!Object.hasOwn(channelLabels, input.channel) || !channelSource(input.source))
+                            throw new Error('Invalid sensor channel.');
+                        result.channel = input.channel;
+                    }
                 }
                 if (gauge(type)) {
                     if (!Number.isFinite(input.min) || !Number.isFinite(input.max) ||
@@ -4502,7 +4561,11 @@
                 if (!input || ![1, 2].includes(input.version) || !string(input.name, 64) ||
                     !input.name.trim() || !color(input.background))
                     throw new Error('Expected a layout with version 1 or 2, a name and a background color.');
-                const screens = input.version === 1 ? [{ elements: input.elements, duration: input.duration }] : input.screens;
+                if (input.fit_clock !== undefined && typeof input.fit_clock !== 'boolean')
+                    throw new Error('Invalid clock spacing setting.');
+                const screens = input.version === 1 ? [{
+                    elements: input.elements, duration: input.duration, arrangement: input.arrangement
+                }] : input.screens;
                 const fallbackDuration = input.version === 1 || input.switch_interval === undefined
                     ? defaultDuration : input.switch_interval;
                 if (!Array.isArray(screens) || !integer(screens.length, 1, screenLimit))
@@ -4511,27 +4574,31 @@
                     throw new Error('Set the screen duration to 1–60 seconds.');
                 return {
                     version: 2, name: input.name.trim(), background: input.background,
+                    ...(input.fit_clock ? { fit_clock: true } : {}),
                     screens: screens.map(screen => {
                         if (!Array.isArray(screen?.elements) || screen.elements.length > elementLimit)
                             throw new Error('Each screen can contain up to 24 widgets.');
                         const duration = screen.duration === undefined ? fallbackDuration : screen.duration;
                         if (!integer(duration, 1, 60))
                             throw new Error('Set the screen duration to 1–60 seconds.');
-                        return { duration, elements: screen.elements.map(cleanElement) };
+                        if (screen.arrangement !== undefined && !['free', 'columns'].includes(screen.arrangement))
+                            throw new Error('Invalid screen arrangement.');
+                        return { duration, elements: screen.elements.map(cleanElement),
+                            ...(screen.arrangement === 'columns' ? { arrangement: 'columns' } : {}) };
                     })
                 };
             }
 
             function serializeLayout(layout) {
                 const { screens, ...details } = layout;
-                return screens.length === 1 && screens[0].duration === defaultDuration
+                return screens.length === 1 && screens[0].duration === defaultDuration && !screens[0].arrangement
                     ? { ...details, version: 1, elements: screens[0].elements }
                     : { ...details, screens };
             }
 
             function make(type, x, y, w, h, settings) {
                 const element = { type, x, y, w, h, color: '#e9f1ff' };
-                if (typing(type)) Object.assign(element, { size: 22, font: 'sans' });
+                if (typing(type)) Object.assign(element, { size: 22, font: FACTORY_DEFAULTS.font.face });
                 if (type === 'value' || type === 'text') element.text = type === 'text' ? 'Text' : '';
                 if (bound(type)) element.source = 'cpu';
                 if (gauge(type)) Object.assign(element, { min: 0, max: 100, color: '#64dacc' });
@@ -4541,91 +4608,163 @@
                 return Object.assign(element, settings);
             }
 
-            function activityRings() {
-                const rings = ['cpu', 'gpu', 'liquid'].map((source, index) => {
-                    const inset = 55 + index * 65;
-                    return make('ring', inset, inset, grid - 2 * inset, grid - 2 * inset, {
-                        source, color: ['#ff6685', '#b4eb79', '#5cdef5'][index]
-                    });
-                });
-                return [...rings,
-                    make('value', 260, 375, 480, 190, { source: 'cpu', size: 34 }),
-                    make('text', 427, 566, 146, 94, { text: 'CPU', size: 15, color: '#ff8da2' })];
+            function loadPreset(id) {
+                if (!presetsRequest) {
+                    presetsRequest = pluginFetchWithTimeout('/presets', { method: 'GET' }, 'Layout request timed out')
+                        .catch(error => {
+                            presetsRequest = undefined;
+                            throw error;
+                        });
+                }
+                return presetsRequest.then(presets => cleanLayout(presets?.[id]));
             }
 
-            function renderActivityPreview(showClock) {
-                const preview = document.getElementById('mode_preview_activity-rings');
-                const widgets = activityRings();
-                const readings = { cpu: 45, gpu: 62, liquid: 32.5 };
-                preview.setAttribute('transform', showClock ? 'translate(18 6) scale(.85)' : '');
-                preview.innerHTML = widgets.slice(0, 3).map(ring => {
-                    const radius = (ring.w * 0.24 - 9) / 2;
-                    const track = '<circle cx="120" cy="120" r="' + radius + '" fill="none" stroke="' +
-                        ring.color + '" stroke-width="9"';
-                    return track + ' opacity=".22"/>' + track +
-                        ' transform="rotate(-90 120 120)" pathLength="100" stroke-linecap="round" stroke-dasharray="' +
-                        readings[ring.source] + ' 100"/>';
-                }).join('') + '<text x="120" y="113" text-anchor="middle" dominant-baseline="middle" font-size="' +
-                    widgets[3].size + '" fill="' + widgets[3].color + '">45 °C</text>' +
-                    '<text x="120" y="147" text-anchor="middle" dominant-baseline="middle" font-size="' +
-                    widgets[4].size + '" fill="' + widgets[4].color + '">CPU</text>';
+            async function renderCircleRingsPreview() {
+                const preview = document.getElementById('mode_preview_circle-rings');
+                try {
+                    const preset = await loadPreset('circle-rings');
+                    if (mode.value !== 'circle-rings') return;
+                    const fitClock = preset.fit_clock && document.getElementById('show_clock').checked;
+                    preview.setAttribute('transform', fitClock ? 'translate(18 6) scale(.85)' : '');
+                    const readings = { liquid: [32.5, '°C'], 'liquid-pump-duty': [54, '%'] };
+                    preview.innerHTML = preset.screens[0].elements.map(widget => {
+                        const x = (widget.x + widget.w / 2) * 0.24;
+                        const y = (widget.y + widget.h / 2) * 0.24;
+                        const reading = readings[widget.source];
+                        if (widget.type === 'ring') {
+                            const radius = (Math.min(widget.w, widget.h) * 0.24 - 9) / 2;
+                            const progress = reading ? clamp((reading[0] - widget.min) / (widget.max - widget.min), 0, 1) : 0;
+                            const track = '<circle cx="' + x + '" cy="' + y + '" r="' + radius +
+                                '" fill="none" stroke="' + widget.color + '" stroke-width="9"';
+                            return track + ' opacity=".22"/>' + track +
+                                ' transform="rotate(-90 ' + x + ' ' + y + ')" pathLength="100" stroke-linecap="round" stroke-dasharray="' +
+                                (progress * 100) + ' 100"/>';
+                        }
+                        const value = [widget.text, widget.type === 'value' ? reading?.join(' ') || '—' : ''].filter(Boolean).join(' ');
+                        return '<text x="' + x + '" y="' + y + '" text-anchor="middle" dominant-baseline="middle" font-size="' +
+                            widget.size + '" fill="' + widget.color + '">' + escapeHtml(value) + '</text>';
+                    }).join('');
+                } catch (error) {
+                    console.warn('Circle Rings preset unavailable:', error.message);
+                }
             }
 
-            function template(id) {
+            async function template(id) {
                 const background = document.getElementById('color_display_background').value || '#000000';
+                if (!id) return { version: 1, name: 'Untitled Layout', background, elements: [] };
+                const selectedFont = selectedFontSetting(id).value.trim();
+                if (id === 'circle-rings') {
+                    const interval = document.querySelector('[name="display.circle_switch_interval"]').valueAsNumber;
+                    const layout = await loadPreset(id);
+                    layout.background = background;
+                    for (const part of layout.screens) {
+                        if (integer(interval, 1, 60)) part.duration = interval;
+                        if (isFontFamily(selectedFont))
+                            for (const element of part.elements)
+                                if (typing(element.type)) element.font = selectedFont;
+                    }
+                    return layout;
+                }
+                const font = isFontFamily(selectedFont) ? selectedFont : defaultFontFace(id);
                 const labelColor = document.getElementById('color_font_label').value || '#c8c8c8';
                 const valueColor = document.getElementById('color_font_temp').value || '#ffffff';
-                const value = (source, text, x, y, w, h, settings) =>
-                    make('value', x, y, w, h, { source, text, color: valueColor, ...settings });
-                const caption = (text, x, y, w, h, settings) =>
-                    make('text', x, y, w, h, { text, color: labelColor, ...settings });
-                const elements = [];
                 if (id === 'dual') {
-                    ['cpu', 'gpu'].forEach((source, index) => {
-                        const y = 198 + index * 310;
-                        elements.push(value(source, source.toUpperCase(), 195, y, 610, 170, { size: 38 }));
-                        elements.push(make('bar', 195, y + 178, 610, 44, { source }));
-                    });
-                } else if (id === 'split') {
-                    elements.push(make('frame', 490, 250, 20, 514, { color: '#657181' }));
-                    ['cpu', 'gpu'].forEach((source, index) => {
-                        const x = 128 + index * 392;
-                        elements.push(caption(source.toUpperCase(), x + 100, 257, 154, 90, { size: 17 }));
-                        elements.push(value(source, '', x + 22, 358, 308, 176, { size: 39 }));
-                        elements.push(value(source + '-load', '', x, 556, 352, 92, { size: 20 }));
-                        elements.push(value(source + '-power', '', x, 650, 352, 92, { size: 23 }));
-                    });
-                } else if (id === 'circle') {
-                    elements.push(value('cpu', '', 165, 242, 670, 260, { size: 60 }));
-                    elements.push(make('bar', 202, 537, 596, 62));
-                    elements.push(caption('CPU', 429, 645, 142, 84, { size: 22 }));
-                } else if (id === 'terminal') {
-                    const icon = document.getElementById('tty_icon').value;
-                    const labelX = 154;
-                    if (icon !== 'off') {
-                        const small = icon === 'small';
-                        elements.push(caption('>_', small ? labelX : 450, small ? 140 : 125, 100, 91, {
-                            font: 'mono', size: small ? 16 : 23
-                        }));
-                        elements.push(caption('LOAD', 737, 181, 142, 54, { font: 'mono', size: 13 }));
+                    const copyCurrent = mode.value === 'dual';
+                    const slots = copyCurrent ? {
+                        cpu: document.getElementById('sensor_slot_1').value,
+                        gpu: document.getElementById('sensor_slot_3').value
+                    } : null;
+                    const bars = !copyCurrent || document.getElementById('dual_show_bars').checked;
+                    const sensors = copyCurrent ? collectSensorConfigsFromDOM() : {};
+                    const layout = await loadPreset(id);
+                    const screen = layout.screens[0];
+                    const elements = [];
+                    for (let i = 0; i < screen.elements.length; i += 3) {
+                        const [label, value, bar] = screen.elements.slice(i, i + 3);
+                        const slot = slots ? slots[value.source] : value.source;
+                        if (!slot || slot === 'none') continue;
+                        const sensor = sensors[slot] || (slot !== value.source ? getDefaultSensorConfig(slot) : null);
+                        label.text = sensor?.label || label.text;
+                        label.font = value.font = font;
+                        label.color = labelColor;
+                        value.color = valueColor;
+                        value.source = slot;
+                        elements.push(label, value);
+                        if (bars) {
+                            bar.source = slot;
+                            if (sensor?.max_scale > 0 && sensor.max_scale <= 1000000)
+                                bar.max = sensor.max_scale;
+                            if (sensor) bar.color = rgbToHex(sensor.threshold_1_color);
+                            elements.push(bar);
+                        }
                     }
-                    const rows = [
-                        ['CPU', 'cpu', 'cpu-load'], ['GPU', 'gpu', 'gpu-load'],
-                        ['LIQ', 'liquid'], ['PWR', 'power'], ['RAM', 'ram-used', 'ram-load']
-                    ];
-                    rows.forEach(([label, source, load], index) => {
-                        const y = 235 + index * 131;
-                        elements.push(caption(label, labelX, y, 185, 102, { font: 'mono', size: 19 }));
-                        elements.push(value(source, '', 342, y, 376, 102, { font: 'mono', size: 29 }));
-                        if (load)
-                            elements.push(make('bar', 724, y + 27, 155, 48, {
-                                source: load, segments: 8, color: '#95b9fb'
-                            }));
-                    });
-                } else if (id === 'activity-rings') {
-                    elements.push(...activityRings());
+                    screen.elements = elements;
+                    layout.background = background;
+                    return layout;
                 }
-                return { version: 1, name: templateNames[id] || 'Untitled Layout', background, elements };
+                if (id === 'split') {
+                    const copyCurrent = mode.value === 'split';
+                    const slots = copyCurrent ? [1, 2, 3]
+                        .map(index => document.getElementById('sensor_slot_' + index).value)
+                        .filter(slot => slot && slot !== 'none').slice(0, 2) : null;
+                    const flags = ['load', 'watts', 'rpm'].map(key =>
+                        copyCurrent ? document.getElementById('split_show_' + key).checked :
+                            FACTORY_DEFAULTS.display['split_show_' + key]);
+                    const visible = { duty: flags[0], watts: flags[1], rpm: flags[2] };
+                    const splitRing = !copyCurrent || document.getElementById('split_ring_by_sensor').checked;
+                    const sensors = copyCurrent ? collectSensorConfigsFromDOM() : {};
+                    const layout = await loadPreset(id);
+                    const screen = layout.screens[0];
+                    const [divider, ...widgets] = screen.elements;
+                    const columns = [widgets.slice(0, 5), widgets.slice(5)];
+                    const presetLabels = Object.fromEntries(columns.map(([label, value]) => [value.source, label.text]));
+                    const cpuRpmSource = columns[0].find(widget => widget.channel === 'rpm').source;
+                    divider.color = labelColor;
+                    screen.elements = slots?.length === 0 ? [] : [divider];
+                    columns.forEach(([label, temperature, ...secondary], index) => {
+                        const slot = slots ? slots[index] : temperature.source;
+                        if (!slot) return;
+                        const sensor = sensors[slot];
+                        const discovered = discoveredSensors.find(item => item.id === slot);
+                        const name = sensor?.label || presetLabels[slot] ||
+                            (slot === 'liquid' ? 'LIQ' : discovered?.device || slot.split(':').slice(1).join(':'));
+                        if (name && string(name, 96)) label.text = name;
+                        label.font = temperature.font = font;
+                        label.color = labelColor;
+                        temperature.color = splitRing ? '#ffffff' :
+                            rgbToHex((sensor || getDefaultSensorConfig(slot)).threshold_1_color);
+                        temperature.source = slot;
+                        screen.elements.push(label, temperature);
+                        for (const widget of secondary) {
+                            if (!visible[widget.channel]) continue;
+                            widget.source = widget.channel === 'rpm' && slot === 'cpu' ? cpuRpmSource : slot;
+                            widget.font = font;
+                            widget.color = labelColor;
+                            screen.elements.push(widget);
+                        }
+                    });
+                    layout.background = background;
+                    return layout;
+                }
+                const layout = await loadPreset(id);
+                layout.background = background;
+                const screen = layout.screens[0];
+                if (id === 'terminal') {
+                    const icon = document.getElementById('tty_icon').value;
+                    if (icon === 'off')
+                        screen.elements = screen.elements.filter(element =>
+                            element.text !== '>_' && element.text !== 'LOAD');
+                    else if (icon === 'small') {
+                        const prompt = screen.elements.find(element => element.text === '>_');
+                        Object.assign(prompt, { x: 154, y: 140, size: 16 });
+                    }
+                }
+                for (const element of screen.elements) {
+                    if (!typing(element.type)) continue;
+                    element.font = font;
+                    element.color = element.type === 'text' ? labelColor : valueColor;
+                }
+                return layout;
             }
 
             function copyName(name) {
@@ -4688,6 +4827,29 @@
                 selectLayout(id);
             }
 
+            async function useTemplate(id, button, openEditor = false) {
+                const sourceMode = mode.value;
+                const status = document.getElementById('edit_preset_status');
+                button.disabled = true;
+                if (openEditor) status.textContent = '';
+                try {
+                    const layout = await template(id);
+                    if (mode.value !== sourceMode) return;
+                    addLayout(layout);
+                    if (openEditor) {
+                        mode.value = 'custom';
+                        toggleDisplayModeFields();
+                        byId('name').focus();
+                    }
+                } catch (error) {
+                    const message = 'Could not open the layout. ' + error.message;
+                    if (openEditor) status.textContent = message;
+                    else say(message);
+                } finally {
+                    button.disabled = false;
+                }
+            }
+
             function selectLayout(id) {
                 bank.active_id = id;
                 activeScreen = 0;
@@ -4702,6 +4864,7 @@
 
             function elementLabel(element) {
                 if (element.text) return element.text;
+                if (element.channel) return labels[element.type] + ' · ' + channelLabels[element.channel];
                 if (portable(element.source)) return labels[element.type] + ' · ' + sources[element.source];
                 return labels[element.type];
             }
@@ -4713,25 +4876,37 @@
                 });
             }
 
+            function activeBoxes() {
+                const result = screenCards[activeScreen].result;
+                return result && result.widgetsKey === JSON.stringify(screenElements()) ? result.boxes : null;
+            }
+
             function renderTargets() {
                 const elements = screenElements() || [];
+                const columns = automatic();
+                const boxes = columns ? activeBoxes() : null;
                 const targets = byId('targets');
                 targets.hidden = byId('oriented').checked;
-                targets.replaceChildren(...elements.map((element, index) => {
+                targets.replaceChildren(...elements.flatMap((element, index) => {
+                    const box = columns ? boxes?.[index] : element;
+                    if (!box?.w || !box.h) return [];
                     const target = document.createElement('button');
                     target.type = 'button';
                     target.className = 'custom-target';
                     target.dataset.widget = index;
-                    target.dataset.help = 'Drag to move this widget. Drag its corner to resize it when selected.';
+                    target.dataset.help = columns ? 'Select this widget to edit its column and height.' :
+                        'Drag to move this widget. Drag its corner to resize it when selected.';
                     target.setAttribute('aria-label', elementLabel(element));
-                    positionTarget(target, element);
+                    positionTarget(target, box);
                     if (index === selected) {
                         target.classList.add('selected');
                         target.style.zIndex = '1';
-                        const handle = document.createElement('span');
-                        handle.dataset.resize = 'true';
-                        handle.setAttribute('aria-hidden', 'true');
-                        target.append(handle);
+                        if (!columns) {
+                            const handle = document.createElement('span');
+                            handle.dataset.resize = 'true';
+                            handle.setAttribute('aria-hidden', 'true');
+                            target.append(handle);
+                        }
                     }
                     return target;
                 }));
@@ -4748,23 +4923,33 @@
                     label.className = 'form-group';
                     label.textContent = title + ' ';
                     control.className = control.type === 'color' ? 'color-swatch' : 'form-control';
-                    control.value = element[key];
+                    const fieldValue = () => key === 'grow' ? String(Boolean(element.grow)) :
+                        element[key] ?? (key === 'column' ? 0 : '');
+                    control.value = fieldValue();
                     control.dataset.property = key;
                     control.dataset.help = widgetHelp[key];
                     control.addEventListener('change', () => {
                         let value = control.type === 'number' ? control.valueAsNumber : control.value;
+                        if (key === 'column') value = Number(value);
+                        if (key === 'grow') value = value === 'true';
                         if (key === 'x') value = clamp(value, 0, grid - element.w);
                         if (key === 'y') value = clamp(value, 0, grid - element.h);
                         if (key === 'w') value = clamp(value, 20, grid - element.x);
                         if (key === 'h') value = clamp(value, 20, grid - element.y);
                         const next = { ...element, [key]: value };
+                        const updateChannelPicker = key === 'source' &&
+                            channelSource(element.source) !== channelSource(value);
+                        if (key === 'source' && !channelSource(value)) delete next.channel;
                         if (key === 'source' && gauge(element.type) && value) {
                             const category = discoveredSensors.find(sensor => sensor.id === value)?.category;
                             Object.assign(next, { min: 0, max: { rpm: 3000, watts: 250, freq: 6000 }[category] || 100 });
                         }
                         try {
-                            Object.assign(element, cleanElement(next));
-                            control.value = element[key];
+                            const cleaned = cleanElement(next);
+                            if (!cleaned.channel) delete element.channel;
+                            if (!cleaned.grow) delete element.grow;
+                            Object.assign(element, cleaned);
+                            control.value = fieldValue();
                             if (key === 'source' && gauge(element.type)) {
                                 properties.querySelector('[data-property="min"]').value = element.min;
                                 properties.querySelector('[data-property="max"]').value = element.max;
@@ -4772,10 +4957,14 @@
                             say('');
                             renderLayers();
                             renderTargets();
+                            if (updateChannelPicker || key === 'column') {
+                                renderProperties();
+                                properties.querySelector('[data-property="' + key + '"]')?.focus({ preventScroll: true });
+                            }
                             schedulePreview();
                         } catch (error) {
                             say(error.message);
-                            control.value = element[key];
+                            control.value = fieldValue();
                         }
                     });
                     label.append(control);
@@ -4797,14 +4986,29 @@
                     const select = document.createElement('select');
                     for (const [id, title] of options) select.add(new Option(title, id));
                     field(properties, 'Sensor', 'source', select);
+                    if (channelSource(element.source)) {
+                        const channel = document.createElement('select');
+                        channel.add(new Option('Selected reading', ''));
+                        for (const [id, title] of Object.entries(channelLabels)) channel.add(new Option(title, id));
+                        field(properties, 'Channel', 'channel', channel);
+                    }
                 }
                 if (typing(element.type)) {
                     if (element.type !== 'clock')
                         input(properties, element.type === 'value' ? 'Label' : 'Text', 'text', 'text', { maxLength: 96 });
-                    const font = document.createElement('select');
-                    font.add(new Option('Sans-serif', 'sans'));
-                    font.add(new Option('Monospace', 'mono'));
-                    field(properties, 'Font', 'font', font);
+                    const picker = document.createElement('div');
+                    picker.className = 'font-picker';
+                    const font = document.createElement('input');
+                    font.type = 'text';
+                    const options = document.createElement('select');
+                    options.id = 'custom_font_options';
+                    options.className = 'form-control font-picker-options';
+                    options.hidden = true;
+                    options.setAttribute('aria-label', 'Matching system fonts');
+                    field(picker, 'Font', 'font', font);
+                    picker.append(options);
+                    properties.append(picker);
+                    bindFontPicker(picker, font, options, [['sans', 'Sans-serif'], ['mono', 'Monospace']]);
                     input(properties, 'Font size at 240 px', 'size', 'number', { min: 8, max: 120 });
                 }
                 if (gauge(element.type)) {
@@ -4817,6 +5021,22 @@
                     for (const { key, title, min, max } of ringFields)
                         input(properties, title, key, 'number', { min, max });
                 input(properties, 'Color', 'color', 'color');
+                if (automatic()) {
+                    const column = document.createElement('select');
+                    column.add(new Option('Left', '0'));
+                    column.add(new Option('Right', '1'));
+                    if (element.type === 'frame') column.add(new Option('Divider', '-1'));
+                    field(properties, 'Column', 'column', column);
+                    if (element.column !== -1) {
+                        const grow = document.createElement('select');
+                        grow.add(new Option('Preferred height', 'false'));
+                        grow.add(new Option('Fill available height', 'true'));
+                        field(properties, 'Height behavior', 'grow', grow);
+                        input(properties, 'Height share (per 1000)', 'h', 'number',
+                            { min: 20, max: grid - element.y });
+                    }
+                    return;
+                }
                 const geometry = document.createElement('div');
                 geometry.className = 'custom-geometry';
                 const titles = { x: 'X', y: 'Y', w: 'Width', h: 'Height' };
@@ -4832,8 +5052,10 @@
                 layers.replaceChildren(new Option('Select a widget', '-1'),
                     ...elements.map((element, index) => new Option(elementLabel(element), index)));
                 layers.value = selected;
-                byId('back').disabled = selected <= 0;
-                byId('front').disabled = selected < 0 || selected >= elements.length - 1;
+                byId('back').textContent = automatic() ? 'Move Up' : 'Send Backward';
+                byId('front').textContent = automatic() ? 'Move Down' : 'Bring Forward';
+                byId('back').disabled = adjacentWidget(-1) < 0;
+                byId('front').disabled = adjacentWidget(1) < 0;
                 byId('remove').disabled = selected < 0;
             }
 
@@ -4894,6 +5116,7 @@
                 byId('remove_screen').disabled = count === 1;
                 byId('duration_label').textContent = 'Screen ' + (activeScreen + 1) + ' Duration (Seconds)';
                 byId('duration').value = layout.screens[activeScreen].duration;
+                byId('arrangement').value = layout.screens[activeScreen].arrangement || 'free';
                 byId('screen_source_label').textContent = 'Replace Screen ' + (activeScreen + 1) + ' with';
                 renderScreenSources(count);
             }
@@ -4924,6 +5147,7 @@
 
             function update() {
                 const layout = current();
+                screen.classList.toggle('columns', automatic());
                 const saved = byId('saved_layout');
                 saved.replaceChildren(new Option('Select a layout', ''),
                     ...bank.items.map(item => new Option(item.name, item.id)));
@@ -4958,6 +5182,7 @@
                 const result = screenCards[activeScreen].result;
                 const image = byId('preview_image');
                 image.hidden = !result;
+                if (automatic()) renderTargets();
                 if (!result) return;
                 setNativeSize(result.width, result.height, result.shape);
                 if (image.src !== result.image) image.src = result.image;
@@ -4967,6 +5192,8 @@
                 const generation = ++previewGeneration;
                 clearTimeout(previewTimer);
                 if (!current() || mode.value !== 'custom') return;
+                byId('targets').classList.toggle('fit-clock',
+                    Boolean(current().fit_clock && document.getElementById('show_clock').checked));
                 const status = byId('preview_status');
                 previewTimer = setTimeout(async () => {
                     try {
@@ -4977,10 +5204,15 @@
                         const previous = previewRequests;
                         previewRequests = new Map();
                         const previews = await Promise.allSettled(layout.screens.map(part => {
+                            const widgetsKey = JSON.stringify(part.elements);
+                            const count = part.elements.length;
+                            const useColumns = part.arrangement === 'columns';
                             const item = { id: 'preview', version: 1, name: 'Preview',
-                                background: layout.background, elements: part.elements };
+                                background: layout.background, fit_clock: layout.fit_clock,
+                                arrangement: part.arrangement, elements: part.elements };
                             const body = JSON.stringify({
                                 display: config.display,
+                                ...(useColumns ? { layout: config.layout, positioning: config.positioning } : {}),
                                 paths: { image_background: config.paths.image_background },
                                 custom_layouts: { active_id: item.id, items: [item] }
                             });
@@ -4990,6 +5222,14 @@
                                 request = requestCairoPreview(body).then(result => {
                                     if (!integer(result.width, 1, 4096) || !integer(result.height, 1, 4096))
                                         throw new Error('Invalid LCD dimensions');
+                                    if (useColumns) {
+                                        if (!Array.isArray(result.boxes) || result.boxes.length !== count ||
+                                            !result.boxes.every(box => Array.isArray(box) && box.length === 4 &&
+                                                box.every(value => Number.isFinite(value) && value >= 0 && value <= grid)))
+                                            throw new Error('Invalid widget positions');
+                                        return { ...result, widgetsKey,
+                                            boxes: result.boxes.map(([x, y, w, h]) => ({ x, y, w, h })) };
+                                    }
                                     return result;
                                 }).catch(error => {
                                     if (previewRequests.get(body) === request) previewRequests.delete(body);
@@ -5034,6 +5274,7 @@
                 const [w, h] = { ring: [500, 500], frame: [420, 220], bar: [420, 70] }[type] || [520, 150];
                 const element = make(type, clamp(point.x - w / 2, 0, grid - w),
                     clamp(point.y - h / 2, 0, grid - h), w, h);
+                if (automatic()) element.column = point.x > grid / 2 ? 1 : 0;
                 if (source) {
                     element.source = source;
                     element.text = source === 'liquid' ? 'Liquid' : source.toUpperCase();
@@ -5046,7 +5287,7 @@
             }
 
             function pointAt(event) {
-                const box = screen.getBoundingClientRect();
+                const box = byId('targets').getBoundingClientRect();
                 return {
                     x: Math.round((event.clientX - box.left) * grid / box.width),
                     y: Math.round((event.clientY - box.top) * grid / box.height)
@@ -5065,7 +5306,7 @@
 
             screen.addEventListener('pointerdown', event => {
                 const target = event.target.closest('[data-widget]');
-                if (drag || event.button !== 0 || !target) return;
+                if (automatic() || drag || event.button !== 0 || !target) return;
                 selected = Number(target.dataset.widget);
                 drag = { pointer: event.pointerId, point: pointAt(event), origin: { ...widget() },
                     resize: event.target.hasAttribute('data-resize') };
@@ -5104,7 +5345,7 @@
             });
             screen.addEventListener('keydown', event => {
                 const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
-                if (!direction || !event.target.hasAttribute('data-widget')) return;
+                if (automatic() || !direction || !event.target.hasAttribute('data-widget')) return;
                 event.preventDefault();
                 selected = Number(event.target.dataset.widget);
                 const step = event.shiftKey ? 40 : 10;
@@ -5148,10 +5389,13 @@
                 byId('palette').append(button);
             }
             byId('saved_layout').addEventListener('change', event => selectLayout(event.target.value));
-            byId('new').addEventListener('click', () => addLayout(template('')));
+            byId('new').addEventListener('click', event => useTemplate('', event.currentTarget));
             for (const [id, title] of Object.entries(templateNames))
                 byId('template').add(new Option(title, id));
-            byId('use_template').addEventListener('click', () => addLayout(template(byId('template').value)));
+            byId('use_template').addEventListener('click', event =>
+                useTemplate(byId('template').value, event.currentTarget));
+            document.getElementById('edit_preset').addEventListener('click', event =>
+                useTemplate(mode.value, event.currentTarget, true));
             byId('duplicate').addEventListener('click', () => {
                 addLayout({ ...current(), name: copyName(current().name) });
             });
@@ -5209,13 +5453,26 @@
             byId('screen_source').addEventListener('change', event => {
                 byId('replace_screen').disabled = !event.target.value;
             });
-            byId('replace_screen').addEventListener('click', () => {
+            byId('replace_screen').addEventListener('click', async () => {
                 const layout = current();
                 if (drag || !layout) return;
                 const source = byId('screen_source');
-                const [kind, id] = source.value.split(':');
+                const choice = source.value;
+                const [kind, id] = choice.split(':');
                 if (kind === 'template' && Object.hasOwn(templateNames, id)) {
-                    layout.screens[activeScreen].elements = template(id).elements;
+                    const target = layout.screens[activeScreen];
+                    try {
+                        const replacement = await template(id);
+                        if (drag || current() !== layout || layout.screens[activeScreen] !== target ||
+                            source.value !== choice || mode.value !== 'custom') return;
+                        const templateScreen = replacement.screens?.[0] || replacement;
+                        target.elements = templateScreen.elements;
+                        if (templateScreen.arrangement) target.arrangement = templateScreen.arrangement;
+                        else delete target.arrangement;
+                    } catch (error) {
+                        say('Could not load the template. ' + error.message);
+                        return;
+                    }
                 } else if (kind === 'screen') {
                     const index = Number(id);
                     if (!integer(index, 0, layout.screens.length - 1) || index === activeScreen) return;
@@ -5242,10 +5499,44 @@
                 part.duration = duration;
                 say('');
             });
+            byId('arrangement').addEventListener('change', event => {
+                const part = currentScreen();
+                if (!part || drag) return;
+                if (event.target.value === 'columns') {
+                    for (const element of part.elements)
+                        if (element.column === undefined)
+                            element.column = element.x + element.w / 2 < grid / 2 ? 0 : 1;
+                    part.arrangement = 'columns';
+                } else {
+                    const boxes = activeBoxes();
+                    for (const [index, element] of part.elements.entries()) {
+                        const box = boxes?.[index];
+                        if (!box?.w || !box.h) continue;
+                        element.x = clamp(Math.round(box.x), 0, grid - 20);
+                        element.y = clamp(Math.round(box.y), 0, grid - 20);
+                        element.w = clamp(Math.round(box.w), 20, grid - element.x);
+                        element.h = clamp(Math.round(box.h), 20, grid - element.y);
+                    }
+                    delete part.arrangement;
+                }
+                say('');
+                update();
+            });
             byId('layers').addEventListener('change', event => { selected = Number(event.target.value); update(); });
+            function adjacentWidget(offset) {
+                if (selected < 0) return -1;
+                const elements = screenElements();
+                let other = selected + offset;
+                const column = elements[selected].column ?? 0;
+                while (automatic() && elements[other] && (elements[other].column ?? 0) !== column)
+                    other += offset;
+                return elements[other] ? other : -1;
+            }
+
             function reorder(offset) {
                 const elements = screenElements();
-                const other = selected + offset;
+                const other = adjacentWidget(offset);
+                if (other < 0) return;
                 [elements[selected], elements[other]] = [elements[other], elements[selected]];
                 selected = other;
                 update();
@@ -5319,7 +5610,7 @@
                 editor.addEventListener(event, event => event.stopPropagation());
 
             return {
-                load, schedulePreview, invalidatePreviews, renderProperties, renderActivityPreview, showStatus: say,
+                load, schedulePreview, invalidatePreviews, renderProperties, renderCircleRingsPreview, showStatus: say,
                 bank: () => cloneConfig({ active_id: bank.active_id, items: bank.items.map(serializeLayout) }),
                 savedItems: () => cloneConfig(savedBank.items.map(serializeLayout)),
                 canSave: () => {

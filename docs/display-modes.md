@@ -1,7 +1,7 @@
 # Display Modes
 
 CoolerDash offers **Dual** (default), **Split**, **Circle**, **TTY (Terminal)**,
-**Activity Rings**, and **Custom Layout**.
+**Circle Rings**, and **Custom Layout**.
 
 Split, Dual, and Circle can add the optional **Sensor Ring** overlay. Split and Dual
 can instead divide the ring between their two visible sensors. In Circle mode,
@@ -12,7 +12,7 @@ the same threshold colors as its bars and values. The overlay is off by default
 for backwards-compatible output.
 
 Choose a mode in the plugin or set `display.mode` in `config.json`. The CLI
-supports `--split`, `--dual`, `--circle`, `--terminal`, and `--activity-rings`.
+supports `--split`, `--dual`, `--circle`, `--terminal`, and `--circle-rings`.
 
 Enable **Show Clock** to display the local time at the bottom of any mode.
 The option is off by default.
@@ -35,19 +35,28 @@ and unavailable load bars show an empty track. The mode uses the standard
 CoolerControl sensors and uses the configured LCD background color, image or GIF.
 **TTY Icon** offers a large prompt tile or a small, left-aligned prompt.
 **Off** hides both the prompt and the LOAD heading.
-## Activity Rings
+## Circle Rings
 
-Choose **Display → Activity Rings** to see three concentric temperature rings
-for CPU, GPU, and liquid. The CPU temperature is shown in the center. The mode
-uses the configured LCD background. Choose **Activity Rings** in the layout
-editor to change the widget positions, sources, or colors.
+Choose **Display → Circle Rings** to cycle through liquid, CPU, and GPU screens.
+The outer ring shows temperature on a 0–100 °C scale. The inner ring shows
+pump duty on the liquid screen and load on the CPU and GPU screens. Both
+readings appear in the center. A missing reading shows a dash and an empty
+ring. Set **Switch Interval** to control how long each screen stays visible.
+
+The mode uses the configured LCD background. Select **Edit as Custom Layout**
+to start with an editable copy of all three screens, the current background
+color, and the switch interval. Save to activate your copy. The standard
+mode and the editor use the same layout from `presets.json`. The previous
+`activity-rings` configuration value and `--activity-rings` CLI flag still work.
 
 ## Custom Layout
 
 Open **Display → Custom Layout** in the CoolerControl plugin. Start with an
 editable copy of **Dual**, **Split**, **Circle**, **TTY (Terminal)**, or
-**Activity Rings**, or create a blank layout with **New**. The Circle template
-starts with a CPU widget you can bind to another sensor.
+**Circle Rings**, or create a blank layout with **New**. The five editable
+templates are defined in `presets.json`. The Circle template starts
+with a CPU widget you can bind to another sensor.
+
 Use **Add Screen** to create up to five screens in a layout. Select a numbered
 preview to edit that screen's widgets. Under **Replace Screen**, pick a
 template or copy another screen and click **Apply**. A template replaces the
@@ -56,6 +65,12 @@ widgets. A screen copy includes the widgets and duration.
 The LCD cycles through the screens in order. Set **Screen Duration** for
 each screen from 1 to 60 seconds. New screens start at 6 seconds. The layout
 background applies to all its screens.
+
+Under **Arrangement**, choose **Automatic Columns** to let the LCD place
+widgets in two columns. Move a widget by changing its column or using
+**Move Up** and **Move Down**. Set its preferred height or let it fill the
+remaining space. An empty column releases its space to the other one.
+Choose **Free** to place widgets directly on the screen.
 
 Click a widget to add it in the center, or drag it from the palette onto the
 display. Drag a widget to move it and use its corner handle to resize it.
@@ -118,25 +133,44 @@ opacity and label color are configurable in the Layout tab.
 
 ```
 src/mods/
-├── display.c/h    # Mode dispatcher
-├── dual.c/h       # Dual mode
-├── circle.c/h     # Circle mode
-├── custom.c/h     # Custom layout widgets and Activity Rings
-├── tty.c/h        # TTY mode dashboard
-└── split.c/h      # Split mode
+├── background.c/h    # Image loading, backgrounds and native GIF playback
+├── bar.c/h           # Temperature and segmented bars
+├── circle.c/h        # Circle screen selection
+├── circle_render.c/h # Circle's sensor layout and widget styles
+├── circle_text.c/h   # Circle's reading formats and text sizing
+├── custom.c/h        # Custom mode
+├── display.c/h       # Mode dispatch, preview samples and LCD upload
+├── dual.c/h          # Dual mode
+├── elements.c/h      # Widget model and layout JSON validation
+├── layout.c/h        # Display geometry, widget placement and screen timing
+├── readings.c/h      # Sensor and system readings for widgets
+├── render.c/h        # Cairo widgets and frame output
+├── ring.c/h          # Widget rings and sensor rings at the display edge
+├── rings.c/h         # Circle Rings mode
+├── split.c/h         # Split mode
+├── stream.c/h        # USB streaming and GIF frames
+├── text.c/h          # Label and sensor value typography
+└── tty.c/h           # TTY mode dashboard
 ```
 
-The dispatcher selects the image, preview, and overlay functions for the
-configured mode.
+The dispatcher uses the same renderer for an LCD frame and its PNG preview.
+The TTY renderer takes its rows, sensor bindings, and bars from the same
+`presets.json` entry the editor copies.
 
 ---
 
 ## Dual Mode
 
-CPU and GPU temperatures side-by-side.
+Dual stacks two sensor rows vertically. The built-in renderer fits the text
+and bars to the LCD and applies the sensor thresholds.
 
 Selecting **Dual** in the mode menu starts with **Temperature Bars** enabled.
 **Show Clock**, **Split Sensor Ring**, and **Sensor Ring** start off.
+
+Select **Edit as Custom Layout** to copy the rows from `presets.json` with
+their configured sensors, labels, font, and text colors. The copy uses
+editable widget positions. Each bar starts with the sensor's configured
+scale and its lowest threshold color.
 
 ```
 ┌────────────────────────────┐
@@ -177,6 +211,18 @@ region's Y position and height.
 5. `send_image_to_lcd()` — upload
 
 ---
+
+## Split Mode
+
+Split shows two sensor columns with a vertical divider. The renderer fits
+the columns to the LCD. The preset defines their default labels, font-size
+ratios, and secondary readings.
+
+Select **Edit as Custom Layout** to copy the active sensors, labels, font,
+and enabled load, power, and speed rows. The copy starts with **Automatic
+Columns** and uses the same spacing as Split. Remove a reading to give the
+remaining widgets more space. The **Channel** field selects a reading from
+the bound device. CPU speed follows the cooler's RPM channel.
 
 ## Circle Mode
 

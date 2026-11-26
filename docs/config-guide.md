@@ -78,14 +78,14 @@ With a nonzero orientation, CoolerDash uploads a rotated PNG copy of the shutdow
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `mode` | `dual` | `dual`, `split`, `circle`, `terminal`, `activity-rings`, or `custom` |
+| `mode` | `dual` | `dual`, `split`, `circle`, `terminal`, `circle-rings`, or `custom` |
 | `width` / `height` | `0` | Pixels. `0` = auto-detect from API |
 | `refresh_interval` | `3.5` | Display update interval in seconds (0.01–60.0) |
 | `brightness` | `80` | LCD brightness 0–100% |
 | `orientation` | `0` | Clockwise software rotation, whole degrees `0`–`359`. CoolerControl receives `0`. The complete frame, including background images, rotates and fits the LCD; uncovered corners use the background color. Existing quarter-turn values remain valid. |
 | `show_clock` | `false` | Show local time (HH:MM) below the layout in any display mode. |
 | `tty_icon` | `large` | Prompt icon in TTY mode. Choose `large`, `small`, or `off`. |
-| `circle_switch_interval` | `8` | Sensor rotation interval in circle mode (1–60s) |
+| `circle_switch_interval` | `8` | Screen rotation interval in Circle and Circle Rings (1–60s) |
 | `content_scale_factor` | `0.98` | Safe area percentage (0.5–1.0) |
 | `dual_show_bars` | `true` | Show the temperature bars in Dual mode |
 | `split_ring_by_sensor` | `true` in Split, `false` in Dual | Color both ring halves from the two visible layout sensors |
@@ -121,7 +121,20 @@ falls back to Split.
 
 The coordinates use a 0–1000 scale relative to the LCD's width and height.
 Later elements draw over earlier ones. The font size is in pixels at 240 px.
+Set `font` on a value, text, or clock widget to a system font family. The
+aliases `sans` and `mono` select the system's default sans-serif and monospace
+families. If a named family is unavailable, the system selects a fallback.
+For a sensor widget, the optional `channel` field selects `duty`, `watts`,
+or `rpm` from the same device as its `source`. This works with
+`cpu`, `gpu`, `liquid`, and device-specific sensor IDs.
 An exported file contains a single item with its `id` omitted.
+
+Set a screen's `arrangement` to `columns` to place its widgets automatically.
+Set each widget's `column` to `0` for left or `1` for right. A frame with
+`column: -1` separates the two occupied columns. In this arrangement, `h`
+sets the preferred height in thousandths of a column. Set `grow: true` to
+share the remaining height. Layouts with free positioning use `x`, `y`, `w`,
+and `h` for their widget coordinates.
 
 A layout with several screens uses `version: 2` and a `screens` array of one
 to five objects. Each screen has its own `elements` array with up to 24
@@ -197,7 +210,8 @@ RGB values (0–255):
 ```json
 "font": {
     "face": "Roboto Black",
-    "tty_face": "Monospace",
+    "tty_face": "Roboto Black",
+    "rings_face": "",
     "size_temp": 0,
     "size_labels": 0,
     "font_growth_factor": 1.33
@@ -207,7 +221,8 @@ RGB values (0–255):
 | Key | Default | Description |
 |-----|---------|-------------|
 | `face` | `Roboto Black` | Font family for Dual, Split, and Circle |
-| `tty_face` | `Monospace` | Font family for TTY. The font picker also accepts manual entries. |
+| `tty_face` | `Roboto Black` | Font family for TTY. The font picker also accepts manual entries. |
+| `rings_face` | `""` | Font family for Circle Rings. An empty value uses Roboto Black from the preset. |
 | `size_temp` / `size_labels` | `0` | Font size (pt). `0` = auto-scale from resolution |
 | `font_growth_factor` | `1.33` | Scaling multiplier for auto-sized fonts |
 
