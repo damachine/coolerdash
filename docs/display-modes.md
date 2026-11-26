@@ -54,8 +54,12 @@ mode and the editor use the same layout from `presets.json`. The previous
 Open **Display → Custom Layout** in the CoolerControl plugin. Start with an
 editable copy of **Dual**, **Split**, **Circle**, **TTY (Terminal)**, or
 **Circle Rings**, or create a blank layout with **New**. The five editable
-templates are defined in `presets.json`. The Circle template starts
-with a CPU widget you can bind to another sensor.
+templates are defined in `presets.json`.
+
+In Circle mode, **Edit as Custom Layout** creates one screen per active
+sensor slot in slot order. It copies the switch interval, sensor labels, and
+temperature bar setting. An empty slot is skipped.
+With no active slots, the copy contains one blank screen.
 
 Use **Add Screen** to create up to five screens in a layout. Select a numbered
 preview to edit that screen's widgets. Under **Replace Screen**, pick a

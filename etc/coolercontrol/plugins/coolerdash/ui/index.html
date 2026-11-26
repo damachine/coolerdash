@@ -4619,6 +4619,50 @@
                 return presetsRequest.then(presets => cleanLayout(presets?.[id]));
             }
 
+            function activeTemplateSlots(copyCurrent) {
+                return [1, 2, 3].map(index => {
+                    const key = 'sensor_slot_' + index;
+                    return copyCurrent ? document.getElementById(key).value : FACTORY_DEFAULTS.display[key];
+                }).filter(slot => slot && slot !== 'none');
+            }
+
+            async function circleTemplate(background, font, labelColor, valueColor) {
+                const copyCurrent = mode.value === 'circle';
+                const slots = activeTemplateSlots(copyCurrent);
+                const interval = copyCurrent
+                    ? document.querySelector('[name="display.circle_switch_interval"]').valueAsNumber
+                    : undefined;
+                const bars = !copyCurrent || document.getElementById('circle_show_bar').checked;
+                const sensors = copyCurrent ? collectSensorConfigsFromDOM() : {};
+                const layout = await loadPreset('circle');
+                const screen = layout.screens[0];
+                const duration = integer(interval, 1, 60) ? interval : screen.duration;
+                const names = { cpu: 'CPU', gpu: 'GPU', liquid: 'LIQ' };
+                layout.screens = slots.map(slot => {
+                    const sensor = sensors[slot];
+                    const discovered = discoveredSensors.find(item => item.id === slot);
+                    const label = [sensor?.label, names[slot], discovered?.device, slot.slice(slot.indexOf(':') + 1)]
+                        .find(name => name && string(name, 96)) || 'Sensor';
+                    const elements = screen.elements.filter(element => bars || element.type !== 'bar')
+                        .map(element => {
+                            if (element.type === 'text')
+                                return { ...element, font, color: labelColor, text: label };
+                            if (element.type === 'bar') {
+                                const bar = { ...element, source: slot };
+                                if (sensor?.max_scale > 0 && sensor.max_scale <= 1000000)
+                                    bar.max = sensor.max_scale;
+                                if (sensor?.threshold_1_color) bar.color = rgbToHex(sensor.threshold_1_color);
+                                return bar;
+                            }
+                            return { ...element, source: slot, font, color: valueColor };
+                        });
+                    return { duration, elements };
+                });
+                if (!layout.screens.length) layout.screens.push({ duration, elements: [] });
+                layout.background = background;
+                return layout;
+            }
+
             async function renderCircleRingsPreview() {
                 const preview = document.getElementById('mode_preview_circle-rings');
                 try {
@@ -4668,6 +4712,7 @@
                 const font = isFontFamily(selectedFont) ? selectedFont : defaultFontFace(id);
                 const labelColor = document.getElementById('color_font_label').value || '#c8c8c8';
                 const valueColor = document.getElementById('color_font_temp').value || '#ffffff';
+                if (id === 'circle') return circleTemplate(background, font, labelColor, valueColor);
                 if (id === 'dual') {
                     const copyCurrent = mode.value === 'dual';
                     const slots = copyCurrent ? {
@@ -4704,9 +4749,7 @@
                 }
                 if (id === 'split') {
                     const copyCurrent = mode.value === 'split';
-                    const slots = copyCurrent ? [1, 2, 3]
-                        .map(index => document.getElementById('sensor_slot_' + index).value)
-                        .filter(slot => slot && slot !== 'none').slice(0, 2) : null;
+                    const slots = copyCurrent ? activeTemplateSlots(true).slice(0, 2) : null;
                     const flags = ['load', 'watts', 'rpm'].map(key =>
                         copyCurrent ? document.getElementById('split_show_' + key).checked :
                             FACTORY_DEFAULTS.display['split_show_' + key]);
