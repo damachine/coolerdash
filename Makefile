@@ -50,6 +50,9 @@ HEADERS = $(SRCDIR)/device/config.h $(SRCDIR)/device/profile.h $(SRCDIR)/device/
 SRC_MODULES += $(SRCDIR)/mods/custom.c $(SRCDIR)/mods/tty.c $(SRCDIR)/mods/stream.c $(SRCDIR)/device/lcd.c
 HEADERS += $(SRCDIR)/mods/custom.h $(SRCDIR)/mods/tty.h $(SRCDIR)/mods/stream.h $(SRCDIR)/device/lcd.h
 
+SRC_MODULES += $(SRCDIR)/mods/background.c $(SRCDIR)/mods/bar.c $(SRCDIR)/mods/layout.c $(SRCDIR)/mods/readings.c $(SRCDIR)/mods/render.c $(SRCDIR)/mods/ring.c $(SRCDIR)/mods/text.c
+HEADERS += $(SRCDIR)/mods/background.h
+
 OBJECTS = $(patsubst $(SRCDIR)/%.c,$(OBJDIR)/%.o,$(SRC_MODULES))
 
 MANIFEST = etc/coolercontrol/plugins/coolerdash/manifest.toml
